@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="{{lang}}" dir="{{direction}}">
+<head>
+  <meta charset="utf-8">
+  <title>SALISTAR — certificat</title>
+  <style>
+    /* ============================================================
+       SALISTAR — certificat (A4 paysage, pleine page sombre)
+       Rendu : WeasyPrint ou Playwright PDF (CSS @page).
+       Couleurs figées issues de packages/design/src/tokens.json
+       (source de vérité : packages/design/src/tokens.ts)
+
+       Éléments : bordure guillochée fine (SVG, entrelacs violet/or),
+       sceau SALISTAR SVG, nom en calligraphie display serif,
+       QR discret ({{qrDataUri}} = data URI fourni par l'appelant).
+       ============================================================ */
+    :root {
+      --bg: #0D0714;              /* neutral.950 */
+      --fg: #F3F0F7;              /* neutral.100 */
+      --muted: #A89DBA;           /* neutral.400 */
+      --violet-300: #C8A9E4;
+      --violet-500: #8E55BE;
+      --violet-700: #5B2A86;
+      --violet-800: #49226C;
+      --violet-900: #381A53;
+      --gold-300: #E8C75C;
+      --gold-400: #DEB232;
+      --gold-500: #D4A017;
+      --gold-600: #B28212;
+      --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+      --font-sans: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+      --font-arabic: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+    }
+
+    /* Certificat pleine page : aucune marge d'impression. */
+    @page { size: A4 landscape; margin: 0; }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 297mm; height: 210mm; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-sans);
+    }
+    .display { font-family: var(--font-display); font-weight: 600; }
+
+    /* Règles arabes : jamais de serif, JAMAIS d'italique, titres ≥ 600. */
+    html[dir="rtl"] body { font-family: var(--font-arabic); }
+    html[dir="rtl"] .display,
+    html[dir="rtl"] .recipient {
+      font-family: var(--font-arabic);
+      font-style: normal;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    html[dir="rtl"] .brand,
+    html[dir="rtl"] .cert-label,
+    html[dir="rtl"] .cert-id,
+    html[dir="rtl"] .signer-role { letter-spacing: 0; }
+
+    .certificate {
+      position: relative;
+      width: 297mm;
+      height: 210mm;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 26mm 34mm 20mm;
+    }
+
+    /* Halo violet d'ambiance derrière le nom. */
+    .glow {
+      position: absolute;
+      left: 50%;
+      top: 34%;
+      width: 200mm;
+      height: 110mm;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(closest-side, rgba(91, 42, 134, 0.38), transparent 70%);
+    }
+
+    /* Bordure guillochée SVG : plein cadre, sous le contenu. */
+    .guilloche {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ------------------------- Contenu -------------------------- */
+    .brand {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 3.5mm;
+      font-size: 12pt;
+      font-weight: 600;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--violet-300);
+    }
+    .brand::before, .brand::after {
+      content: "";
+      width: 2.8mm;
+      height: 2.8mm;
+      transform: rotate(45deg);
+      border-radius: 0.7mm;
+      background: linear-gradient(135deg, var(--gold-300), var(--gold-600));
+    }
+
+    .cert-body {
+      position: relative;
+      margin-block: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4.5mm;
+      max-width: 210mm;
+    }
+    .cert-label {
+      color: var(--gold-400);
+      font-size: 11pt;
+      font-weight: 600;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+    }
+    .award-line { color: var(--muted); font-size: 11pt; }
+    .award-line:empty { display: none; }
+
+    /* Calligraphie du nom : grande display serif italique (LTR). */
+    .recipient {
+      font-family: var(--font-display);
+      font-style: italic;
+      font-weight: 500;
+      font-size: 40pt;
+      line-height: 1.1;
+      letter-spacing: 0.01em;
+      color: var(--fg);
+    }
+    /* Trait d'orfèvre sous le nom : violet → or → violet. */
+    .name-rule {
+      width: 66mm;
+      height: 0.7mm;
+      border-radius: 1mm;
+      background: linear-gradient(to right, transparent, var(--violet-500) 18%, var(--gold-400) 50%, var(--violet-500) 82%, transparent);
+    }
+    .description { color: var(--muted); font-size: 11pt; max-width: 180mm; line-height: 1.55; }
+    .description:empty { display: none; }
+    .course-title {
+      font-size: 19pt;
+      line-height: 1.25;
+      color: var(--violet-300);
+      max-width: 200mm;
+    }
+    .completion-date { color: var(--fg); font-size: 10.5pt; letter-spacing: 0.08em; }
+
+    /* --------------------- Pied : QR / sceau / signature --------------------- */
+    .cert-foot {
+      position: relative;
+      width: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12mm;
+    }
+    .qr-block {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1.6mm;
+      width: 52mm;
+    }
+    .qr {
+      width: 15mm;
+      height: 15mm;
+      border-radius: 1.2mm;
+      opacity: 0.85;
+      background: var(--fg);
+      padding: 0.8mm;
+    }
+    .cert-id {
+      color: var(--muted);
+      font-size: 7.5pt;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-align: start;
+    }
+    .seal { width: 30mm; height: 30mm; margin-block-end: -2mm; }
+    .signer-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.4mm;
+      width: 52mm;
+    }
+    .signer-rule { width: 100%; height: 0.3mm; background: var(--violet-500); opacity: 0.7; }
+    .signer-name { font-family: var(--font-display); font-size: 11.5pt; font-weight: 600; color: var(--fg); }
+    html[dir="rtl"] .signer-name { font-family: var(--font-arabic); font-weight: 700; }
+    .signer-role {
+      color: var(--muted);
+      font-size: 8pt;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .signer-role:empty { display: none; }
+  </style>
+</head>
+<body>
+  <div class="certificate">
+    <div class="glow"></div>
+
+    <!-- Bordure guillochée : entrelacs sinusoïdaux violet/or + double filet. -->
+    <svg class="guilloche" viewBox="0 0 1188 840" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="gweave" width="36" height="14" patternUnits="userSpaceOnUse">
+          <path d="M0 7 Q9 0 18 7 T36 7" stroke="#D4A017" stroke-width="0.8" fill="none" opacity="0.6"/>
+          <path d="M0 7 Q9 14 18 7 T36 7" stroke="#8E55BE" stroke-width="0.8" fill="none" opacity="0.5"/>
+          <path d="M0 7 Q9 2.5 18 7 T36 7" stroke="#E8C75C" stroke-width="0.4" fill="none" opacity="0.4"/>
+          <path d="M0 7 Q9 11.5 18 7 T36 7" stroke="#C8A9E4" stroke-width="0.4" fill="none" opacity="0.35"/>
+        </pattern>
+      </defs>
+      <!-- Bande guillochée périphérique (le pattern sert de peinture de trait). -->
+      <rect x="26" y="26" width="1136" height="788" stroke="url(#gweave)" stroke-width="14"/>
+      <!-- Double filet or, fin, de part et d'autre de la bande. -->
+      <rect x="16" y="16" width="1156" height="808" stroke="#B28212" stroke-width="1.1" opacity="0.85"/>
+      <rect x="38" y="38" width="1112" height="764" stroke="#B28212" stroke-width="0.5" opacity="0.6"/>
+      <!-- Gemmes losanges aux quatre angles. -->
+      <g fill="#DEB232" stroke="#0D0714" stroke-width="2.5">
+        <rect x="18" y="18" width="16" height="16" transform="rotate(45 26 26)"/>
+        <rect x="1154" y="18" width="16" height="16" transform="rotate(45 1162 26)"/>
+        <rect x="18" y="806" width="16" height="16" transform="rotate(45 26 814)"/>
+        <rect x="1154" y="806" width="16" height="16" transform="rotate(45 1162 814)"/>
+      </g>
+    </svg>
+
+    <header class="brand">Salistar</header>
+
+    <main class="cert-body">
+      <div class="cert-label">{{certLabel}}</div>
+      <div class="award-line">{{awardLine}}</div>
+      <h1 class="recipient">{{recipientName}}</h1>
+      <div class="name-rule"></div>
+      <p class="description">{{descriptionLine}}</p>
+      <h2 class="display course-title">{{courseTitle}}</h2>
+      <div class="completion-date">{{completionDate}}</div>
+    </main>
+
+    <footer class="cert-foot">
+      <!-- QR de vérification, discret (data URI fourni par l'appelant). -->
+      <div class="qr-block">
+        <img class="qr" src="{{qrDataUri}}" alt="QR">
+        <div class="cert-id">{{certificateId}}</div>
+      </div>
+
+      <!-- Sceau SALISTAR : couronne crantée or, anneaux, losange central. -->
+      <svg class="seal" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="sealGold" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#E8C75C"/>
+            <stop offset="1" stop-color="#B28212"/>
+          </linearGradient>
+        </defs>
+        <!-- Couronne crantée (trait épais en pointillés serrés). -->
+        <circle cx="60" cy="60" r="54" stroke="url(#sealGold)" stroke-width="7" stroke-dasharray="4.1 4.1"/>
+        <circle cx="60" cy="60" r="47" stroke="#D4A017" stroke-width="1.2"/>
+        <circle cx="60" cy="60" r="43.5" stroke="#8E55BE" stroke-width="0.7" stroke-dasharray="1.5 6" opacity="0.9"/>
+        <!-- Losange central sur fond violet profond. -->
+        <circle cx="60" cy="60" r="40" fill="#381A53" opacity="0.55"/>
+        <rect x="44" y="44" width="32" height="32" transform="rotate(45 60 60)" stroke="url(#sealGold)" stroke-width="2.2"/>
+        <rect x="52" y="52" width="16" height="16" transform="rotate(45 60 60)" fill="url(#sealGold)"/>
+        <!-- Éclats cardinaux. -->
+        <g stroke="#E8C75C" stroke-width="1.4" stroke-linecap="round">
+          <path d="M60 26v6"/><path d="M60 88v6"/><path d="M26 60h6"/><path d="M88 60h6"/>
+        </g>
+        <text x="60" y="93" text-anchor="middle" fill="#E8C75C" font-family="Figtree, sans-serif" font-size="6.5" font-weight="700" letter-spacing="2">SALISTAR</text>
+      </svg>
+
+      <!-- Bloc signature. -->
+      <div class="signer-block">
+        <div class="signer-rule"></div>
+        <div class="signer-name">{{signerName}}</div>
+        <div class="signer-role">{{signerRole}}</div>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

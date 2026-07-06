@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="{{lang}}" dir="{{direction}}">
+<head>
+  <meta charset="utf-8">
+  <title>SALISTAR — aide-mémoire</title>
+  <style>
+    /* ============================================================
+       SALISTAR — cheatsheet (A4 portrait, grille dense mais aérée)
+       Rendu : WeasyPrint (margin boxes @page) ou Playwright PDF.
+       Couleurs figées issues de packages/design/src/tokens.json
+       (source de vérité : packages/design/src/tokens.ts)
+
+       Fragments générés par le loader (src/pdf-templates.ts) :
+         {{{cardsHtml}}} → <section class="cs-card tone-violet|tone-gold
+                            |tone-info|tone-success">…
+       Hiérarchie couleur : le ton de la carte code la famille de
+       contenu (violet = concepts, or = essentiels, info = références,
+       success = bonnes pratiques).
+       ============================================================ */
+    :root {
+      --paper: #FFFFFF;
+      --paper-subtle: #FAF8FC;   /* neutral.50 */
+      --ink: #231B2F;            /* neutral.900 */
+      --ink-soft: #4B4157;       /* neutral.700 */
+      --muted: #7F7492;          /* neutral.500 */
+      --line: #E7E2EE;           /* neutral.200 */
+      --violet-50: #F8F4FC;
+      --violet-100: #EFE6F8;
+      --violet-600: #7239A2;
+      --violet-700: #5B2A86;
+      --violet-900: #381A53;
+      --gold-100: #F8EDC7;
+      --gold-400: #DEB232;
+      --gold-500: #D4A017;
+      --gold-600: #B28212;
+      --gold-800: #6E4D10;
+      --gold-950: #332108;
+      --info-100: #E2E9F9;
+      --info-600: #4256C0;
+      --info-800: #343C82;
+      --success-100: #D6F3E3;
+      --success-600: #1F7F53;
+      --success-800: #185138;
+      --code-bg: #231B2F;        /* neutral.900 */
+      --code-fg: #E7E2EE;        /* neutral.200 */
+      --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+      --font-sans: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+      --font-arabic: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+      --font-mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+    }
+
+    /* En-têtes / pieds de page : margin boxes CSS (WeasyPrint). */
+    @page {
+      size: A4;
+      margin: 20mm 14mm 20mm;
+      @top-left {
+        content: string(doc-course);
+        font-family: "Figtree", "Segoe UI", sans-serif;
+        font-size: 7.5pt;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #7F7492;
+      }
+      @top-right {
+        content: string(doc-title);
+        font-family: "Figtree", "Segoe UI", sans-serif;
+        font-size: 7.5pt;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #5B2A86;
+      }
+      @bottom-left {
+        content: string(doc-footer);
+        font-family: "Figtree", "Segoe UI", sans-serif;
+        font-size: 7.5pt;
+        color: #7F7492;
+      }
+      @bottom-center {
+        content: counter(page) " / " counter(pages);
+        font-family: "Figtree", "Segoe UI", sans-serif;
+        font-size: 8pt;
+        color: #4B4157;
+      }
+    }
+    @page :first {
+      @top-left { content: none; }
+      @top-right { content: none; }
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      font-size: 9pt;
+      line-height: 1.5;
+    }
+    .display { font-family: var(--font-display); font-weight: 600; }
+
+    /* Règles arabes : jamais de serif, jamais d'italique, titres ≥ 600. */
+    html[dir="rtl"] body { font-family: var(--font-arabic); }
+    html[dir="rtl"] .display,
+    html[dir="rtl"] h1, html[dir="rtl"] h2 {
+      font-family: var(--font-arabic);
+      font-style: normal;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    html[dir="rtl"] .doc-kicker,
+    html[dir="rtl"] .cs-card-title { letter-spacing: 0; }
+
+    /* Coureurs de chaîne pour les margin boxes. */
+    .runners { height: 0; overflow: hidden; visibility: hidden; }
+    .runner-course { string-set: doc-course content(); }
+    .runner-title { string-set: doc-title content(); }
+    .runner-footer { string-set: doc-footer content(); }
+
+    /* --------------------- Masthead compact --------------------- */
+    .masthead {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8mm;
+      padding-block-end: 4mm;
+      margin-block-end: 6mm;
+      border-block-end: 1pt solid var(--violet-100);
+    }
+    .masthead-main { display: flex; flex-direction: column; gap: 1.5mm; }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 2.5mm;
+      font-size: 8.5pt;
+      font-weight: 600;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--violet-600);
+    }
+    .brand::before {
+      content: "";
+      width: 2.4mm;
+      height: 2.4mm;
+      transform: rotate(45deg);
+      border-radius: 0.6mm;
+      background: linear-gradient(135deg, var(--gold-400), var(--gold-600));
+    }
+    .doc-title { font-size: 19pt; line-height: 1.12; color: var(--violet-900); }
+    .doc-meta { text-align: end; color: var(--muted); font-size: 8.5pt; max-width: 60mm; }
+    .doc-kicker {
+      color: var(--gold-600);
+      font-size: 8pt;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      display: block;
+      margin-block-end: 1mm;
+    }
+    .doc-kicker:empty, .doc-course:empty { display: none; }
+    .doc-intro { color: var(--ink-soft); font-size: 9pt; margin-block-end: 5mm; }
+    .doc-intro:empty { display: none; }
+
+    /* ------------------ Grille dense (2 colonnes) ---------------- */
+    /* Multicolonnes CSS : les cartes se répartissent et coulent de
+       page en page ; break-inside: avoid garde chaque carte entière. */
+    .cs-grid { column-count: 2; column-gap: 6mm; }
+
+    .cs-card {
+      break-inside: avoid;
+      margin-block-end: 5mm;
+      border: 0.5pt solid var(--line);
+      border-radius: 2mm;
+      background: var(--paper);
+      overflow: hidden;
+    }
+    .cs-card-title {
+      display: flex;
+      align-items: center;
+      gap: 2.5mm;
+      padding: 2.4mm 4mm;
+      font-size: 9.5pt;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+    .cs-card-title::before {
+      content: "";
+      width: 1.8mm;
+      height: 1.8mm;
+      transform: rotate(45deg);
+      border-radius: 0.4mm;
+    }
+    /* Hiérarchie couleur par ton de carte. */
+    .tone-violet .cs-card-title { background: var(--violet-700); color: var(--paper); }
+    .tone-violet .cs-card-title::before { background: var(--gold-400); }
+    .tone-violet .cs-term { color: var(--violet-700); }
+    .tone-gold .cs-card-title {
+      background: linear-gradient(135deg, var(--gold-400), var(--gold-600));
+      color: var(--gold-950);
+    }
+    .tone-gold .cs-card-title::before { background: var(--violet-700); }
+    .tone-gold .cs-term { color: var(--gold-800); }
+    .tone-info .cs-card-title { background: var(--info-600); color: var(--paper); }
+    .tone-info .cs-card-title::before { background: var(--info-100); }
+    .tone-info .cs-term { color: var(--info-800); }
+    .tone-success .cs-card-title { background: var(--success-600); color: var(--paper); }
+    .tone-success .cs-card-title::before { background: var(--success-100); }
+    .tone-success .cs-term { color: var(--success-800); }
+
+    .cs-items { list-style: none; padding: 1mm 4mm 2mm; }
+    .cs-item { padding-block: 2mm; }
+    .cs-item + .cs-item { border-block-start: 0.4pt solid var(--line); }
+    .cs-term { font-weight: 700; font-size: 9pt; }
+    .cs-detail { color: var(--ink-soft); font-size: 8.5pt; }
+    .cs-detail:empty { display: none; }
+
+    /* Ligne de code / commande : chip sombre, toujours LTR. */
+    .cs-code {
+      display: block;
+      margin-block-start: 1.5mm;
+      padding: 1.8mm 3mm;
+      background: var(--code-bg);
+      color: var(--code-fg);
+      border-radius: 1.2mm;
+      font-family: var(--font-mono);
+      font-size: 7.5pt;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      direction: ltr;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <!-- Chaînes des en-têtes/pieds de page (margin boxes). -->
+  <div class="runners">
+    <span class="runner-course">{{courseTitle}}</span>
+    <span class="runner-title">{{docTitle}}</span>
+    <span class="runner-footer">{{footerNote}}</span>
+  </div>
+
+  <header class="masthead">
+    <div class="masthead-main">
+      <div class="brand">Salistar</div>
+      <h1 class="display doc-title">{{docTitle}}</h1>
+    </div>
+    <div class="doc-meta">
+      <span class="doc-kicker">{{docKicker}}</span>
+      <span class="doc-course">{{courseTitle}}</span>
+    </div>
+  </header>
+  <p class="doc-intro">{{intro}}</p>
+
+  <main class="cs-grid">
+    {{{cardsHtml}}}
+  </main>
+</body>
+</html>
