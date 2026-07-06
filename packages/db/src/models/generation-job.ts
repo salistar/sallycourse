@@ -1,11 +1,13 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
 } from 'mongoose';
+// @ts-ignore TS2835 — import sans extension, consommé en source par le worker (NodeNext)
 import { logEntrySchema, type LogEntry } from './common';
 
 export interface IGenerationJob {
@@ -36,5 +38,5 @@ const generationJobSchema = new Schema<IGenerationJob>(
 );
 
 export const GenerationJob: Model<IGenerationJob> =
-  (models.GenerationJob as Model<IGenerationJob> | undefined) ??
+  (mongoose.models.GenerationJob as Model<IGenerationJob> | undefined) ??
   model<IGenerationJob>('GenerationJob', generationJobSchema);

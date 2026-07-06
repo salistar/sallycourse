@@ -24,6 +24,8 @@ export const QUEUE_NAMES = Object.values(QUEUES) as readonly QueueName[];
 // ── Payloads de jobs par queue ──────────────────────────────────
 export interface OutlineJobData {
   courseId: string;
+  /** Instructions supplémentaires de l'utilisateur lors d'une régénération du plan. */
+  extraInstructions?: string;
 }
 
 export interface ContentJobData {

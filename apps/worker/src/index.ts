@@ -2,8 +2,10 @@
 // Les processors métier (outline, contenu, TTS, …) seront enregistrés ici
 // via registerWorker(QUEUES.xxx, processor) au fil des prompts suivants.
 import mongoose from 'mongoose';
-import { connectDb, getConfig, QUEUE_NAMES } from './shared.js';
-import { closeAll, createQueue, logger, startHeartbeat } from './queues/index.js';
+import { connectDb, getConfig, QUEUES, QUEUE_NAMES } from './shared.js';
+import { closeAll, createQueue, logger, registerWorker, startHeartbeat } from './queues/index.js';
+import { processOutlineGeneration } from './processors/outline-generation.js';
+import { processContentGeneration } from './processors/content-generation.js';
 
 async function main(): Promise<void> {
   const config = getConfig();
@@ -14,7 +16,9 @@ async function main(): Promise<void> {
   for (const name of QUEUE_NAMES) createQueue(name);
   logger.info({ queues: QUEUE_NAMES }, 'queues initialisées');
 
-  // registerWorker(...) des processors métier : branchés par les étapes suivantes.
+  // Processors métier (les étapes suivantes ajouteront les leurs ici).
+  registerWorker(QUEUES.outline, processOutlineGeneration, { concurrency: 2 });
+  registerWorker(QUEUES.content, processContentGeneration, { concurrency: 3 });
 
   startHeartbeat();
 }

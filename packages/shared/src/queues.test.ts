@@ -66,7 +66,10 @@ describe('types QueueJobData', () => {
   it('associe les bons payloads aux queues', () => {
     expectTypeOf<QueueJobData['outline-generation']>().toEqualTypeOf<OutlineJobData>();
     expectTypeOf<QueueJobData['content-generation']>().toEqualTypeOf<ContentJobData>();
-    expectTypeOf<QueueJobData['outline-generation']>().toEqualTypeOf<{ courseId: string }>();
+    expectTypeOf<QueueJobData['outline-generation']>().toEqualTypeOf<{
+      courseId: string;
+      extraInstructions?: string;
+    }>();
     expectTypeOf<QueueJobData['tts-generation']>().toMatchTypeOf<{
       courseId: string;
       lessonId: string;

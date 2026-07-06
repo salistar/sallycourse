@@ -10,6 +10,8 @@
  */
 
 import { z } from 'zod';
+// @ts-ignore TS1543 — JSON importé sans attribut `type: "json"` : requis seulement
+// quand ce fichier est consommé en source par le worker (NodeNext) ; inoffensif ici (Bundler).
 import tokens from './tokens.json';
 
 /* ------------------------------------------------------------------ */

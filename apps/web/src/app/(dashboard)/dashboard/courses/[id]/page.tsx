@@ -12,6 +12,8 @@ import { presignedGetUrl } from '@sallycourse/shared';
 import { requireUser } from '@/lib/session';
 import { CourseDetail } from '@/components/course';
 import type { CourseDetailView, LessonView, SectionView } from '@/components/course';
+import { OutlineReview } from '@/components/outline';
+import type { OutlineReviewCourse } from '@/components/outline';
 
 /**
  * Page détail d'un cours — Server Component : garde d'auth + ownership,
@@ -56,6 +58,41 @@ export default async function CourseDetailPage({
   // Ownership : 404 (et non 403) pour ne pas révéler les cours des autres.
   const course = await CourseModel.findOne({ _id: id, userId: user.id }).lean();
   if (!course) notFound();
+
+  // Plan en attente de validation : éditeur drag-and-drop à la place de
+  // l'arborescence (pas de quiz ni de présignature d'assets à ce stade).
+  if (course.status === 'outline-review') {
+    const [sections, lessons] = await Promise.all([
+      SectionModel.find({ courseId: course._id }).sort({ order: 1 }).lean(),
+      LessonModel.find({ courseId: course._id }).sort({ order: 1 }).lean(),
+    ]);
+
+    const outlineCourse: OutlineReviewCourse = {
+      id: course._id.toString(),
+      title: course.title,
+      difficulty: course.difficulty,
+      locale: course.locale,
+      createdAt: course.createdAt.toISOString(),
+      sections: sections.map((section) => {
+        const sectionId = section._id.toString();
+        return {
+          id: sectionId,
+          title: section.title,
+          lessons: lessons
+            .filter((lesson) => lesson.sectionId.toString() === sectionId)
+            .map((lesson) => ({
+              id: lesson._id.toString(),
+              title: lesson.title,
+              type: lesson.type,
+              durationMin: lesson.durationMin,
+              summary: lesson.summary,
+            })),
+        };
+      }),
+    };
+
+    return <OutlineReview course={outlineCourse} />;
+  }
 
   const [sections, lessons, quizzes] = await Promise.all([
     SectionModel.find({ courseId: course._id }).sort({ order: 1 }).lean(),

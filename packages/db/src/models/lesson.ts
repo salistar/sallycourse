@@ -1,11 +1,13 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
 } from 'mongoose';
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
 import { lessonTypeSchema, type LessonType } from '@sallycourse/shared';
 
 export const LESSON_STATUSES = ['pending', 'generating', 'ready', 'failed'] as const;
@@ -62,4 +64,4 @@ const lessonSchema = new Schema<ILesson>({
 lessonSchema.index({ sectionId: 1, order: 1 });
 
 export const Lesson: Model<ILesson> =
-  (models.Lesson as Model<ILesson> | undefined) ?? model<ILesson>('Lesson', lessonSchema);
+  (mongoose.models.Lesson as Model<ILesson> | undefined) ?? model<ILesson>('Lesson', lessonSchema);

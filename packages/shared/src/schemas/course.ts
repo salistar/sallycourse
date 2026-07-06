@@ -1,4 +1,5 @@
 import { z } from 'zod';
+// @ts-ignore TS2835 — import sans extension, consommé en source par le worker (NodeNext)
 import { LOCALES } from '../constants';
 
 // Source de vérité unique des entités (Prompt 114) — les types TS et la

@@ -8,6 +8,26 @@
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export * from '@sallycourse/shared/queues.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
-export { getConfig, requireConfig, type AppConfig } from '@sallycourse/shared/config.js';
+export { getConfig, requireConfig, resetConfigCache, type AppConfig } from '@sallycourse/shared/config.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export * from '@sallycourse/shared/constants.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export * from '@sallycourse/shared/schemas/course.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export * from '@sallycourse/shared/schemas/lesson-content.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export * from '@sallycourse/shared/storage.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { generateCourseImage, marketingFormats, type CourseImageSpecInput } from '@sallycourse/design/marketing-assets.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { connectDb } from '@sallycourse/db/connect.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { Course, type CourseDocument, type ICourse } from '@sallycourse/db/models/course.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { Section, type ISection } from '@sallycourse/db/models/section.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { Lesson, LESSON_STATUSES, type ILesson } from '@sallycourse/db/models/lesson.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { GenerationJob, type IGenerationJob } from '@sallycourse/db/models/generation-job.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { Quiz, type IQuiz, type QuizDocument } from '@sallycourse/db/models/quiz.js';

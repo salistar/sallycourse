@@ -1,0 +1,132 @@
+import { NextResponse } from 'next/server';
+import { isValidObjectId } from 'mongoose';
+import { QUEUES, defaultJobOptions, makeJobId } from '@sallycourse/shared';
+import {
+  connectDb,
+  Course as CourseModel,
+  GenerationJob as GenerationJobModel,
+  Lesson as LessonModel,
+  Section as SectionModel,
+} from '@sallycourse/db';
+import { requireApiUser } from '@/lib/session';
+import { getContentQueue } from '@/lib/queues';
+import { approveOutlinePayloadSchema } from '@/lib/outline-payload';
+
+/**
+ * POST /api/courses/[id]/approve-outline — validation du plan par l'utilisateur :
+ * réécrit Sections/Lessons depuis le payload de l'éditeur, passe le cours en
+ * 'generating' et enfile un job 'content-generation' PAR leçon. 404 volontaire
+ * (pas 403) pour ne pas révéler les cours des autres utilisateurs.
+ */
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const user = await requireApiUser();
+  if (user instanceof Response) return user;
+
+  const { id } = await params;
+  if (!isValidObjectId(id)) {
+    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+  }
+
+  const parsed = approveOutlinePayloadSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Plan invalide.', details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  await connectDb();
+
+  const course = await CourseModel.findOne({ _id: id, userId: user.id });
+  if (!course) {
+    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+  }
+
+  // Le plan n'est validable que pendant la revue (évite les doubles soumissions).
+  if (course.status !== 'outline-review') {
+    return NextResponse.json(
+      { error: `Le plan n'est pas en attente de validation (statut : ${course.status}).` },
+      { status: 409 },
+    );
+  }
+
+  // ── Réécriture du plan : purge puis recréation depuis le payload ──
+  const { sections } = parsed.data;
+
+  await Promise.all([
+    LessonModel.deleteMany({ courseId: course._id }),
+    SectionModel.deleteMany({ courseId: course._id }),
+  ]);
+
+  const sectionDocs = await SectionModel.insertMany(
+    sections.map((section, index) => ({
+      courseId: course._id,
+      order: index,
+      title: section.title,
+    })),
+  );
+
+  const lessonDocs = await LessonModel.insertMany(
+    sections.flatMap((section, sectionIndex) => {
+      // insertMany préserve l'ordre : sectionDocs[i] correspond à sections[i].
+      const sectionDoc = sectionDocs[sectionIndex];
+      if (!sectionDoc) return [];
+      return section.lessons.map((lesson, lessonIndex) => ({
+        courseId: course._id,
+        sectionId: sectionDoc._id,
+        order: lessonIndex,
+        title: lesson.title,
+        type: lesson.type,
+        status: 'pending',
+        durationMin: lesson.durationMin,
+        summary: lesson.summary,
+      }));
+    }),
+  );
+
+  const courseId = course._id.toString();
+
+  // ── Enqueue d'un job de contenu par leçon ──────────────────────
+  try {
+    await GenerationJobModel.findOneAndUpdate(
+      { courseId: course._id },
+      { $set: { step: QUEUES.content, progress: 0 }, $unset: { error: '' } },
+      { upsert: true },
+    );
+
+    const queue = getContentQueue();
+    for (const lesson of lessonDocs) {
+      const lessonId = lesson._id.toString();
+      const jobId = makeJobId(courseId, QUEUES.content, lessonId);
+      // Un run précédent garderait le jobId réservé : purge avant re-add.
+      await queue.remove(jobId).catch(() => undefined);
+      await queue.add('lesson-content', { courseId, lessonId }, { ...defaultJobOptions, jobId });
+    }
+  } catch {
+    // Redis indisponible : le cours reste en revue, l'utilisateur peut réessayer.
+    return NextResponse.json(
+      { error: 'Impossible de lancer la génération, réessayez plus tard.' },
+      { status: 503 },
+    );
+  }
+
+  // Statut mis à jour APRÈS l'enqueue : pas de cours bloqué en 'generating'
+  // si Redis est indisponible.
+  course.status = 'generating';
+  await course.save();
+
+  return NextResponse.json(
+    { id: courseId, status: course.status, sections: sectionDocs.length, lessons: lessonDocs.length },
+    { status: 202 },
+  );
+}

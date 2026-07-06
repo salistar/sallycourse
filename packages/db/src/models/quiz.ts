@@ -1,11 +1,14 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
 } from 'mongoose';
+// prettier-ignore
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
 import { QUIZ, difficultySchema, type QuizQuestion } from '@sallycourse/shared';
 
 export interface IQuiz {
@@ -48,4 +51,4 @@ const quizSchema = new Schema<IQuiz>({
 });
 
 export const Quiz: Model<IQuiz> =
-  (models.Quiz as Model<IQuiz> | undefined) ?? model<IQuiz>('Quiz', quizSchema);
+  (mongoose.models.Quiz as Model<IQuiz> | undefined) ?? model<IQuiz>('Quiz', quizSchema);

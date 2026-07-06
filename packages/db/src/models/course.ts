@@ -1,21 +1,17 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
 } from 'mongoose';
-import {
-  LOCALES,
-  courseStatusSchema,
-  difficultySchema,
-  outlineSchema,
-  type CourseStatus,
-  type Difficulty,
-  type Locale,
-  type Outline,
-} from '@sallycourse/shared';
+// Import sur une seule ligne : le @ts-ignore neutralise TS6059/TS2305 quand ce
+// fichier est consommé en source par le worker (NodeNext) ; typage intact ici (Bundler).
+// prettier-ignore
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext)
+import { LOCALES, courseStatusSchema, difficultySchema, outlineSchema, type CourseStatus, type Difficulty, type Locale, type Outline } from '@sallycourse/shared';
 
 export interface ICourse {
   userId: Types.ObjectId;
@@ -29,6 +25,8 @@ export interface ICourse {
   ttsVoice?: string;
   coverImageUrl?: string;
   qaReport?: unknown;
+  /** Landing marketing générée (JSON marketingSchema + clés S3 des visuels) — Mixed. */
+  marketing?: unknown;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -54,6 +52,7 @@ const courseSchema = new Schema<ICourse>(
     ttsVoice: { type: String },
     coverImageUrl: { type: String },
     qaReport: { type: Schema.Types.Mixed, default: null },
+    marketing: { type: Schema.Types.Mixed, default: null },
   },
   { timestamps: true },
 );
@@ -62,4 +61,4 @@ const courseSchema = new Schema<ICourse>(
 courseSchema.index({ userId: 1, createdAt: -1 });
 
 export const Course: Model<ICourse> =
-  (models.Course as Model<ICourse> | undefined) ?? model<ICourse>('Course', courseSchema);
+  (mongoose.models.Course as Model<ICourse> | undefined) ?? model<ICourse>('Course', courseSchema);
