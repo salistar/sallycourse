@@ -2,3 +2,7 @@
 // Chaque domaine vit dans son fichier ; ce baril réexporte l'API publique.
 export * from './constants';
 export * from './schemas/course';
+export * from './config';
+export * from './crypto';
+export * from './storage';
+export * from './queues';
