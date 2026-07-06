@@ -1,3 +1,83 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * CSS variables du design system SALISTAR — canaux RGB "R G B".
+ * Généré depuis @sallycourse/design (css-variables.ts / generateCssVariables()).
+ * Ne pas éditer à la main : modifier packages/design/src/tokens.ts puis régénérer.
+ */
+@layer base {
+  :root {
+    --sc-background: 250 248 252;
+    --sc-surface: 255 255 255;
+    --sc-surface-subtle: 243 240 247;
+    --sc-foreground: 13 7 20;
+    --sc-muted-foreground: 97 86 111;
+    --sc-border: 231 226 238;
+    --sc-input: 211 203 223;
+    --sc-primary: 91 42 134;
+    --sc-primary-foreground: 250 248 252;
+    --sc-primary-soft: 239 230 248;
+    --sc-accent: 212 160 23;
+    --sc-accent-foreground: 37 15 58;
+    --sc-ring: 142 85 190;
+    --sc-success: 31 127 83;
+    --sc-warning: 181 104 12;
+    --sc-danger: 183 43 71;
+    --sc-info: 66 86 192;
+    --sc-status-foreground: 255 255 255;
+  }
+
+  .dark {
+    --sc-background: 13 7 20;
+    --sc-surface: 23 16 33;
+    --sc-surface-subtle: 35 27 47;
+    --sc-foreground: 243 240 247;
+    --sc-muted-foreground: 168 157 186;
+    --sc-border: 54 45 67;
+    --sc-input: 75 65 87;
+    --sc-primary: 142 85 190;
+    --sc-primary-foreground: 250 248 252;
+    --sc-primary-soft: 37 15 58;
+    --sc-accent: 222 178 50;
+    --sc-accent-foreground: 37 15 58;
+    --sc-ring: 171 125 211;
+    --sc-success: 71 186 132;
+    --sc-warning: 230 157 43;
+    --sc-danger: 227 106 128;
+    --sc-info: 119 147 222;
+    --sc-status-foreground: 13 7 20;
+  }
+
+  /* Bordure par défaut alignée sur le token sémantique */
+  * {
+    @apply border-border;
+  }
+
+  html {
+    /* Défilement d'ancres fluide, respectueux de prefers-reduced-motion */
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Texte arabe : famille dédiée dès que le contexte passe en RTL / ar */
+  [dir='rtl'] body,
+  [lang='ar'] {
+    @apply font-arabic;
+  }
+
+  /* Sélection de texte aux couleurs de la marque */
+  ::selection {
+    @apply bg-primary-500/30 text-foreground;
+  }
+}

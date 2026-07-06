@@ -1,0 +1,172 @@
+<!doctype html>
+<!--
+  SALISTAR — lower-third.html (bandeau « définition importante »)
+  Fond TRANSPARENT : capturé avec omitBackground:true (PNG alpha), puis
+  superposé à la vidéo par le worker FFmpeg (filtre overlay).
+  Déterminisme par PHASES : le worker pose sur <body> une classe
+  `phase-in` / `phase-hold` / `phase-out`, et balaie `--t` (0 → 1) sur <html>
+  à l'intérieur des phases in et out. L'état par défaut (sans phase-in/out)
+  est l'état FINAL visible — c'est aussi l'état de la phase hold.
+  Placeholders : {{LANG}} {{DIR}} {{SEQ_IN_MS}} {{SEQ_OUT_MS}} {{LABEL}} {{TERM}} {{DEFINITION}}
+-->
+<html class="dark" lang="{{LANG}}" dir="{{DIR}}">
+<head>
+<meta charset="utf-8" />
+<style id="sc-tokens">
+/*__SC_TOKENS__*/
+</style>
+<style id="sc-fonts">
+/*__SC_FONTS__*/
+</style>
+<style>
+  :root {
+    --t: 0;
+    --seq-in: {{SEQ_IN_MS}}ms;   /* durée de la phase d'entrée */
+    --seq-out: {{SEQ_OUT_MS}}ms; /* durée de la phase de sortie */
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+
+  /* Fond transparent : ce template est une COUCHE, pas un plein écran. */
+  body {
+    background: transparent;
+    font-family: 'Figtree', system-ui, sans-serif;
+    color: rgb(var(--sc-foreground));
+  }
+
+  [dir='rtl'] body,
+  [dir='rtl'] .lt-term {
+    font-family: 'IBM Plex Sans Arabic', Tahoma, Arial, sans-serif;
+    font-style: normal;
+  }
+
+  /* ------------------------------ Structure --------------------------- */
+  .lt-anchor {
+    position: absolute;
+    inset-inline-start: 6rem;
+    bottom: 6rem;
+    max-width: 44rem;
+  }
+
+  .lt-card {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    gap: 1.25rem;
+    padding: 1.5rem 2rem 1.5rem 1.75rem;
+    border-radius: 1rem;
+    background: rgb(var(--sc-surface) / 0.94);
+    border: 1px solid rgb(var(--sc-border));
+    box-shadow: 0 16px 48px -12px rgb(var(--sc-background) / 0.6);
+  }
+  [dir='rtl'] .lt-card { padding: 1.5rem 1.75rem 1.5rem 2rem; }
+
+  /* Barre or verticale, côté début de lecture. */
+  .lt-bar {
+    flex: none;
+    width: 0.25rem;
+    border-radius: 9999px;
+    background: linear-gradient(180deg, rgb(var(--sc-accent)), rgb(var(--sc-primary)));
+    transform-origin: 50% 0;
+  }
+
+  .lt-body { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+
+  .lt-label {
+    align-self: flex-start;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgb(var(--sc-accent));
+  }
+  [dir='rtl'] .lt-label { letter-spacing: 0.06em; }
+
+  .lt-term {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+    font-size: 2rem;
+    line-height: 1.2;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  [dir='rtl'] .lt-term { font-weight: 700; letter-spacing: 0; }
+
+  .lt-definition {
+    font-size: 1.125rem;
+    line-height: 1.55;
+    color: rgb(var(--sc-muted-foreground));
+  }
+
+  /* --------------------------- Phase : entrée ------------------------- */
+  /* Toutes les animations d'entrée partagent la timeline --seq-in,        */
+  /* seekée via --t. Les décalages (stagger) sont encodés en pourcentages. */
+  body.phase-in .anim-in {
+    animation-duration: var(--seq-in);
+    animation-play-state: paused !important;
+    animation-fill-mode: both;
+    animation-timing-function: linear;
+    animation-delay: calc(-1 * var(--t) * var(--seq-in));
+  }
+  body.phase-in .lt-card       { animation-name: lt-card-in; }
+  body.phase-in .lt-bar        { animation-name: lt-bar-in; }
+  body.phase-in .lt-label      { animation-name: lt-text-in-1; }
+  body.phase-in .lt-term       { animation-name: lt-text-in-2; }
+  body.phase-in .lt-definition { animation-name: lt-text-in-3; }
+
+  @keyframes lt-card-in {
+    0%   { opacity: 0; transform: translateY(1.5rem); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+    55%  { opacity: 1; transform: translateY(0); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes lt-bar-in {
+    0%, 20% { transform: scaleY(0); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+    60%     { transform: scaleY(1); }
+    100%    { transform: scaleY(1); }
+  }
+  @keyframes lt-text-in-1 {
+    0%, 35% { opacity: 0; transform: translateY(0.5rem); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+    65%     { opacity: 1; transform: translateY(0); }
+    100%    { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes lt-text-in-2 {
+    0%, 45% { opacity: 0; transform: translateY(0.625rem); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+    80%     { opacity: 1; transform: translateY(0); }
+    100%    { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes lt-text-in-3 {
+    0%, 55% { opacity: 0; transform: translateY(0.625rem); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+    100%    { opacity: 1; transform: translateY(0); }
+  }
+
+  /* --------------------------- Phase : sortie ------------------------- */
+  /* Sortie sobre : fondu + léger glissement vers le bas, d'un seul bloc. */
+  body.phase-out .anim-out {
+    animation-duration: var(--seq-out);
+    animation-play-state: paused !important;
+    animation-fill-mode: both;
+    animation-timing-function: linear;
+    animation-delay: calc(-1 * var(--t) * var(--seq-out));
+  }
+  body.phase-out .lt-card { animation-name: lt-card-out; }
+
+  @keyframes lt-card-out {
+    0%   { opacity: 1; transform: translateY(0); animation-timing-function: cubic-bezier(0.4, 0, 1, 1); }
+    100% { opacity: 0; transform: translateY(1rem); }
+  }
+</style>
+</head>
+<body class="phase-in">
+  <aside class="lt-anchor">
+    <div class="lt-card anim-in anim-out">
+      <div class="lt-bar anim-in" aria-hidden="true"></div>
+      <div class="lt-body">
+        <span class="lt-label anim-in">{{LABEL}}</span>
+        <h2 class="lt-term anim-in">{{TERM}}</h2>
+        <p class="lt-definition anim-in">{{DEFINITION}}</p>
+      </div>
+    </div>
+  </aside>
+</body>
+</html>

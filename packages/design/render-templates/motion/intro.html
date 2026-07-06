@@ -1,0 +1,201 @@
+<!doctype html>
+<!--
+  SALISTAR — intro.html (séquence d'introduction, 3 s par défaut)
+  Template ANIMÉ DÉTERMINISTE : toutes les animations sont en pause et
+  « seekées » image par image via la variable CSS `--t` (0 → 1) posée sur
+  <html> par le worker Playwright. Aucune horloge, aucun aléa.
+  Placeholders : {{LANG}} {{DIR}} {{SEQ_MS}} {{KICKER}} {{COURSE_TITLE}} {{COURSE_SUBTITLE}}
+  Couleurs : exclusivement via les variables --sc-* injectées à la place de
+  /*__SC_TOKENS__*/ (jamais de hex ici — règle maison).
+-->
+<html class="dark" lang="{{LANG}}" dir="{{DIR}}">
+<head>
+<meta charset="utf-8" />
+<style id="sc-tokens">
+/*__SC_TOKENS__*/
+</style>
+<style id="sc-fonts">
+/*__SC_FONTS__*/
+</style>
+<style>
+  /* ---- Horloge virtuelle : --t ∈ [0,1] balaie la timeline maîtresse ---- */
+  :root {
+    --t: 0;
+    --seq: {{SEQ_MS}}ms; /* durée maîtresse de la séquence */
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+
+  body {
+    display: grid;
+    place-items: center;
+    font-family: 'Figtree', system-ui, sans-serif;
+    color: rgb(var(--sc-foreground));
+    background:
+      radial-gradient(120% 90% at 50% -10%, rgb(var(--sc-primary) / 0.22), transparent 62%),
+      radial-gradient(80% 60% at 50% 115%, rgb(var(--sc-accent) / 0.07), transparent 55%),
+      rgb(var(--sc-background));
+  }
+
+  /* Arabe : jamais de serif, IBM Plex Sans Arabic partout (règle tokens). */
+  [dir='rtl'] body,
+  [dir='rtl'] .intro-title,
+  [dir='rtl'] .intro-kicker {
+    font-family: 'IBM Plex Sans Arabic', Tahoma, Arial, sans-serif;
+    font-style: normal;
+  }
+
+  /* Toute animation est PAUSÉE ; le délai négatif fait office de curseur. */
+  .anim {
+    animation-duration: var(--seq);
+    animation-play-state: paused !important;
+    animation-fill-mode: both;
+    animation-timing-function: linear; /* le easing vit DANS les keyframes */
+    animation-delay: calc(-1 * var(--t) * var(--seq));
+  }
+
+  /* ------------------------------ Mise en page ------------------------- */
+  .intro-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 2.5rem;
+    max-width: 68rem;
+    padding: 3rem;
+  }
+
+  /* ------------------------------ Logo dessiné ------------------------ */
+  .intro-logo { width: 11.25rem; height: 11.25rem; }
+  .intro-logo svg { width: 100%; height: 100%; display: block; }
+
+  .logo-ring,
+  .logo-mark {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+  }
+  .logo-ring { stroke: rgb(var(--sc-primary)); stroke-width: 3.5; animation-name: draw-ring; }
+  .logo-mark { stroke: rgb(var(--sc-accent)); stroke-width: 5;   animation-name: draw-mark; }
+  .logo-spark { fill: rgb(var(--sc-accent)); animation-name: spark-in; }
+
+  /* Tracé de l'anneau : 0 → 42 % de la timeline. */
+  @keyframes draw-ring {
+    0%   { stroke-dashoffset: 1; opacity: 1; animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+    42%  { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: 0; }
+  }
+
+  /* Tracé du « S » Salistar : 8 → 52 %. */
+  @keyframes draw-mark {
+    0%, 8% { stroke-dashoffset: 1; opacity: 1; animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+    52%    { stroke-dashoffset: 0; }
+    100%   { stroke-dashoffset: 0; }
+  }
+
+  /* Éclat or au sommet : apparaît quand le tracé se termine. */
+  @keyframes spark-in {
+    0%, 44% { opacity: 0; transform: scale(0.4); transform-origin: center; }
+    56%     { opacity: 1; transform: scale(1.18); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+    64%     { transform: scale(1); }
+    100%    { opacity: 1; transform: scale(1); }
+  }
+
+  /* Respiration d'ensemble du logo sur toute la séquence. */
+  .intro-logo { animation-name: logo-settle; }
+  @keyframes logo-settle {
+    0%   { transform: scale(0.92); opacity: 0.9; animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+    60%  { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* --------------------------- Cascade de titres ---------------------- */
+  .intro-kicker {
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: rgb(var(--sc-accent));
+    animation-name: rise-kicker;
+  }
+  [dir='rtl'] .intro-kicker { letter-spacing: 0.12em; }
+
+  .intro-title {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+    font-size: 4.5rem;
+    line-height: 1.1;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    animation-name: rise-title;
+  }
+  [dir='rtl'] .intro-title { font-weight: 700; letter-spacing: 0; }
+
+  .intro-subtitle {
+    font-size: 1.5rem;
+    line-height: 1.5;
+    color: rgb(var(--sc-muted-foreground));
+    animation-name: rise-subtitle;
+  }
+  .intro-subtitle:empty { display: none; }
+
+  /* Soulignement or balayé, sous le titre. */
+  .intro-underline {
+    width: 9rem;
+    height: 0.25rem;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, rgb(var(--sc-primary)), rgb(var(--sc-accent)));
+    transform-origin: 0 50%;
+    animation-name: sweep-underline;
+  }
+  [dir='rtl'] .intro-underline { transform-origin: 100% 50%; }
+
+  /* Fenêtres d'apparition (pourcentages de la timeline maîtresse). */
+  @keyframes rise-kicker {
+    0%, 36% { opacity: 0; transform: translateY(1.25rem); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+    52%     { opacity: 1; transform: translateY(0); }
+    100%    { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes rise-title {
+    0%, 46% { opacity: 0; transform: translateY(1.75rem); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+    68%     { opacity: 1; transform: translateY(0); }
+    100%    { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes rise-subtitle {
+    0%, 58% { opacity: 0; transform: translateY(1.25rem); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+    78%     { opacity: 1; transform: translateY(0); }
+    100%    { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes sweep-underline {
+    0%, 70% { transform: scaleX(0); animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+    90%     { transform: scaleX(1); }
+    100%    { transform: scaleX(1); }
+  }
+</style>
+</head>
+<body>
+  <main class="intro-stage">
+    <div class="intro-logo anim" aria-hidden="true">
+      <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <!-- Anneau de marque, dessiné en premier -->
+        <circle class="logo-ring anim" cx="60" cy="60" r="52" pathLength="1" />
+        <!-- Monogramme « S » Salistar, dessiné ensuite -->
+        <path
+          class="logo-mark anim"
+          d="M79 43c-3-9-14-13-24-10c-9 3-13 12-8 19c6 8 24 6 29 15c5 8-1 18-12 20c-10 2-20-2-23-11"
+          pathLength="1"
+        />
+        <!-- Éclat or au sommet de l'anneau -->
+        <path class="logo-spark anim" d="M60 1.5l2.6 4.9L60 11.3l-2.6-4.9z" />
+      </svg>
+    </div>
+    <p class="intro-kicker anim">{{KICKER}}</p>
+    <h1 class="intro-title anim">{{COURSE_TITLE}}</h1>
+    <div class="intro-underline anim" aria-hidden="true"></div>
+    <p class="intro-subtitle anim">{{COURSE_SUBTITLE}}</p>
+  </main>
+</body>
+</html>

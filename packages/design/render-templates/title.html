@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="{{lang}}" dir="{{direction}}">
+<head>
+  <meta charset="utf-8">
+  <title>SALISTAR — slide titre</title>
+  <style>
+    /* ============================================================
+       SALISTAR — gabarit "title" 1920×1080 (rendu Playwright)
+       Couleurs figées issues de packages/design/src/tokens.json
+       (source de vérité : packages/design/src/tokens.ts)
+       ============================================================ */
+    :root {
+      /* Thème sombre — themes.dark */
+      --bg: #0D0714;              /* neutral.950 */
+      --surface: #171021;         /* themes.dark.surface */
+      --surface-subtle: #231B2F;  /* neutral.900 */
+      --fg: #F3F0F7;              /* neutral.100 */
+      --muted: #A89DBA;           /* neutral.400 */
+      --border: #362D43;          /* neutral.800 */
+      /* Échelle violette — colors.violet */
+      --violet-100: #EFE6F8;
+      --violet-200: #DFCDF0;
+      --violet-300: #C8A9E4;
+      --violet-400: #AB7DD3;
+      --violet-500: #8E55BE;
+      --violet-600: #7239A2;
+      --violet-700: #5B2A86;
+      --violet-800: #49226C;
+      --violet-900: #381A53;
+      --violet-950: #250F3A;
+      /* Échelle or — colors.gold */
+      --gold-200: #F1DC92;
+      --gold-300: #E8C75C;
+      --gold-400: #DEB232;
+      --gold-500: #D4A017;
+      --gold-600: #B28212;
+      /* Ombres — shadows.xl (base rgb(37 15 58)) */
+      --shadow-xl: 0 16px 48px -12px rgba(37, 15, 58, 0.6);
+      /* Typographie — typography.fontFamilies */
+      --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+      --font-sans: Figtree, "Segoe UI", system-ui, -apple-system, sans-serif;
+      --font-arabic: "Slide Arabic", "IBM Plex Sans Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+    }
+
+    /* Police arabe : @font-face en pur fallback système (zéro réseau) */
+    @font-face {
+      font-family: "Slide Arabic";
+      src: local("IBM Plex Sans Arabic"), local("Noto Sans Arabic"), local("Segoe UI"), local("Tahoma");
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 1920px; height: 1080px; overflow: hidden; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    /* Règles arabes : jamais de serif, jamais d'italique, titres ≥ 600 */
+    html[dir="rtl"] body { font-family: var(--font-arabic); }
+    html[dir="rtl"] h1, html[dir="rtl"] h2, html[dir="rtl"] .display {
+      font-family: var(--font-arabic);
+      font-style: normal;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    html[dir="rtl"] .kicker, html[dir="rtl"] .brand, html[dir="rtl"] .footer-course { letter-spacing: 0; }
+
+    .slide {
+      position: relative;
+      width: 1920px;
+      height: 1080px;
+      padding: 96px 160px 176px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .display { font-family: var(--font-display); font-weight: 600; }
+
+    /* Halo violet d'ambiance, côté début de lecture */
+    .glow {
+      position: absolute;
+      inset-inline-start: -420px;
+      top: -360px;
+      width: 1200px;
+      height: 1200px;
+      background: radial-gradient(closest-side, rgba(91, 42, 134, 0.4), transparent 70%);
+      pointer-events: none;
+    }
+
+    /* Motif géométrique : lattis de losanges + anneaux, côté fin de lecture */
+    .motif {
+      position: absolute;
+      inset-inline-end: -220px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 900px;
+      height: 900px;
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 18px;
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--violet-300);
+    }
+    .brand::before {
+      content: "";
+      width: 14px;
+      height: 14px;
+      transform: rotate(45deg);
+      border-radius: 3px;
+      background: linear-gradient(135deg, var(--gold-300), var(--gold-600));
+    }
+
+    .hero {
+      position: relative;
+      margin-block: auto;
+      max-width: 1240px;
+      display: flex;
+      flex-direction: column;
+      gap: 44px;
+    }
+
+    .kicker {
+      display: flex;
+      align-items: baseline;
+      gap: 24px;
+      color: var(--gold-400);
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+    .kicker .lesson-number {
+      font-family: var(--font-display);
+      font-size: 44px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--gold-300);
+    }
+    html[dir="rtl"] .kicker .lesson-number { font-family: var(--font-arabic); font-weight: 700; }
+
+    .title {
+      font-size: 116px;
+      line-height: 1.06;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--fg) 30%, var(--violet-300) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+      text-wrap: balance;
+    }
+
+    .subtitle {
+      font-size: 34px;
+      line-height: 1.5;
+      color: var(--muted);
+      max-width: 1060px;
+      text-wrap: pretty;
+    }
+    .subtitle:empty { display: none; }
+
+    /* Pied de page discret : titre du cours + progression */
+    .footer {
+      position: absolute;
+      bottom: 64px;
+      inset-inline: 160px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 48px;
+      color: var(--muted);
+    }
+    .footer-course {
+      font-size: 20px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 1100px;
+      opacity: 0.85;
+    }
+    .footer-progress { display: flex; align-items: center; gap: 20px; flex: none; }
+    .footer-track {
+      width: 320px;
+      height: 5px;
+      border-radius: 9999px;
+      background: var(--border);
+      overflow: hidden;
+    }
+    .footer-fill {
+      height: 100%;
+      border-radius: 9999px;
+      background: linear-gradient(to right, var(--violet-500), var(--violet-400) 55%, var(--gold-400));
+    }
+    html[dir="rtl"] .footer-fill { background: linear-gradient(to left, var(--violet-500), var(--violet-400) 55%, var(--gold-400)); }
+    .footer-label { font-size: 21px; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <div class="slide">
+    <div class="glow" aria-hidden="true"></div>
+
+    <!-- Motif géométrique : losanges concentriques + lattis pointillé -->
+    <svg class="motif" viewBox="0 0 900 900" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <pattern id="lattice" width="72" height="72" patternUnits="userSpaceOnUse">
+          <path d="M36 6 66 36 36 66 6 36Z" stroke="var(--violet-900)" stroke-width="1" fill="none"/>
+        </pattern>
+      </defs>
+      <rect x="0" y="0" width="900" height="900" fill="url(#lattice)" opacity="0.55"/>
+      <g transform="translate(450 450)">
+        <rect x="-320" y="-320" width="640" height="640" transform="rotate(45)" stroke="var(--violet-800)" stroke-width="1.5" fill="none"/>
+        <rect x="-250" y="-250" width="500" height="500" transform="rotate(45)" stroke="var(--violet-700)" stroke-width="1.5" fill="none"/>
+        <rect x="-180" y="-180" width="360" height="360" transform="rotate(45)" stroke="var(--violet-600)" stroke-width="1.5" fill="none" opacity="0.8"/>
+        <rect x="-110" y="-110" width="220" height="220" transform="rotate(45)" stroke="var(--gold-500)" stroke-width="2" fill="none" opacity="0.9"/>
+        <circle r="380" stroke="var(--violet-800)" stroke-width="1" stroke-dasharray="2 10" fill="none"/>
+        <rect x="-13" y="-13" width="26" height="26" transform="rotate(45)" fill="var(--gold-400)"/>
+      </g>
+    </svg>
+
+    <div class="brand">Salistar</div>
+
+    <main class="hero">
+      <div class="kicker"><span>{{lessonLabel}}</span><span class="lesson-number">{{lessonNumber}}</span></div>
+      <h1 class="display title">{{title}}</h1>
+      <p class="subtitle">{{subtitle}}</p>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-course">{{courseTitle}}</div>
+      <div class="footer-progress">
+        <div class="footer-track"><div class="footer-fill" style="width: {{progress}}%"></div></div>
+        <span class="footer-label">{{progress}}%</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

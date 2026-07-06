@@ -1,0 +1,213 @@
+<!doctype html>
+<!--
+  SALISTAR — outro.html (carte « leçon suivante », 4 s par défaut)
+  Timeline maîtresse unique seekée via --t (0 → 1), comme intro.html.
+  La nudge de la flèche est encodée DANS les keyframes (aucune boucle
+  infinie : la séquence reste strictement déterministe).
+  Placeholders : {{LANG}} {{DIR}} {{SEQ_MS}} {{OUTRO_LABEL}} {{NEXT_LESSON_TITLE}} {{COURSE_TITLE}}
+-->
+<html class="dark" lang="{{LANG}}" dir="{{DIR}}">
+<head>
+<meta charset="utf-8" />
+<style id="sc-tokens">
+/*__SC_TOKENS__*/
+</style>
+<style id="sc-fonts">
+/*__SC_FONTS__*/
+</style>
+<style>
+  :root {
+    --t: 0;
+    --seq: {{SEQ_MS}}ms;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+
+  body {
+    display: grid;
+    place-items: center;
+    font-family: 'Figtree', system-ui, sans-serif;
+    color: rgb(var(--sc-foreground));
+    background:
+      radial-gradient(110% 80% at 50% 120%, rgb(var(--sc-primary) / 0.2), transparent 60%),
+      rgb(var(--sc-background));
+  }
+
+  [dir='rtl'] body,
+  [dir='rtl'] .outro-title {
+    font-family: 'IBM Plex Sans Arabic', Tahoma, Arial, sans-serif;
+    font-style: normal;
+  }
+
+  .anim {
+    animation-duration: var(--seq);
+    animation-play-state: paused !important;
+    animation-fill-mode: both;
+    animation-timing-function: linear;
+    animation-delay: calc(-1 * var(--t) * var(--seq));
+  }
+
+  /* ---------------- Carte à bordure dégradée (pattern Card D3) -------- */
+  .outro-card-frame {
+    padding: 1px;
+    border-radius: 1.5rem;
+    background: linear-gradient(
+      135deg,
+      rgb(var(--sc-primary) / 0.6),
+      rgb(var(--sc-border)),
+      rgb(var(--sc-accent) / 0.6)
+    );
+    box-shadow: 0 16px 48px -12px rgb(var(--sc-background) / 0.8),
+      0 0 48px -12px rgb(var(--sc-primary) / 0.35);
+    animation-name: card-in;
+  }
+
+  .outro-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1.75rem;
+    min-width: 44rem;
+    max-width: 62rem;
+    padding: 4rem 5rem;
+    border-radius: calc(1.5rem - 1px);
+    background: rgb(var(--sc-surface));
+  }
+
+  @keyframes card-in {
+    0%   { opacity: 0; transform: scale(0.94) translateY(1.5rem); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+    35%  { opacity: 1; transform: scale(1) translateY(0); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  /* ------------------------------ Contenu ----------------------------- */
+  .outro-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 1rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(var(--sc-accent) / 0.4);
+    background: rgb(var(--sc-accent) / 0.1);
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgb(var(--sc-accent));
+    animation-name: rise-1;
+  }
+  [dir='rtl'] .outro-kicker { letter-spacing: 0.05em; }
+
+  .outro-title {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+    font-size: 3.25rem;
+    line-height: 1.15;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    animation-name: rise-2;
+  }
+  [dir='rtl'] .outro-title { font-weight: 700; letter-spacing: 0; }
+
+  /* Pastille flèche : invite « on continue ». */
+  .outro-arrow {
+    display: grid;
+    place-items: center;
+    width: 4.5rem;
+    height: 4.5rem;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, rgb(var(--sc-primary)), rgb(var(--sc-primary) / 0.75));
+    box-shadow: 0 0 0 1px rgb(var(--sc-ring) / 0.35), 0 8px 24px -6px rgb(var(--sc-primary) / 0.5);
+    animation-name: arrow-in;
+  }
+  .outro-arrow svg {
+    width: 2rem;
+    height: 2rem;
+    stroke: rgb(var(--sc-primary-foreground));
+    stroke-width: 2.5;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    animation-name: arrow-nudge;
+  }
+  /* La flèche pointe le sens de lecture : miroir en RTL. */
+  [dir='rtl'] .outro-arrow svg { transform: scaleX(-1); }
+
+  @keyframes arrow-in {
+    0%, 50% { opacity: 0; transform: scale(0.6); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+    68%     { opacity: 1; transform: scale(1); }
+    100%    { opacity: 1; transform: scale(1); }
+  }
+  /* Double nudge encodée dans la timeline (pas de boucle infinie). */
+  @keyframes arrow-nudge {
+    0%, 70% { translate: 0 0; animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+    78%     { translate: 0.375rem 0; }
+    86%     { translate: 0 0; }
+    93%     { translate: 0.25rem 0; }
+    100%    { translate: 0 0; }
+  }
+  [dir='rtl'] .outro-arrow svg { animation-name: arrow-nudge-rtl; }
+  @keyframes arrow-nudge-rtl {
+    0%, 70% { translate: 0 0; transform: scaleX(-1); animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+    78%     { translate: -0.375rem 0; transform: scaleX(-1); }
+    86%     { translate: 0 0; transform: scaleX(-1); }
+    93%     { translate: -0.25rem 0; transform: scaleX(-1); }
+    100%    { translate: 0 0; transform: scaleX(-1); }
+  }
+
+  /* Pied : nom du cours + séparateur points. */
+  .outro-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1rem;
+    color: rgb(var(--sc-muted-foreground));
+    animation-name: rise-3;
+  }
+  .outro-footer .dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 9999px;
+    background: rgb(var(--sc-accent) / 0.7);
+  }
+  .outro-footer .course:empty { display: none; }
+
+  @keyframes rise-1 {
+    0%, 22% { opacity: 0; transform: translateY(0.75rem); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+    42%     { opacity: 1; transform: translateY(0); }
+    100%    { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes rise-2 {
+    0%, 32% { opacity: 0; transform: translateY(1rem); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+    58%     { opacity: 1; transform: translateY(0); }
+    100%    { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes rise-3 {
+    0%, 55% { opacity: 0; transform: translateY(0.5rem); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+    78%     { opacity: 1; transform: translateY(0); }
+    100%    { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+  <main class="outro-card-frame anim">
+    <div class="outro-card">
+      <span class="outro-kicker anim">{{OUTRO_LABEL}}</span>
+      <h1 class="outro-title anim">{{NEXT_LESSON_TITLE}}</h1>
+      <div class="outro-arrow anim" aria-hidden="true">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="anim">
+          <path d="M4 12h15M13 5.5L19.5 12L13 18.5" />
+        </svg>
+      </div>
+      <p class="outro-footer anim">
+        <span class="dot" aria-hidden="true"></span>
+        <span class="course">{{COURSE_TITLE}}</span>
+        <span class="dot" aria-hidden="true"></span>
+      </p>
+    </div>
+  </main>
+</body>
+</html>
