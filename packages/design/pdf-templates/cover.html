@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="{{lang}}" dir="{{direction}}">
+<head>
+  <meta charset="utf-8">
+  <title>SALISTAR — couverture</title>
+  <style>
+    /* ============================================================
+       SALISTAR — couverture PDF (A4 portrait, pleine page sombre)
+       Rendu : WeasyPrint ou Playwright PDF (CSS @page).
+       Couleurs figées issues de packages/design/src/tokens.json
+       (source de vérité : packages/design/src/tokens.ts)
+       ============================================================ */
+    :root {
+      --bg: #0D0714;              /* neutral.950 */
+      --surface: #171021;         /* themes.dark.surface */
+      --fg: #F3F0F7;              /* neutral.100 */
+      --muted: #A89DBA;           /* neutral.400 */
+      --border: #362D43;          /* neutral.800 */
+      --violet-300: #C8A9E4;
+      --violet-500: #8E55BE;
+      --violet-600: #7239A2;
+      --violet-700: #5B2A86;
+      --violet-800: #49226C;
+      --violet-900: #381A53;
+      --gold-300: #E8C75C;
+      --gold-400: #DEB232;
+      --gold-500: #D4A017;
+      --gold-600: #B28212;
+      --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+      --font-sans: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+      --font-arabic: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+    }
+
+    /* Couverture pleine page : aucune marge d'impression. */
+    @page { size: A4; margin: 0; }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 210mm; height: 297mm; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-sans);
+      -weasy-hyphens: none;
+    }
+
+    /* Règles arabes : jamais de serif, jamais d'italique, titres ≥ 600. */
+    html[dir="rtl"] body { font-family: var(--font-arabic); }
+    html[dir="rtl"] .display {
+      font-family: var(--font-arabic);
+      font-style: normal;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    html[dir="rtl"] .brand,
+    html[dir="rtl"] .kicker,
+    html[dir="rtl"] .edition { letter-spacing: 0; }
+
+    .cover {
+      position: relative;
+      width: 210mm;
+      height: 297mm;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 26mm 22mm 22mm;
+    }
+    .display { font-family: var(--font-display); font-weight: 600; }
+
+    /* Halo violet d'ambiance, côté début de lecture. */
+    .glow {
+      position: absolute;
+      inset-inline-start: -70mm;
+      top: -60mm;
+      width: 190mm;
+      height: 190mm;
+      background: radial-gradient(closest-side, rgba(91, 42, 134, 0.42), transparent 70%);
+    }
+
+    /* Cadre filigrane or : le détail précieux, jamais criard. */
+    .frame {
+      position: absolute;
+      inset: 9mm;
+      border: 0.4pt solid rgba(212, 160, 23, 0.55);
+    }
+    .frame::before {
+      content: "";
+      position: absolute;
+      inset: 1.2mm;
+      border: 0.25pt solid rgba(212, 160, 23, 0.3);
+    }
+    /* Losange or au sommet du cadre — signature géométrique SALISTAR. */
+    .frame-gem {
+      position: absolute;
+      top: 6.8mm;
+      left: 50%;
+      width: 4.4mm;
+      height: 4.4mm;
+      transform: translateX(-50%) rotate(45deg);
+      background: linear-gradient(135deg, var(--gold-300), var(--gold-600));
+      border: 0.6mm solid var(--bg);
+    }
+
+    /* Motif géométrique : lattis de losanges + anneaux, bas de page. */
+    .motif {
+      position: absolute;
+      inset-inline-end: -40mm;
+      bottom: -46mm;
+      width: 150mm;
+      height: 150mm;
+      opacity: 0.9;
+    }
+
+    .brand {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 4mm;
+      font-size: 13pt;
+      font-weight: 600;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--violet-300);
+    }
+    .brand::before {
+      content: "";
+      width: 3.2mm;
+      height: 3.2mm;
+      transform: rotate(45deg);
+      border-radius: 0.8mm;
+      background: linear-gradient(135deg, var(--gold-300), var(--gold-600));
+    }
+
+    .hero {
+      position: relative;
+      margin-block: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 9mm;
+      max-width: 158mm;
+    }
+
+    .kicker {
+      color: var(--gold-400);
+      font-size: 11pt;
+      font-weight: 600;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+    }
+    .kicker:empty { display: none; }
+
+    .title {
+      font-size: 38pt;
+      line-height: 1.08;
+      letter-spacing: -0.01em;
+      color: var(--fg);
+    }
+    /* Trait d'orfèvre sous le titre : dégradé violet → or. */
+    .title-rule {
+      width: 42mm;
+      height: 0.9mm;
+      border-radius: 1mm;
+      background: linear-gradient(to right, var(--violet-500), var(--gold-400));
+    }
+    html[dir="rtl"] .title-rule {
+      background: linear-gradient(to left, var(--violet-500), var(--gold-400));
+    }
+
+    .subtitle {
+      font-size: 13.5pt;
+      line-height: 1.55;
+      color: var(--muted);
+      max-width: 140mm;
+    }
+    .subtitle:empty { display: none; }
+
+    /* Badges méta : niveau + volume, en capsules discrètes. */
+    .meta {
+      display: flex;
+      align-items: center;
+      gap: 4mm;
+      flex-wrap: wrap;
+    }
+    .badge {
+      display: inline-block;
+      padding: 1.6mm 4.5mm;
+      border: 0.3pt solid var(--gold-600);
+      border-radius: 6mm;
+      color: var(--gold-300);
+      font-size: 9pt;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .badge:empty { display: none; }
+    .meta-line {
+      color: var(--muted);
+      font-size: 10pt;
+      letter-spacing: 0.06em;
+    }
+    .meta-line:empty { display: none; }
+
+    .foot {
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 10mm;
+      color: var(--muted);
+      font-size: 9.5pt;
+    }
+    .author { max-width: 110mm; line-height: 1.5; }
+    .author:empty { display: none; }
+    .edition {
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--violet-300);
+      white-space: nowrap;
+    }
+    .edition:empty { display: none; }
+  </style>
+</head>
+<body>
+  <div class="cover">
+    <div class="glow"></div>
+
+    <!-- Motif géométrique : losanges concentriques + lattis pointillé. -->
+    <svg class="motif" viewBox="0 0 900 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="lattice" width="72" height="72" patternUnits="userSpaceOnUse">
+          <path d="M36 6 66 36 36 66 6 36Z" stroke="#381A53" stroke-width="1" fill="none"/>
+        </pattern>
+      </defs>
+      <rect width="900" height="900" fill="url(#lattice)" opacity="0.55"/>
+      <g transform="translate(450 450)">
+        <rect x="-320" y="-320" width="640" height="640" transform="rotate(45)" stroke="#49226C" stroke-width="1.5" fill="none"/>
+        <rect x="-250" y="-250" width="500" height="500" transform="rotate(45)" stroke="#5B2A86" stroke-width="1.5" fill="none"/>
+        <rect x="-180" y="-180" width="360" height="360" transform="rotate(45)" stroke="#7239A2" stroke-width="1.5" fill="none" opacity="0.8"/>
+        <rect x="-110" y="-110" width="220" height="220" transform="rotate(45)" stroke="#D4A017" stroke-width="2" fill="none" opacity="0.9"/>
+        <circle r="380" stroke="#49226C" stroke-width="1" stroke-dasharray="2 10" fill="none"/>
+        <rect x="-13" y="-13" width="26" height="26" transform="rotate(45)" fill="#DEB232"/>
+      </g>
+    </svg>
+
+    <div class="frame"><span class="frame-gem"></span></div>
+
+    <header class="brand">Salistar</header>
+
+    <main class="hero">
+      <div class="kicker">{{kicker}}</div>
+      <h1 class="display title">{{courseTitle}}</h1>
+      <div class="title-rule"></div>
+      <p class="subtitle">{{courseSubtitle}}</p>
+      <div class="meta">
+        <span class="badge">{{levelLabel}}</span>
+        <span class="meta-line">{{metaLine}}</span>
+      </div>
+    </main>
+
+    <footer class="foot">
+      <div class="author">{{authorLine}}</div>
+      <div class="edition">{{editionLine}}</div>
+    </footer>
+  </div>
+</body>
+</html>

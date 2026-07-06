@@ -2,10 +2,13 @@
 <html lang="{{lang}}" dir="{{direction}}">
 <head>
   <meta charset="utf-8">
-  <title>SALISTAR — slide contenu</title>
+  <title>SALISTAR — slide schéma</title>
   <style>
     /* ============================================================
-       SALISTAR — gabarit "content" 1920×1080 (rendu Playwright)
+       SALISTAR — gabarit "diagram" 1920×1080 (rendu Playwright)
+       Zone schéma stylée : panneau encadré sur grille pointillée,
+       le contenu ({{diagramHtml}} : SVG ou HTML) est injecté BRUT
+       par renderTemplate() et centré dans la zone.
        Couleurs figées issues de packages/design/src/tokens.json
        (source de vérité : packages/design/src/tokens.ts)
        ============================================================ */
@@ -23,7 +26,6 @@
       --violet-800: #49226C;
       --violet-900: #381A53;
       --violet-950: #250F3A;
-      --gold-200: #F1DC92;
       --gold-300: #E8C75C;
       --gold-400: #DEB232;
       --gold-500: #D4A017;
@@ -63,23 +65,12 @@
       position: relative;
       width: 1920px;
       height: 1080px;
-      padding: 112px 160px 176px;
+      padding: 96px 160px 176px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
     .display { font-family: var(--font-display); font-weight: 600; }
-
-    /* Filigrane losange en coin de fin de lecture */
-    .corner-motif {
-      position: absolute;
-      inset-inline-end: -160px;
-      bottom: -160px;
-      width: 520px;
-      height: 520px;
-      opacity: 0.5;
-      pointer-events: none;
-    }
 
     .kicker {
       display: flex;
@@ -100,43 +91,84 @@
     html[dir="rtl"] .kicker::after { background: linear-gradient(to left, var(--gold-500), transparent); }
 
     .title {
-      margin-top: 28px;
-      font-size: 64px;
+      margin-top: 24px;
+      font-size: 54px;
       line-height: 1.15;
       letter-spacing: -0.015em;
-      max-width: 1440px;
+      max-width: 1500px;
       text-wrap: balance;
     }
 
-    /* Liste à puces : losanges or, 5 points maximum, interlignage aéré */
-    .bullets {
-      list-style: none;
-      margin-top: 84px;
-      max-width: 1480px;
+    /* ---------- Zone schéma ---------- */
+    .board {
+      position: relative;
+      margin-top: 52px;
+      flex: 1;
+      min-height: 0;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background:
+        /* grille de points violets très discrète */
+        radial-gradient(circle at center, rgba(142, 85, 190, 0.16) 1.5px, transparent 1.5px) 0 0 / 44px 44px,
+        linear-gradient(180deg, var(--surface-subtle), var(--surface) 70%);
+      box-shadow:
+        inset 0 0 120px rgba(13, 7, 20, 0.55),           /* vignette interne (bg) */
+        0 16px 48px -12px rgba(37, 15, 58, 0.6);
       display: flex;
-      flex-direction: column;
-      gap: 52px;
+      align-items: center;
+      justify-content: center;
+      padding: 64px 80px;
+      overflow: hidden;
     }
-    .bullets li {
+    /* Équerres décoratives or aux quatre coins */
+    .corner {
+      position: absolute;
+      width: 36px;
+      height: 36px;
+      border: 2px solid var(--gold-500);
+      opacity: 0.75;
+    }
+    .corner-tl { top: 22px;  left: 22px;  border-right: none; border-bottom: none; border-start-start-radius: 8px; }
+    .corner-tr { top: 22px;  right: 22px; border-left: none;  border-bottom: none; border-start-end-radius: 8px; }
+    .corner-bl { bottom: 22px; left: 22px;  border-right: none; border-top: none; border-end-start-radius: 8px; }
+    .corner-br { bottom: 22px; right: 22px; border-left: none;  border-top: none; border-end-end-radius: 8px; }
+
+    /* Le schéma injecté occupe au mieux la zone sans déborder */
+    .diagram-content {
+      max-width: 100%;
+      max-height: 100%;
       display: flex;
-      align-items: flex-start;
-      gap: 36px;
+      align-items: center;
+      justify-content: center;
     }
-    .bullet-diamond {
-      flex: none;
-      width: 18px;
-      height: 18px;
-      margin-top: 17px;
-      transform: rotate(45deg);
-      border-radius: 3px;
-      background: linear-gradient(135deg, var(--gold-300), var(--gold-600));
-      box-shadow: 0 0 18px rgba(212, 160, 23, 0.35); /* gold.500 */
+    .diagram-content svg,
+    .diagram-content img {
+      max-width: 1440px;
+      max-height: 560px;
+      width: auto;
+      height: auto;
     }
-    .bullet-text {
-      font-size: 37px;
-      line-height: 1.45;
-      color: var(--fg);
+
+    /* Légende sous la zone, centrée */
+    .caption {
+      margin-top: 32px;
+      text-align: center;
+      font-size: 26px;
+      line-height: 1.5;
+      color: var(--muted);
       text-wrap: pretty;
+    }
+    .caption:empty { display: none; }
+    /* Petit losange or avant la légende */
+    .caption::before {
+      content: "";
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-inline-end: 16px;
+      transform: rotate(45deg) translateY(-2px);
+      border-radius: 2px;
+      background: linear-gradient(135deg, var(--gold-300), var(--gold-600));
     }
 
     /* Pied de page discret : titre du cours + progression */
@@ -180,23 +212,21 @@
 </head>
 <body>
   <div class="slide">
-    <svg class="corner-motif" viewBox="0 0 520 520" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <g transform="translate(260 260)">
-        <rect x="-230" y="-230" width="460" height="460" transform="rotate(45)" stroke="var(--violet-900)" stroke-width="1.5" fill="none"/>
-        <rect x="-170" y="-170" width="340" height="340" transform="rotate(45)" stroke="var(--violet-800)" stroke-width="1.5" fill="none"/>
-        <rect x="-110" y="-110" width="220" height="220" transform="rotate(45)" stroke="var(--violet-700)" stroke-width="1.5" fill="none"/>
-      </g>
-    </svg>
-
     <header>
       <div class="kicker"><span>{{lessonLabel}} {{lessonNumber}}</span></div>
       <h2 class="display title">{{title}}</h2>
     </header>
 
-    <!-- Fragments <li> générés et échappés par renderTemplate() — max 5 -->
-    <ul class="bullets">
-      {{bullets}}
-    </ul>
+    <section class="board" aria-label="schéma">
+      <span class="corner corner-tl" aria-hidden="true"></span>
+      <span class="corner corner-tr" aria-hidden="true"></span>
+      <span class="corner corner-bl" aria-hidden="true"></span>
+      <span class="corner corner-br" aria-hidden="true"></span>
+      <!-- Schéma injecté brut (SVG/HTML préparé en amont, jamais échappé ici) -->
+      <div class="diagram-content">{{diagramHtml}}</div>
+    </section>
+
+    <p class="caption">{{caption}}</p>
 
     <footer class="footer">
       <div class="footer-course">{{courseTitle}}</div>

@@ -2,10 +2,12 @@
 <html lang="{{lang}}" dir="{{direction}}">
 <head>
   <meta charset="utf-8">
-  <title>SALISTAR — slide contenu</title>
+  <title>SALISTAR — slide citation</title>
   <style>
     /* ============================================================
-       SALISTAR — gabarit "content" 1920×1080 (rendu Playwright)
+       SALISTAR — gabarit "quote" 1920×1080 (rendu Playwright)
+       Citation en exergue : encadré à liseré or, guillemet
+       décoratif serif, attribution sobre.
        Couleurs figées issues de packages/design/src/tokens.json
        (source de vérité : packages/design/src/tokens.ts)
        ============================================================ */
@@ -51,93 +53,117 @@
 
     /* Règles arabes : jamais de serif, jamais d'italique, titres ≥ 600 */
     html[dir="rtl"] body { font-family: var(--font-arabic); }
-    html[dir="rtl"] h1, html[dir="rtl"] h2, html[dir="rtl"] .display {
+    html[dir="rtl"] .display, html[dir="rtl"] .quote-text {
       font-family: var(--font-arabic);
       font-style: normal;
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: 0;
     }
-    html[dir="rtl"] .kicker, html[dir="rtl"] .footer-course { letter-spacing: 0; }
+    html[dir="rtl"] .qmark { font-family: var(--font-arabic); font-style: normal; }
+    html[dir="rtl"] .footer-course { letter-spacing: 0; }
 
     .slide {
       position: relative;
       width: 1920px;
       height: 1080px;
-      padding: 112px 160px 176px;
+      padding: 96px 160px 176px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
     .display { font-family: var(--font-display); font-weight: 600; }
 
-    /* Filigrane losange en coin de fin de lecture */
-    .corner-motif {
+    /* Halo d'ambiance centré, très discret */
+    .glow {
       position: absolute;
-      inset-inline-end: -160px;
-      bottom: -160px;
-      width: 520px;
-      height: 520px;
-      opacity: 0.5;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 1400px;
+      height: 1000px;
+      background: radial-gradient(closest-side, rgba(91, 42, 134, 0.28), transparent 70%);
       pointer-events: none;
     }
 
-    .kicker {
-      display: flex;
-      align-items: center;
-      gap: 24px;
-      color: var(--gold-400);
-      font-size: 26px;
-      font-weight: 600;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
+    /* ---------- Encadré citation : liseré or côté début de lecture ---------- */
+    .quote-card {
+      position: relative;
+      margin-block: auto;
+      max-width: 1480px;
+      padding: 88px 112px 84px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--surface-subtle), var(--surface) 60%);
+      border: 1px solid var(--border);
+      box-shadow: 0 16px 48px -12px rgba(37, 15, 58, 0.6);
     }
-    .kicker::after {
+    /* Liseré or dégradé, épais, côté inline-start (suit le sens de lecture) */
+    .quote-card::before {
       content: "";
-      height: 1px;
-      width: 96px;
-      background: linear-gradient(to right, var(--gold-500), transparent);
+      position: absolute;
+      inset-block: 0;
+      inset-inline-start: 0;
+      width: 8px;
+      border-start-start-radius: 20px;
+      border-end-start-radius: 20px;
+      background: linear-gradient(to bottom, var(--gold-300), var(--gold-500) 45%, var(--gold-600));
     }
-    html[dir="rtl"] .kicker::after { background: linear-gradient(to left, var(--gold-500), transparent); }
 
-    .title {
-      margin-top: 28px;
-      font-size: 64px;
-      line-height: 1.15;
-      letter-spacing: -0.015em;
-      max-width: 1440px;
+    /* Guillemet décoratif géant, serif, or voilé */
+    .qmark {
+      position: absolute;
+      top: -8px;
+      inset-inline-start: 56px;
+      font-family: var(--font-display);
+      font-size: 220px;
+      line-height: 1;
+      color: var(--gold-500);
+      opacity: 0.32;
+      user-select: none;
+      pointer-events: none;
+    }
+    .qmark::before { content: "\201C"; }             /* “ */
+    html[dir="rtl"] .qmark::before { content: "\00AB"; } /* « — usage arabe */
+
+    .quote-text {
+      position: relative;
+      font-family: var(--font-display);
+      font-weight: 500;
+      font-size: 62px;
+      line-height: 1.32;
+      letter-spacing: -0.01em;
+      color: var(--fg);
       text-wrap: balance;
     }
 
-    /* Liste à puces : losanges or, 5 points maximum, interlignage aéré */
-    .bullets {
-      list-style: none;
-      margin-top: 84px;
-      max-width: 1480px;
+    .attribution {
+      margin-top: 56px;
       display: flex;
-      flex-direction: column;
-      gap: 52px;
+      align-items: center;
+      gap: 28px;
     }
-    .bullets li {
-      display: flex;
-      align-items: flex-start;
-      gap: 36px;
-    }
-    .bullet-diamond {
+    /* Trait or court avant l'attribution */
+    .attribution::before {
+      content: "";
       flex: none;
-      width: 18px;
-      height: 18px;
-      margin-top: 17px;
-      transform: rotate(45deg);
-      border-radius: 3px;
-      background: linear-gradient(135deg, var(--gold-300), var(--gold-600));
-      box-shadow: 0 0 18px rgba(212, 160, 23, 0.35); /* gold.500 */
+      width: 64px;
+      height: 2px;
+      background: linear-gradient(to right, var(--gold-500), var(--gold-300));
     }
-    .bullet-text {
-      font-size: 37px;
-      line-height: 1.45;
-      color: var(--fg);
-      text-wrap: pretty;
+    html[dir="rtl"] .attribution::before { background: linear-gradient(to left, var(--gold-500), var(--gold-300)); }
+    .author {
+      font-size: 32px;
+      font-weight: 600;
+      color: var(--violet-300);
+      white-space: nowrap;
     }
+    .role {
+      font-size: 26px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .role:empty { display: none; }
 
     /* Pied de page discret : titre du cours + progression */
     .footer {
@@ -180,23 +206,16 @@
 </head>
 <body>
   <div class="slide">
-    <svg class="corner-motif" viewBox="0 0 520 520" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <g transform="translate(260 260)">
-        <rect x="-230" y="-230" width="460" height="460" transform="rotate(45)" stroke="var(--violet-900)" stroke-width="1.5" fill="none"/>
-        <rect x="-170" y="-170" width="340" height="340" transform="rotate(45)" stroke="var(--violet-800)" stroke-width="1.5" fill="none"/>
-        <rect x="-110" y="-110" width="220" height="220" transform="rotate(45)" stroke="var(--violet-700)" stroke-width="1.5" fill="none"/>
-      </g>
-    </svg>
+    <div class="glow" aria-hidden="true"></div>
 
-    <header>
-      <div class="kicker"><span>{{lessonLabel}} {{lessonNumber}}</span></div>
-      <h2 class="display title">{{title}}</h2>
-    </header>
-
-    <!-- Fragments <li> générés et échappés par renderTemplate() — max 5 -->
-    <ul class="bullets">
-      {{bullets}}
-    </ul>
+    <figure class="quote-card">
+      <div class="qmark" aria-hidden="true"></div>
+      <blockquote class="quote-text">{{quote}}</blockquote>
+      <figcaption class="attribution">
+        <span class="author">{{author}}</span>
+        <span class="role">{{role}}</span>
+      </figcaption>
+    </figure>
 
     <footer class="footer">
       <div class="footer-course">{{courseTitle}}</div>

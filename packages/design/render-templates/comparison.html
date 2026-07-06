@@ -2,10 +2,12 @@
 <html lang="{{lang}}" dir="{{direction}}">
 <head>
   <meta charset="utf-8">
-  <title>SALISTAR — slide contenu</title>
+  <title>SALISTAR — slide comparaison</title>
   <style>
     /* ============================================================
-       SALISTAR — gabarit "content" 1920×1080 (rendu Playwright)
+       SALISTAR — gabarit "comparison" 1920×1080 (rendu Playwright)
+       Deux colonnes en regard : colonne A liseré violet,
+       colonne B liseré or — divider vertical central.
        Couleurs figées issues de packages/design/src/tokens.json
        (source de vérité : packages/design/src/tokens.ts)
        ============================================================ */
@@ -51,7 +53,7 @@
 
     /* Règles arabes : jamais de serif, jamais d'italique, titres ≥ 600 */
     html[dir="rtl"] body { font-family: var(--font-arabic); }
-    html[dir="rtl"] h1, html[dir="rtl"] h2, html[dir="rtl"] .display {
+    html[dir="rtl"] h1, html[dir="rtl"] h2, html[dir="rtl"] h3, html[dir="rtl"] .display {
       font-family: var(--font-arabic);
       font-style: normal;
       font-weight: 700;
@@ -63,23 +65,12 @@
       position: relative;
       width: 1920px;
       height: 1080px;
-      padding: 112px 160px 176px;
+      padding: 96px 160px 176px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
     .display { font-family: var(--font-display); font-weight: 600; }
-
-    /* Filigrane losange en coin de fin de lecture */
-    .corner-motif {
-      position: absolute;
-      inset-inline-end: -160px;
-      bottom: -160px;
-      width: 520px;
-      height: 520px;
-      opacity: 0.5;
-      pointer-events: none;
-    }
 
     .kicker {
       display: flex;
@@ -100,40 +91,93 @@
     html[dir="rtl"] .kicker::after { background: linear-gradient(to left, var(--gold-500), transparent); }
 
     .title {
-      margin-top: 28px;
-      font-size: 64px;
+      margin-top: 24px;
+      font-size: 58px;
       line-height: 1.15;
       letter-spacing: -0.015em;
       max-width: 1440px;
       text-wrap: balance;
     }
 
-    /* Liste à puces : losanges or, 5 points maximum, interlignage aéré */
-    .bullets {
-      list-style: none;
-      margin-top: 84px;
-      max-width: 1480px;
-      display: flex;
-      flex-direction: column;
-      gap: 52px;
+    /* ---------- Deux colonnes ---------- */
+    .columns {
+      position: relative;
+      margin-top: 64px;
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 96px;
     }
-    .bullets li {
-      display: flex;
-      align-items: flex-start;
-      gap: 36px;
+    /* Divider vertical central, losange or au centre */
+    .divider {
+      position: absolute;
+      left: 50%;
+      top: 12px;
+      bottom: 12px;
+      width: 1px;
+      transform: translateX(-50%);
+      background: linear-gradient(to bottom, transparent, var(--border) 18%, var(--border) 82%, transparent);
     }
-    .bullet-diamond {
-      flex: none;
-      width: 18px;
-      height: 18px;
-      margin-top: 17px;
-      transform: rotate(45deg);
+    .divider::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 16px;
+      height: 16px;
+      transform: translate(-50%, -50%) rotate(45deg);
       border-radius: 3px;
       background: linear-gradient(135deg, var(--gold-300), var(--gold-600));
-      box-shadow: 0 0 18px rgba(212, 160, 23, 0.35); /* gold.500 */
+      box-shadow: 0 0 0 10px var(--bg), 0 0 22px rgba(212, 160, 23, 0.4); /* gold.500 */
     }
-    .bullet-text {
-      font-size: 37px;
+
+    .col {
+      display: flex;
+      flex-direction: column;
+      padding: 56px 60px;
+      border-radius: 20px;
+      background: linear-gradient(180deg, var(--surface-subtle), var(--surface) 65%);
+      border: 1px solid var(--border);
+      border-block-start-width: 4px;
+      min-height: 0;
+    }
+    .col-a { border-block-start-color: var(--violet-500); }
+    .col-b { border-block-start-color: var(--gold-500); }
+
+    .col-title {
+      font-size: 40px;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      text-wrap: balance;
+    }
+    .col-a .col-title { color: var(--violet-300); }
+    .col-b .col-title { color: var(--gold-300); }
+
+    .col-items {
+      list-style: none;
+      margin-top: 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 38px;
+    }
+    .col-items li {
+      display: flex;
+      align-items: flex-start;
+      gap: 26px;
+    }
+    .col-diamond {
+      flex: none;
+      width: 14px;
+      height: 14px;
+      margin-top: 15px;
+      transform: rotate(45deg);
+      border-radius: 3px;
+    }
+    .col-a .col-diamond { background: linear-gradient(135deg, var(--violet-300), var(--violet-700)); }
+    .col-b .col-diamond { background: linear-gradient(135deg, var(--gold-300), var(--gold-600)); }
+    .col-item-text {
+      font-size: 31px;
       line-height: 1.45;
       color: var(--fg);
       text-wrap: pretty;
@@ -180,23 +224,29 @@
 </head>
 <body>
   <div class="slide">
-    <svg class="corner-motif" viewBox="0 0 520 520" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <g transform="translate(260 260)">
-        <rect x="-230" y="-230" width="460" height="460" transform="rotate(45)" stroke="var(--violet-900)" stroke-width="1.5" fill="none"/>
-        <rect x="-170" y="-170" width="340" height="340" transform="rotate(45)" stroke="var(--violet-800)" stroke-width="1.5" fill="none"/>
-        <rect x="-110" y="-110" width="220" height="220" transform="rotate(45)" stroke="var(--violet-700)" stroke-width="1.5" fill="none"/>
-      </g>
-    </svg>
-
     <header>
       <div class="kicker"><span>{{lessonLabel}} {{lessonNumber}}</span></div>
       <h2 class="display title">{{title}}</h2>
     </header>
 
-    <!-- Fragments <li> générés et échappés par renderTemplate() — max 5 -->
-    <ul class="bullets">
-      {{bullets}}
-    </ul>
+    <section class="columns">
+      <div class="divider" aria-hidden="true"></div>
+
+      <div class="col col-a">
+        <h3 class="display col-title">{{leftTitle}}</h3>
+        <!-- Fragments <li> générés et échappés par renderTemplate() — max 4 -->
+        <ul class="col-items">
+          {{leftItems}}
+        </ul>
+      </div>
+
+      <div class="col col-b">
+        <h3 class="display col-title">{{rightTitle}}</h3>
+        <ul class="col-items">
+          {{rightItems}}
+        </ul>
+      </div>
+    </section>
 
     <footer class="footer">
       <div class="footer-course">{{courseTitle}}</div>

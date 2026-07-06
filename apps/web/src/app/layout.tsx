@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Figtree, Fraunces, IBM_Plex_Sans_Arabic } from 'next/font/google';
+import { MotionProvider } from '@/components/motion';
 import './globals.css';
 
 // Polices du design system SALISTAR — exposées en CSS variables
@@ -39,7 +40,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`dark ${fraunces.variable} ${figtree.variable} ${ibmPlexSansArabic.variable}`}
       suppressHydrationWarning
     >
-      <body>{children}</body>
+      <body>
+        {/* Provider global du motion : transition par défaut + prefers-reduced-motion. */}
+        <MotionProvider>{children}</MotionProvider>
+      </body>
     </html>
   );
 }

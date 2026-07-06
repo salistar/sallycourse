@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="{{lang}}" dir="{{direction}}">
+<head>
+  <meta charset="utf-8">
+  <title>SALISTAR — slide transition de section</title>
+  <style>
+    /* ============================================================
+       SALISTAR — gabarit "section-transition" 1920×1080 (Playwright)
+       Plein violet, respiration : numéro de section géant en
+       filigrane, titre centré, espace négatif maximal.
+       Couleurs figées issues de packages/design/src/tokens.json
+       (source de vérité : packages/design/src/tokens.ts)
+       ============================================================ */
+    :root {
+      --bg: #0D0714;              /* neutral.950 */
+      --fg: #F8F4FC;              /* violet.50 */
+      --muted: #C8A9E4;           /* violet.300 */
+      --violet-100: #EFE6F8;
+      --violet-200: #DFCDF0;
+      --violet-300: #C8A9E4;
+      --violet-400: #AB7DD3;
+      --violet-500: #8E55BE;
+      --violet-600: #7239A2;
+      --violet-700: #5B2A86;
+      --violet-800: #49226C;
+      --violet-900: #381A53;
+      --violet-950: #250F3A;
+      --gold-200: #F1DC92;
+      --gold-300: #E8C75C;
+      --gold-400: #DEB232;
+      --gold-500: #D4A017;
+      --gold-600: #B28212;
+      --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+      --font-sans: Figtree, "Segoe UI", system-ui, -apple-system, sans-serif;
+      --font-arabic: "Slide Arabic", "IBM Plex Sans Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+    }
+
+    /* Police arabe : @font-face en pur fallback système (zéro réseau) */
+    @font-face {
+      font-family: "Slide Arabic";
+      src: local("IBM Plex Sans Arabic"), local("Noto Sans Arabic"), local("Segoe UI"), local("Tahoma");
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 1920px; height: 1080px; overflow: hidden; }
+    body {
+      /* Plein violet : profondeur du 950 vers le 700 de marque */
+      background:
+        radial-gradient(1400px 900px at 50% 42%, rgba(114, 57, 162, 0.55), transparent 72%),
+        linear-gradient(180deg, var(--violet-900), var(--violet-950) 78%);
+      color: var(--fg);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    /* Règles arabes : jamais de serif, jamais d'italique, titres ≥ 600 */
+    html[dir="rtl"] body { font-family: var(--font-arabic); }
+    html[dir="rtl"] h1, html[dir="rtl"] .display, html[dir="rtl"] .ghost-number {
+      font-family: var(--font-arabic);
+      font-style: normal;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    html[dir="rtl"] .section-label, html[dir="rtl"] .footer-course { letter-spacing: 0; }
+
+    .slide {
+      position: relative;
+      width: 1920px;
+      height: 1080px;
+      padding: 120px 200px 160px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      overflow: hidden;
+    }
+    .display { font-family: var(--font-display); font-weight: 600; }
+
+    /* Numéro de section géant en filigrane, derrière le titre */
+    .ghost-number {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -54%);
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 760px;
+      line-height: 1;
+      color: transparent;
+      -webkit-text-stroke: 2px rgba(200, 169, 228, 0.16); /* violet.300 */
+      user-select: none;
+      pointer-events: none;
+    }
+
+    /* Fins anneaux décoratifs excentrés */
+    .rings {
+      position: absolute;
+      inset-inline-end: -340px;
+      top: -340px;
+      width: 900px;
+      height: 900px;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    .heart {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 48px;
+      max-width: 1360px;
+    }
+
+    .section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 28px;
+      color: var(--gold-300);
+      font-size: 30px;
+      font-weight: 600;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+    }
+    /* Traits symétriques de part et d'autre du libellé */
+    .section-label::before,
+    .section-label::after {
+      content: "";
+      width: 80px;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--gold-500));
+    }
+    .section-label::after { background: linear-gradient(to left, transparent, var(--gold-500)); }
+    .section-label .num {
+      font-family: var(--font-display);
+      font-size: 40px;
+      letter-spacing: 0.06em;
+      color: var(--gold-200);
+    }
+    html[dir="rtl"] .section-label .num { font-family: var(--font-arabic); font-weight: 700; }
+
+    .section-title {
+      font-size: 108px;
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+      color: var(--fg);
+      text-wrap: balance;
+      text-shadow: 0 4px 40px rgba(13, 7, 20, 0.5); /* neutral.950 */
+    }
+
+    /* Losange or seul, point d'orgue sous le titre */
+    .seal {
+      width: 18px;
+      height: 18px;
+      transform: rotate(45deg);
+      border-radius: 4px;
+      background: linear-gradient(135deg, var(--gold-300), var(--gold-600));
+      box-shadow: 0 0 28px rgba(212, 160, 23, 0.55); /* gold.500 */
+    }
+
+    /* Pied de page minimal : cours centré + progression */
+    .footer {
+      position: absolute;
+      bottom: 64px;
+      inset-inline: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      color: var(--muted);
+    }
+    .footer-course {
+      font-size: 20px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 1200px;
+      opacity: 0.8;
+    }
+    .footer-progress { display: flex; align-items: center; gap: 20px; }
+    .footer-track {
+      width: 320px;
+      height: 4px;
+      border-radius: 9999px;
+      background: rgba(200, 169, 228, 0.22); /* violet.300 */
+      overflow: hidden;
+    }
+    .footer-fill {
+      height: 100%;
+      border-radius: 9999px;
+      background: linear-gradient(to right, var(--violet-300), var(--gold-400));
+    }
+    html[dir="rtl"] .footer-fill { background: linear-gradient(to left, var(--violet-300), var(--gold-400)); }
+    .footer-label { font-size: 20px; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <div class="slide">
+    <div class="ghost-number" aria-hidden="true">{{sectionNumber}}</div>
+
+    <svg class="rings" viewBox="0 0 900 900" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="450" cy="450" r="430" stroke="var(--violet-600)" stroke-width="1" stroke-dasharray="2 12"/>
+      <circle cx="450" cy="450" r="330" stroke="var(--violet-500)" stroke-width="1" opacity="0.5"/>
+      <circle cx="450" cy="450" r="230" stroke="var(--violet-400)" stroke-width="1" opacity="0.35"/>
+    </svg>
+
+    <main class="heart">
+      <div class="section-label"><span>{{sectionLabel}}</span><span class="num">{{sectionNumber}}</span></div>
+      <h1 class="display section-title">{{title}}</h1>
+      <div class="seal" aria-hidden="true"></div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-course">{{courseTitle}}</div>
+      <div class="footer-progress">
+        <div class="footer-track"><div class="footer-fill" style="width: {{progress}}%"></div></div>
+        <span class="footer-label">{{progress}}%</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

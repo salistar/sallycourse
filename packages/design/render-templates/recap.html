@@ -2,10 +2,12 @@
 <html lang="{{lang}}" dir="{{direction}}">
 <head>
   <meta charset="utf-8">
-  <title>SALISTAR — slide contenu</title>
+  <title>SALISTAR — slide récapitulatif</title>
   <style>
     /* ============================================================
-       SALISTAR — gabarit "content" 1920×1080 (rendu Playwright)
+       SALISTAR — gabarit "recap" 1920×1080 (rendu Playwright)
+       Checklist de fin de leçon : coches or sur pastilles violettes,
+       6 points maximum, deux colonnes au-delà de 4.
        Couleurs figées issues de packages/design/src/tokens.json
        (source de vérité : packages/design/src/tokens.ts)
        ============================================================ */
@@ -70,7 +72,7 @@
     }
     .display { font-family: var(--font-display); font-weight: 600; }
 
-    /* Filigrane losange en coin de fin de lecture */
+    /* Filigrane losanges en coin, identique au gabarit contenu */
     .corner-motif {
       position: absolute;
       inset-inline-end: -160px;
@@ -108,35 +110,50 @@
       text-wrap: balance;
     }
 
-    /* Liste à puces : losanges or, 5 points maximum, interlignage aéré */
-    .bullets {
+    /* ---------- Checklist ---------- */
+    .checklist {
       list-style: none;
-      margin-top: 84px;
-      max-width: 1480px;
+      margin-top: 80px;
+      max-width: 1560px;
       display: flex;
       flex-direction: column;
-      gap: 52px;
+      gap: 46px;
     }
-    .bullets li {
+    /* Au-delà de 4 points, renderTemplate() pose .two-cols : grille 2 colonnes */
+    .checklist.two-cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 88px;
+      row-gap: 46px;
+      max-width: none;
+    }
+
+    .checklist li {
       display: flex;
       align-items: flex-start;
-      gap: 36px;
+      gap: 32px;
     }
-    .bullet-diamond {
+    /* Pastille : disque violet profond cerclé, coche or */
+    .check {
       flex: none;
-      width: 18px;
-      height: 18px;
-      margin-top: 17px;
-      transform: rotate(45deg);
-      border-radius: 3px;
-      background: linear-gradient(135deg, var(--gold-300), var(--gold-600));
-      box-shadow: 0 0 18px rgba(212, 160, 23, 0.35); /* gold.500 */
+      width: 52px;
+      height: 52px;
+      margin-top: 2px;
+      border-radius: 9999px;
+      background: radial-gradient(circle at 30% 25%, var(--violet-800), var(--violet-950));
+      border: 1.5px solid var(--violet-500);
+      box-shadow: 0 0 20px rgba(142, 85, 190, 0.3); /* violet.500 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .bullet-text {
-      font-size: 37px;
+    .check svg { width: 26px; height: 26px; display: block; }
+    .check-text {
+      font-size: 35px;
       line-height: 1.45;
       color: var(--fg);
       text-wrap: pretty;
+      padding-top: 4px;
     }
 
     /* Pied de page discret : titre du cours + progression */
@@ -193,9 +210,9 @@
       <h2 class="display title">{{title}}</h2>
     </header>
 
-    <!-- Fragments <li> générés et échappés par renderTemplate() — max 5 -->
-    <ul class="bullets">
-      {{bullets}}
+    <!-- Fragments <li> (pastille + texte échappé) générés par renderTemplate() — max 6 -->
+    <ul class="checklist{{checklistLayout}}">
+      {{items}}
     </ul>
 
     <footer class="footer">

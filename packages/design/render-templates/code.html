@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="{{lang}}" dir="{{direction}}">
+<head>
+  <meta charset="utf-8">
+  <title>SALISTAR — slide code</title>
+  <style>
+    /* ============================================================
+       SALISTAR — gabarit "code" 1920×1080 (rendu Playwright)
+       Fenêtre macOS-like, thème violet, numéros de ligne.
+       Le HTML du code ({{codeHtml}}) est injecté PRÉ-COLORIÉ par
+       renderTemplate() : soit avec styles inline, soit avec les
+       classes .tok-* définies ci-dessous (palette tokens.json).
+       Couleurs figées issues de packages/design/src/tokens.json
+       (source de vérité : packages/design/src/tokens.ts)
+       ============================================================ */
+    :root {
+      --bg: #0D0714;              /* neutral.950 */
+      --surface: #171021;         /* themes.dark.surface */
+      --surface-subtle: #231B2F;  /* neutral.900 */
+      --fg: #F3F0F7;              /* neutral.100 */
+      --muted: #A89DBA;           /* neutral.400 */
+      --muted-deep: #7F7492;      /* neutral.500 */
+      --border: #362D43;          /* neutral.800 */
+      --violet-300: #C8A9E4;
+      --violet-400: #AB7DD3;
+      --violet-500: #8E55BE;
+      --violet-700: #5B2A86;
+      --violet-800: #49226C;
+      --violet-900: #381A53;
+      --violet-950: #250F3A;
+      --gold-300: #E8C75C;
+      --gold-400: #DEB232;
+      --gold-500: #D4A017;
+      --gold-600: #B28212;
+      /* Pastilles macOS — statuts du thème sombre (themes.dark) */
+      --dot-close: #E36A80;       /* danger */
+      --dot-min: #E69D2B;         /* warning */
+      --dot-max: #47BA84;         /* success */
+      --info-400: #7793DE;        /* colors.info.400 */
+      --success-300: #79D3A7;     /* colors.success.300 */
+      --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+      --font-sans: Figtree, "Segoe UI", system-ui, -apple-system, sans-serif;
+      --font-arabic: "Slide Arabic", "IBM Plex Sans Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+      /* Pile mono locale (aucun réseau) — le code reste toujours LTR */
+      --font-mono: "JetBrains Mono", "Cascadia Code", "Fira Code", "SF Mono", Consolas, "Courier New", monospace;
+    }
+
+    /* Police arabe : @font-face en pur fallback système (zéro réseau) */
+    @font-face {
+      font-family: "Slide Arabic";
+      src: local("IBM Plex Sans Arabic"), local("Noto Sans Arabic"), local("Segoe UI"), local("Tahoma");
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 1920px; height: 1080px; overflow: hidden; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    /* Règles arabes : jamais de serif, jamais d'italique, titres ≥ 600 */
+    html[dir="rtl"] body { font-family: var(--font-arabic); }
+    html[dir="rtl"] h1, html[dir="rtl"] h2, html[dir="rtl"] .display {
+      font-family: var(--font-arabic);
+      font-style: normal;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    html[dir="rtl"] .kicker, html[dir="rtl"] .footer-course { letter-spacing: 0; }
+
+    .slide {
+      position: relative;
+      width: 1920px;
+      height: 1080px;
+      padding: 96px 160px 176px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .display { font-family: var(--font-display); font-weight: 600; }
+
+    /* Halo violet discret derrière la fenêtre */
+    .glow {
+      position: absolute;
+      inset-inline-end: -300px;
+      bottom: -420px;
+      width: 1100px;
+      height: 1100px;
+      background: radial-gradient(closest-side, rgba(91, 42, 134, 0.32), transparent 70%);
+      pointer-events: none;
+    }
+
+    .kicker {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      color: var(--gold-400);
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+    .kicker::after {
+      content: "";
+      height: 1px;
+      width: 96px;
+      background: linear-gradient(to right, var(--gold-500), transparent);
+    }
+    html[dir="rtl"] .kicker::after { background: linear-gradient(to left, var(--gold-500), transparent); }
+
+    .title {
+      margin-top: 24px;
+      font-size: 54px;
+      line-height: 1.15;
+      letter-spacing: -0.015em;
+      max-width: 1500px;
+      text-wrap: balance;
+    }
+
+    /* ---------- Fenêtre macOS-like ---------- */
+    .window {
+      position: relative;
+      margin-top: 56px;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--surface-subtle), var(--surface) 120px);
+      box-shadow: 0 16px 48px -12px rgba(37, 15, 58, 0.7), 0 0 0 1px rgba(142, 85, 190, 0.12);
+      overflow: hidden;
+    }
+    .window-bar {
+      flex: none;
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      padding: 26px 36px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(37, 15, 58, 0.35); /* violet.950 voilé */
+    }
+    .dots { display: flex; gap: 14px; flex: none; }
+    .dot { width: 20px; height: 20px; border-radius: 9999px; }
+    .dot-close { background: var(--dot-close); }
+    .dot-min { background: var(--dot-min); }
+    .dot-max { background: var(--dot-max); }
+
+    .file-name {
+      flex: 1;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 24px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .file-name:empty { visibility: hidden; }
+
+    .lang-badge {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 22px;
+      border-radius: 9999px;
+      border: 1px solid var(--gold-600);
+      background: rgba(212, 160, 23, 0.12); /* gold.500 voilé */
+      color: var(--gold-300);
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .lang-badge::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      transform: rotate(45deg);
+      border-radius: 2px;
+      background: linear-gradient(135deg, var(--gold-300), var(--gold-600));
+    }
+
+    /* Zone de code — TOUJOURS LTR, même sur slide arabe */
+    .code-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      padding: 40px 0 48px;
+      direction: ltr;
+      text-align: left;
+    }
+    pre.code {
+      font-family: var(--font-mono);
+      font-size: 30px;
+      line-height: 1.7;
+      tab-size: 2;
+      counter-reset: line;
+      white-space: pre;
+    }
+    /* Chaque ligne = <span class="line"> (générée par renderTemplate) */
+    pre.code .line {
+      display: block;
+      counter-increment: line;
+      padding-inline: 116px 48px;
+    }
+    pre.code .line::before {
+      content: counter(line);
+      position: absolute;
+      inset-inline-start: 0;
+      width: 84px;
+      text-align: right;
+      padding-right: 8px;
+      color: var(--muted-deep);
+      opacity: 0.65;
+      font-variant-numeric: tabular-nums;
+      user-select: none;
+    }
+    pre.code .line { position: relative; }
+    /* Ligne mise en évidence (classe optionnelle posée par le worker) */
+    pre.code .line.hl {
+      background: linear-gradient(to right, rgba(142, 85, 190, 0.18), transparent 85%);
+      box-shadow: inset 3px 0 0 var(--gold-500);
+    }
+
+    /* Palette syntaxique violette — classes utilisables par le colorateur */
+    .tok-kw    { color: var(--violet-300); font-weight: 600; } /* mots-clés */
+    .tok-str   { color: var(--gold-300); }                     /* chaînes */
+    .tok-num   { color: var(--gold-400); }                     /* nombres */
+    .tok-fn    { color: var(--info-400); }                     /* fonctions */
+    .tok-type  { color: var(--success-300); }                  /* types / classes */
+    .tok-com   { color: var(--muted-deep); font-style: italic; } /* commentaires */
+    .tok-punct { color: var(--muted); }                        /* ponctuation */
+    .tok-var   { color: var(--fg); }                           /* identifiants */
+
+    /* Pied de page discret : titre du cours + progression */
+    .footer {
+      position: absolute;
+      bottom: 64px;
+      inset-inline: 160px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 48px;
+      color: var(--muted);
+    }
+    .footer-course {
+      font-size: 20px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 1100px;
+      opacity: 0.85;
+    }
+    .footer-progress { display: flex; align-items: center; gap: 20px; flex: none; }
+    .footer-track {
+      width: 320px;
+      height: 5px;
+      border-radius: 9999px;
+      background: var(--border);
+      overflow: hidden;
+    }
+    .footer-fill {
+      height: 100%;
+      border-radius: 9999px;
+      background: linear-gradient(to right, var(--violet-500), var(--violet-400) 55%, var(--gold-400));
+    }
+    html[dir="rtl"] .footer-fill { background: linear-gradient(to left, var(--violet-500), var(--violet-400) 55%, var(--gold-400)); }
+    .footer-label { font-size: 21px; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <div class="slide">
+    <div class="glow" aria-hidden="true"></div>
+
+    <header>
+      <div class="kicker"><span>{{lessonLabel}} {{lessonNumber}}</span></div>
+      <h2 class="display title">{{title}}</h2>
+    </header>
+
+    <section class="window" aria-label="code">
+      <div class="window-bar">
+        <div class="dots" aria-hidden="true">
+          <span class="dot dot-close"></span>
+          <span class="dot dot-min"></span>
+          <span class="dot dot-max"></span>
+        </div>
+        <div class="file-name">{{fileName}}</div>
+        <div class="lang-badge">{{language}}</div>
+      </div>
+      <div class="code-scroll">
+        <!-- Code injecté pré-colorié (lignes en span.line, jamais échappé ici) -->
+        <pre class="code"><code>{{codeHtml}}</code></pre>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="footer-course">{{courseTitle}}</div>
+      <div class="footer-progress">
+        <div class="footer-track"><div class="footer-fill" style="width: {{progress}}%"></div></div>
+        <span class="footer-label">{{progress}}%</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

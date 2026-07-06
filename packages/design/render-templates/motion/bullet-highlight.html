@@ -1,0 +1,304 @@
+<!doctype html>
+<!--
+  SALISTAR — bullet-highlight.html (surlignage progressif des bullets)
+  Slide plein écran (1920×1080, fond opaque) dont les bullets s'allument
+  au fil de la narration. Déterminisme par ÉTATS + BALAYAGE :
+
+    · Chaque <li class="bh-bullet"> porte exactement UN état :
+        .is-dim        — pas encore lue (atténuée)
+        .is-active     — en cours de lecture (pleine intensité + halo)
+        .is-done       — déjà lue (intensité intermédiaire)
+        .is-activating — transition dim → active, seekée via --t (0 → 1)
+      AUCUNE `transition` CSS : les états sont instantanés, seule la classe
+      .is-activating anime (keyframes en pause, délai négatif — cf. README).
+
+    · La durée du balayage d'activation est --seq-step ({{SEQ_STEP_MS}}).
+
+  Placeholders : {{LANG}} {{DIR}} {{SEQ_STEP_MS}} {{LESSON_LABEL}} {{TITLE}} {{BULLETS}}
+  {{BULLETS}} = fragments <li> générés (texte échappé) par le worker, 5 max :
+
+    <li class="bh-bullet is-dim">
+      <span class="bh-diamond" aria-hidden="true"></span>
+      <span class="bh-copy">
+        <span class="bh-highlight" aria-hidden="true"></span>
+        <span class="bh-text">Texte de la bullet</span>
+      </span>
+    </li>
+
+  Couleurs : exclusivement via les variables --sc-* injectées à la place de
+  /*__SC_TOKENS__*/ (jamais de hex ici — règle maison).
+-->
+<html class="dark" lang="{{LANG}}" dir="{{DIR}}">
+<head>
+<meta charset="utf-8" />
+<style id="sc-tokens">
+/*__SC_TOKENS__*/
+</style>
+<style id="sc-fonts">
+/*__SC_FONTS__*/
+</style>
+<style>
+  :root {
+    --t: 0;
+    --seq-step: {{SEQ_STEP_MS}}ms; /* durée du balayage dim → active */
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+
+  body {
+    font-family: 'Figtree', system-ui, sans-serif;
+    color: rgb(var(--sc-foreground));
+    background:
+      radial-gradient(110% 85% at 50% -15%, rgb(var(--sc-primary) / 0.14), transparent 60%),
+      rgb(var(--sc-background));
+  }
+
+  /* Arabe : jamais de serif, IBM Plex Sans Arabic partout (règle tokens). */
+  [dir='rtl'] body,
+  [dir='rtl'] .bh-title {
+    font-family: 'IBM Plex Sans Arabic', Tahoma, Arial, sans-serif;
+    font-style: normal;
+  }
+
+  /* ------------------------------ Mise en page ------------------------- */
+  .bh-slide {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: 112px 160px;
+    overflow: hidden;
+  }
+
+  .bh-kicker {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgb(var(--sc-accent));
+  }
+  .bh-kicker::after {
+    content: '';
+    height: 1px;
+    width: 96px;
+    background: linear-gradient(to right, rgb(var(--sc-accent)), transparent);
+  }
+  [dir='rtl'] .bh-kicker { letter-spacing: 0.06em; }
+  [dir='rtl'] .bh-kicker::after {
+    background: linear-gradient(to left, rgb(var(--sc-accent)), transparent);
+  }
+
+  .bh-title {
+    margin-top: 28px;
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+    font-size: 60px;
+    line-height: 1.15;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    max-width: 1440px;
+    text-wrap: balance;
+  }
+  [dir='rtl'] .bh-title { font-weight: 700; letter-spacing: 0; }
+
+  /* ------------------------------- Bullets ----------------------------- */
+  .bh-bullets {
+    list-style: none;
+    margin-top: 84px;
+    max-width: 1480px;
+    display: flex;
+    flex-direction: column;
+    gap: 52px;
+  }
+
+  .bh-bullet {
+    display: flex;
+    align-items: flex-start;
+    gap: 36px;
+    /* PAS de `transition` : les changements d'état doivent être instantanés
+       pour que chaque screenshot soit reproductible. */
+  }
+
+  .bh-diamond {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin-top: 18px;
+    transform: rotate(45deg);
+    border-radius: 3px;
+  }
+
+  .bh-copy {
+    position: relative;
+    display: inline-block;
+    min-width: 0;
+  }
+
+  /* Voile de surlignage derrière le texte actif — balayé au sens de lecture. */
+  .bh-highlight {
+    position: absolute;
+    inset-block: -6px;
+    inset-inline: -20px;
+    border-radius: 12px;
+    background: linear-gradient(
+      90deg,
+      rgb(var(--sc-primary) / 0.28),
+      rgb(var(--sc-accent) / 0.1)
+    );
+    transform: scaleX(0);
+    transform-origin: 0 50%;
+    pointer-events: none;
+  }
+  [dir='rtl'] .bh-highlight {
+    transform-origin: 100% 50%;
+    background: linear-gradient(
+      270deg,
+      rgb(var(--sc-primary) / 0.28),
+      rgb(var(--sc-accent) / 0.1)
+    );
+  }
+
+  .bh-text {
+    position: relative; /* au-dessus du voile */
+    font-size: 38px;
+    line-height: 1.45;
+    text-wrap: pretty;
+  }
+
+  /* --------------------------- État : is-dim --------------------------- */
+  .bh-bullet.is-dim { opacity: 0.38; }
+  .bh-bullet.is-dim .bh-diamond {
+    background: rgb(var(--sc-border));
+    box-shadow: none;
+  }
+  .bh-bullet.is-dim .bh-text { color: rgb(var(--sc-muted-foreground)); }
+
+  /* -------------------------- État : is-active ------------------------- */
+  .bh-bullet.is-active { opacity: 1; }
+  .bh-bullet.is-active .bh-diamond {
+    background: linear-gradient(135deg, rgb(var(--sc-accent)), rgb(var(--sc-accent) / 0.6));
+    box-shadow: 0 0 18px rgb(var(--sc-accent) / 0.4);
+  }
+  .bh-bullet.is-active .bh-text { color: rgb(var(--sc-foreground)); }
+  .bh-bullet.is-active .bh-highlight { transform: scaleX(1); }
+
+  /* --------------------------- État : is-done -------------------------- */
+  .bh-bullet.is-done { opacity: 0.62; }
+  .bh-bullet.is-done .bh-diamond {
+    background: rgb(var(--sc-accent) / 0.55);
+    box-shadow: none;
+  }
+  .bh-bullet.is-done .bh-text { color: rgb(var(--sc-foreground)); }
+  .bh-bullet.is-done .bh-highlight { transform: scaleX(0); }
+
+  /* ----------------------- État : is-activating ------------------------ */
+  /* Balayage dim → active, seeké via --t sur la durée --seq-step.          */
+  /* Les keyframes DÉMARRENT sur l'état dim et FINISSENT exactement sur     */
+  /* l'état active : la bascule de classe en fin de step est invisible.     */
+  .bh-bullet.is-activating,
+  .bh-bullet.is-activating .bh-diamond,
+  .bh-bullet.is-activating .bh-highlight,
+  .bh-bullet.is-activating .bh-text {
+    animation-duration: var(--seq-step);
+    animation-play-state: paused !important;
+    animation-fill-mode: both;
+    animation-timing-function: linear; /* le easing vit DANS les keyframes */
+    animation-delay: calc(-1 * var(--t) * var(--seq-step));
+  }
+  .bh-bullet.is-activating               { animation-name: bh-rise; }
+  .bh-bullet.is-activating .bh-diamond   { animation-name: bh-diamond-ignite; }
+  .bh-bullet.is-activating .bh-highlight { animation-name: bh-highlight-sweep; }
+  .bh-bullet.is-activating .bh-text      { animation-name: bh-text-warm; }
+
+  /* Levée verticale : direction-agnostique, donc identique en RTL. */
+  @keyframes bh-rise {
+    0% {
+      opacity: 0.38;
+      transform: translateY(8px);
+      animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+    }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Le losange s'embrase : gris → or, léger sursaut d'échelle. */
+  @keyframes bh-diamond-ignite {
+    0% {
+      background: rgb(var(--sc-border));
+      box-shadow: 0 0 0 rgb(var(--sc-accent) / 0);
+      transform: rotate(45deg) scale(1);
+      animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    62% {
+      background: linear-gradient(135deg, rgb(var(--sc-accent)), rgb(var(--sc-accent) / 0.6));
+      box-shadow: 0 0 22px rgb(var(--sc-accent) / 0.5);
+      transform: rotate(45deg) scale(1.22);
+    }
+    100% {
+      background: linear-gradient(135deg, rgb(var(--sc-accent)), rgb(var(--sc-accent) / 0.6));
+      box-shadow: 0 0 18px rgb(var(--sc-accent) / 0.4);
+      transform: rotate(45deg) scale(1);
+    }
+  }
+
+  /* Voile balayé au sens de lecture (transform-origin logique déjà posé). */
+  @keyframes bh-highlight-sweep {
+    0% {
+      transform: scaleX(0);
+      animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    18%  { transform: scaleX(0); } /* le losange s'allume d'abord */
+    100% { transform: scaleX(1); }
+  }
+
+  /* Le texte se réchauffe : muted → foreground. */
+  @keyframes bh-text-warm {
+    0% {
+      color: rgb(var(--sc-muted-foreground));
+      animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+    }
+    100% { color: rgb(var(--sc-foreground)); }
+  }
+
+  /* --------------------------- Motif de coin --------------------------- */
+  .bh-corner {
+    position: absolute;
+    inset-inline-end: -160px;
+    bottom: -160px;
+    width: 520px;
+    height: 520px;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .bh-corner rect { fill: none; stroke-width: 1.5; }
+  .bh-corner .r1 { stroke: rgb(var(--sc-primary) / 0.35); }
+  .bh-corner .r2 { stroke: rgb(var(--sc-primary) / 0.5); }
+  .bh-corner .r3 { stroke: rgb(var(--sc-primary) / 0.7); }
+</style>
+</head>
+<body>
+  <main class="bh-slide">
+    <svg class="bh-corner" viewBox="0 0 520 520" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <g transform="translate(260 260)">
+        <rect class="r1" x="-230" y="-230" width="460" height="460" transform="rotate(45)" />
+        <rect class="r2" x="-170" y="-170" width="340" height="340" transform="rotate(45)" />
+        <rect class="r3" x="-110" y="-110" width="220" height="220" transform="rotate(45)" />
+      </g>
+    </svg>
+
+    <header>
+      <p class="bh-kicker"><span>{{LESSON_LABEL}}</span></p>
+      <h2 class="bh-title">{{TITLE}}</h2>
+    </header>
+
+    <!-- {{BULLETS}} : fragments <li class="bh-bullet is-dim">…</li> — 5 max -->
+    <ul class="bh-bullets">
+      {{BULLETS}}
+    </ul>
+  </main>
+</body>
+</html>

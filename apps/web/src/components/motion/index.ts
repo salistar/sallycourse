@@ -1,11 +1,32 @@
 /**
- * Primitives de motion SALISTAR — compteurs et timelines animés,
- * réutilisés par le dashboard et les écrans de génération.
+ * Système de motion SALISTAR — point d'entrée unique.
+ * Configuration (durées/courbes tokens, MotionProvider), transitions de page,
+ * listes orchestrées, timeline de génération, célébration, compteurs, tilt.
  */
-export { CountUp, type CountUpProps } from './count-up';
+export {
+  MotionProvider,
+  usePrefersReducedMotion,
+  motionDurations,
+  motionEasings,
+  transitions,
+  fadeInVariants,
+  fadeInUpVariants,
+  scaleInVariants,
+  type MotionProviderProps,
+} from './motion-config';
+export { PageTransition, type PageTransitionProps } from './page-transition';
+export {
+  StaggerList,
+  StaggerItem,
+  type StaggerListProps,
+  type StaggerItemProps,
+} from './stagger-list';
 export {
   GenerationTimeline,
   type GenerationTimelineProps,
-  type GenerationTimelineStep,
-  type GenerationStepStatus,
+  type GenerationStep,
+  type GenerationTimelineStatus,
 } from './generation-timeline';
+export { Confetti, type ConfettiProps } from './confetti';
+export { CountUp, type CountUpProps } from './count-up';
+export { TiltCard, type TiltCardProps } from './tilt-card';

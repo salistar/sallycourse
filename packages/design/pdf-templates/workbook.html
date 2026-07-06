@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="{{lang}}" dir="{{direction}}">
+<head>
+  <meta charset="utf-8">
+  <title>SALISTAR — workbook</title>
+  <style>
+    /* ============================================================
+       SALISTAR — workbook TP (A4 portrait, thème clair imprimable)
+       Rendu : WeasyPrint (margin boxes @top/@bottom) ou Playwright.
+       Couleurs figées issues de packages/design/src/tokens.json
+       (source de vérité : packages/design/src/tokens.ts)
+
+       Contrat des fragments {{{sectionsHtml}}} — classes attendues :
+         <section class="wb-section">
+           <header class="wb-section-header">
+             <span class="wb-section-index">01</span>
+             <h2>Titre de section</h2>
+           </header>
+           <div class="wb-objective">Objectif de l'exercice…</div>
+           <ol class="wb-steps">
+             <li class="wb-step">
+               <h3>Titre de l'étape</h3>
+               <p>Consigne…</p>
+               <pre class="wb-code">commande ou extrait</pre>
+             </li>
+           </ol>
+           <div class="wb-answer">
+             <div class="wb-answer-label">Votre réponse</div>
+             <div class="wb-lines lines-6"></div>
+           </div>
+           <div class="wb-tip">Astuce ou rappel…</div>
+         </section>
+       ============================================================ */
+    :root {
+      --paper: #FFFFFF;
+      --paper-subtle: #FAF8FC;   /* neutral.50 */
+      --ink: #231B2F;            /* neutral.900 */
+      --ink-soft: #4B4157;       /* neutral.700 */
+      --muted: #7F7492;          /* neutral.500 */
+      --line: #E7E2EE;           /* neutral.200 */
+      --rule: #D3CBDF;           /* neutral.300 */
+      --violet-50: #F8F4FC;
+      --violet-100: #EFE6F8;
+      --violet-300: #C8A9E4;
+      --violet-600: #7239A2;
+      --violet-700: #5B2A86;
+      --violet-900: #381A53;
+      --gold-100: #F8EDC7;
+      --gold-400: #DEB232;
+      --gold-500: #D4A017;
+      --gold-600: #B28212;
+      --gold-900: #573D11;
+      --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+      --font-sans: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+      --font-arabic: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+      --font-mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+    }
+
+    /* En-têtes / pieds de page : margin boxes CSS (WeasyPrint). */
+    @page {
+      size: A4;
+      margin: 24mm 18mm 22mm;
+      @top-left {
+        content: string(doc-course);
+        font-family: "Figtree", "Segoe UI", sans-serif;
+        font-size: 7.5pt;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #7F7492;
+      }
+      @top-right {
+        content: string(doc-title);
+        font-family: "Figtree", "Segoe UI", sans-serif;
+        font-size: 7.5pt;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #5B2A86;
+      }
+      @bottom-left {
+        content: string(doc-footer);
+        font-family: "Figtree", "Segoe UI", sans-serif;
+        font-size: 7.5pt;
+        color: #7F7492;
+      }
+      @bottom-center {
+        content: counter(page) " / " counter(pages);
+        font-family: "Figtree", "Segoe UI", sans-serif;
+        font-size: 8pt;
+        color: #4B4157;
+      }
+    }
+    /* Première page (titre du document) : pas d'en-tête redondant. */
+    @page :first {
+      @top-left { content: none; }
+      @top-right { content: none; }
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      font-size: 10.5pt;
+      line-height: 1.55;
+    }
+    .display { font-family: var(--font-display); font-weight: 600; }
+
+    /* Règles arabes : jamais de serif, jamais d'italique, titres ≥ 600. */
+    html[dir="rtl"] body { font-family: var(--font-arabic); }
+    html[dir="rtl"] .display,
+    html[dir="rtl"] h1, html[dir="rtl"] h2, html[dir="rtl"] h3 {
+      font-family: var(--font-arabic);
+      font-style: normal;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    html[dir="rtl"] .doc-kicker,
+    html[dir="rtl"] .wb-answer-label { letter-spacing: 0; }
+
+    /* Coureurs de chaîne pour les margin boxes (invisibles, hors flux visuel). */
+    .runners { height: 0; overflow: hidden; visibility: hidden; }
+    .runner-course { string-set: doc-course content(); }
+    .runner-title { string-set: doc-title content(); }
+    .runner-footer { string-set: doc-footer content(); }
+
+    /* ------------------------- Masthead ------------------------- */
+    .masthead {
+      display: flex;
+      flex-direction: column;
+      gap: 4mm;
+      padding-block-end: 7mm;
+      margin-block-end: 9mm;
+      border-block-end: 0.5pt solid var(--line);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 3mm;
+      font-size: 9.5pt;
+      font-weight: 600;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--violet-600);
+    }
+    .brand::before {
+      content: "";
+      width: 2.6mm;
+      height: 2.6mm;
+      transform: rotate(45deg);
+      border-radius: 0.6mm;
+      background: linear-gradient(135deg, var(--gold-400), var(--gold-600));
+    }
+    .doc-kicker {
+      color: var(--gold-600);
+      font-size: 9pt;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+    .doc-kicker:empty { display: none; }
+    .doc-title {
+      font-size: 24pt;
+      line-height: 1.12;
+      color: var(--violet-900);
+    }
+    .doc-course {
+      color: var(--muted);
+      font-size: 10pt;
+      letter-spacing: 0.06em;
+    }
+    .doc-intro { color: var(--ink-soft); max-width: 158mm; }
+    .doc-intro:empty { display: none; }
+    .doc-intro p + p { margin-block-start: 2.5mm; }
+
+    /* ------------------------ Sections TP ------------------------ */
+    .wb-section { margin-block-end: 10mm; }
+    .wb-section-header {
+      display: flex;
+      align-items: baseline;
+      gap: 4.5mm;
+      padding-block-end: 2.5mm;
+      margin-block-end: 4mm;
+      border-block-end: 1pt solid var(--violet-100);
+      break-after: avoid;
+    }
+    .wb-section-index {
+      font-family: var(--font-display);
+      font-size: 17pt;
+      font-weight: 600;
+      color: var(--gold-500);
+      font-variant-numeric: tabular-nums;
+    }
+    html[dir="rtl"] .wb-section-index { font-family: var(--font-arabic); font-weight: 700; }
+    .wb-section-header h2 {
+      font-family: var(--font-display);
+      font-size: 15pt;
+      font-weight: 600;
+      color: var(--violet-800, #49226C);
+    }
+
+    /* Objectif : encadré teinté violet, filet côté début de lecture. */
+    .wb-objective {
+      background: var(--violet-50);
+      border-inline-start: 1.2mm solid var(--violet-600);
+      border-radius: 1.5mm;
+      padding: 3.5mm 5mm;
+      margin-block-end: 5mm;
+      color: var(--ink-soft);
+      break-inside: avoid;
+    }
+
+    /* Étapes numérotées : pastilles losange or, compteur CSS. */
+    .wb-steps {
+      list-style: none;
+      counter-reset: wb-step;
+      display: flex;
+      flex-direction: column;
+      gap: 4mm;
+      margin-block-end: 5mm;
+    }
+    .wb-step {
+      counter-increment: wb-step;
+      position: relative;
+      padding: 4mm 5mm 4mm;
+      padding-inline-start: 13mm;
+      background: var(--paper-subtle);
+      border: 0.5pt solid var(--line);
+      border-radius: 2mm;
+      break-inside: avoid;
+    }
+    .wb-step::before {
+      content: counter(wb-step, decimal-leading-zero);
+      position: absolute;
+      inset-inline-start: 4mm;
+      top: 4.2mm;
+      width: 6.5mm;
+      height: 6.5mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: rotate(45deg);
+      border-radius: 1.2mm;
+      background: linear-gradient(135deg, var(--gold-400), var(--gold-600));
+      color: var(--paper);
+      font-size: 7.5pt;
+      font-weight: 700;
+    }
+    /* Le numéro reste droit dans la pastille tournée. */
+    .wb-step::before { font-family: var(--font-sans); }
+    html[dir="rtl"] .wb-step::before { font-family: var(--font-arabic); }
+    .wb-step h3 {
+      font-size: 11pt;
+      font-weight: 700;
+      color: var(--violet-700);
+      margin-block-end: 1.5mm;
+    }
+    .wb-step p { color: var(--ink-soft); }
+    .wb-step p + p { margin-block-start: 2mm; }
+
+    /* Extrait de code / commande dans une étape. */
+    .wb-code {
+      margin-block-start: 3mm;
+      padding: 3mm 4mm;
+      background: #231B2F;            /* neutral.900 */
+      color: #E7E2EE;                 /* neutral.200 */
+      border-radius: 1.5mm;
+      font-family: var(--font-mono);
+      font-size: 8.5pt;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      direction: ltr;                 /* le code reste LTR même en page RTL */
+      text-align: left;
+    }
+
+    /* Espace de réponse ligné — élégant, grille 9 mm. */
+    .wb-answer { break-inside: avoid; margin-block-end: 5mm; }
+    .wb-answer-label {
+      display: flex;
+      align-items: center;
+      gap: 2.5mm;
+      color: var(--violet-600);
+      font-size: 8.5pt;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      margin-block-end: 2mm;
+    }
+    .wb-answer-label::before {
+      content: "";
+      width: 2mm;
+      height: 2mm;
+      transform: rotate(45deg);
+      background: var(--gold-500);
+      border-radius: 0.4mm;
+    }
+    .wb-lines {
+      --line-h: 9mm;
+      border-radius: 1.5mm;
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          transparent 0,
+          transparent calc(var(--line-h) - 0.35mm),
+          var(--rule) calc(var(--line-h) - 0.35mm),
+          var(--rule) var(--line-h)
+        );
+    }
+    .wb-lines.lines-3 { height: 27mm; }
+    .wb-lines.lines-4 { height: 36mm; }
+    .wb-lines.lines-6 { height: 54mm; }
+    .wb-lines.lines-8 { height: 72mm; }
+    .wb-lines.lines-10 { height: 90mm; }
+
+    /* Astuce : encadré or discret. */
+    .wb-tip {
+      background: var(--gold-100);
+      border-inline-start: 1.2mm solid var(--gold-500);
+      border-radius: 1.5mm;
+      padding: 3mm 5mm;
+      color: var(--gold-900);
+      font-size: 9.5pt;
+      break-inside: avoid;
+    }
+
+    /* Saut de page explicite à disposition des fragments. */
+    .page-break { break-before: page; }
+  </style>
+</head>
+<body>
+  <!-- Chaînes des en-têtes/pieds de page (margin boxes). -->
+  <div class="runners">
+    <span class="runner-course">{{courseTitle}}</span>
+    <span class="runner-title">{{docTitle}}</span>
+    <span class="runner-footer">{{footerNote}}</span>
+  </div>
+
+  <header class="masthead">
+    <div class="brand">Salistar</div>
+    <div class="doc-kicker">{{docKicker}}</div>
+    <h1 class="display doc-title">{{docTitle}}</h1>
+    <div class="doc-course">{{courseTitle}}</div>
+    <div class="doc-intro">{{{introHtml}}}</div>
+  </header>
+
+  <main class="wb-body">
+    {{{sectionsHtml}}}
+  </main>
+</body>
+</html>
