@@ -1,0 +1,73 @@
+# Revue design automatisée SALISTAR.
+#
+# Sur chaque PR touchant apps/web/src, Claude compare les écrans modifiés
+# au styleguide (/design, /design/components, /design/motion) et poste une
+# revue structurée : tokens, dark mode, RTL, mobile, reduced-motion, AA.
+#
+# Prérequis : secret ANTHROPIC_API_KEY configuré sur le repo.
+name: Design Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'apps/web/src/**'
+
+# Une seule revue à la fois par PR ; un nouveau push annule la précédente.
+concurrency:
+  group: design-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  design-review:
+    name: Revue design Claude
+    # Pas de revue sur les brouillons : on attend que la PR soit prête.
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Historique complet : nécessaire pour diff base...head fiable.
+          fetch-depth: 0
+
+      - name: Revue design Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: '--max-turns 30'
+          prompt: |
+            Tu es le reviewer design du monorepo SALLYCOURSE (marque SALISTAR).
+            Fais une revue design de la PR #${{ github.event.pull_request.number }} (dépôt ${{ github.repository }}).
+
+            RÉFÉRENTIEL (source de vérité, à lire AVANT de juger) :
+            - Tokens : packages/design/src/tokens.ts (violet #5B2A86 primaire, or #D4A017 accent parcimonieux, fond sombre #0D0714, échelles 50-950, thèmes light+dark, typo Fraunces/Figtree/IBM Plex Sans Arabic, grille 4px, radii 8/12/16).
+            - Styleguide vivant : apps/web/src/app/design/page.tsx, apps/web/src/app/design/components/page.tsx, apps/web/src/app/design/motion/page.tsx.
+            - Bibliothèque UI : apps/web/src/components/ui (Button, Card, Input, Textarea, Select, Dialog, Toast, Skeleton, Badge, Progress, Tabs, EmptyState) + helper src/lib/cn.ts.
+            - Checklist de référence : .github/PULL_REQUEST_TEMPLATE.md.
+
+            MÉTHODE :
+            1. Récupère le diff de la PR : `gh pr diff ${{ github.event.pull_request.number }}` et liste les fichiers modifiés sous apps/web/src.
+            2. Pour CHAQUE écran/composant modifié, compare-le au styleguide et aux tokens, et vérifie point par point :
+               a. TOKENS UNIQUEMENT — aucune couleur hex inline, aucune classe arbitraire bg-[#...], text-[#...], border-[#...], from-[#...], to-[#...] ; uniquement bg-primary, text-accent-400, border-border, bg-surface, text-muted, etc.
+               b. DARK MODE — l'écran fonctionne en dark (défaut, <html class="dark">) ET en light ; pas de couleur codée en dur qui casserait un des deux thèmes.
+               c. RTL — propriétés logiques (start/end, ps-/pe-, ms-/me-, text-start), pas de left/right physiques injustifiés ; en arabe : font-arabic, jamais de serif, titres weight >= 600, jamais d'italique.
+               d. MOBILE — layout tenable à 390px (pas de largeur fixe débordante, grilles responsive, cibles tactiles >= 44px).
+               e. REDUCED MOTION — les animations décoratives respectent prefers-reduced-motion ; pas d'animation infinie non désactivable.
+               f. CONTRASTE AA — combinaisons texte/fond conformes WCAG AA (>= 4.5:1 texte courant, >= 3:1 grands titres et UI) dans les deux thèmes.
+               g. RÉUTILISATION — les composants de apps/web/src/components/ui sont importés (barrel @/components/ui) au lieu d'être recréés ; cn() de @/lib/cn pour composer les classes.
+               h. STYLEGUIDE — si un token ou composant partagé change, la page /design correspondante est mise à jour dans la même PR, et les snapshots Playwright (apps/web/tests/visual) sont régénérés de façon justifiée.
+            3. Poste UNE revue sur la PR via `gh pr comment` (ou une review `gh pr review --comment`) en Markdown, structurée ainsi :
+               - **Verdict** : ✅ conforme / ⚠️ réserves / ❌ non conforme.
+               - **Tableau écran par écran** : fichier | points OK | violations (avec chemin:ligne et extrait de code).
+               - **Violations bloquantes** (hex inline, casse RTL, contraste) puis **suggestions** (cohérence, réutilisation).
+               - Pour chaque violation, propose le correctif exact en tokens/classes du design system.
+            4. Sois précis et actionnable : cite les lignes exactes du diff, jamais de remarque vague. Si aucun fichier design n'est réellement impacté, dis-le en une ligne et termine.
+            5. Ne modifie AUCUN fichier : revue en lecture seule, ton seul livrable est le commentaire de revue.
