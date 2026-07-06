@@ -1,0 +1,49 @@
+# Overlay production : docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+services:
+  web:
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    networks: [internal, edge]
+
+  worker:
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+    networks: [internal]
+
+  mongo:
+    restart: unless-stopped
+    ports: !override []
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+    networks: [internal]
+
+  redis:
+    restart: unless-stopped
+    ports: !override []
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    networks: [internal]
+
+  minio:
+    restart: unless-stopped
+    ports: !override []
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    networks: [internal]
+
+networks:
+  internal:
+    internal: true
+  edge:

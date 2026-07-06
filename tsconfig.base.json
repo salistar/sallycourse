@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@sallycourse/shared": ["packages/shared/src/index.ts"],
+      "@sallycourse/shared/*": ["packages/shared/src/*"],
+      "@sallycourse/db": ["packages/db/src/index.ts"],
+      "@sallycourse/db/*": ["packages/db/src/*"],
+      "@sallycourse/design": ["packages/design/src/index.ts"],
+      "@sallycourse/design/*": ["packages/design/src/*"]
+    }
+  }
+}
