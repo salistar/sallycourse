@@ -100,7 +100,7 @@ export function FirstCourseEmpty({ className }: FirstCourseEmptyProps) {
       </p>
 
       <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-        <Link href="/create" className={buttonVariants({ variant: 'gold', size: 'lg' })}>
+        <Link href="/dashboard/new" className={buttonVariants({ variant: 'gold', size: 'lg' })}>
           <Sparkles aria-hidden="true" />
           Créer mon premier cours
           <ArrowRight aria-hidden="true" className="rtl:rotate-180" />

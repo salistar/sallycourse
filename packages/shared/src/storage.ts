@@ -212,6 +212,19 @@ export async function deleteCoursePrefix(courseId: string): Promise<number> {
   }
 }
 
+/**
+ * Vérifie l'accès au stockage (HeadBucket) — utilisé par le healthcheck.
+ * Jette une StorageError si le bucket est injoignable ou absent.
+ */
+export async function checkStorage(): Promise<void> {
+  const name = bucket();
+  try {
+    await getS3Client().send(new HeadBucketCommand({ Bucket: name }));
+  } catch (err) {
+    throw new StorageError('checkStorage', name, err);
+  }
+}
+
 /** Crée le bucket au démarrage s'il n'existe pas (ignore "déjà possédé"). */
 export async function ensureBucket(): Promise<void> {
   const s3 = getS3Client();

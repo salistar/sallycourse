@@ -9,37 +9,75 @@ import {
   transitions,
   usePrefersReducedMotion,
   type GenerationStep,
+  type GenerationTimelineStatus,
 } from '@/components/motion';
 import { cn } from '@/lib/cn';
-import {
-  MOCK_GENERATION_LOGS,
-  MOCK_GENERATION_STEPS,
-  MOCK_SLIDE_PREVIEWS,
-  type GenerationLogLine,
-  type LogLevel,
-  type SlidePreview,
-} from './mock-data';
+import { useCourseProgress } from '@/hooks/use-course-progress';
+import type { SlidePreview } from './mock-data';
 
 /**
- * Panneau « génération en direct » — trois volets synchronisés sur un même
- * flux simulé (mock, câblage temps réel au Prompt 9) :
- *  1. timeline d'étapes (GenerationTimeline, motion D4) ;
- *  2. terminal de logs qui défilent avec auto-scroll ;
- *  3. aperçu de la slide en cours de rendu.
+ * Panneau « génération en direct » — trois volets synchronisés sur le flux
+ * SSE réel du cours (useCourseProgress → /api/courses/[id]/progress) :
+ *  1. timeline des étapes du pipeline (GenerationTimeline, motion D4) ;
+ *  2. terminal des logs du worker avec auto-scroll ;
+ *  3. aperçu synthétique de la slide en cours de rendu.
  */
 
-/** Cadence d'apparition des lignes de log (ms). */
-const TICK_MS = 1400;
+/* ------------------------------------------------------------------ */
+/* Étapes du pipeline (alignées sur QUEUES de @sallycourse/shared)      */
+/* ------------------------------------------------------------------ */
 
-const LOG_TEXT_STYLES: Record<LogLevel, string> = {
+// NB : baril @sallycourse/shared non importable côté client (node:crypto,
+// @aws-sdk) — les noms de queues sont donc répliqués ici via `key`.
+interface PipelineStepDef extends GenerationStep {
+  /** Fragment identifiant l'étape dans ProgressEvent.step / GenerationJob.step. */
+  key: string;
+}
+
+const PIPELINE_STEPS: PipelineStepDef[] = [
+  { id: 'outline', key: 'outline', label: 'Plan du cours', description: 'Sections, leçons et objectifs' },
+  { id: 'content', key: 'content', label: 'Rédaction des leçons', description: 'Scripts, articles et TPs' },
+  { id: 'tts', key: 'tts', label: 'Narration audio', description: 'Voix de synthèse et mixage' },
+  { id: 'screenshot', key: 'screenshot', label: 'Captures & visuels', description: 'Illustrations des slides' },
+  { id: 'video', key: 'video', label: 'Rendu des vidéos', description: 'Slides animées 1080p' },
+  { id: 'subtitle', key: 'subtitle', label: 'Sous-titres', description: 'SRT / VTT synchronisés' },
+  { id: 'packaging', key: 'packaging', label: 'Quiz & export', description: 'Questions, corrigés et paquets' },
+  { id: 'deployment', key: 'deploy', label: 'Publication', description: 'Déploiement plateformes' },
+];
+
+/** Index de l'étape courante d'après son nom (tolérant : queue ou libellé court). */
+function resolveStepIndex(step: string | null): number {
+  if (!step) return 0;
+  const index = PIPELINE_STEPS.findIndex((s) => step.includes(s.key));
+  return index === -1 ? 0 : index;
+}
+
+/* ------------------------------------------------------------------ */
+/* Terminal de logs                                                     */
+/* ------------------------------------------------------------------ */
+
+type LineLevel = 'info' | 'warn' | 'error' | 'muted';
+
+interface TerminalLine {
+  time: string;
+  level: LineLevel;
+  text: string;
+}
+
+const LOG_TEXT_STYLES: Record<LineLevel, string> = {
   info: 'text-neutral-300',
-  step: 'font-semibold text-primary-300',
-  success: 'text-success',
   warn: 'text-warning',
+  error: 'text-danger',
+  muted: 'text-neutral-500 italic',
 };
 
+/** Heure locale hh:mm:ss — rendue uniquement côté client (pas de SSR des logs). */
+function formatTime(ts: number): string {
+  return new Date(ts).toLocaleTimeString('fr-FR', { hour12: false });
+}
+
 /** Terminal stylé — chrome macOS discret, fond quasi noir, fonte mono. */
-function LogTerminal({ lines }: { lines: GenerationLogLine[] }) {
+function LogTerminal({ lines }: { lines: TerminalLine[] }) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const reduced = usePrefersReducedMotion();
 
@@ -95,6 +133,10 @@ function LogTerminal({ lines }: { lines: GenerationLogLine[] }) {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Aperçu de slide                                                      */
+/* ------------------------------------------------------------------ */
+
 /** Aperçu de la slide en cours — cadre 16:9 façon rendu vidéo. */
 function SlidePreviewPane({ slide }: { slide: SlidePreview }) {
   return (
@@ -114,7 +156,7 @@ function SlidePreviewPane({ slide }: { slide: SlidePreview }) {
         {/* Contenu de la slide — glisse à chaque changement */}
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
-            key={slide.title}
+            key={`${slide.kicker}-${slide.title}`}
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -24 }}
@@ -143,42 +185,75 @@ function SlidePreviewPane({ slide }: { slide: SlidePreview }) {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Panneau                                                              */
+/* ------------------------------------------------------------------ */
+
 export interface GenerationPanelProps {
+  /** Id Mongo du cours suivi — alimente le flux SSE. */
+  courseId: string;
   /** Titre du cours en cours de génération. */
   courseTitle: string;
+  /** État initial connu côté serveur (GenerationJob) — avant le 1er événement SSE. */
+  initialStep?: string | null;
+  initialProgress?: number;
   className?: string;
 }
 
-export function GenerationPanel({ courseTitle, className }: GenerationPanelProps) {
-  const reduced = usePrefersReducedMotion();
-  // Nombre de lignes de log révélées ; pilote timeline, progression et slide.
-  const [revealed, setRevealed] = React.useState(1);
-  const total = MOCK_GENERATION_LOGS.length;
-  const done = revealed >= total;
+export function GenerationPanel({
+  courseId,
+  courseTitle,
+  initialStep = null,
+  initialProgress = 0,
+  className,
+}: GenerationPanelProps) {
+  const { step, progress, logs, connected } = useCourseProgress(courseId);
 
-  React.useEffect(() => {
-    // Mouvement réduit : on montre l'état final directement, sans défilement.
-    if (reduced) {
-      setRevealed(total);
-      return;
-    }
-    if (done) return;
-    const timer = window.setInterval(() => {
-      setRevealed((n) => Math.min(n + 1, total));
-    }, TICK_MS);
-    return () => window.clearInterval(timer);
-  }, [reduced, done, total]);
+  // Le flux prime ; l'état serveur (snapshot DB) sert de première peinture.
+  const effectiveStep = step ?? initialStep;
+  const stepProgress = step ? progress : initialProgress;
+  const currentIndex = resolveStepIndex(effectiveStep);
+  const currentStep = PIPELINE_STEPS[currentIndex]!;
 
-  const lines = MOCK_GENERATION_LOGS.slice(0, revealed);
-  const currentIndex = lines[lines.length - 1]?.stepIndex ?? 0;
-  const progress = Math.round((revealed / total) * 100);
+  // Avancement global : étapes franchies + fraction de l'étape courante.
+  const clamped = Math.min(Math.max(stepProgress, 0), 100);
+  const globalProgress = Math.round(((currentIndex + clamped / 100) / PIPELINE_STEPS.length) * 100);
 
-  // Slide la plus récente dont l'étape est atteinte.
-  const slide =
-    [...MOCK_SLIDE_PREVIEWS].reverse().find((s) => s.stepIndex <= currentIndex) ?? MOCK_SLIDE_PREVIEWS[0]!;
+  const lastLog = logs.length > 0 ? logs[logs.length - 1] : undefined;
+  const failed = lastLog?.level === 'error';
+  const done = currentIndex === PIPELINE_STEPS.length - 1 && clamped >= 100;
+  const status: GenerationTimelineStatus = failed ? 'failed' : done ? 'done' : 'running';
 
-  // Les étapes mock sont readonly ; GenerationTimeline attend un tableau mutable.
-  const steps: GenerationStep[] = MOCK_GENERATION_STEPS.map((s) => ({ ...s }));
+  // Lignes du terminal : logs réels, sinon message d'attente.
+  const lines: TerminalLine[] =
+    logs.length > 0
+      ? logs.map((log) => ({
+          time: formatTime(log.ts),
+          level: log.level,
+          text: log.msg,
+        }))
+      : [
+          {
+            time: '--:--:--',
+            level: 'muted',
+            text: connected
+              ? 'Connecté — en attente des événements du worker…'
+              : 'Connexion au flux de progression…',
+          },
+        ];
+
+  // Slide synthétique : étape courante + derniers messages du worker.
+  const recentMessages = logs.slice(-3).map((log) => log.msg);
+  const slide: SlidePreview = {
+    stepIndex: currentIndex,
+    kicker: currentStep.label,
+    title: courseTitle,
+    bullets: recentMessages.length > 0 ? recentMessages : [currentStep.description ?? 'Préparation…'],
+    slideNumber: `Étape ${currentIndex + 1} / ${PIPELINE_STEPS.length}`,
+  };
+
+  // GenerationTimeline attend un tableau mutable de GenerationStep.
+  const steps: GenerationStep[] = PIPELINE_STEPS.map(({ id, label, description }) => ({ id, label, description }));
 
   return (
     <Card wrapperClassName={className}>
@@ -188,25 +263,23 @@ export function GenerationPanel({ courseTitle, className }: GenerationPanelProps
             <p className="text-2xs font-semibold uppercase tracking-wide text-muted">Génération en direct</p>
             <h2 className="mt-0.5 truncate font-display text-xl font-semibold text-foreground">{courseTitle}</h2>
           </div>
-          <Badge variant={done ? 'ready' : 'generating'}>{done ? 'Terminé' : 'En cours'}</Badge>
+          <Badge variant={failed ? 'failed' : done ? 'ready' : 'generating'}>
+            {failed ? 'Échec' : done ? 'Terminé' : 'En cours'}
+          </Badge>
         </div>
-        <Progress value={progress} label="Avancement global" showLabel />
+        <Progress value={globalProgress} label="Avancement global" showLabel />
       </CardHeader>
 
       <CardContent>
         <div className="grid gap-6 lg:grid-cols-[minmax(220px,260px)_1fr] xl:grid-cols-[minmax(220px,260px)_1fr_minmax(260px,320px)]">
           {/* 1. Timeline des étapes */}
-          <GenerationTimeline
-            steps={steps}
-            currentIndex={currentIndex}
-            status={done ? 'done' : 'running'}
-          />
+          <GenerationTimeline steps={steps} currentIndex={currentIndex} status={status} />
 
           {/* 2. Terminal de logs */}
           <LogTerminal lines={lines} />
 
           {/* 3. Aperçu de slide (colonne dédiée en xl, sous le terminal sinon) */}
-          <div className="lg:col-start-2 xl:col-start-3 xl:row-start-1">
+          <div className={cn('lg:col-start-2 xl:col-start-3 xl:row-start-1')}>
             <SlidePreviewPane slide={slide} />
           </div>
         </div>

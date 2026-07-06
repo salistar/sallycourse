@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ChevronsUpDown,
@@ -11,6 +12,7 @@ import {
   Menu,
   PlusCircle,
   Settings,
+  ShieldCheck,
   UserRound,
   X,
 } from 'lucide-react';
@@ -60,21 +62,29 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  /** Actif uniquement sur correspondance exacte (évite /dashboard actif sur /dashboard/new). */
+  exact?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/create', label: 'Nouveau cours', icon: PlusCircle },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { href: '/dashboard/new', label: 'Nouveau cours', icon: PlusCircle },
   { href: '/settings', label: 'Paramètres', icon: Settings },
 ];
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+/** Entrée réservée au rôle admin — supervision des jobs de génération. */
+const ADMIN_NAV_ITEM: NavItem = { href: '/admin/jobs', label: 'Admin', icon: ShieldCheck };
+
+function NavLinks({ onNavigate, isAdmin }: { onNavigate?: () => void; isAdmin?: boolean }) {
   const pathname = usePathname();
+  const items = isAdmin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
 
   return (
     <nav aria-label="Navigation principale" className="flex flex-col gap-1">
-      {NAV_ITEMS.map((item) => {
-        const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+      {items.map((item) => {
+        const active = item.exact
+          ? pathname === item.href
+          : pathname === item.href || pathname.startsWith(`${item.href}/`);
         return (
           <Link
             key={item.href}
@@ -168,7 +178,11 @@ function UserMenu({ user }: { user: DashboardUser }) {
                 key={item.id}
                 type="button"
                 role="menuitem"
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  setOpen(false);
+                  // Déconnexion réelle (Auth.js) — retour à l'écran de connexion.
+                  if (item.id === 'logout') void signOut({ callbackUrl: '/login' });
+                }}
                 className={cn(
                   'flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-start text-sm',
                   'transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/80',
@@ -219,19 +233,34 @@ function UserMenu({ user }: { user: DashboardUser }) {
 /* ------------------------------------------------------------------ */
 
 /** Contenu partagé entre la sidebar desktop et le tiroir mobile. */
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({
+  onNavigate,
+  isAdmin,
+  user,
+}: {
+  onNavigate?: () => void;
+  isAdmin?: boolean;
+  user: DashboardUser;
+}) {
   return (
     <div className="flex h-full flex-col gap-6 p-4">
       <Logo />
-      <NavLinks onNavigate={onNavigate} />
+      <NavLinks onNavigate={onNavigate} isAdmin={isAdmin} />
       <div className="mt-auto">
-        <UserMenu user={MOCK_USER} />
+        <UserMenu user={user} />
       </div>
     </div>
   );
 }
 
-export function DashboardSidebar() {
+export interface DashboardSidebarProps {
+  /** Affiche le lien Admin (rôle admin uniquement — fourni par le layout serveur). */
+  isAdmin?: boolean;
+  /** Utilisateur connecté (fourni par le layout serveur) — mock en secours. */
+  user?: DashboardUser;
+}
+
+export function DashboardSidebar({ isAdmin = false, user = MOCK_USER }: DashboardSidebarProps) {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const pathname = usePathname();
 
@@ -244,7 +273,7 @@ export function DashboardSidebar() {
     <>
       {/* Sidebar desktop — fixe côté début de ligne (RTL ok) */}
       <aside className="fixed inset-y-0 start-0 z-30 hidden w-64 border-e border-border bg-surface/60 backdrop-blur-sm lg:block">
-        <SidebarContent />
+        <SidebarContent isAdmin={isAdmin} user={user} />
       </aside>
 
       {/* Barre haute mobile */}
@@ -281,7 +310,7 @@ export function DashboardSidebar() {
               transition={transitions.springSoft}
               className="fixed inset-y-0 start-0 z-50 w-72 border-e border-border bg-surface shadow-xl lg:hidden"
             >
-              <SidebarContent onNavigate={() => setDrawerOpen(false)} />
+              <SidebarContent onNavigate={() => setDrawerOpen(false)} isAdmin={isAdmin} user={user} />
             </motion.div>
           </>
         )}

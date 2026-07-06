@@ -14,17 +14,25 @@ import { cn } from '@/lib/cn';
 
 export type ToastVariant = 'default' | 'success' | 'warning' | 'danger' | 'info';
 
+/** Action optionnelle (CTA) affichée sous la description du toast. */
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface ToastOptions {
   title: string;
   description?: string;
   variant?: ToastVariant;
   /** Durée d'affichage en ms (0 = persistant). Défaut : 5000. */
   duration?: number;
+  action?: ToastAction;
 }
 
 interface ToastItem extends Required<Pick<ToastOptions, 'title' | 'variant' | 'duration'>> {
   id: number;
   description?: string;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
@@ -58,9 +66,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toast = React.useCallback(
-    ({ title, description, variant = 'default', duration = 5000 }: ToastOptions): number => {
+    ({ title, description, variant = 'default', duration = 5000, action }: ToastOptions): number => {
       const id = ++toastCounter;
-      setToasts((current) => [...current.slice(-4), { id, title, description, variant, duration }]);
+      setToasts((current) => [...current.slice(-4), { id, title, description, variant, duration, action }]);
       if (duration > 0) {
         timers.current.set(
           id,
@@ -130,6 +138,22 @@ export function Toaster() {
               <div className="flex min-w-0 flex-col gap-0.5">
                 <p className="text-sm font-semibold text-foreground">{item.title}</p>
                 {item.description && <p className="text-xs text-muted">{item.description}</p>}
+                {item.action && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      item.action?.onClick();
+                      ctx.dismiss(item.id);
+                    }}
+                    className={cn(
+                      'mt-1 self-start rounded-sm text-xs font-semibold text-primary underline-offset-2',
+                      'transition-colors duration-fast hover:underline',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/80',
+                    )}
+                  >
+                    {item.action.label}
+                  </button>
+                )}
               </div>
               <button
                 type="button"

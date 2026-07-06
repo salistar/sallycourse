@@ -1,0 +1,54 @@
+import { NextResponse } from 'next/server';
+import { hash } from 'bcryptjs';
+import { z } from 'zod';
+import { connectDb, User as UserModel } from '@sallycourse/db';
+
+/** Payload d'inscription — messages en français pour affichage direct. */
+const registerSchema = z.object({
+  name: z.string().trim().min(2, 'Le nom doit contenir au moins 2 caractères.'),
+  email: z.string().trim().toLowerCase().email('Adresse email invalide.'),
+  password: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caractères.'),
+});
+
+/** POST /api/auth/register — crée un compte (plan free) avec mot de passe hashé. */
+export async function POST(request: Request) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+  }
+
+  const parsed = registerSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Données invalides.', details: parsed.error.flatten().fieldErrors },
+      { status: 400 },
+    );
+  }
+
+  const { name, email, password } = parsed.data;
+
+  await connectDb();
+
+  const exists = await UserModel.exists({ email });
+  if (exists) {
+    return NextResponse.json({ error: 'Un compte existe déjà avec cet email.' }, { status: 409 });
+  }
+
+  const passwordHash = await hash(password, 12);
+
+  try {
+    const user = await UserModel.create({ email, name, passwordHash, plan: 'free' });
+    return NextResponse.json(
+      { id: user._id.toString(), email: user.email, name: user.name, plan: user.plan },
+      { status: 201 },
+    );
+  } catch (err) {
+    // Course entre le exists() et le create() : l'index unique tranche.
+    if (err && typeof err === 'object' && 'code' in err && (err as { code?: number }).code === 11000) {
+      return NextResponse.json({ error: 'Un compte existe déjà avec cet email.' }, { status: 409 });
+    }
+    return NextResponse.json({ error: 'Erreur interne, réessayez plus tard.' }, { status: 500 });
+  }
+}

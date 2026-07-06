@@ -1,10 +1,11 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Wand2 } from 'lucide-react';
 import { createCourseInputSchema, type Difficulty } from '@sallycourse/shared';
-import { Button } from '@/components/ui';
+import { Button, useToast } from '@/components/ui';
 import { transitions } from '@/components/motion/motion-config';
 import { TitleField } from './title-field';
 import { TitleSuggestions } from './title-suggestions';
@@ -21,11 +22,18 @@ import { GenerationScreen, COURSE_TITLE_LAYOUT_ID } from './generation-screen';
  * Expérience « créer un cours » — moment signature plein écran.
  * Deux actes : COMPOSITION (l'utilisateur écrit la couverture de son cours,
  * choisit un niveau) puis GÉNÉRATION (le titre se morphe en en-tête de la
- * timeline via un layoutId Framer Motion partagé).
+ * timeline via un layoutId Framer Motion partagé). Le submit poste sur
+ * /api/courses puis redirige vers la page du cours après la transition.
  */
 
 /** Délai de debounce des suggestions sous la frappe. */
 const SUGGESTIONS_DEBOUNCE_MS = 350;
+
+/** Laisse la transition cinématique se jouer avant la redirection. */
+const REDIRECT_AFTER_MS = 2600;
+
+/** Longueur minimale de saisie avant d'interroger l'API de suggestions. */
+const SUGGESTIONS_MIN_CHARS = 4;
 
 type Phase = 'compose' | 'generating';
 
@@ -53,7 +61,10 @@ function toFieldErrors(error: import('zod').ZodError): FieldErrors {
 }
 
 export function CreateCourseExperience() {
+  const router = useRouter();
+  const { toast } = useToast();
   const [phase, setPhase] = React.useState<Phase>('compose');
+  const [submitting, setSubmitting] = React.useState(false);
 
   // Brief du cours
   const [title, setTitle] = React.useState('');
@@ -61,8 +72,18 @@ export function CreateCourseExperience() {
   const [options, setOptions] = React.useState<AdvancedOptions>(DEFAULT_ADVANCED_OPTIONS);
   const [errors, setErrors] = React.useState<FieldErrors>({});
 
-  // Suggestions de titres — mock local, débouncé ; masquées après un choix
-  // (jusqu'à la prochaine frappe) pour ne pas re-suggérer ce qui vient d'être pris.
+  // Redirection différée vers la page du cours (annulée si retour au brief).
+  const redirectTimerRef = React.useRef<number | null>(null);
+  React.useEffect(
+    () => () => {
+      if (redirectTimerRef.current !== null) window.clearTimeout(redirectTimerRef.current);
+    },
+    [],
+  );
+
+  // Suggestions de titres — API débouncée (Claude ou mock côté serveur),
+  // repli local en cas d'échec réseau ; masquées après un choix (jusqu'à la
+  // prochaine frappe) pour ne pas re-suggérer ce qui vient d'être pris.
   const [suggestions, setSuggestions] = React.useState<string[]>([]);
   const suppressSuggestionsRef = React.useRef(false);
 
@@ -72,10 +93,42 @@ export function CreateCourseExperience() {
       setSuggestions([]);
       return;
     }
-    const timer = window.setTimeout(() => {
-      setSuggestions(buildTitleSuggestions(title).filter((s) => s !== title.trim()));
+
+    const query = title.trim();
+    if (query.length < SUGGESTIONS_MIN_CHARS) {
+      setSuggestions([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch('/api/courses/suggest-title', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: query }),
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data: unknown = await response.json();
+        const list =
+          data && typeof data === 'object' && Array.isArray((data as { suggestions?: unknown }).suggestions)
+            ? ((data as { suggestions: unknown[] }).suggestions.filter(
+                (s): s is string => typeof s === 'string',
+              ) as string[])
+            : [];
+        setSuggestions(list.filter((s) => s !== query));
+      } catch {
+        if (controller.signal.aborted) return;
+        // Repli : moteur local, même contrat string[].
+        setSuggestions(buildTitleSuggestions(query).filter((s) => s !== query));
+      }
     }, SUGGESTIONS_DEBOUNCE_MS);
-    return () => window.clearTimeout(timer);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [title, phase]);
 
   const handleTitleChange = (next: string) => {
@@ -96,8 +149,13 @@ export function CreateCourseExperience() {
     if (errors.difficulty) setErrors((prev) => ({ ...prev, difficulty: undefined }));
   };
 
-  /** Validation zod (schéma partagé) puis bascule vers l'acte génération. */
-  const handleSubmit = () => {
+  /**
+   * Validation zod (schéma partagé), POST /api/courses, puis transition
+   * cinématique vers l'acte génération et redirection vers la page du cours.
+   */
+  const handleSubmit = async () => {
+    if (submitting) return;
+
     const result = createCourseInputSchema.safeParse({
       title: title.trim(),
       difficulty: difficulty ?? undefined,
@@ -114,7 +172,54 @@ export function CreateCourseExperience() {
 
     setErrors({});
     setTitle(result.data.title);
-    setPhase('generating');
+    setSubmitting(true);
+
+    try {
+      const response = await fetch('/api/courses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(result.data),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { id?: string; error?: string; code?: string }
+        | null;
+
+      // Quota du plan atteint : toast avec CTA vers les offres.
+      if (response.status === 402 || data?.code === 'quota_exceeded') {
+        toast({
+          title: 'Quota mensuel atteint',
+          description:
+            data?.error ?? 'Passez à un plan supérieur pour créer davantage de cours.',
+          variant: 'warning',
+          duration: 8000,
+          action: { label: 'Voir les offres', onClick: () => router.push('/pricing') },
+        });
+        return;
+      }
+
+      if (!response.ok || !data?.id) {
+        toast({
+          title: 'La création a échoué',
+          description: data?.error ?? 'Réessayez dans un instant.',
+          variant: 'danger',
+        });
+        return;
+      }
+
+      // Acte 2 : transition cinématique existante, puis page du cours.
+      setPhase('generating');
+      redirectTimerRef.current = window.setTimeout(() => {
+        router.push(`/dashboard/courses/${data.id}`);
+      }, REDIRECT_AFTER_MS);
+    } catch {
+      toast({
+        title: 'Connexion impossible',
+        description: 'Vérifiez votre réseau puis réessayez.',
+        variant: 'danger',
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Acte 2 — le titre voyage vers l'en-tête via le layoutId partagé.
@@ -125,7 +230,14 @@ export function CreateCourseExperience() {
           title={title}
           difficulty={difficulty}
           options={options}
-          onBack={() => setPhase('compose')}
+          onBack={() => {
+            // Retour au brief : on annule la redirection programmée.
+            if (redirectTimerRef.current !== null) {
+              window.clearTimeout(redirectTimerRef.current);
+              redirectTimerRef.current = null;
+            }
+            setPhase('compose');
+          }}
         />
       </main>
     );
@@ -182,9 +294,15 @@ export function CreateCourseExperience() {
           className="flex w-full flex-col items-center gap-4 sm:flex-row sm:justify-between"
         >
           <AdvancedOptionsPanel value={options} onChange={setOptions} />
-          <Button variant="gold" size="lg" onClick={handleSubmit} className="w-full sm:w-auto">
-            <Wand2 aria-hidden="true" />
-            Générer mon cours
+          <Button
+            variant="gold"
+            size="lg"
+            loading={submitting}
+            onClick={handleSubmit}
+            className="w-full sm:w-auto"
+          >
+            {!submitting && <Wand2 aria-hidden="true" />}
+            {submitting ? 'Création du cours…' : 'Générer mon cours'}
           </Button>
         </motion.div>
       </div>

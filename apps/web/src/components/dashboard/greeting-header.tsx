@@ -61,7 +61,7 @@ export function GreetingHeader({ firstName, stats, className }: GreetingHeaderPr
           </p>
         </div>
 
-        <Link href="/create" className={buttonVariants({ variant: 'gold', size: 'lg' })}>
+        <Link href="/dashboard/new" className={buttonVariants({ variant: 'gold', size: 'lg' })}>
           <Plus aria-hidden="true" />
           Nouveau cours
         </Link>

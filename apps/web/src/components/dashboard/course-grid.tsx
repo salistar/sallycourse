@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { Tabs, TabsList, TabsTrigger, EmptyState, buttonVariants } from '@/components/ui';
 import { StaggerItem, StaggerList } from '@/components/motion';
 import { cn } from '@/lib/cn';
@@ -13,12 +14,13 @@ import type { CourseStatus } from '@sallycourse/shared';
 
 /**
  * Grille de cours — cartes riches en apparition orchestrée, filtres par
- * statut (Tabs D3). Sans aucun cours : grand empty state « premier cours ».
+ * statut (Tabs D3) synchronisés avec l'URL (?status=…, deep-linkable).
+ * Sans aucun cours : grand empty state « premier cours ».
  */
 
-type FilterId = 'all' | 'active' | 'ready' | 'published' | 'draft';
+export type CourseFilterId = 'all' | 'active' | 'ready' | 'published' | 'draft';
 
-const FILTERS: { id: FilterId; label: string; statuses?: CourseStatus[] }[] = [
+const FILTERS: { id: CourseFilterId; label: string; statuses?: CourseStatus[] }[] = [
   { id: 'all', label: 'Tous' },
   { id: 'active', label: 'En production', statuses: ['generating', 'outline-review', 'failed'] },
   { id: 'ready', label: 'Prêts', statuses: ['ready'] },
@@ -26,18 +28,37 @@ const FILTERS: { id: FilterId; label: string; statuses?: CourseStatus[] }[] = [
   { id: 'draft', label: 'Brouillons', statuses: ['draft'] },
 ];
 
+/** Assainit la valeur `?status=` de l'URL (valeur inconnue → 'all'). */
+export function parseCourseFilter(value: string | undefined | null): CourseFilterId {
+  return FILTERS.some((f) => f.id === value) ? (value as CourseFilterId) : 'all';
+}
+
 export interface CourseGridProps {
   courses: DashboardCourse[];
+  /** Filtre actif dérivé des searchParams côté serveur. */
+  activeFilter?: CourseFilterId;
   className?: string;
 }
 
-export function CourseGrid({ courses, className }: CourseGridProps) {
-  const [filter, setFilter] = React.useState<FilterId>('all');
+export function CourseGrid({ courses, activeFilter = 'all', className }: CourseGridProps) {
+  const router = useRouter();
+  // État local pour un feedback instantané ; l'URL reste la source de vérité.
+  const [filter, setFilter] = React.useState<CourseFilterId>(activeFilter);
+
+  React.useEffect(() => {
+    setFilter(activeFilter);
+  }, [activeFilter]);
 
   // Aucun cours du tout : l'expérience « premier cours » prend toute la place.
   if (courses.length === 0) {
     return <FirstCourseEmpty className={className} />;
   }
+
+  const selectFilter = (next: CourseFilterId): void => {
+    setFilter(next);
+    // Filtre reflété dans l'URL — partageable et conservé au refresh.
+    router.replace(next === 'all' ? '/dashboard' : `/dashboard?status=${next}`, { scroll: false });
+  };
 
   const active = FILTERS.find((f) => f.id === filter) ?? FILTERS[0]!;
   const visible = active.statuses ? courses.filter((c) => active.statuses!.includes(c.status)) : courses;
@@ -51,7 +72,7 @@ export function CourseGrid({ courses, className }: CourseGridProps) {
         </span>
       </div>
 
-      <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterId)}>
+      <Tabs value={filter} onValueChange={(v) => selectFilter(parseCourseFilter(v))}>
         <TabsList aria-label="Filtrer les cours par statut">
           {FILTERS.map((f) => (
             <TabsTrigger key={f.id} value={f.id}>
@@ -66,7 +87,7 @@ export function CourseGrid({ courses, className }: CourseGridProps) {
           title="Rien dans ce filtre"
           description="Aucun cours ne correspond à ce statut pour le moment — lancez une génération pour alimenter cette vue."
           action={
-            <Link href="/create" className={buttonVariants({ variant: 'primary', size: 'md' })}>
+            <Link href="/dashboard/new" className={buttonVariants({ variant: 'primary', size: 'md' })}>
               <Plus aria-hidden="true" />
               Nouveau cours
             </Link>

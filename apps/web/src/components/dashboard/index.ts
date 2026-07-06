@@ -1,9 +1,9 @@
 /**
  * Composants du dashboard « mission control » — point d'entrée unique.
- * Données MOCK typées dans ./mock-data (câblage réel au Prompt 9).
+ * Câblés au réel (P9) ; les mocks de ./mock-data restent pour les vitrines design.
  */
 export { GreetingHeader, type GreetingHeaderProps } from './greeting-header';
-export { CourseGrid, type CourseGridProps } from './course-grid';
+export { CourseGrid, parseCourseFilter, type CourseGridProps, type CourseFilterId } from './course-grid';
 export { CourseCard, type CourseCardProps } from './course-card';
 export { CourseThumbnail, type CourseThumbnailProps } from './course-thumbnail';
 export { ProgressRing, type ProgressRingProps } from './progress-ring';
