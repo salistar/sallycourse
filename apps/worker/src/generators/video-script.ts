@@ -87,8 +87,10 @@ export function validateVideoScriptBusiness(script: SlideScript, durationMin: nu
 export async function generateVideoScript(params: {
   courseId: string;
   lessonId: string;
+  /** Contexte de continuité (résumés des leçons précédentes, P19). */
+  context?: string;
 }): Promise<VideoScriptResult> {
-  const { courseId, lessonId } = params;
+  const { courseId, lessonId, context } = params;
 
   const lesson = await Lesson.findById(lessonId);
   if (!lesson) throw new Error(`leçon introuvable : ${lessonId}`);
@@ -107,6 +109,7 @@ export async function generateVideoScript(params: {
     courseTitle: course.title,
     difficulty: course.difficulty,
     locale: course.locale,
+    context,
   });
 
   // Boucle métier : schéma garanti par callClaudeJson, mais les règles du brief

@@ -7,6 +7,8 @@ import { Badge, Button, EmptyState, ToastProvider, Toaster, type BadgeProps } fr
 import { LessonTree } from './lesson-tree';
 import { LessonPanel } from './lesson-panel';
 import { ProgressBanner } from './progress-banner';
+import { DownloadPackButton } from './download-pack-button';
+import { QaReportPanel } from './qa-report-panel';
 import type { CourseDetailView, CourseStatus, Difficulty, Locale } from './types';
 
 /**
@@ -105,14 +107,18 @@ export function CourseDetail({ course }: CourseDetailProps) {
               </p>
             </div>
 
-            {/* Actions cours — mécaniques pack/déploiement à venir : UI seule. */}
+            {/* Actions cours — pack export actif une fois le cours abouti. */}
             <div className="flex shrink-0 flex-wrap items-center gap-2">
-              <span title="Bientôt disponible" className="inline-flex">
-                <Button variant="secondary" size="sm" disabled aria-disabled="true">
-                  <Download aria-hidden="true" />
-                  Télécharger le pack
-                </Button>
-              </span>
+              {course.status === 'ready' || course.status === 'published' ? (
+                <DownloadPackButton courseId={course.id} />
+              ) : (
+                <span title="Disponible une fois le cours généré" className="inline-flex">
+                  <Button variant="secondary" size="sm" disabled aria-disabled="true">
+                    <Download aria-hidden="true" />
+                    Télécharger le pack
+                  </Button>
+                </span>
+              )}
               <span title="Bientôt disponible" className="inline-flex">
                 <Button variant="gold" size="sm" disabled aria-disabled="true">
                   <Rocket aria-hidden="true" />
@@ -125,6 +131,9 @@ export function CourseDetail({ course }: CourseDetailProps) {
 
         {/* ── Timeline de génération (cours en production) ─────── */}
         {course.status === 'generating' && <ProgressBanner courseId={course.id} />}
+
+        {/* ── Rapport de contrôle qualité (P26), une fois exécuté ─ */}
+        {course.qaReport && <QaReportPanel report={course.qaReport} />}
 
         {/* ── Arborescence + panneau de prévisualisation ───────── */}
         {course.sections.length === 0 ? (

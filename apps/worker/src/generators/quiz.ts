@@ -170,8 +170,10 @@ export function buildQuizMarkdown(input: QuizMarkdownInput): string {
 export async function generateQuiz(params: {
   courseId: string;
   lessonId: string;
+  /** Contexte de continuité (résumés des leçons précédentes, P19). */
+  context?: string;
 }): Promise<QuizGenerationResult> {
-  const { courseId, lessonId } = params;
+  const { courseId, lessonId, context } = params;
 
   const lesson = await Lesson.findById(lessonId);
   if (!lesson) throw new Error(`leçon introuvable : ${lessonId}`);
@@ -199,6 +201,7 @@ export async function generateQuiz(params: {
     difficulty: course.difficulty,
     locale: course.locale,
     sectionLessons,
+    context,
   });
 
   // Persistance — upsert idempotent : un retry BullMQ remplace les questions.

@@ -14,6 +14,13 @@ export default defineConfig({
       { find: /^@sallycourse\/shared\/(.*)\.js$/, replacement: `${pkg('shared', 'src')}/$1.ts` },
       { find: /^@sallycourse\/db\/(.*)\.js$/, replacement: `${pkg('db', 'src')}/$1.ts` },
       { find: /^@sallycourse\/design\/(.*)\.js$/, replacement: `${pkg('design', 'src')}/$1.ts` },
+      // Sous-chemins SANS extension (auto-références internes des paquets, ex.
+      // pdf-templates.ts → '@sallycourse/design/render-templates'). Le groupe
+      // exclut une extension .js/.ts déjà présente et interdit un « / » final
+      // pour ne pas capter les barils ci-dessous.
+      { find: /^@sallycourse\/shared\/([^.]+)$/, replacement: `${pkg('shared', 'src')}/$1.ts` },
+      { find: /^@sallycourse\/db\/([^.]+)$/, replacement: `${pkg('db', 'src')}/$1.ts` },
+      { find: /^@sallycourse\/design\/([^.]+)$/, replacement: `${pkg('design', 'src')}/$1.ts` },
       // Barils de packages.
       { find: '@sallycourse/shared', replacement: pkg('shared', 'src', 'index.ts') },
       { find: '@sallycourse/db', replacement: pkg('db', 'src', 'index.ts') },

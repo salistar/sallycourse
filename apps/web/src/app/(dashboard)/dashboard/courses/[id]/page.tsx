@@ -8,10 +8,16 @@ import {
   Quiz as QuizModel,
   Section as SectionModel,
 } from '@sallycourse/db';
-import { presignedGetUrl } from '@sallycourse/shared';
+import { getObjectStream, presignedGetUrl } from '@sallycourse/shared';
 import { requireUser } from '@/lib/session';
 import { CourseDetail } from '@/components/course';
-import type { CourseDetailView, LessonView, SectionView } from '@/components/course';
+import type {
+  CourseDetailView,
+  LessonView,
+  QaReportView,
+  SectionView,
+  SlideView,
+} from '@/components/course';
 import { OutlineReview } from '@/components/outline';
 import type { OutlineReviewCourse } from '@/components/outline';
 
@@ -41,6 +47,65 @@ async function safePresign(key: string | undefined): Promise<string | undefined>
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Résout le Markdown d'un article : `Lesson.assets.articleMd` stocke une clé
+ * S3 (l'objet uploadé par le worker), on télécharge son contenu pour l'afficher
+ * et l'éditer. Un échec (S3 indisponible) masque simplement l'article.
+ */
+async function safeReadMarkdown(key: string | undefined): Promise<string | undefined> {
+  if (!key) return undefined;
+  try {
+    const stream = await getObjectStream(key);
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks).toString('utf-8');
+  } catch {
+    return undefined;
+  }
+}
+
+/** Extrait les slides éditables de lesson.script (structure SlideScript). */
+function extractSlides(script: unknown): SlideView[] | undefined {
+  if (!script || typeof script !== 'object') return undefined;
+  const raw = (script as { slides?: unknown }).slides;
+  if (!Array.isArray(raw)) return undefined;
+  return raw.map((entry) => {
+    const slide = (entry ?? {}) as Record<string, unknown>;
+    const { template, title, bullets, narration, ...rest } = slide;
+    return {
+      template: typeof template === 'string' ? template : 'content',
+      title: typeof title === 'string' ? title : '',
+      bullets: Array.isArray(bullets) ? bullets.filter((b): b is string => typeof b === 'string') : [],
+      narration: typeof narration === 'string' ? narration : '',
+      rest,
+    };
+  });
+}
+
+/**
+ * Normalise le `Course.qaReport` (champ Mixed) en DTO sérialisable pour le
+ * client. Toute structure inattendue renvoie null (aucun rapport affiché).
+ */
+function toQaReportView(raw: unknown): QaReportView | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const report = raw as { passed?: unknown; ranAt?: unknown; checks?: unknown };
+  if (typeof report.passed !== 'boolean' || !Array.isArray(report.checks)) return null;
+  const checks = report.checks
+    .filter((c): c is Record<string, unknown> => Boolean(c) && typeof c === 'object')
+    .map((c) => ({
+      code: typeof c.code === 'string' ? c.code : 'unknown',
+      ok: c.ok === true,
+      detail: typeof c.detail === 'string' ? c.detail : '',
+    }));
+  return {
+    passed: report.passed,
+    ranAt: typeof report.ranAt === 'string' ? report.ranAt : new Date().toISOString(),
+    checks,
+  };
 }
 
 export default async function CourseDetailPage({
@@ -112,11 +177,12 @@ export default async function CourseDetailPage({
           const lessonId = lesson._id.toString();
           const quiz = quizByLesson.get(lessonId);
 
-          // Présignature parallèle des assets de la leçon.
-          const [videoUrl, vttUrl, screenshots] = await Promise.all([
+          // Présignature/résolution parallèle des assets de la leçon.
+          const [videoUrl, vttUrl, screenshots, articleMd] = await Promise.all([
             safePresign(lesson.assets?.videoUrl),
             safePresign(lesson.assets?.vttUrl),
             Promise.all((lesson.assets?.screenshots ?? []).map((key) => safePresign(key))),
+            safeReadMarkdown(lesson.assets?.articleMd),
           ]);
 
           return {
@@ -130,7 +196,7 @@ export default async function CourseDetailPage({
             assets: {
               videoUrl,
               vttUrl,
-              articleMd: lesson.assets?.articleMd,
+              articleMd,
               screenshots: screenshots.filter((url): url is string => Boolean(url)),
             },
             quiz: quiz
@@ -141,6 +207,7 @@ export default async function CourseDetailPage({
                   explanation: question.explanation ?? '',
                 }))
               : null,
+            scriptSlides: extractSlides(lesson.script),
           };
         }),
       );
@@ -157,6 +224,7 @@ export default async function CourseDetailPage({
     locale: course.locale,
     createdAt: course.createdAt.toISOString(),
     sections: sectionsView,
+    qaReport: toQaReportView(course.qaReport),
   };
 
   return <CourseDetail course={courseView} />;

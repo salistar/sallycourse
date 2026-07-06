@@ -31,6 +31,13 @@ export interface OutlineJobData {
 export interface ContentJobData {
   courseId: string;
   lessonId: string;
+  /**
+   * Régénération d'une leçon éditée : 'render-only' réutilise le contenu
+   * existant (script/article/quiz édités) sans rappel au générateur LLM,
+   * 'full' relance toute la génération. Absent → comportement historique
+   * (génération complète).
+   */
+  mode?: 'render-only' | 'full';
 }
 
 export interface TtsJobData {

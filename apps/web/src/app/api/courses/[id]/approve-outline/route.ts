@@ -96,7 +96,11 @@ export async function POST(
 
   const courseId = course._id.toString();
 
-  // ── Enqueue d'un job de contenu par leçon ──────────────────────
+  // ── Enqueue de la PREMIÈRE leçon uniquement (P19) ──────────────
+  // Les leçons sont générées SÉQUENTIELLEMENT : chaque job de contenu enfile la
+  // suivante à la fin, de sorte que chacune dispose du contexte (résumés) des
+  // précédentes. lessonDocs[0] est la 1re leçon de la 1re section (flatMap
+  // préserve l'ordre section puis position).
   try {
     await GenerationJobModel.findOneAndUpdate(
       { courseId: course._id },
@@ -104,9 +108,10 @@ export async function POST(
       { upsert: true },
     );
 
-    const queue = getContentQueue();
-    for (const lesson of lessonDocs) {
-      const lessonId = lesson._id.toString();
+    const firstLesson = lessonDocs[0];
+    if (firstLesson) {
+      const queue = getContentQueue();
+      const lessonId = firstLesson._id.toString();
       const jobId = makeJobId(courseId, QUEUES.content, lessonId);
       // Un run précédent garderait le jobId réservé : purge avant re-add.
       await queue.remove(jobId).catch(() => undefined);

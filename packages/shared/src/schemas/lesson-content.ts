@@ -30,6 +30,10 @@ export const slideSchema = z.object({
   narration: z.string().min(1),
   /** Notes internes (indications de mise en scène, non lues). */
   notes: z.string().optional(),
+  /** Clé S3 du mp3 narré de la slide, posée par tts-generation (P23). Rétro-compatible. */
+  audioKey: z.string().min(1).optional(),
+  /** Durée mesurée de l'audio de la slide, en secondes (ffprobe). Rétro-compatible. */
+  audioSeconds: z.number().positive().optional(),
 });
 export type Slide = z.infer<typeof slideSchema>;
 

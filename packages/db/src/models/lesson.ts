@@ -17,6 +17,8 @@ export interface ILessonAssets {
   videoUrl?: string;
   articleMd?: string;
   screenshots: string[];
+  /** Clés S3 des slides vidéo rendues en PNG (gabarits D7, ordre du script). */
+  slides: string[];
   srtUrl?: string;
   vttUrl?: string;
   audioUrl?: string;
@@ -31,6 +33,13 @@ export interface ILesson {
   status: LessonStatus;
   durationMin?: number;
   summary?: string;
+  /**
+   * Résumé 2-3 phrases du contenu RÉELLEMENT généré (P19), produit après la
+   * génération de la leçon. Sert de contexte de continuité aux leçons suivantes
+   * (rappels « comme vu dans… », anti-répétition). Distinct de `summary`, qui
+   * vient de l'outline avant génération.
+   */
+  generatedSummary?: string;
   /** Script de génération (structure libre, produite par le worker). */
   script?: unknown;
   assets: ILessonAssets;
@@ -49,11 +58,13 @@ const lessonSchema = new Schema<ILesson>({
   status: { type: String, enum: [...LESSON_STATUSES], default: 'pending' },
   durationMin: { type: Number, min: 0 },
   summary: { type: String },
+  generatedSummary: { type: String },
   script: { type: Schema.Types.Mixed, default: null },
   assets: {
     videoUrl: { type: String },
     articleMd: { type: String },
     screenshots: { type: [String], default: [] },
+    slides: { type: [String], default: [] },
     srtUrl: { type: String },
     vttUrl: { type: String },
     audioUrl: { type: String },

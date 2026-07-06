@@ -11,6 +11,8 @@ export interface QuizPromptInput {
   locale: Locale;
   /** Leçons de la section (hors quiz) : matière première des questions et distracteurs. */
   sectionLessons?: readonly { title: string; summary?: string }[];
+  /** Contexte de continuité (résumés des leçons précédentes, P19). */
+  context?: string;
 }
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {
@@ -55,13 +57,14 @@ export function quizSystemPrompt(): string {
 
 /** Prompt utilisateur : contexte de la section (titre balisé « … » pour extraction mock). */
 export function quizUserPrompt(input: QuizPromptInput): string {
-  const { courseTitle, sectionTitle, lessonTitle, difficulty, locale, sectionLessons } = input;
+  const { courseTitle, sectionTitle, lessonTitle, difficulty, locale, sectionLessons, context } = input;
   const lines = [
     `Génère le quiz de fin de section « ${sectionTitle} » du cours « ${courseTitle} ».`,
     `Titre de la leçon quiz : ${lessonTitle}`,
     `Niveau global du cours : ${DIFFICULTY_LABELS[difficulty]}`,
     `Langue : toutes les questions, choix et explications sont rédigés en ${LOCALE_LABELS[locale]}.`,
   ];
+  if (context) lines.push('', context);
   if (sectionLessons && sectionLessons.length > 0) {
     lines.push(
       ``,

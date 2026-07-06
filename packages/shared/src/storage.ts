@@ -4,6 +4,7 @@ import {
   DeleteObjectsCommand,
   GetObjectCommand,
   HeadBucketCommand,
+  HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
@@ -64,6 +65,8 @@ export interface LessonKeys {
   video(): string;
   article(): string;
   screenshot(index: number): string;
+  /** Slide vidéo rendue en PNG (gabarits D7 rendus par Playwright). */
+  slide(index: number): string;
   captionsSrt(): string;
   captionsVtt(): string;
   audio(slide: number): string;
@@ -79,6 +82,10 @@ export interface CourseKeys {
 }
 
 export const storageKeys = {
+  /** Cache TTS partagé entre cours : clé = hash sha256(texte+voix). */
+  ttsCache(hash: string): string {
+    return `tts-cache/${hash}.mp3`;
+  },
   course(courseId: string): CourseKeys {
     const prefix = `courses/${courseId}`;
     return {
@@ -90,6 +97,7 @@ export const storageKeys = {
           video: () => `${base}/video.mp4`,
           article: () => `${base}/article.md`,
           screenshot: (index: number) => `${base}/screenshots/${index}.png`,
+          slide: (index: number) => `${base}/slides/${index}.png`,
           captionsSrt: () => `${base}/captions.srt`,
           captionsVtt: () => `${base}/captions.vtt`,
           audio: (slide: number) => `${base}/audio/${slide}.mp3`,
@@ -132,6 +140,22 @@ export async function getObjectStream(key: string): Promise<Readable> {
   } catch (err) {
     if (err instanceof StorageError) throw err;
     throw new StorageError('getObjectStream', key, err);
+  }
+}
+
+/**
+ * Vérifie l'existence d'un objet (HeadObject) sans télécharger son corps.
+ * Retourne false sur 404/NotFound, propage toute autre erreur (StorageError).
+ */
+export async function objectExists(key: string): Promise<boolean> {
+  try {
+    await getS3Client().send(new HeadObjectCommand({ Bucket: bucket(), Key: key }));
+    return true;
+  } catch (err) {
+    const code = (err as { name?: string; $metadata?: { httpStatusCode?: number } })?.name;
+    const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
+    if (code === 'NotFound' || code === 'NoSuchKey' || status === 404) return false;
+    throw new StorageError('objectExists', key, err);
   }
 }
 

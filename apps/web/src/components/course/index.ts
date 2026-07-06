@@ -10,6 +10,16 @@ export { ScreenshotGallery, type ScreenshotGalleryProps } from './screenshot-gal
 export { QuizPreview, type QuizPreviewProps } from './quiz-preview';
 export { RegenerateButton, type RegenerateButtonProps } from './regenerate-button';
 export { ProgressBanner, type ProgressBannerProps } from './progress-banner';
+export { DownloadPackButton, type DownloadPackButtonProps } from './download-pack-button';
+export { QaReportPanel, type QaReportPanelProps } from './qa-report-panel';
+export {
+  ArticleEditor,
+  VideoScriptEditor,
+  QuizEditor,
+  type ArticleEditorProps,
+  type VideoScriptEditorProps,
+  type QuizEditorProps,
+} from './edit';
 export type {
   CourseDetailView,
   SectionView,
@@ -17,4 +27,7 @@ export type {
   LessonAssetsView,
   LessonStatus,
   QuizQuestionView,
+  SlideView,
+  QaReportView,
+  QaCheckView,
 } from './types';

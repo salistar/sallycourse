@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { isValidObjectId } from 'mongoose';
+import { z } from 'zod';
 import { QUEUES, defaultJobOptions, makeJobId } from '@sallycourse/shared';
 import { connectDb, Course as CourseModel, Lesson as LessonModel } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
@@ -9,11 +10,18 @@ import { getContentQueue } from '@/lib/queues';
  * POST /api/lessons/[id]/regenerate — relance la génération de contenu d'une
  * leçon : vérifie l'ownership via le cours parent, enfile un job
  * 'content-generation' (jobId déterministe) puis repasse la leçon en
- * 'generating'. 404 volontaire (pas 403) pour ne pas révéler l'existence
- * d'une leçon d'un autre utilisateur.
+ * 'generating'. Corps optionnel { mode: 'render-only' | 'full' } : après une
+ * édition de script, l'éditeur envoie 'full' pour relancer TTS + rendu à
+ * partir du script sauvegardé. 404 volontaire (pas 403) pour ne pas révéler
+ * l'existence d'une leçon d'un autre utilisateur.
  */
+
+const bodySchema = z
+  .object({ mode: z.enum(['render-only', 'full']).optional() })
+  .optional();
+
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const user = await requireApiUser();
@@ -23,6 +31,10 @@ export async function POST(
   if (!isValidObjectId(id)) {
     return NextResponse.json({ error: 'Leçon introuvable.' }, { status: 404 });
   }
+
+  // Corps facultatif : un POST sans body reste valide (mode indéfini).
+  const parsedBody = bodySchema.safeParse(await request.json().catch(() => undefined));
+  const mode = parsedBody.success ? parsedBody.data?.mode : undefined;
 
   await connectDb();
 
@@ -48,7 +60,11 @@ export async function POST(
     // Une exécution précédente (terminée ou échouée) garderait le jobId
     // réservé : on la purge pour autoriser un vrai re-run.
     await queue.remove(jobId).catch(() => undefined);
-    await queue.add('regenerate-lesson', { courseId, lessonId }, { ...defaultJobOptions, jobId });
+    await queue.add(
+      'regenerate-lesson',
+      { courseId, lessonId, ...(mode ? { mode } : {}) },
+      { ...defaultJobOptions, jobId },
+    );
   } catch {
     return NextResponse.json(
       { error: 'Impossible de lancer la régénération, réessayez plus tard.' },

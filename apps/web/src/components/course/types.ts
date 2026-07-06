@@ -26,6 +26,16 @@ export interface QuizQuestionView {
   explanation: string;
 }
 
+/** Slide éditable d'un script vidéo (sous-ensemble édité + champs préservés). */
+export interface SlideView {
+  template: string;
+  title: string;
+  bullets: string[];
+  narration: string;
+  /** Champs de la slide non exposés à l'édition, conservés à l'identique. */
+  rest: Record<string, unknown>;
+}
+
 export interface LessonView {
   id: string;
   title: string;
@@ -37,6 +47,8 @@ export interface LessonView {
   assets: LessonAssetsView;
   /** Questions du quiz associé (null si aucun quiz généré). */
   quiz: QuizQuestionView[] | null;
+  /** Slides du script vidéo (leçons 'video' avec script produit). */
+  scriptSlides?: SlideView[];
 }
 
 export interface SectionView {
@@ -44,6 +56,20 @@ export interface SectionView {
   title: string;
   order: number;
   lessons: LessonView[];
+}
+
+/** Un contrôle unitaire du rapport qualité (Prompt 26). */
+export interface QaCheckView {
+  code: string;
+  ok: boolean;
+  detail: string;
+}
+
+/** Rapport de contrôle qualité automatique d'un cours (null si jamais exécuté). */
+export interface QaReportView {
+  passed: boolean;
+  ranAt: string;
+  checks: QaCheckView[];
 }
 
 export interface CourseDetailView {
@@ -54,4 +80,6 @@ export interface CourseDetailView {
   locale: Locale;
   createdAt: string;
   sections: SectionView[];
+  /** Rapport QA (Prompt 26) — null tant que le contrôle n'a pas tourné. */
+  qaReport?: QaReportView | null;
 }

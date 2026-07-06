@@ -164,8 +164,13 @@ export async function generateTpContent(input: TpPromptInput): Promise<TpContent
  * validé et status passe à 'ready'. Jette en cas d'échec (le dispatcher
  * content-generation gère alors le statut 'failed').
  */
-export async function generateTp(params: { courseId: string; lessonId: string }): Promise<TpResult> {
-  const { courseId, lessonId } = params;
+export async function generateTp(params: {
+  courseId: string;
+  lessonId: string;
+  /** Contexte de continuité (résumés des leçons précédentes, P19). */
+  context?: string;
+}): Promise<TpResult> {
+  const { courseId, lessonId, context } = params;
 
   const lesson = await Lesson.findById(lessonId);
   if (!lesson) throw new Error(`leçon introuvable : ${lessonId}`);
@@ -181,6 +186,7 @@ export async function generateTp(params: { courseId: string; lessonId: string })
     summary: lesson.summary,
     difficulty: course.difficulty,
     locale: course.locale,
+    context,
   });
 
   lesson.script = tp;

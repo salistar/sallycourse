@@ -1,9 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { Clock3, FileText, FlaskConical, HelpCircle, Images, MonitorPlay, Video } from 'lucide-react';
+import { Clock3, FileText, FlaskConical, HelpCircle, Images, MonitorPlay, Pencil, Video } from 'lucide-react';
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -19,6 +20,7 @@ import { QuizPreview } from './quiz-preview';
 import { ScreenshotGallery } from './screenshot-gallery';
 import { RegenerateButton } from './regenerate-button';
 import { LESSON_STATUS_BADGE } from './lesson-tree';
+import { ArticleEditor, QuizEditor, VideoScriptEditor } from './edit';
 import type { LessonType, LessonView, Locale } from './types';
 
 /**
@@ -82,7 +84,29 @@ function NoContentState({ lesson }: { lesson: LessonView }) {
   );
 }
 
+/** Barre d'action « Éditer » affichée en tête d'un onglet éditable. */
+function EditToggle({ label, onEdit }: { label: string; onEdit: () => void }) {
+  return (
+    <div className="mb-4 flex justify-end">
+      <Button variant="secondary" size="sm" onClick={onEdit}>
+        <Pencil aria-hidden="true" />
+        {label}
+      </Button>
+    </div>
+  );
+}
+
 export function LessonPanel({ lesson, locale, className }: LessonPanelProps) {
+  // Onglet actuellement en mode édition (null = prévisualisation).
+  const [editing, setEditing] = React.useState<PanelTab | null>(null);
+  const stopEditing = React.useCallback(() => setEditing(null), []);
+
+  // Changer de leçon ferme tout éditeur ouvert.
+  const lessonId = lesson?.id;
+  React.useEffect(() => {
+    setEditing(null);
+  }, [lessonId]);
+
   if (!lesson) {
     return (
       <Card wrapperClassName={className}>
@@ -99,6 +123,8 @@ export function LessonPanel({ lesson, locale, className }: LessonPanelProps) {
   const badge = LESSON_STATUS_BADGE[lesson.status];
   const { assets } = lesson;
   const hasQuiz = Boolean(lesson.quiz && lesson.quiz.length > 0);
+  // Édition du script possible si des slides ont été produites (leçon vidéo).
+  const canEditScript = Boolean(lesson.scriptSlides && lesson.scriptSlides.length > 0);
 
   // Onglets disponibles selon les assets réellement produits.
   const tabs: { id: PanelTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [];
@@ -156,30 +182,54 @@ export function LessonPanel({ lesson, locale, className }: LessonPanelProps) {
 
             {assets.videoUrl && (
               <TabsContent value="video">
-                <div className="overflow-hidden rounded-md border border-border bg-neutral-950 shadow-sm">
-                  {/* URL présignée générée côté serveur ; piste VTT si produite. */}
-                  <video controls preload="metadata" className="aspect-video w-full" src={assets.videoUrl} crossOrigin="anonymous">
-                    {assets.vttUrl && (
-                      <track
-                        kind="subtitles"
-                        src={assets.vttUrl}
-                        srcLang={locale}
-                        label={LOCALE_LABELS[locale]}
-                        default
-                      />
+                {editing === 'video' && canEditScript ? (
+                  <VideoScriptEditor
+                    lessonId={lesson.id}
+                    initialSlides={lesson.scriptSlides!.map((slide) => ({ ...slide }))}
+                    onExit={stopEditing}
+                  />
+                ) : (
+                  <>
+                    {canEditScript && (
+                      <EditToggle label="Éditer le script" onEdit={() => setEditing('video')} />
                     )}
-                    Votre navigateur ne prend pas en charge la lecture vidéo.
-                  </video>
-                </div>
-                {assets.vttUrl && (
-                  <p className="mt-2 text-2xs text-muted">Sous-titres ({LOCALE_LABELS[locale]}) disponibles.</p>
+                    <div className="overflow-hidden rounded-md border border-border bg-neutral-950 shadow-sm">
+                      {/* URL présignée générée côté serveur ; piste VTT si produite. */}
+                      <video controls preload="metadata" className="aspect-video w-full" src={assets.videoUrl} crossOrigin="anonymous">
+                        {assets.vttUrl && (
+                          <track
+                            kind="subtitles"
+                            src={assets.vttUrl}
+                            srcLang={locale}
+                            label={LOCALE_LABELS[locale]}
+                            default
+                          />
+                        )}
+                        Votre navigateur ne prend pas en charge la lecture vidéo.
+                      </video>
+                    </div>
+                    {assets.vttUrl && (
+                      <p className="mt-2 text-2xs text-muted">Sous-titres ({LOCALE_LABELS[locale]}) disponibles.</p>
+                    )}
+                  </>
                 )}
               </TabsContent>
             )}
 
             {assets.articleMd && (
               <TabsContent value="article">
-                <ArticleView markdown={assets.articleMd} />
+                {editing === 'article' ? (
+                  <ArticleEditor
+                    lessonId={lesson.id}
+                    initialMarkdown={assets.articleMd}
+                    onExit={stopEditing}
+                  />
+                ) : (
+                  <>
+                    <EditToggle label="Éditer l’article" onEdit={() => setEditing('article')} />
+                    <ArticleView markdown={assets.articleMd} />
+                  </>
+                )}
               </TabsContent>
             )}
 
@@ -191,7 +241,21 @@ export function LessonPanel({ lesson, locale, className }: LessonPanelProps) {
 
             {hasQuiz && (
               <TabsContent value="quiz">
-                <QuizPreview questions={lesson.quiz ?? []} />
+                {editing === 'quiz' ? (
+                  <QuizEditor
+                    lessonId={lesson.id}
+                    initialQuestions={(lesson.quiz ?? []).map((q) => ({
+                      ...q,
+                      choices: [...q.choices],
+                    }))}
+                    onExit={stopEditing}
+                  />
+                ) : (
+                  <>
+                    <EditToggle label="Éditer le quiz" onEdit={() => setEditing('quiz')} />
+                    <QuizPreview questions={lesson.quiz ?? []} />
+                  </>
+                )}
               </TabsContent>
             )}
           </Tabs>

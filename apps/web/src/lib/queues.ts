@@ -1,6 +1,12 @@
 import { Queue, type ConnectionOptions } from 'bullmq';
 import { Redis } from 'ioredis';
-import { QUEUES, getConfig, type ContentJobData, type OutlineJobData } from '@sallycourse/shared';
+import {
+  QUEUES,
+  getConfig,
+  type ContentJobData,
+  type OutlineJobData,
+  type PackagingJobData,
+} from '@sallycourse/shared';
 
 /**
  * File BullMQ côté web — uniquement pour ENQUEUER (les workers consomment
@@ -12,6 +18,7 @@ interface QueueStore {
   redis?: Redis;
   outlineQueue?: Queue<OutlineJobData>;
   contentQueue?: Queue<ContentJobData>;
+  packagingQueue?: Queue<PackagingJobData>;
 }
 
 const globalWithQueues = globalThis as typeof globalThis & {
@@ -58,4 +65,14 @@ export function getContentQueue(): Queue<ContentJobData> {
     });
   }
   return store.contentQueue;
+}
+
+/** Queue 'packaging' — construction du pack export ZIP téléchargeable. */
+export function getPackagingQueue(): Queue<PackagingJobData> {
+  if (!store.packagingQueue) {
+    store.packagingQueue = new Queue<PackagingJobData>(QUEUES.packaging, {
+      connection: getConnection(),
+    });
+  }
+  return store.packagingQueue;
 }

@@ -11,6 +11,8 @@ export interface VideoScriptPromptInput {
   courseTitle: string;
   difficulty: Difficulty;
   locale: Locale;
+  /** Contexte de continuité (résumés des leçons précédentes, P19). */
+  context?: string;
 }
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {
@@ -62,7 +64,7 @@ export function videoScriptSystemPrompt(): string {
 
 /** Prompt utilisateur : paramètres de la leçon (titre balisé « … » pour extraction mock). */
 export function videoScriptUserPrompt(input: VideoScriptPromptInput): string {
-  const { lessonTitle, summary, durationMin, courseTitle, difficulty, locale } = input;
+  const { lessonTitle, summary, durationMin, courseTitle, difficulty, locale, context } = input;
   const targetWords = Math.round(durationMin * AUDIO.NARRATION_WORDS_PER_MINUTE);
   const lines = [
     `Écris le script vidéo de la leçon « ${lessonTitle} ».`,
@@ -70,6 +72,7 @@ export function videoScriptUserPrompt(input: VideoScriptPromptInput): string {
     `Durée cible : ${durationMin} minutes, soit environ ${targetWords} mots de narration au total.`,
   ];
   if (summary) lines.push(`Résumé de la leçon (à respecter) : ${summary}`);
+  if (context) lines.push('', context);
   lines.push(`Slides et narration intégralement rédigées en ${LOCALE_LABELS[locale]}.`);
   return lines.join('\n');
 }

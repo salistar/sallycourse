@@ -10,6 +10,8 @@ export interface TpPromptInput {
   summary?: string;
   difficulty: Difficulty;
   locale: Locale;
+  /** Contexte de continuité (résumés des leçons précédentes, P19). */
+  context?: string;
 }
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {
@@ -67,12 +69,13 @@ export function tpSystemPrompt(): string {
 
 /** Prompt utilisateur — le titre de la leçon est balisé « … » en premier (extraction mock). */
 export function tpUserPrompt(input: TpPromptInput): string {
-  const { courseTitle, lessonTitle, summary, difficulty, locale } = input;
+  const { courseTitle, lessonTitle, summary, difficulty, locale, context } = input;
   const lines = [
     `Rédige le TP complet de la leçon « ${lessonTitle} » du cours "${courseTitle}".`,
     `Niveau du cours : ${DIFFICULTY_LABELS[difficulty]}.`,
   ];
   if (summary) lines.push(`Résumé prévu de la leçon : ${summary}`);
+  if (context) lines.push('', context);
   lines.push(
     `Tout le contenu du TP doit être rédigé en ${LOCALE_LABELS[locale]}.`,
     `Rappel : toute étape effectuée sur ordinateur doit inclure son "screenshotSpec" rejouable par Playwright.`,

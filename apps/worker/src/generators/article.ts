@@ -83,6 +83,8 @@ export interface ArticleContentInput {
   summary?: string | undefined;
   difficulty: Difficulty;
   locale: Locale;
+  /** Contexte de continuité (résumés des leçons précédentes, P19). */
+  context?: string | undefined;
 }
 
 /**
@@ -144,8 +146,10 @@ export async function generateArticleContent(
 export async function generateArticle(params: {
   courseId: string;
   lessonId: string;
+  /** Contexte de continuité (résumés des leçons précédentes, P19). */
+  context?: string;
 }): Promise<ArticleResult> {
-  const { courseId, lessonId } = params;
+  const { courseId, lessonId, context } = params;
 
   const lesson = await Lesson.findById(lessonId);
   if (!lesson) throw new Error(`leçon introuvable : ${lessonId}`);
@@ -165,6 +169,7 @@ export async function generateArticle(params: {
     summary: lesson.summary,
     difficulty: course.difficulty,
     locale: course.locale,
+    context,
   });
 
   // Clé déterministe par position (section, leçon) : un retry écrase l'ancien objet.

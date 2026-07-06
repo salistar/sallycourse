@@ -10,6 +10,8 @@ export interface ArticlePromptInput {
   summary?: string | undefined;
   difficulty: Difficulty;
   locale: Locale;
+  /** Contexte de continuité (résumés des leçons précédentes, P19). */
+  context?: string | undefined;
 }
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {
@@ -45,13 +47,14 @@ export function articleSystemPrompt(): string {
 
 /** Prompt utilisateur : contexte de la leçon (titre balisé « … » pour extraction mock). */
 export function articleUserPrompt(input: ArticlePromptInput): string {
-  const { lessonTitle, courseTitle, summary, difficulty, locale } = input;
+  const { lessonTitle, courseTitle, summary, difficulty, locale, context } = input;
   const lines = [
     `Rédige l'article de la leçon « ${lessonTitle} ».`,
     `Cours : ${courseTitle}`,
     `Niveau du public : ${DIFFICULTY_LABELS[difficulty]}`,
   ];
   if (summary) lines.push(`Résumé attendu de la leçon : ${summary}`);
+  if (context) lines.push('', context);
   lines.push(
     `Langue de rédaction : ${LOCALE_LABELS[locale]} (tout le contenu, y compris les titres et encadrés).`,
     `Vise ${ARTICLE.MIN_WORDS} à ${ARTICLE.MAX_WORDS} mots, avec les encadrés et placeholders imposés.`,
