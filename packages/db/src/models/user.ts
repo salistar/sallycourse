@@ -1,4 +1,6 @@
 import { Schema, model, models, type HydratedDocument, type Model } from 'mongoose';
+// prettier-ignore
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
 import { LOCALES, PLANS, type Locale, type PlanId } from '@sallycourse/shared';
 
 // Identifiants de plan dérivés de la constante partagée (free|pro|business).
