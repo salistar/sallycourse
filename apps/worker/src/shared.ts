@@ -35,7 +35,9 @@ export { Course, type CourseDocument, type ICourse } from '@sallycourse/db/model
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { Section, type ISection } from '@sallycourse/db/models/section.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
-export { Lesson, LESSON_STATUSES, type ILesson } from '@sallycourse/db/models/lesson.js';
+export { User, type IUser } from '@sallycourse/db/models/user.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { Lesson, LESSON_STATUSES, type ILesson, type LessonStatus } from '@sallycourse/db/models/lesson.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { GenerationJob, type IGenerationJob } from '@sallycourse/db/models/generation-job.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact

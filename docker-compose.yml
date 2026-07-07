@@ -65,7 +65,68 @@ services:
       - minio-data:/data
     profiles: [core, full]
 
+  # ── Services IA (profil ai) ──────────────────────────────────────
+  # Placeholders : réellement branchés en Phase 9. Ici on les déclare
+  # (images, ports, volumes) pour figer l'infra sans impacter core.
+  # Démarrage : docker compose --profile ai up -d  (ou --profile full).
+  ollama:
+    image: ollama/ollama:latest # LLM OSS local (Llama, etc.) — Phase 9
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    profiles: [ai, full]
+
+  piper:
+    # TTS OSS (voix neuronales). Image placeholder — à figer en Phase 9.
+    image: rhasspy/wyoming-piper:latest
+    command: ["--voice", "fr_FR-siwis-medium"]
+    ports:
+      - "10200:10200"
+    volumes:
+      - piper-data:/data
+    profiles: [ai, full]
+
+  # ── Outils de debug (profil debug) ───────────────────────────────
+  # UIs d'inspection + catcher SMTP, jamais démarrés en core/full.
+  # Démarrage : docker compose --profile debug up -d
+  #   mongo-express   http://localhost:8081  (Mongo UI ; login admin/admin)
+  #   redis-commander http://localhost:8082  (Redis UI)
+  #   mailpit         http://localhost:8025  (boîte mail de test ; SMTP :1025)
+  mongo-express:
+    image: mongo-express:1.0.2
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://mongo:27017
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: admin
+    depends_on:
+      mongo:
+        condition: service_healthy
+    profiles: [debug]
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    ports:
+      - "8082:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    depends_on:
+      redis:
+        condition: service_started
+    profiles: [debug]
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025" # UI web
+      - "1025:1025" # SMTP (pointer SMTP_URL=smtp://mailpit:1025 dessus)
+    profiles: [debug]
+
 volumes:
   mongo-data:
   redis-data:
   minio-data:
+  ollama-data:
+  piper-data:

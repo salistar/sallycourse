@@ -9,7 +9,13 @@
     "lint": "eslint .",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "setup:local": "node scripts/setup.mjs",
+    "up": "docker compose --profile core up -d",
+    "up:full": "docker compose --profile full up -d",
+    "down": "docker compose down",
+    "logs": "docker compose logs -f",
+    "seed": "pnpm --filter @sallycourse/worker seed"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

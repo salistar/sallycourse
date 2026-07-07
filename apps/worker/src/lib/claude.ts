@@ -47,7 +47,12 @@ export class ClaudeJsonError extends Error {
 let anthropicClient: Anthropic | null = null;
 
 function getClient(apiKey: string): Anthropic {
-  if (!anthropicClient) anthropicClient = new Anthropic({ apiKey });
+  if (!anthropicClient) {
+    // Surcharge optionnelle de l'URL de base (mock-server / proxy local).
+    // Rétrocompatible : absente → SDK vers api.anthropic.com par défaut.
+    const baseURL = process.env.ANTHROPIC_BASE_URL?.trim();
+    anthropicClient = new Anthropic(baseURL ? { apiKey, baseURL } : { apiKey });
+  }
   return anthropicClient;
 }
 

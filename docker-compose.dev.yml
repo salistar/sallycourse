@@ -1,0 +1,38 @@
+# Overlay de DÉVELOPPEMENT (optionnel) — hot reload dans les conteneurs.
+#
+# Monte le code source dans web/worker et remplace la commande de production
+# par la commande dev (next dev / tsx watch). node_modules et .next restent
+# des volumes anonymes pour ne pas écraser l'installation de l'image ni polluer
+# l'hôte (le monorepo est installé DANS l'image au build).
+#
+# Usage (à combiner avec le compose de base) :
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile core up
+#
+# Alternative (recommandée hors conteneur) : lancer l'infra en core puis
+# `pnpm --filter @sallycourse/web dev` / `pnpm --filter @sallycourse/worker dev`
+# directement sur l'hôte (itération la plus rapide).
+
+services:
+  web:
+    command: pnpm --filter @sallycourse/web dev
+    environment:
+      NODE_ENV: development
+      # HMR fiable sur volumes montés (Windows/WSL notamment).
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./apps/web:/app/apps/web
+      - ./packages:/app/packages
+      # Préserve les artefacts de l'image (jamais masqués par le montage hôte).
+      - /app/node_modules
+      - /app/apps/web/node_modules
+      - /app/apps/web/.next
+
+  worker:
+    command: pnpm --filter @sallycourse/worker dev
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./apps/worker:/app/apps/worker
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/worker/node_modules
