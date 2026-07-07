@@ -22,3 +22,7 @@ export * from './queues';
 export * from './udemy-compliance';
 // @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
 export * from './lesson-delta';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+export * from './course-templates';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+export * from './pricing-table';

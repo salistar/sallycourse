@@ -21,7 +21,13 @@ interface QueueStore {
   contentQueue?: Queue<ContentJobData>;
   packagingQueue?: Queue<PackagingJobData>;
   deploymentQueue?: Queue<DeploymentJobData>;
+  feedbackQueue?: Queue<{ courseId: string }>;
 }
+
+/** Nom de la queue d'analyse de feedback (miroir du worker, hors registre typé). */
+export const FEEDBACK_QUEUE = 'review-feedback';
+/** Nom de job d'analyse d'un cours (P62). */
+export const FEEDBACK_JOB = 'analyze-course-reviews';
 
 const globalWithQueues = globalThis as typeof globalThis & {
   __sallycourseQueues?: QueueStore;
@@ -87,4 +93,14 @@ export function getDeploymentQueue(): Queue<DeploymentJobData> {
     });
   }
   return store.deploymentQueue;
+}
+
+/** Queue 'review-feedback' (P62) — analyse à la demande des avis d'un cours. */
+export function getFeedbackQueue(): Queue<{ courseId: string }> {
+  if (!store.feedbackQueue) {
+    store.feedbackQueue = new Queue<{ courseId: string }>(FEEDBACK_QUEUE, {
+      connection: getConnection(),
+    });
+  }
+  return store.feedbackQueue;
 }

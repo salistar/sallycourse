@@ -25,6 +25,7 @@ import './deploy/adapters/thinkific.js';
 import { closeSlideBrowser } from './media/slide-renderer.js';
 import { killTpContainersOlderThan } from './media/tp-environments.js';
 import { startReviewScheduler, stopReviewScheduler } from './deploy/review-poll.js';
+import { startAnalyticsScheduler, stopAnalyticsScheduler } from './lib/analytics/refresh.js';
 
 /** Reaper des conteneurs TP orphelins (P22) : au démarrage puis toutes les 15 min. */
 const TP_REAPER_INTERVAL_MS = 15 * 60 * 1_000;
@@ -72,6 +73,10 @@ async function main(): Promise<void> {
   // Cron review & alerting (P47) : poll quotidien du statut de revue des
   // déploiements, notification utilisateur, plan de correction en cas de rejet.
   await startReviewScheduler();
+
+  // Cron analytics (P61) : rafraîchissement périodique des métriques des cours
+  // publiés (Udemy/YouTube), agrégé ensuite par le dashboard.
+  await startAnalyticsScheduler();
 }
 
 let shuttingDown = false;
@@ -84,6 +89,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   try {
     stopTpReaper();
     await stopReviewScheduler();
+    await stopAnalyticsScheduler();
     await closeAll();
     await closeSlideBrowser();
     await mongoose.disconnect();

@@ -100,13 +100,13 @@ export function FirstCourseEmpty({ className }: FirstCourseEmptyProps) {
       </p>
 
       <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-        <Link href="/dashboard/new" className={buttonVariants({ variant: 'gold', size: 'lg' })}>
+        <Link href="/dashboard/onboarding" className={buttonVariants({ variant: 'gold', size: 'lg' })}>
           <Sparkles aria-hidden="true" />
           Créer mon premier cours
           <ArrowRight aria-hidden="true" className="rtl:rotate-180" />
         </Link>
-        <Link href="/design/components" className={buttonVariants({ variant: 'ghost', size: 'lg' })}>
-          Voir un exemple
+        <Link href="/dashboard/new" className={buttonVariants({ variant: 'ghost', size: 'lg' })}>
+          Partir d’une page blanche
         </Link>
       </div>
 

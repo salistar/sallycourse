@@ -7,6 +7,7 @@ import { signOut } from 'next-auth/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ChevronsUpDown,
+  Layers,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -19,6 +20,7 @@ import {
 import { transitions } from '@/components/motion';
 import { LanguageSwitcher } from '@/components/i18n';
 import { cn } from '@/lib/cn';
+import { NotificationBell } from './notification-bell';
 import { MOCK_USER, userInitials, type DashboardUser } from './mock-data';
 
 /**
@@ -70,6 +72,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/dashboard/new', label: 'Nouveau cours', icon: PlusCircle },
+  { href: '/dashboard/batch', label: 'Génération en batch', icon: Layers },
   { href: '/settings', label: 'Paramètres', icon: Settings },
 ];
 
@@ -245,7 +248,11 @@ function SidebarContent({
 }) {
   return (
     <div className="flex h-full flex-col gap-6 p-4">
-      <Logo />
+      <div className="flex items-center justify-between">
+        <Logo />
+        {/* Cloche de notifications — visible en tête de sidebar (desktop + tiroir). */}
+        <NotificationBell />
+      </div>
       <NavLinks onNavigate={onNavigate} isAdmin={isAdmin} />
       <div className="mt-auto space-y-2">
         {/* Sélecteur de langue de l'UI (cookie NEXT_LOCALE) — au-dessus du menu. */}
@@ -282,15 +289,19 @@ export function DashboardSidebar({ isAdmin = false, user = MOCK_USER }: Dashboar
       {/* Barre haute mobile */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background/80 px-4 py-3 backdrop-blur-md lg:hidden">
         <Logo />
-        <button
-          type="button"
-          aria-label={drawerOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-          aria-expanded={drawerOpen}
-          onClick={() => setDrawerOpen((v) => !v)}
-          className="flex h-10 w-10 items-center justify-center rounded-sm text-muted transition-colors duration-fast hover:bg-primary-soft hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/80"
-        >
-          {drawerOpen ? <X className="size-5" aria-hidden="true" /> : <Menu className="size-5" aria-hidden="true" />}
-        </button>
+        <div className="flex items-center gap-1">
+          {/* Cloche de notifications — accessible aussi hors tiroir sur mobile. */}
+          <NotificationBell />
+          <button
+            type="button"
+            aria-label={drawerOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+            aria-expanded={drawerOpen}
+            onClick={() => setDrawerOpen((v) => !v)}
+            className="flex h-10 w-10 items-center justify-center rounded-sm text-muted transition-colors duration-fast hover:bg-primary-soft hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/80"
+          >
+            {drawerOpen ? <X className="size-5" aria-hidden="true" /> : <Menu className="size-5" aria-hidden="true" />}
+          </button>
+        </div>
       </header>
 
       {/* Tiroir mobile */}

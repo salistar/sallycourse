@@ -5,7 +5,7 @@ import type { FilterQuery, Types } from 'mongoose';
 import { RotateCcw } from 'lucide-react';
 import { Course, GenerationJob, connectDb, type IGenerationJob } from '@sallycourse/db';
 import { Badge, EmptyState, Progress } from '@/components/ui';
-import { PendingButton } from '@/components/admin';
+import { AdminNav, PendingButton } from '@/components/admin';
 import { requireUser } from '@/lib/session';
 import { cn } from '@/lib/cn';
 import { retryAllFailedAction, retryJobAction } from './actions';
@@ -91,6 +91,8 @@ export default async function AdminJobsPage({ searchParams }: AdminJobsPageProps
 
   return (
     <div className="flex flex-col gap-6">
+      <AdminNav />
+
       {/* En-tête + relance en masse */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>

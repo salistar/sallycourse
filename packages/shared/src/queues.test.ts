@@ -69,6 +69,7 @@ describe('types QueueJobData', () => {
     expectTypeOf<QueueJobData['outline-generation']>().toEqualTypeOf<{
       courseId: string;
       extraInstructions?: string;
+      derive?: { sourceCourseId: string };
     }>();
     expectTypeOf<QueueJobData['tts-generation']>().toMatchTypeOf<{
       courseId: string;

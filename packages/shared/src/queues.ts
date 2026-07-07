@@ -26,6 +26,15 @@ export interface OutlineJobData {
   courseId: string;
   /** Instructions supplémentaires de l'utilisateur lors d'une régénération du plan. */
   extraInstructions?: string;
+  /**
+   * Dérivation d'un cours existant (P64) : présent → le processor ne génère pas
+   * un plan de zéro mais RÉUTILISE l'outline du cours source (traduit si la
+   * langue change), persiste sections/leçons puis lance directement la
+   * génération du contenu (pas de revue). `sourceCourseId` = cours d'origine.
+   */
+  derive?: {
+    sourceCourseId: string;
+  };
 }
 
 export interface ContentJobData {
@@ -38,6 +47,13 @@ export interface ContentJobData {
    * (génération complète).
    */
   mode?: 'render-only' | 'full';
+  /**
+   * Instruction ciblée injectée dans le contexte du générateur lors d'une
+   * régénération pilotée par le feedback étudiant (P62). Ex. « Les étudiants
+   * trouvent l'exemple trop rapide : détaille davantage. » Absente → aucun
+   * ajustement (régénération standard).
+   */
+  instruction?: string;
 }
 
 export interface TtsJobData {

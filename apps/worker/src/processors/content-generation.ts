@@ -11,7 +11,9 @@ import {
   Section,
   defaultJobOptions,
   makeJobId,
+  notify,
   publishProgress,
+  requireConfig,
   type ContentJobData,
 } from '../shared.js';
 import { getRedisConnection } from '../queues/connection.js';
@@ -112,6 +114,36 @@ async function report(
  * même temps. Ne jette jamais : un échec marketing marque le cours 'failed'
  * et libère le claim, sans invalider la leçon qui vient d'aboutir.
  */
+/**
+ * Émet la notification « génération terminée » pour le propriétaire du cours.
+ * Best-effort : ne jette jamais (une notif ratée ne compromet pas le cours).
+ */
+async function emitGenerationComplete(course: {
+  _id: unknown;
+  userId: unknown;
+  title?: string;
+}): Promise<void> {
+  try {
+    const courseId = String(course._id);
+    const title = course.title ?? 'votre cours';
+    let actionUrl: string | undefined;
+    try {
+      actionUrl = `${requireConfig('APP_URL')}/dashboard/courses/${courseId}`;
+    } catch {
+      actionUrl = undefined;
+    }
+    await notify(String(course.userId), {
+      type: 'generation_complete',
+      title: 'Cours prêt',
+      body: `Le cours « ${title} » a été généré avec succès.`,
+      link: `/dashboard/courses/${courseId}`,
+      emailData: { courseTitle: title, actionUrl },
+    });
+  } catch (err) {
+    logger.warn({ err }, 'notification generation_complete non émise');
+  }
+}
+
 export async function finalizeCourseIfComplete(courseId: string): Promise<void> {
   const remaining = await Lesson.countDocuments({ courseId, status: { $ne: 'ready' } });
   if (remaining > 0) return;
@@ -152,6 +184,9 @@ export async function finalizeCourseIfComplete(courseId: string): Promise<void> 
       `Cours prêt : QA validé + marketing (${marketing.titleIdeas} idées de titres, cover + miniature uploadées)`,
     );
     logger.info({ ...marketing }, 'cours finalisé : QA + marketing OK, status=ready');
+
+    // Notification (P59) — génération terminée (in-app + email best-effort).
+    await emitGenerationComplete(claimed);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error({ courseId, err }, 'échec de la finalisation du cours (QA/marketing)');
@@ -186,8 +221,21 @@ async function recordLessonVersion(lessonId: string, note: string): Promise<void
   }
 }
 
+/**
+ * Fusionne le contexte de continuité (P19) et une éventuelle instruction
+ * d'amélioration issue du feedback étudiant (P62). L'instruction est mise en
+ * exergue pour que le générateur la prenne en compte prioritairement.
+ */
+function mergeInstruction(context: string | undefined, instruction: string | undefined): string | undefined {
+  const trimmed = instruction?.trim();
+  if (!trimmed) return context;
+  const directive =
+    `INSTRUCTION D'AMÉLIORATION (retour étudiant) — à appliquer en priorité : ${trimmed}`;
+  return context ? `${directive}\n\n${context}` : directive;
+}
+
 export async function processContentGeneration(job: Job<ContentJobData>): Promise<ContentGenerationResult> {
-  const { courseId, lessonId } = job.data;
+  const { courseId, lessonId, instruction } = job.data;
 
   const lesson = await Lesson.findById(lessonId);
   if (!lesson) throw new Error(`leçon introuvable : ${lessonId}`);
@@ -198,7 +246,7 @@ export async function processContentGeneration(job: Job<ContentJobData>): Promis
 
     // Cohérence inter-leçons (P19) : contexte des leçons déjà générées (résumés),
     // injecté dans le prompt des générateurs pour éviter les répétitions.
-    const context = await buildContinuityContext(courseId, lesson);
+    const context = mergeInstruction(await buildContinuityContext(courseId, lesson), instruction);
 
     switch (lesson.type) {
       case 'video':

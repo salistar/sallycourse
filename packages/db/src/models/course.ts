@@ -31,6 +31,13 @@ export interface ICourse {
   qaReport?: unknown;
   /** Landing marketing générée (JSON marketingSchema + clés S3 des visuels) — Mixed. */
   marketing?: unknown;
+  /**
+   * Analyse des retours étudiants (P62) : thèmes récurrents + suggestions
+   * d'amélioration ciblées, produites par le worker à partir des avis Udemy.
+   * Mixed en base, validé par reviewAnalysisSchema (Zod). Null tant qu'aucune
+   * analyse n'a tourné.
+   */
+  improvementSuggestions?: unknown;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,6 +66,7 @@ const courseSchema = new Schema<ICourse>(
     introVideoKey: { type: String },
     qaReport: { type: Schema.Types.Mixed, default: null },
     marketing: { type: Schema.Types.Mixed, default: null },
+    improvementSuggestions: { type: Schema.Types.Mixed, default: null },
   },
   { timestamps: true },
 );

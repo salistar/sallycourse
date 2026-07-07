@@ -27,6 +27,7 @@ import {
   QUEUES,
   decryptCredentials,
   getConfig,
+  notify,
   publishProgress,
   type DeploymentDocument,
   type DeploymentStatus,
@@ -385,6 +386,7 @@ async function notifyUser(
   courseId: string,
   transition: ReviewTransition,
   planSummary?: string,
+  courseTitle?: string,
 ): Promise<void> {
   const messages: Record<Exclude<ReviewNotificationKind, null>, string> = {
     approved: 'Bonne nouvelle : votre cours a été approuvé et publié.',
@@ -401,6 +403,42 @@ async function notifyUser(
     msg,
     level,
   ).catch(() => undefined);
+
+  // Notification persistante (P59) — in-app + email best-effort. Le changes_requested
+  // est traité comme un rejet côté notification (action requise de l'utilisateur).
+  try {
+    const title = courseTitle ?? 'votre cours';
+    let actionUrl: string | undefined;
+    try {
+      actionUrl = `${getConfig().APP_URL}/dashboard/courses/${courseId}`;
+    } catch {
+      actionUrl = undefined;
+    }
+    if (transition.notify === 'approved') {
+      await notify(String(deployment.userId), {
+        type: 'review_approved',
+        title: 'Review approuvée',
+        body: `Le cours « ${title} » a été approuvé sur ${deployment.platform}.`,
+        link: `/dashboard/courses/${courseId}`,
+        emailData: { courseTitle: title, platform: deployment.platform, actionUrl },
+      });
+    } else {
+      await notify(String(deployment.userId), {
+        type: 'review_rejected',
+        title: 'Review rejetée',
+        body: msg,
+        link: `/dashboard/courses/${courseId}`,
+        emailData: {
+          courseTitle: title,
+          platform: deployment.platform,
+          reason: planSummary,
+          actionUrl,
+        },
+      });
+    }
+  } catch (err) {
+    logger.warn({ courseId, err }, 'notification review non émise');
+  }
 }
 
 /**
@@ -515,7 +553,7 @@ export async function pollDeploymentReview(
   }
 
   await deployment.save().catch(() => undefined);
-  await notifyUser(deployment, courseId, transition, planSummary);
+  await notifyUser(deployment, courseId, transition, planSummary, course.title);
 
   return {
     deploymentId: String(deployment._id),

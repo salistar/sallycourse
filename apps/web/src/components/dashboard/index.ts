@@ -10,6 +10,7 @@ export { ProgressRing, type ProgressRingProps } from './progress-ring';
 export { GenerationPanel, type GenerationPanelProps } from './generation-panel';
 export { FirstCourseEmpty, type FirstCourseEmptyProps } from './first-course-empty';
 export { DashboardSidebar } from './sidebar';
+export { NotificationBell } from './notification-bell';
 export {
   MOCK_COURSES,
   MOCK_STATS,

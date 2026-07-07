@@ -2,12 +2,13 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, CalendarDays, Download, GraduationCap, Languages, Rocket } from 'lucide-react';
-import { Badge, Button, EmptyState, ToastProvider, Toaster, type BadgeProps } from '@/components/ui';
+import { ArrowLeft, CalendarDays, Download, Eye, GraduationCap, Languages, Rocket } from 'lucide-react';
+import { Badge, Button, EmptyState, ToastProvider, Toaster, buttonVariants, type BadgeProps } from '@/components/ui';
 import { LessonTree } from './lesson-tree';
 import { LessonPanel } from './lesson-panel';
 import { ProgressBanner } from './progress-banner';
 import { DownloadPackButton } from './download-pack-button';
+import { DeriveButton } from './derive-button';
 import { IntroVideoUpload } from './intro-video-upload';
 import { DeployPanel } from './deploy-panel';
 import { QaReportPanel } from './qa-report-panel';
@@ -114,6 +115,31 @@ export function CourseDetail({ course }: CourseDetailProps) {
 
             {/* Actions cours — pack export actif une fois le cours abouti. */}
             <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {/* Aperçu « mode étudiant » (P60) — dès qu'il y a des leçons. */}
+              {lessonCount > 0 ? (
+                <Link
+                  href={`/dashboard/courses/${course.id}/preview`}
+                  className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+                >
+                  <Eye aria-hidden="true" />
+                  Aperçu étudiant
+                </Link>
+              ) : (
+                <span title="Disponible dès que le cours contient des leçons" className="inline-flex">
+                  <Button variant="secondary" size="sm" disabled aria-disabled="true">
+                    <Eye aria-hidden="true" />
+                    Aperçu étudiant
+                  </Button>
+                </span>
+              )}
+              {/* Déclinaison (P64) — dès que le plan est validé (cours abouti). */}
+              {deployable && (
+                <DeriveButton
+                  courseId={course.id}
+                  sourceLocale={course.locale}
+                  sourceDifficulty={course.difficulty}
+                />
+              )}
               {course.status === 'ready' || course.status === 'published' ? (
                 <DownloadPackButton courseId={course.id} />
               ) : (

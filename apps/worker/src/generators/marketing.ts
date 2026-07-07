@@ -18,6 +18,7 @@ import {
 } from '../shared.js';
 import { logger } from '../queues/index.js';
 import { callClaudeJson } from '../lib/claude.js';
+import { recordImageCost } from '../lib/cost.js';
 import { marketingSystemPrompt, marketingUserPrompt } from '../prompts/marketing.js';
 
 /** Tentatives quand les règles MÉTIER échouent (le schéma est garanti par callClaudeJson). */
@@ -129,6 +130,7 @@ export async function generateCourseMarketing(params: { courseId: string }): Pro
       system,
       user,
       maxTokens: MARKETING_MAX_TOKENS,
+      cost: { courseId, userId: String(course.userId) },
     });
 
     feedback = validateMarketingBusiness(candidate);
@@ -164,6 +166,9 @@ export async function generateCourseMarketing(params: { courseId: string }): Pro
   const youtubeThumbnailKey = keys.marketing(MARKETING_ASSET_FILES.youtubeThumbnail);
   await uploadObject(udemyCoverKey, udemyPng, 'image/png');
   await uploadObject(youtubeThumbnailKey, youtubePng, 'image/png');
+
+  // Coût des 2 visuels marketing générés (P55) — best-effort.
+  await recordImageCost({ courseId, userId: String(course.userId) }, 2).catch(() => undefined);
 
   // ── Persistance sur le cours ────────────────────────────────────
   await Course.updateOne(

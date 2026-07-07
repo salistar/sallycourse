@@ -19,6 +19,7 @@ import {
   QUEUES,
   decryptCredentials,
   getConfig,
+  notify,
   publishProgress,
   type DeploymentDocument,
   type DeploymentJobData,
@@ -308,6 +309,28 @@ export async function processDeployment(
       { courseId, platform, status: status.status, externalUrl: status.externalUrl },
       'déploiement terminé',
     );
+
+    // Notification (P59) — déploiement terminé (in-app + email best-effort).
+    try {
+      const title = course.title ?? 'votre cours';
+      let actionUrl: string | undefined = status.externalUrl;
+      if (!actionUrl) {
+        try {
+          actionUrl = `${config.APP_URL}/dashboard/courses/${courseId}`;
+        } catch {
+          actionUrl = undefined;
+        }
+      }
+      await notify(String(userId), {
+        type: 'deployment_complete',
+        title: 'Déploiement terminé',
+        body: `Le cours « ${title} » a été déployé sur ${platform}.`,
+        link: `/dashboard/courses/${courseId}`,
+        emailData: { courseTitle: title, platform, actionUrl },
+      });
+    } catch (err) {
+      logger.warn({ courseId, platform, err }, 'notification deployment_complete non émise');
+    }
 
     return {
       platform,

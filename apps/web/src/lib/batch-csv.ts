@@ -1,0 +1,232 @@
+import { z } from 'zod';
+import {
+  difficultySchema,
+  localeSchema,
+  type CreateCourseInput,
+  type Difficulty,
+} from '@sallycourse/shared';
+
+/**
+ * Import CSV pour la génération en batch (P63). Parse maison (aucune dépendance) :
+ * gère guillemets, virgules échappées, CRLF/LF et BOM. Chaque ligne est validée
+ * par zod puis convertie en CreateCourseInput réutilisable par createCourseForUser.
+ *
+ * Colonnes attendues (en-tête obligatoire, ordre libre, casse ignorée) :
+ *   title      (obligatoire) — titre du cours
+ *   level      (optionnel)   — beginner | intermediate | advanced   [def. beginner]
+ *   language   (optionnel)   — fr | en | ar                          [def. fr]
+ *   platforms  (optionnel)   — liste séparée par des « ; » (ex. « udemy;youtube »)
+ *
+ * Synonymes d'en-têtes tolérés : niveau→level, langue/locale→language,
+ * plateformes/platform→platforms, titre→title.
+ */
+
+/** Nombre maximal de lignes acceptées dans un fichier (garde-fou DoS/UX). */
+export const BATCH_MAX_ROWS = 200;
+
+/** Niveaux acceptés en entrée, avec synonymes FR courants. */
+const LEVEL_ALIASES: Record<string, Difficulty> = {
+  beginner: 'beginner',
+  débutant: 'beginner',
+  debutant: 'beginner',
+  intermediate: 'intermediate',
+  intermédiaire: 'intermediate',
+  intermediaire: 'intermediate',
+  advanced: 'advanced',
+  avancé: 'advanced',
+  avance: 'advanced',
+};
+
+/** Mappe un nom d'en-tête (normalisé) vers une clé canonique, ou null si inconnu. */
+function canonicalHeader(raw: string): 'title' | 'level' | 'language' | 'platforms' | null {
+  const h = raw.trim().toLowerCase();
+  if (h === 'title' || h === 'titre') return 'title';
+  if (h === 'level' || h === 'niveau' || h === 'difficulty' || h === 'difficulté') return 'level';
+  if (h === 'language' || h === 'langue' || h === 'locale' || h === 'lang') return 'language';
+  if (h === 'platforms' || h === 'platform' || h === 'plateformes' || h === 'plateforme') {
+    return 'platforms';
+  }
+  return null;
+}
+
+/**
+ * Découpe une ligne CSV en champs en respectant les guillemets doubles.
+ * `"a,b"` reste un champ ; `""` à l'intérieur d'un champ cité = guillemet
+ * littéral. Ne gère pas les retours-ligne dans un champ cité (une ligne logique
+ * = une ligne physique) — suffisant pour un import titre/niveau/langue.
+ */
+export function splitCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') {
+          current += '"';
+          i++; // guillemet échappé
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      fields.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  fields.push(current);
+  return fields.map((f) => f.trim());
+}
+
+/** Schéma zod d'une ligne brute (après mapping des colonnes). */
+const rowSchema = z.object({
+  title: z
+    .string({ required_error: 'Titre manquant.' })
+    .trim()
+    .min(3, 'Titre trop court (min. 3 caractères).')
+    .max(120, 'Titre trop long (max. 120 caractères).'),
+  level: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v, ctx) => {
+      if (!v) return 'beginner' as Difficulty;
+      const mapped = LEVEL_ALIASES[v.toLowerCase()];
+      if (!mapped) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Niveau invalide : « ${v} » (attendu beginner/intermediate/advanced).`,
+        });
+        return z.NEVER;
+      }
+      return mapped;
+    })
+    .pipe(difficultySchema),
+  language: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v ? v.toLowerCase() : 'fr'))
+    .pipe(localeSchema),
+  platforms: z
+    .string()
+    .optional()
+    .transform((v) =>
+      (v ?? '')
+        .split(';')
+        .map((p) => p.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+});
+
+/** Une ligne valide, prête pour createCourseForUser. */
+export interface ValidBatchRow {
+  /** Numéro de ligne (1-based, en-tête exclu) pour les messages à l'utilisateur. */
+  line: number;
+  input: CreateCourseInput;
+}
+
+/** Une ligne rejetée avec sa raison. */
+export interface InvalidBatchRow {
+  line: number;
+  /** Contenu brut de la ligne (tronqué à l'affichage côté UI). */
+  raw: string;
+  errors: string[];
+}
+
+export interface ParsedBatch {
+  valid: ValidBatchRow[];
+  invalid: InvalidBatchRow[];
+  /** Erreur globale bloquante (en-tête absent, fichier vide, trop de lignes). */
+  fatal?: string;
+}
+
+/**
+ * Parse et valide un CSV complet. Ne lève jamais : renvoie les lignes valides,
+ * les rejets détaillés et une éventuelle erreur fatale (structure invalide).
+ */
+export function parseBatchCsv(content: string): ParsedBatch {
+  // Retrait du BOM UTF-8 éventuel, normalisation des fins de ligne.
+  const text = content.replace(/^﻿/, '');
+  const rawLines = text.split(/\r\n|\r|\n/);
+
+  // Lignes non vides uniquement (on ignore les lignes blanches n'importe où).
+  const lines = rawLines.filter((l) => l.trim() !== '');
+
+  const header = lines[0];
+  if (header === undefined) {
+    return { valid: [], invalid: [], fatal: 'Fichier vide.' };
+  }
+
+  // Première ligne = en-tête. On construit l'index colonne → position.
+  const headerCells = splitCsvLine(header);
+  const columnIndex: Partial<Record<'title' | 'level' | 'language' | 'platforms', number>> = {};
+  headerCells.forEach((cell, i) => {
+    const key = canonicalHeader(cell);
+    if (key && columnIndex[key] === undefined) columnIndex[key] = i;
+  });
+
+  if (columnIndex.title === undefined) {
+    return {
+      valid: [],
+      invalid: [],
+      fatal: 'En-tête invalide : colonne « title » (ou « titre ») obligatoire.',
+    };
+  }
+
+  const dataLines = lines.slice(1);
+  if (dataLines.length > BATCH_MAX_ROWS) {
+    return {
+      valid: [],
+      invalid: [],
+      fatal: `Trop de lignes : ${dataLines.length} (maximum ${BATCH_MAX_ROWS}).`,
+    };
+  }
+
+  const valid: ValidBatchRow[] = [];
+  const invalid: InvalidBatchRow[] = [];
+
+  dataLines.forEach((rowText, i) => {
+    const lineNo = i + 1; // 1-based, en-tête exclu
+    const cells = splitCsvLine(rowText);
+    const cellAt = (idx: number | undefined): string | undefined =>
+      idx === undefined ? undefined : cells[idx];
+
+    const candidate = {
+      title: cellAt(columnIndex.title),
+      level: cellAt(columnIndex.level),
+      language: cellAt(columnIndex.language),
+      platforms: cellAt(columnIndex.platforms),
+    };
+
+    const parsed = rowSchema.safeParse(candidate);
+    if (!parsed.success) {
+      invalid.push({
+        line: lineNo,
+        raw: rowText,
+        errors: parsed.error.issues.map((issue) => issue.message),
+      });
+      return;
+    }
+
+    valid.push({
+      line: lineNo,
+      input: {
+        title: parsed.data.title,
+        difficulty: parsed.data.level,
+        locale: parsed.data.language,
+        targetPlatforms: parsed.data.platforms,
+      },
+    });
+  });
+
+  return { valid, invalid };
+}

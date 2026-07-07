@@ -4,6 +4,7 @@
 // Lesson.script + status. Mode mock : fixture locale déterministe, zéro appel payant.
 import { Course, Lesson, getConfig, tpSchema, type TpContent } from '../shared.js';
 import { callClaudeJson } from '../lib/claude.js';
+import type { CostContext } from '../lib/cost.js';
 import { hashString } from '../lib/mock-fixtures.js';
 import { logger } from '../queues/index.js';
 import { tpSystemPrompt, tpUserPrompt, type TpPromptInput } from '../prompts/tp.js';
@@ -125,7 +126,7 @@ export function mockTpContent(lessonTitle: string): TpContent {
  * - Mode mock (MOCK_PROVIDERS ou clé absente) : fixture déterministe locale.
  * - Mode réel : callClaudeJson + boucle métier avec réinjection du feedback.
  */
-export async function generateTpContent(input: TpPromptInput): Promise<TpContent> {
+export async function generateTpContent(input: TpPromptInput, cost?: CostContext): Promise<TpContent> {
   const config = getConfig();
   if (config.MOCK_PROVIDERS || !config.ANTHROPIC_API_KEY) {
     logger.debug({ lesson: input.lessonTitle, mock: true }, 'generateTpContent : fixture mock déterministe');
@@ -149,6 +150,7 @@ export async function generateTpContent(input: TpPromptInput): Promise<TpContent
       system,
       user,
       maxTokens: TP_MAX_TOKENS,
+      ...(cost ? { cost } : {}),
     });
 
     feedback = validateTpBusiness(candidate);
@@ -180,14 +182,17 @@ export async function generateTp(params: {
   const course = await Course.findById(courseId);
   if (!course) throw new Error(`cours introuvable : ${courseId}`);
 
-  const tp = await generateTpContent({
-    courseTitle: course.title,
-    lessonTitle: lesson.title,
-    summary: lesson.summary,
-    difficulty: course.difficulty,
-    locale: course.locale,
-    context,
-  });
+  const tp = await generateTpContent(
+    {
+      courseTitle: course.title,
+      lessonTitle: lesson.title,
+      summary: lesson.summary,
+      difficulty: course.difficulty,
+      locale: course.locale,
+      context,
+    },
+    { courseId, userId: String(course.userId) },
+  );
 
   lesson.script = tp;
   lesson.status = 'ready';

@@ -129,6 +129,7 @@ export async function generateVideoScript(params: {
       system,
       user,
       maxTokens: SCRIPT_MAX_TOKENS,
+      cost: { courseId, userId: String(course.userId) },
     });
 
     feedback = validateVideoScriptBusiness(candidate, durationMin);

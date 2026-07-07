@@ -4,7 +4,12 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Wand2 } from 'lucide-react';
-import { createCourseInputSchema, type Difficulty } from '@sallycourse/shared';
+import {
+  createCourseInputSchema,
+  getCourseTemplate,
+  type CourseTemplate,
+  type Difficulty,
+} from '@sallycourse/shared';
 import { Button, useToast } from '@/components/ui';
 import { transitions } from '@/components/motion/motion-config';
 import { TitleField } from './title-field';
@@ -60,17 +65,52 @@ function toFieldErrors(error: import('zod').ZodError): FieldErrors {
   return errors;
 }
 
-export function CreateCourseExperience() {
+/**
+ * Valeurs initiales du brief — permettent d'ouvrir /dashboard/new pré-hydraté
+ * depuis un template de niche (?template=devops&title=…), typiquement au sortir
+ * de l'assistant d'onboarding.
+ */
+export interface CreateCourseExperienceProps {
+  initialTitle?: string;
+  initialTemplateId?: string;
+}
+
+/** Dérive le brief initial (titre, niveau, options) d'un template optionnel. */
+function deriveInitialBrief(props: CreateCourseExperienceProps): {
+  title: string;
+  difficulty: Difficulty | null;
+  options: AdvancedOptions;
+  template: CourseTemplate | null;
+} {
+  const template = props.initialTemplateId ? getCourseTemplate(props.initialTemplateId) ?? null : null;
+  const title = props.initialTitle?.trim() || template?.exampleTitles[0] || '';
+  const options: AdvancedOptions = template
+    ? {
+        ...DEFAULT_ADVANCED_OPTIONS,
+        locale: template.locale,
+        approxSections: template.sections,
+      }
+    : DEFAULT_ADVANCED_OPTIONS;
+  return { title, difficulty: template?.difficulty ?? null, options, template };
+}
+
+export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) {
   const router = useRouter();
   const { toast } = useToast();
   const [phase, setPhase] = React.useState<Phase>('compose');
   const [submitting, setSubmitting] = React.useState(false);
 
+  // Brief initial dérivé d'un éventuel template (?template=…).
+  const initial = React.useMemo(() => deriveInitialBrief(props), [props.initialTemplateId, props.initialTitle]);
+
   // Brief du cours
-  const [title, setTitle] = React.useState('');
-  const [difficulty, setDifficulty] = React.useState<Difficulty | null>(null);
-  const [options, setOptions] = React.useState<AdvancedOptions>(DEFAULT_ADVANCED_OPTIONS);
+  const [title, setTitle] = React.useState(initial.title);
+  const [difficulty, setDifficulty] = React.useState<Difficulty | null>(initial.difficulty);
+  const [options, setOptions] = React.useState<AdvancedOptions>(initial.options);
   const [errors, setErrors] = React.useState<FieldErrors>({});
+
+  // Un titre pré-rempli par template ne doit pas déclencher de suggestions
+  // tant que l'utilisateur n'a pas commencé à éditer.
 
   // Redirection différée vers la page du cours (annulée si retour au brief).
   const redirectTimerRef = React.useRef<number | null>(null);
@@ -85,7 +125,8 @@ export function CreateCourseExperience() {
   // repli local en cas d'échec réseau ; masquées après un choix (jusqu'à la
   // prochaine frappe) pour ne pas re-suggérer ce qui vient d'être pris.
   const [suggestions, setSuggestions] = React.useState<string[]>([]);
-  const suppressSuggestionsRef = React.useRef(false);
+  // Titre pré-rempli (template) : on n'ouvre pas les suggestions d'emblée.
+  const suppressSuggestionsRef = React.useRef(initial.title.length > 0);
 
   React.useEffect(() => {
     if (phase !== 'compose') return;

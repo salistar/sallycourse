@@ -10,9 +10,17 @@ import {
   connectDb,
   Course as CourseModel,
   GenerationJob as GenerationJobModel,
+  notify,
 } from '@sallycourse/db';
 import { getOutlineQueue } from './queues';
 import { checkAndReserveCourseQuota, releaseQuota } from './quota';
+
+/** Libellés de plan lisibles pour la notification de quota. */
+const PLAN_LABELS: Record<PlanId, string> = {
+  free: 'Gratuit',
+  pro: 'Pro',
+  business: 'Business',
+};
 
 /**
  * Logique métier partagée de création de cours (quota mensuel → Course →
@@ -41,6 +49,14 @@ export async function createCourseForUser(
   userId: string,
   plan: PlanId,
   input: CreateCourseInput,
+  options?: {
+    /**
+     * Délai (ms) avant traitement du job outline par le worker. Utilisé par la
+     * génération en batch (P63) pour échelonner les enqueues : la queue gère
+     * déjà la concurrence, mais espacer les démarrages lisse la charge vidéo.
+     */
+    enqueueDelayMs?: number;
+  },
 ): Promise<CreateCourseResult> {
   await connectDb();
 
@@ -49,6 +65,20 @@ export async function createCourseForUser(
   if (!reservation.ok) {
     if (reservation.reason === 'user_not_found') {
       return { ok: false, error: { kind: 'user_not_found' } };
+    }
+    // Notification (P59) — quota mensuel atteint (in-app + email best-effort).
+    // Ne bloque pas la réponse d'erreur ; échec de notif ignoré.
+    try {
+      const planLabel = PLAN_LABELS[reservation.plan];
+      await notify(userId, {
+        type: 'quota_reached',
+        title: 'Quota mensuel atteint',
+        body: `Vous avez atteint la limite de ${reservation.limit} cours/mois du plan ${planLabel}.`,
+        link: '/pricing',
+        emailData: { plan: planLabel, actionUrl: '/pricing', actionLabel: 'Voir les offres' },
+      });
+    } catch {
+      /* best-effort */
     }
     return {
       ok: false,
@@ -88,7 +118,12 @@ export async function createCourseForUser(
     await getOutlineQueue().add(
       'outline',
       { courseId },
-      { ...defaultJobOptions, jobId: makeJobId(courseId, QUEUES.outline) },
+      {
+        ...defaultJobOptions,
+        jobId: makeJobId(courseId, QUEUES.outline),
+        // Délai optionnel : échelonnement des lots (P63).
+        ...(options?.enqueueDelayMs ? { delay: options.enqueueDelayMs } : {}),
+      },
     );
   } catch {
     await CourseModel.updateOne({ _id: course._id }, { $set: { status: 'failed' } }).catch(

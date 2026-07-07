@@ -72,6 +72,33 @@ export interface QaReportView {
   checks: QaCheckView[];
 }
 
+/** Un thème récurrent extrait des avis étudiants (P62). */
+export interface ReviewThemeView {
+  label: string;
+  sentiment: 'positive' | 'neutral' | 'negative';
+  count: number;
+  quotes: string[];
+}
+
+/** Une suggestion d'amélioration ciblée (P62). */
+export interface ImprovementSuggestionView {
+  /** Titre de la leçon visée, ou null si la suggestion porte sur le cours entier. */
+  lessonRef: string | null;
+  /** Identifiant de la leçon résolu depuis lessonRef (null si non résolu / global). */
+  lessonId: string | null;
+  action: string;
+  rationale: string;
+}
+
+/** Analyse des retours étudiants persistée sur un cours (null si jamais exécutée). */
+export interface ReviewFeedbackView {
+  themes: ReviewThemeView[];
+  suggestions: ImprovementSuggestionView[];
+  reviewCount: number;
+  averageRating: number;
+  generatedAt: string;
+}
+
 export interface CourseDetailView {
   id: string;
   title: string;
@@ -82,4 +109,6 @@ export interface CourseDetailView {
   sections: SectionView[];
   /** Rapport QA (Prompt 26) — null tant que le contrôle n'a pas tourné. */
   qaReport?: QaReportView | null;
+  /** Analyse des retours étudiants (P62) — null tant qu'aucune analyse n'a tourné. */
+  feedback?: ReviewFeedbackView | null;
 }

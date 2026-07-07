@@ -17,6 +17,8 @@ export interface IUser {
   };
   locale: Locale;
   role: 'user' | 'admin';
+  /** Compte banni par un admin (P57) — bloque l'usage sans supprimer les données. */
+  banned: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,6 +37,7 @@ const userSchema = new Schema<IUser>(
     },
     locale: { type: String, enum: [...LOCALES], default: 'fr' },
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
+    banned: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

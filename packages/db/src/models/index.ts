@@ -12,3 +12,7 @@ export * from './lms-listing';
 export * from './enrollment';
 export * from './api-key';
 export * from './webhook';
+export * from './notification';
+export * from './subscription';
+export * from './cost-record';
+export * from './course-analytics';

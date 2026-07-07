@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="{{lang}}" dir="{{direction}}">
+<head>
+  <meta charset="utf-8">
+  <title>SALISTAR — facture {{invoiceNumber}}</title>
+  <style>
+    /* ============================================================
+       SALISTAR — facture (A4 portrait, fond clair, imprimable)
+       Rendu : WeasyPrint ou Playwright PDF (CSS @page).
+       Couleurs figées issues de packages/design/src/tokens.json.
+       ============================================================ */
+    :root {
+      --bg: #FFFFFF;
+      --surface: #F7F5FB;
+      --fg: #1A1226;
+      --muted: #6B6480;
+      --border: #E4DEF0;
+      --violet-500: #8E55BE;
+      --violet-700: #5B2A86;
+      --gold-500: #D4A017;
+      --gold-600: #B28212;
+      --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+      --font-sans: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+      --font-arabic: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+    }
+    @page { size: A4 portrait; margin: 18mm 16mm; }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: var(--bg); color: var(--fg); font-family: var(--font-sans); font-size: 10.5pt; line-height: 1.5; }
+    html[dir="rtl"] body { font-family: var(--font-arabic); }
+    .display { font-family: var(--font-display); font-weight: 600; }
+    html[dir="rtl"] .display { font-family: var(--font-arabic); font-weight: 700; }
+
+    .head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 8mm;
+      border-bottom: 2px solid var(--violet-700);
+    }
+    .brand {
+      display: flex; align-items: center; gap: 3mm;
+      font-size: 15pt; font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--violet-700);
+    }
+    .brand::before {
+      content: ""; width: 4mm; height: 4mm; transform: rotate(45deg);
+      border-radius: 0.8mm; background: linear-gradient(135deg, var(--gold-500), var(--gold-600));
+    }
+    .doc-meta { text-align: end; }
+    .doc-title { font-size: 16pt; color: var(--fg); }
+    .doc-num { color: var(--muted); font-size: 9.5pt; letter-spacing: 0.08em; margin-top: 1mm; }
+
+    .parties { display: flex; justify-content: space-between; gap: 12mm; margin-top: 8mm; }
+    .party-label { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); margin-bottom: 1.5mm; }
+    .party-name { font-weight: 600; }
+    .party-line { color: var(--muted); font-size: 9.5pt; }
+
+    table.items { width: 100%; border-collapse: collapse; margin-top: 9mm; }
+    table.items thead th {
+      text-align: start; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--muted); padding: 2.5mm 3mm; border-bottom: 1px solid var(--border);
+    }
+    table.items thead th.num { text-align: end; }
+    table.items tbody td { padding: 3.5mm 3mm; border-bottom: 1px solid var(--border); }
+    table.items tbody td.num { text-align: end; font-variant-numeric: tabular-nums; }
+    .item-desc { font-weight: 600; }
+    .item-sub { color: var(--muted); font-size: 9pt; }
+
+    .totals { margin-top: 6mm; margin-inline-start: auto; width: 70mm; }
+    .totals .row { display: flex; justify-content: space-between; padding: 1.8mm 0; }
+    .totals .row.grand {
+      margin-top: 1.5mm; padding-top: 3mm; border-top: 2px solid var(--violet-700);
+      font-size: 12.5pt; font-weight: 700; color: var(--violet-700);
+    }
+    .totals .label { color: var(--muted); }
+    .totals .grand .label { color: var(--violet-700); }
+
+    .paid-badge {
+      display: inline-block; margin-top: 8mm; padding: 1.6mm 4mm; border-radius: 2mm;
+      background: var(--surface); border: 1px solid var(--border);
+      font-size: 9pt; font-weight: 600; letter-spacing: 0.06em; color: var(--violet-700);
+    }
+    .paid-badge:empty { display: none; }
+
+    .foot {
+      margin-top: 12mm; padding-top: 5mm; border-top: 1px solid var(--border);
+      color: var(--muted); font-size: 8.5pt; line-height: 1.6;
+    }
+    .foot:empty { display: none; }
+  </style>
+</head>
+<body>
+  <header class="head">
+    <div class="brand">Salistar</div>
+    <div class="doc-meta">
+      <div class="display doc-title">{{docTitle}}</div>
+      <div class="doc-num">{{invoiceNumber}}</div>
+      <div class="doc-num">{{issuedLine}}</div>
+    </div>
+  </header>
+
+  <section class="parties">
+    <div>
+      <div class="party-label">{{fromLabel}}</div>
+      <div class="party-name">{{sellerName}}</div>
+      <div class="party-line">{{sellerLine}}</div>
+    </div>
+    <div style="text-align:end">
+      <div class="party-label">{{toLabel}}</div>
+      <div class="party-name">{{customerName}}</div>
+      <div class="party-line">{{customerEmail}}</div>
+    </div>
+  </section>
+
+  <table class="items">
+    <thead>
+      <tr>
+        <th>{{descriptionLabel}}</th>
+        <th class="num">{{amountLabel}}</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <div class="item-desc">{{itemTitle}}</div>
+          <div class="item-sub">{{itemSubtitle}}</div>
+        </td>
+        <td class="num">{{itemAmount}}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div class="row"><span class="label">{{subtotalLabel}}</span><span>{{subtotal}}</span></div>
+    <div class="row grand"><span class="label">{{totalLabel}}</span><span>{{total}}</span></div>
+  </div>
+
+  <div class="paid-badge">{{paidBadge}}</div>
+
+  <footer class="foot">{{footerNote}}</footer>
+</body>
+</html>

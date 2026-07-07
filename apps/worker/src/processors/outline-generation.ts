@@ -219,6 +219,7 @@ export async function processOutlineGeneration(job: Job<OutlineJobData>): Promis
         system,
         user,
         maxTokens: OUTLINE_MAX_TOKENS,
+        cost: { courseId, userId: String(course.userId) },
       });
 
       feedback = validateOutlineBusiness(candidate);

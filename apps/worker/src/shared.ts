@@ -66,3 +66,17 @@ export { LmsListing, LMS_CURRENCIES, type ILmsListing, type LmsListingDocument, 
 // prettier-ignore
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { Enrollment, type IEnrollment, type EnrollmentDocument } from '@sallycourse/db/models/enrollment.js';
+// prettier-ignore
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { CostRecord, COST_KINDS, type ICostRecord, type CostRecordDocument, type CostKind } from '@sallycourse/db/models/cost-record.js';
+// prettier-ignore
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { CourseAnalytics, type ICourseAnalytics, type CourseAnalyticsDocument } from '@sallycourse/db/models/course-analytics.js';
+// prettier-ignore
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { claudeCostUsd, ttsCostUsd, renderCostUsd, imageCostUsd, CLAUDE_PRICING_USD_PER_MTOK, TTS_USD_PER_CHAR, RENDER_USD_PER_SECOND, IMAGE_USD_PER_UNIT } from '@sallycourse/shared/pricing-table.js';
+// prettier-ignore
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { notify, type NotifyInput, type NotifyResult } from '@sallycourse/db/notification-service.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { Notification, NOTIFICATION_TYPES, type INotification, type NotificationType } from '@sallycourse/db/models/notification.js';

@@ -6,6 +6,7 @@ import type { z } from 'zod';
 import { getConfig } from '../shared.js';
 import { logger } from '../queues/index.js';
 import { mockFixtureFor } from './mock-fixtures.js';
+import { recordClaudeCost, type CostContext } from './cost.js';
 
 /** Modèle par défaut du pipeline de génération. */
 export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-5';
@@ -14,8 +15,13 @@ export const MAX_JSON_ATTEMPTS = 3;
 const DEFAULT_MAX_TOKENS = 8192;
 
 export interface CallClaudeJsonParams<T> {
-  /** Schéma Zod attendu — la valeur retournée est garantie conforme. */
-  schema: z.ZodType<T>;
+  /**
+   * Schéma Zod attendu — la valeur retournée est garantie conforme.
+   * `Input` volontairement libre (`any`) : les schémas avec `.default()` ont un
+   * type d'entrée distinct du type de sortie `T`, ce qui rendrait `z.ZodType<T>`
+   * (Input=T par défaut) incompatible avec ces schémas sans cette relaxation.
+   */
+  schema: z.ZodType<T, z.ZodTypeDef, any>;
   /** Prompt système (règles, format de sortie). */
   system: string;
   /** Message utilisateur (données de la tâche). */
@@ -26,6 +32,8 @@ export interface CallClaudeJsonParams<T> {
   maxTokens?: number;
   /** Optionnel — les modèles récents (Sonnet 5+) rejettent les valeurs non par défaut. */
   temperature?: number;
+  /** Optionnel — rattache le coût (tokens in/out) à un cours (Prompt 55). */
+  cost?: CostContext;
 }
 
 /** Erreur enrichie : tentatives effectuées, dernière sortie brute, issues Zod. */
@@ -99,7 +107,7 @@ function textOfResponse(response: Anthropic.Message): string {
  * - stop_reason === 'max_tokens' → ClaudeJsonError explicite (troncature).
  */
 export async function callClaudeJson<T>(params: CallClaudeJsonParams<T>): Promise<T> {
-  const { schema, system, user, model = DEFAULT_CLAUDE_MODEL, maxTokens = DEFAULT_MAX_TOKENS, temperature } = params;
+  const { schema, system, user, model = DEFAULT_CLAUDE_MODEL, maxTokens = DEFAULT_MAX_TOKENS, temperature, cost } = params;
   const config = getConfig();
 
   if (config.MOCK_PROVIDERS || !config.ANTHROPIC_API_KEY) {
@@ -120,6 +128,14 @@ export async function callClaudeJson<T>(params: CallClaudeJsonParams<T>): Promis
       messages,
       ...(temperature !== undefined ? { temperature } : {}),
     });
+
+    // Coût de CET appel (chaque tentative consomme des tokens, même en retry
+    // de validation) — best-effort, ne bloque jamais la génération.
+    if (cost) {
+      const usage = response.usage;
+      const tokensIn = (usage.input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0);
+      await recordClaudeCost(cost, model, tokensIn, usage.output_tokens ?? 0).catch(() => undefined);
+    }
 
     if (response.stop_reason === 'max_tokens') {
       throw new ClaudeJsonError(

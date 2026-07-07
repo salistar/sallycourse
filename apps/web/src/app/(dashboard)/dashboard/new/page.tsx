@@ -12,6 +12,25 @@ export const metadata: Metadata = {
     'Écrivez la couverture de votre cours : un titre, un niveau, et l’IA compose le reste.',
 };
 
-export default function NewCoursePage() {
-  return <CreateCourseExperience />;
+/** Premier élément d'un searchParam (string | string[] | undefined). */
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+/**
+ * La page accepte ?template=<id> et ?title=<texte> pour partir d'un template
+ * de niche (Prompt 58) — typiquement depuis l'assistant d'onboarding.
+ */
+export default async function NewCoursePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  return (
+    <CreateCourseExperience
+      initialTemplateId={firstParam(params.template)}
+      initialTitle={firstParam(params.title)}
+    />
+  );
 }

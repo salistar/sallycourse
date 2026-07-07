@@ -17,6 +17,7 @@ import {
 import { logger } from '../queues/index.js';
 import { callClaudeJson } from '../lib/claude.js';
 import { quizSystemPrompt, quizUserPrompt, type QuizPromptInput } from '../prompts/quiz.js';
+import type { CostContext } from '../lib/cost.js';
 
 /** Tentatives quand les règles MÉTIER échouent (le schéma est garanti par callClaudeJson). */
 const MAX_BUSINESS_ATTEMPTS = 3;
@@ -82,7 +83,10 @@ export function validateQuizBusiness(questions: readonly QuizQuestion[]): string
  * Appelle le LLM (ou la fixture mock) et boucle jusqu'à obtenir un quiz
  * conforme aux règles métier, en réinjectant les violations en feedback.
  */
-export async function generateQuizQuestions(input: QuizPromptInput): Promise<QuizQuestion[]> {
+export async function generateQuizQuestions(
+  input: QuizPromptInput,
+  cost?: CostContext,
+): Promise<QuizQuestion[]> {
   const system = quizSystemPrompt();
   const baseUser = quizUserPrompt(input);
 
@@ -102,6 +106,7 @@ export async function generateQuizQuestions(input: QuizPromptInput): Promise<Qui
       system,
       user,
       maxTokens: QUIZ_MAX_TOKENS,
+      ...(cost ? { cost } : {}),
     })) as QuizQuestion[];
 
     feedback = validateQuizBusiness(candidate);
@@ -194,15 +199,18 @@ export async function generateQuiz(params: {
     .filter((l) => l.type !== 'quiz')
     .map((l) => ({ title: l.title, summary: l.summary }));
 
-  const questions = await generateQuizQuestions({
-    courseTitle: course.title,
-    sectionTitle: section.title,
-    lessonTitle: lesson.title,
-    difficulty: course.difficulty,
-    locale: course.locale,
-    sectionLessons,
-    context,
-  });
+  const questions = await generateQuizQuestions(
+    {
+      courseTitle: course.title,
+      sectionTitle: section.title,
+      lessonTitle: lesson.title,
+      difficulty: course.difficulty,
+      locale: course.locale,
+      sectionLessons,
+      context,
+    },
+    { courseId, userId: String(course.userId) },
+  );
 
   // Persistance — upsert idempotent : un retry BullMQ remplace les questions.
   await Quiz.findOneAndUpdate(

@@ -38,6 +38,7 @@ import {
   type SlideScript,
 } from '../shared.js';
 import { logger } from '../queues/index.js';
+import { recordRenderCost } from '../lib/cost.js';
 
 /** Cadence de sortie du MP4 (images/seconde) — alignée sur MOTION_FPS (D8). */
 export const VIDEO_FPS = 30;
@@ -377,6 +378,12 @@ export async function renderLessonVideo(
     lesson.durationMin = Math.max(1, Math.round((probe.durationSec / 60) * 10) / 10);
     lesson.status = 'ready';
     await lesson.save();
+
+    // Coût de rendu : estimation compute par seconde de vidéo produite (P55).
+    await recordRenderCost(
+      { courseId, userId: String(course.userId) },
+      probe.durationSec,
+    ).catch(() => undefined);
 
     logger.info(
       { courseId, lessonId, videoKey, durationSec: probe.durationSec, segments: segments.length },

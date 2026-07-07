@@ -32,6 +32,7 @@ export const PdfTemplate = {
   Cheatsheet: 'cheatsheet',
   Certificate: 'certificate',
   DeploymentReport: 'deployment-report',
+  Invoice: 'invoice',
 } as const;
 
 export type PdfTemplateName = (typeof PdfTemplate)[keyof typeof PdfTemplate];
@@ -222,6 +223,40 @@ const deploymentReportSchema = pdfBaseSchema.extend({
   checklist: z.array(checklistItemSchema).default([]),
 });
 
+/* ------------------------------------------------------------------ */
+/* Gabarit « facture » (P54)                                           */
+/* ------------------------------------------------------------------ */
+
+const invoiceSchema = pdfBaseSchema.extend({
+  docTitle: z.string().min(1).default('Facture'),
+  /** Numéro de facture (ex. « SC-2026-000123 »). */
+  invoiceNumber: z.string().min(1),
+  /** Ligne de date d'émission déjà formatée (« Émise le 7 juillet 2026 »). */
+  issuedLine: z.string().default(''),
+  // Émetteur.
+  fromLabel: z.string().default('Émetteur'),
+  sellerName: z.string().min(1).default('SALISTAR'),
+  sellerLine: z.string().default('SallyCourse — plateforme de formation'),
+  // Client.
+  toLabel: z.string().default('Facturé à'),
+  customerName: z.string().min(1),
+  customerEmail: z.string().default(''),
+  // Ligne d'article unique (abonnement mensuel).
+  descriptionLabel: z.string().default('Description'),
+  amountLabel: z.string().default('Montant'),
+  itemTitle: z.string().min(1),
+  itemSubtitle: z.string().default(''),
+  itemAmount: z.string().min(1),
+  // Totaux (déjà formatés avec devise).
+  subtotalLabel: z.string().default('Sous-total'),
+  subtotal: z.string().min(1),
+  totalLabel: z.string().default('Total'),
+  total: z.string().min(1),
+  /** Badge « Payé » ou vide. */
+  paidBadge: z.string().default(''),
+  footerNote: z.string().default(''),
+});
+
 /** Schéma zod de chaque gabarit — exporté pour validation en amont (worker). */
 export const pdfTemplateSchemas = {
   [PdfTemplate.Cover]: coverSchema,
@@ -230,6 +265,7 @@ export const pdfTemplateSchemas = {
   [PdfTemplate.Cheatsheet]: cheatsheetSchema,
   [PdfTemplate.Certificate]: certificateSchema,
   [PdfTemplate.DeploymentReport]: deploymentReportSchema,
+  [PdfTemplate.Invoice]: invoiceSchema,
 } as const;
 
 /** Données d'entrée par gabarit (défauts optionnels). */
@@ -247,6 +283,7 @@ export type QuizSolutionsPdfInput = PdfTemplateInput['quiz-solutions'];
 export type CheatsheetPdfInput = PdfTemplateInput['cheatsheet'];
 export type CertificatePdfInput = PdfTemplateInput['certificate'];
 export type DeploymentReportPdfInput = PdfTemplateInput['deployment-report'];
+export type InvoicePdfInput = PdfTemplateInput['invoice'];
 export type ReportPlatform = z.input<typeof reportPlatformSchema>;
 export type ReportChecklistItem = z.input<typeof checklistItemSchema>;
 export type ReportChecklistTone = z.infer<typeof checklistToneSchema>;
@@ -531,6 +568,32 @@ function buildPlaceholders(
         failedCount: String(failed),
         platformsHtml, // fragments générés + échappés en interne
         checklistHtml, // fragments générés + échappés en interne
+      };
+    }
+    case PdfTemplate.Invoice: {
+      const d = data as PdfTemplateData['invoice'];
+      return {
+        ...basePlaceholders(d),
+        docTitle: escapeHtml(d.docTitle),
+        invoiceNumber: escapeHtml(d.invoiceNumber),
+        issuedLine: escapeHtml(d.issuedLine),
+        fromLabel: escapeHtml(d.fromLabel),
+        sellerName: escapeHtml(d.sellerName),
+        sellerLine: escapeHtml(d.sellerLine),
+        toLabel: escapeHtml(d.toLabel),
+        customerName: escapeHtml(d.customerName),
+        customerEmail: escapeHtml(d.customerEmail),
+        descriptionLabel: escapeHtml(d.descriptionLabel),
+        amountLabel: escapeHtml(d.amountLabel),
+        itemTitle: escapeHtml(d.itemTitle),
+        itemSubtitle: escapeHtml(d.itemSubtitle),
+        itemAmount: escapeHtml(d.itemAmount),
+        subtotalLabel: escapeHtml(d.subtotalLabel),
+        subtotal: escapeHtml(d.subtotal),
+        totalLabel: escapeHtml(d.totalLabel),
+        total: escapeHtml(d.total),
+        paidBadge: escapeHtml(d.paidBadge),
+        footerNote: escapeHtml(d.footerNote),
       };
     }
   }

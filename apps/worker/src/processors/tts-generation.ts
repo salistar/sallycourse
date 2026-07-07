@@ -20,6 +20,7 @@ import {
 import { getRedisConnection } from '../queues/connection.js';
 import { createQueue, logger } from '../queues/index.js';
 import { synthesizeSlide } from '../media/tts.js';
+import { recordTtsCost } from '../lib/cost.js';
 
 export interface TtsResult {
   courseId: string;
@@ -104,6 +105,16 @@ export async function processTtsGeneration(job: Job<TtsJobData>): Promise<TtsRes
 
       const audioKey = lessonKeys.audio(index);
       await copyCacheToLessonAudio(cacheKey, audioKey);
+
+      // Coût TTS : facturé au caractère, uniquement pour une vraie synthèse
+      // (un hit de cache a déjà été facturé lors de sa première production).
+      if (provider !== 'cache') {
+        await recordTtsCost(
+          { courseId, userId: String(course.userId) },
+          slide.narration.length,
+          provider,
+        ).catch(() => undefined);
+      }
 
       slide.audioKey = audioKey;
       slide.audioSeconds = seconds;

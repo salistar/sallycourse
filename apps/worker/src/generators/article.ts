@@ -18,6 +18,7 @@ import {
   type Locale,
 } from '../shared.js';
 import { callClaudeJson } from '../lib/claude.js';
+import type { CostContext } from '../lib/cost.js';
 import { logger } from '../queues/index.js';
 import { articleSystemPrompt, articleUserPrompt } from '../prompts/article.js';
 
@@ -85,6 +86,8 @@ export interface ArticleContentInput {
   locale: Locale;
   /** Contexte de continuité (résumés des leçons précédentes, P19). */
   context?: string | undefined;
+  /** Rattachement du coût des appels Claude à un cours (P55). */
+  cost?: CostContext | undefined;
 }
 
 /**
@@ -116,6 +119,7 @@ export async function generateArticleContent(
       system,
       user,
       maxTokens: ARTICLE_MAX_TOKENS,
+      ...(input.cost ? { cost: input.cost } : {}),
     });
 
     violations = validateArticleBusiness(article);
@@ -170,6 +174,7 @@ export async function generateArticle(params: {
     difficulty: course.difficulty,
     locale: course.locale,
     context,
+    cost: { courseId, userId: String(course.userId) },
   });
 
   // Clé déterministe par position (section, leçon) : un retry écrase l'ancien objet.
