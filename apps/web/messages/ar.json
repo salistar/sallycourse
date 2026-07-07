@@ -1,0 +1,62 @@
+{
+  "common": {
+    "appName": "SallyCourse",
+    "loading": "جارٍ التحميل…",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "close": "إغلاق",
+    "confirm": "تأكيد",
+    "back": "رجوع",
+    "next": "التالي",
+    "search": "بحث",
+    "language": "اللغة"
+  },
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "newCourse": "دورة جديدة",
+    "settings": "الإعدادات",
+    "admin": "الإدارة",
+    "openMenu": "فتح القائمة",
+    "closeMenu": "إغلاق القائمة",
+    "mainNav": "التنقل الرئيسي"
+  },
+  "userMenu": {
+    "label": "قائمة المستخدم",
+    "profile": "الملف الشخصي",
+    "settings": "الإعدادات",
+    "logout": "تسجيل الخروج",
+    "planPrefix": "الخطة"
+  },
+  "plans": {
+    "free": "مجاني",
+    "pro": "احترافي",
+    "business": "أعمال"
+  },
+  "dashboard": {
+    "title": "لوحة التحكم",
+    "defaultUser": "منشئ"
+  },
+  "create": {
+    "title": "دورة جديدة",
+    "submit": "إنشاء الدورة"
+  },
+  "course": {
+    "title": "الدورة"
+  },
+  "auth": {
+    "authRequired": "المصادقة مطلوبة.",
+    "login": "تسجيل الدخول",
+    "logout": "تسجيل الخروج",
+    "signup": "إنشاء حساب",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور"
+  },
+  "pricing": {
+    "title": "الأسعار"
+  },
+  "settings": {
+    "title": "الإعدادات"
+  }
+}

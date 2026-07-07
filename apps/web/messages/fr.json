@@ -1,0 +1,62 @@
+{
+  "common": {
+    "appName": "SallyCourse",
+    "loading": "Chargement…",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "close": "Fermer",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "next": "Suivant",
+    "search": "Rechercher",
+    "language": "Langue"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "newCourse": "Nouveau cours",
+    "settings": "Paramètres",
+    "admin": "Admin",
+    "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu",
+    "mainNav": "Navigation principale"
+  },
+  "userMenu": {
+    "label": "Menu utilisateur",
+    "profile": "Profil",
+    "settings": "Paramètres",
+    "logout": "Se déconnecter",
+    "planPrefix": "Plan"
+  },
+  "plans": {
+    "free": "Gratuit",
+    "pro": "Pro",
+    "business": "Business"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "defaultUser": "Créateur"
+  },
+  "create": {
+    "title": "Nouveau cours",
+    "submit": "Générer le cours"
+  },
+  "course": {
+    "title": "Cours"
+  },
+  "auth": {
+    "authRequired": "Authentification requise.",
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "signup": "Créer un compte",
+    "email": "E-mail",
+    "password": "Mot de passe"
+  },
+  "pricing": {
+    "title": "Tarifs"
+  },
+  "settings": {
+    "title": "Paramètres"
+  }
+}

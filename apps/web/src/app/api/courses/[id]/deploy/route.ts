@@ -12,6 +12,8 @@ import {
 import { requireApiUser } from '@/lib/session';
 import { getDeploymentQueue } from '@/lib/queues';
 import { getCapabilities, isKnownPlatform } from '@/lib/deploy-catalog';
+import { checkDeployPlatformLimit } from '@/lib/quota';
+import type { PlanId } from '@sallycourse/shared';
 
 /**
  * POST /api/courses/[id]/deploy — lance un déploiement multi-plateformes.
@@ -66,6 +68,23 @@ export async function POST(
     return NextResponse.json(
       { error: `Plateforme(s) inconnue(s) : ${unknown.join(', ')}.` },
       { status: 400 },
+    );
+  }
+
+  // Quota de déploiement selon le plan (P53) : free est bridé à 1 plateforme par
+  // lot ; pro/business déploient partout. On refuse avant d'enfiler quoi que ce soit.
+  const plan = (user.plan ?? 'free') as PlanId;
+  const gate = checkDeployPlatformLimit(plan, requested.length);
+  if (!gate.ok) {
+    return NextResponse.json(
+      {
+        error:
+          gate.limit === 1
+            ? `Le plan ${gate.plan} ne déploie qu'une plateforme à la fois. Passez à un plan supérieur pour déployer partout.`
+            : `Le plan ${gate.plan} limite le déploiement à ${gate.limit} plateforme(s) par lot.`,
+        code: 'deploy_plan_limit',
+      },
+      { status: 403 },
     );
   }
 

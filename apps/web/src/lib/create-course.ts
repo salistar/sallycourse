@@ -10,22 +10,17 @@ import {
   connectDb,
   Course as CourseModel,
   GenerationJob as GenerationJobModel,
-  User as UserModel,
 } from '@sallycourse/db';
 import { getOutlineQueue } from './queues';
+import { checkAndReserveCourseQuota, releaseQuota } from './quota';
 
 /**
  * Logique métier partagée de création de cours (quota mensuel → Course →
  * GenerationJob → enqueue outline). Extraite de /api/courses pour être
  * réutilisée telle quelle par l'API publique v1 (Prompt 51), garantissant un
  * comportement identique (quotas, jobId déterministe) quel que soit le point
- * d'entrée.
+ * d'entrée. La logique de quota vit dans lib/quota.ts (helper central, P53).
  */
-
-/** Vrai si les deux dates tombent dans le même mois calendaire (UTC). */
-function isSameUtcMonth(a: Date, b: Date): boolean {
-  return a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth();
-}
 
 export type CreateCourseError =
   | { kind: 'quota'; limit: number; plan: string }
@@ -49,37 +44,20 @@ export async function createCourseForUser(
 ): Promise<CreateCourseResult> {
   await connectDb();
 
-  const limit = PLANS[plan].coursesPerMonth;
-  const quotaEnforced = Number.isFinite(limit);
-
-  if (quotaEnforced) {
-    const now = new Date();
-    const userDoc = await UserModel.findById(userId).lean();
-    if (!userDoc) return { ok: false, error: { kind: 'user_not_found' } };
-
-    const periodStart = userDoc.quotaUsed?.periodStart
-      ? new Date(userDoc.quotaUsed.periodStart)
-      : new Date(0);
-    const samePeriod = isSameUtcMonth(periodStart, now);
-    const used = samePeriod ? (userDoc.quotaUsed?.coursesThisMonth ?? 0) : 0;
-
-    if (used >= limit) return { ok: false, error: { kind: 'quota', limit, plan } };
-
-    // Réservation atomique du crédit — correcte en cas de double soumission.
-    const reserved = samePeriod
-      ? await UserModel.updateOne(
-          { _id: userId, 'quotaUsed.coursesThisMonth': { $lt: limit } },
-          { $inc: { 'quotaUsed.coursesThisMonth': 1 } },
-        )
-      : await UserModel.updateOne(
-          { _id: userId },
-          { $set: { quotaUsed: { coursesThisMonth: 1, periodStart: now } } },
-        );
-
-    if (reserved.modifiedCount === 0) {
-      return { ok: false, error: { kind: 'quota', limit, plan } };
+  // Réservation atomique du crédit mensuel via le helper central (P53).
+  const reservation = await checkAndReserveCourseQuota(userId);
+  if (!reservation.ok) {
+    if (reservation.reason === 'user_not_found') {
+      return { ok: false, error: { kind: 'user_not_found' } };
     }
+    return {
+      ok: false,
+      error: { kind: 'quota', limit: reservation.limit, plan: reservation.plan },
+    };
   }
+
+  // Filigrane exigé selon le plan (free=true) — appliqué à la création (P53).
+  const watermark = PLANS[plan].watermark;
 
   let course;
   try {
@@ -90,15 +68,12 @@ export async function createCourseForUser(
       locale: input.locale,
       ttsVoice: input.ttsVoice,
       targetPlatforms: input.targetPlatforms,
+      watermark,
       status: 'generating',
     });
   } catch {
-    if (quotaEnforced) {
-      await UserModel.updateOne(
-        { _id: userId, 'quotaUsed.coursesThisMonth': { $gt: 0 } },
-        { $inc: { 'quotaUsed.coursesThisMonth': -1 } },
-      );
-    }
+    // La création a échoué après réservation : on rend le crédit.
+    await releaseQuota(userId);
     return { ok: false, error: { kind: 'create_failed' } };
   }
 

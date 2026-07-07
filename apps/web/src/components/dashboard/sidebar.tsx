@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { transitions } from '@/components/motion';
+import { LanguageSwitcher } from '@/components/i18n';
 import { cn } from '@/lib/cn';
 import { MOCK_USER, userInitials, type DashboardUser } from './mock-data';
 
@@ -246,7 +247,9 @@ function SidebarContent({
     <div className="flex h-full flex-col gap-6 p-4">
       <Logo />
       <NavLinks onNavigate={onNavigate} isAdmin={isAdmin} />
-      <div className="mt-auto">
+      <div className="mt-auto space-y-2">
+        {/* Sélecteur de langue de l'UI (cookie NEXT_LOCALE) — au-dessus du menu. */}
+        <LanguageSwitcher />
         <UserMenu user={user} />
       </div>
     </div>

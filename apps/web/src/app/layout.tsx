@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import { Figtree, Fraunces, IBM_Plex_Sans_Arabic } from 'next/font/google';
+import { NextIntlClientProvider } from 'next-intl';
+import { getLocale, getMessages } from 'next-intl/server';
 import { MotionProvider } from '@/components/motion';
+import { localeDirection } from '@/i18n/routing';
 import './globals.css';
 
 // Polices du design system SALISTAR — exposées en CSS variables
@@ -33,16 +36,25 @@ export const metadata: Metadata = {
   description: 'Génération automatique de cours — titre + niveau → cours complet.',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Locale résolue par next-intl (cookie NEXT_LOCALE → défaut fr) et messages
+  // du bundle actif ; `dir` bascule en RTL pour l'arabe (localeDirection).
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
     <html
-      lang="fr"
+      lang={locale}
+      dir={localeDirection(locale)}
       className={`dark ${fraunces.variable} ${figtree.variable} ${ibmPlexSansArabic.variable}`}
       suppressHydrationWarning
     >
       <body>
-        {/* Provider global du motion : transition par défaut + prefers-reduced-motion. */}
-        <MotionProvider>{children}</MotionProvider>
+        {/* Provider next-intl : expose messages + locale aux composants client. */}
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          {/* Provider global du motion : transition par défaut + prefers-reduced-motion. */}
+          <MotionProvider>{children}</MotionProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

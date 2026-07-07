@@ -35,9 +35,11 @@ export const QUIZ = {
 } as const;
 
 export const PLANS = {
-  free: { coursesPerMonth: 1, watermark: true, api: false, multiAccounts: false },
-  pro: { coursesPerMonth: 10, watermark: false, api: false, multiAccounts: false },
-  business: { coursesPerMonth: Infinity, watermark: false, api: true, multiAccounts: true },
+  // maxDeployPlatforms : nombre de plateformes cibles autorisées par déploiement.
+  // Free est bridé (1 plateforme à la fois) ; pro/business déploient partout (Infinity).
+  free: { coursesPerMonth: 1, watermark: true, api: false, multiAccounts: false, maxDeployPlatforms: 1 },
+  pro: { coursesPerMonth: 10, watermark: false, api: false, multiAccounts: false, maxDeployPlatforms: Infinity },
+  business: { coursesPerMonth: Infinity, watermark: false, api: true, multiAccounts: true, maxDeployPlatforms: Infinity },
 } as const;
 
 export type PlanId = keyof typeof PLANS;

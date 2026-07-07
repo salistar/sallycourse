@@ -22,6 +22,8 @@ export interface ICourse {
   outline?: Outline | null;
   targetPlatforms: string[];
   locale: Locale;
+  /** Filigrane discret exigé selon le plan à la création (free=true) — P53. */
+  watermark: boolean;
   ttsVoice?: string;
   coverImageUrl?: string;
   /** Clé S3 de la vidéo d'intro webcam (~60 s) — mode compliance max Udemy (P48). */
@@ -51,6 +53,7 @@ const courseSchema = new Schema<ICourse>(
     },
     targetPlatforms: { type: [String], default: [] },
     locale: { type: String, enum: [...LOCALES], default: 'fr' },
+    watermark: { type: Boolean, default: true },
     ttsVoice: { type: String },
     coverImageUrl: { type: String },
     introVideoKey: { type: String },
