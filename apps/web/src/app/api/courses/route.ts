@@ -1,39 +1,14 @@
 import { NextResponse } from 'next/server';
-import {
-  PLANS,
-  QUEUES,
-  createCourseInputSchema,
-  defaultJobOptions,
-  makeJobId,
-} from '@sallycourse/shared';
-import {
-  connectDb,
-  Course as CourseModel,
-  GenerationJob as GenerationJobModel,
-  User as UserModel,
-} from '@sallycourse/db';
+import { createCourseInputSchema } from '@sallycourse/shared';
+import { connectDb, Course as CourseModel } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
-import { getOutlineQueue } from '@/lib/queues';
+import { createCourseForUser } from '@/lib/create-course';
 
 /**
  * /api/courses — création (POST) et listing (GET) des cours de l'utilisateur.
- * La création vérifie le quota mensuel du plan, crée le Course + le
- * GenerationJob initial puis enfile le job outline dans BullMQ.
+ * La création délègue à createCourseForUser (quota mensuel → Course →
+ * GenerationJob → enqueue outline), logique partagée avec l'API publique v1.
  */
-
-/** Vrai si les deux dates tombent dans le même mois calendaire (UTC). */
-function isSameUtcMonth(a: Date, b: Date): boolean {
-  return a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth();
-}
-
-const quotaResponse = (limit: number, plan: string) =>
-  NextResponse.json(
-    {
-      error: `Quota mensuel atteint : ${limit} cours/mois sur le plan ${plan}.`,
-      code: 'quota_exceeded',
-    },
-    { status: 402 },
-  );
 
 export async function POST(request: Request) {
   const user = await requireApiUser();
@@ -54,95 +29,31 @@ export async function POST(request: Request) {
     );
   }
 
-  await connectDb();
-
-  // ── Quota mensuel du plan ─────────────────────────────────────
-  const plan = user.plan ?? 'free';
-  const limit = PLANS[plan].coursesPerMonth;
-  const quotaEnforced = Number.isFinite(limit);
-
-  if (quotaEnforced) {
-    const now = new Date();
-    const userDoc = await UserModel.findById(user.id).lean();
-    if (!userDoc) {
-      return NextResponse.json({ error: 'Utilisateur introuvable.' }, { status: 401 });
-    }
-
-    const periodStart = userDoc.quotaUsed?.periodStart
-      ? new Date(userDoc.quotaUsed.periodStart)
-      : new Date(0);
-    const samePeriod = isSameUtcMonth(periodStart, now);
-    const used = samePeriod ? (userDoc.quotaUsed?.coursesThisMonth ?? 0) : 0;
-
-    if (used >= limit) return quotaResponse(limit, plan);
-
-    // Réservation du crédit — conditionnelle pour rester correct en cas de
-    // double soumission concurrente ; nouveau mois → remise à zéro du compteur.
-    const reserved = samePeriod
-      ? await UserModel.updateOne(
-          { _id: user.id, 'quotaUsed.coursesThisMonth': { $lt: limit } },
-          { $inc: { 'quotaUsed.coursesThisMonth': 1 } },
-        )
-      : await UserModel.updateOne(
-          { _id: user.id },
-          { $set: { quotaUsed: { coursesThisMonth: 1, periodStart: now } } },
+  const result = await createCourseForUser(user.id!, user.plan ?? 'free', parsed.data);
+  if (!result.ok) {
+    switch (result.error.kind) {
+      case 'quota':
+        return NextResponse.json(
+          {
+            error: `Quota mensuel atteint : ${result.error.limit} cours/mois sur le plan ${result.error.plan}.`,
+            code: 'quota_exceeded',
+          },
+          { status: 402 },
         );
-
-    if (reserved.modifiedCount === 0) return quotaResponse(limit, plan);
-  }
-
-  // ── Création du cours + job de génération ─────────────────────
-  const input = parsed.data;
-  let course;
-  try {
-    course = await CourseModel.create({
-      userId: user.id,
-      title: input.title,
-      difficulty: input.difficulty,
-      locale: input.locale,
-      ttsVoice: input.ttsVoice,
-      targetPlatforms: input.targetPlatforms,
-      status: 'generating',
-    });
-  } catch {
-    // Création échouée : on rend le crédit réservé.
-    if (quotaEnforced) {
-      await UserModel.updateOne(
-        { _id: user.id, 'quotaUsed.coursesThisMonth': { $gt: 0 } },
-        { $inc: { 'quotaUsed.coursesThisMonth': -1 } },
-      );
+      case 'user_not_found':
+        return NextResponse.json({ error: 'Utilisateur introuvable.' }, { status: 401 });
+      case 'enqueue_failed':
+        return NextResponse.json(
+          { error: 'Impossible de démarrer la génération, réessayez plus tard.' },
+          { status: 503 },
+        );
+      default:
+        return NextResponse.json({ error: 'Erreur interne, réessayez plus tard.' }, { status: 500 });
     }
-    return NextResponse.json({ error: 'Erreur interne, réessayez plus tard.' }, { status: 500 });
-  }
-
-  const courseId = course._id.toString();
-
-  try {
-    await GenerationJobModel.create({
-      courseId: course._id,
-      step: QUEUES.outline,
-      progress: 0,
-    });
-
-    // jobId déterministe : re-poster le même step ne crée pas de doublon.
-    await getOutlineQueue().add(
-      'outline',
-      { courseId },
-      { ...defaultJobOptions, jobId: makeJobId(courseId, QUEUES.outline) },
-    );
-  } catch {
-    // Redis/Mongo indisponible : le cours passe en échec, visible côté UI.
-    await CourseModel.updateOne({ _id: course._id }, { $set: { status: 'failed' } }).catch(
-      () => undefined,
-    );
-    return NextResponse.json(
-      { error: 'Impossible de démarrer la génération, réessayez plus tard.' },
-      { status: 503 },
-    );
   }
 
   return NextResponse.json(
-    { id: courseId, title: course.title, status: course.status },
+    { id: result.id, title: result.title, status: result.status },
     { status: 201 },
   );
 }

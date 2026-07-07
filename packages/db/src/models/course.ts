@@ -24,6 +24,8 @@ export interface ICourse {
   locale: Locale;
   ttsVoice?: string;
   coverImageUrl?: string;
+  /** Clé S3 de la vidéo d'intro webcam (~60 s) — mode compliance max Udemy (P48). */
+  introVideoKey?: string;
   qaReport?: unknown;
   /** Landing marketing générée (JSON marketingSchema + clés S3 des visuels) — Mixed. */
   marketing?: unknown;
@@ -51,6 +53,7 @@ const courseSchema = new Schema<ICourse>(
     locale: { type: String, enum: [...LOCALES], default: 'fr' },
     ttsVoice: { type: String },
     coverImageUrl: { type: String },
+    introVideoKey: { type: String },
     qaReport: { type: Schema.Types.Mixed, default: null },
     marketing: { type: Schema.Types.Mixed, default: null },
   },

@@ -23,6 +23,7 @@ import { generateTp } from '../generators/tp.js';
 import { generateCourseMarketing } from '../generators/marketing.js';
 import { runCourseQa } from '../lib/qa.js';
 import { buildContinuityContext, summarizeLesson } from '../lib/continuity.js';
+import { lessonContentHash } from '../deploy/updates.js';
 
 /**
  * Nom de job du flux séquentiel « une leçon enqueue la suivante » (P19). Seuls
@@ -164,6 +165,27 @@ export async function finalizeCourseIfComplete(courseId: string): Promise<void> 
 }
 
 /** Processor de la queue content-generation (un job = une leçon). */
+/**
+ * Ajoute une entrée d'historique de version (P46) si l'empreinte du contenu
+ * diffusable a changé depuis la dernière version enregistrée. Idempotent (une
+ * régénération identique n'empile pas de doublon). Best-effort : jamais bloquant.
+ */
+async function recordLessonVersion(lessonId: string, note: string): Promise<void> {
+  try {
+    const lesson = await Lesson.findById(lessonId);
+    if (!lesson) return;
+    const hash = lessonContentHash(lesson);
+    const versions = lesson.versions ?? [];
+    const last = versions[versions.length - 1];
+    if (last?.contentHash === hash) return; // pas de changement → pas de doublon
+    versions.push({ contentHash: hash, createdAt: new Date(), note });
+    lesson.versions = versions;
+    await lesson.save();
+  } catch (err) {
+    logger.warn({ lessonId, err }, 'historique de version de leçon non enregistré');
+  }
+}
+
 export async function processContentGeneration(job: Job<ContentJobData>): Promise<ContentGenerationResult> {
   const { courseId, lessonId } = job.data;
 
@@ -197,6 +219,10 @@ export async function processContentGeneration(job: Job<ContentJobData>): Promis
 
     // Filet de sécurité : le générateur pose normalement 'ready' lui-même.
     await Lesson.updateOne({ _id: lessonId, status: { $ne: 'ready' } }, { $set: { status: 'ready' } });
+
+    // Historique de version (P46) : trace l'empreinte du contenu produit, pour
+    // détecter ensuite les leçons à re-déployer. Best-effort (n'échoue jamais).
+    await recordLessonVersion(lessonId, job.name === LESSON_CONTENT_JOB ? 'génération' : 'régénération');
 
     // Résume la leçon générée pour alimenter la continuité des suivantes (P19).
     await summarizeLesson(lessonId);

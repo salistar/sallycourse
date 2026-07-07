@@ -11,8 +11,20 @@ import { processSubtitleGeneration } from './processors/subtitle-generation.js';
 import { processScreenshotCapture } from './processors/screenshot-capture.js';
 import { processVideoRender } from './processors/video-render.js';
 import { processPackaging } from './processors/packaging.js';
+import { processDeployment } from './processors/deployment.js';
+// Import à effet de bord : enregistre les adapters de déploiement dans le registre.
+import './deploy/adapters/udemy.js';
+import './deploy/adapters/podia.js';
+import './deploy/adapters/gumroad.js';
+import './deploy/adapters/skillshare.js';
+import './deploy/adapters/lms.js';
+import './deploy/adapters/youtube.js';
+import './deploy/adapters/moodle.js';
+import './deploy/adapters/teachable.js';
+import './deploy/adapters/thinkific.js';
 import { closeSlideBrowser } from './media/slide-renderer.js';
 import { killTpContainersOlderThan } from './media/tp-environments.js';
+import { startReviewScheduler, stopReviewScheduler } from './deploy/review-poll.js';
 
 /** Reaper des conteneurs TP orphelins (P22) : au démarrage puis toutes les 15 min. */
 const TP_REAPER_INTERVAL_MS = 15 * 60 * 1_000;
@@ -51,9 +63,15 @@ async function main(): Promise<void> {
   registerWorker(QUEUES.videoRender, processVideoRender, { concurrency: 1 });
   // Packaging export ZIP : concurrency 1 (archive streamée + rendu PDF).
   registerWorker(QUEUES.packaging, processPackaging, { concurrency: 1 });
+  // Déploiement plateformes (Udemy/YouTube) : concurrency 2.
+  registerWorker(QUEUES.deployment, processDeployment, { concurrency: 2 });
 
   startHeartbeat();
   startTpReaper();
+
+  // Cron review & alerting (P47) : poll quotidien du statut de revue des
+  // déploiements, notification utilisateur, plan de correction en cas de rejet.
+  await startReviewScheduler();
 }
 
 let shuttingDown = false;
@@ -65,6 +83,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   logger.info({ signal }, 'arrêt du worker demandé');
   try {
     stopTpReaper();
+    await stopReviewScheduler();
     await closeAll();
     await closeSlideBrowser();
     await mongoose.disconnect();

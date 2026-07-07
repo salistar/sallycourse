@@ -6,7 +6,8 @@ import {
   type Model,
   type Types,
 } from 'mongoose';
-import { logEntrySchema, type LogEntry } from './common';
+// @ts-ignore TS6059 — consommé en source par le worker (rootDir=src) ; typage intact
+import { logEntrySchema, type LogEntry } from './common.js';
 
 export const DEPLOYMENT_STATUSES = [
   'pending',
@@ -20,6 +21,18 @@ export type DeploymentStatus = (typeof DEPLOYMENT_STATUSES)[number];
 export const DEPLOYMENT_MODES = ['auto', 'assisted', 'manual'] as const;
 export type DeploymentMode = (typeof DEPLOYMENT_MODES)[number];
 
+/**
+ * Instantané d'une leçon telle que DÉPLOYÉE (P46) : sert de référence au diff
+ * de mise à jour ciblée (contentHash courant vs déployé). `version` s'incrémente
+ * à chaque (re)déploiement de la leçon.
+ */
+export interface IDeployedLesson {
+  lessonId: Types.ObjectId;
+  contentHash: string;
+  version: number;
+  deployedAt: Date;
+}
+
 export interface IDeployment {
   courseId: Types.ObjectId;
   userId: Types.ObjectId;
@@ -27,12 +40,21 @@ export interface IDeployment {
   platform: string;
   status: DeploymentStatus;
   mode: DeploymentMode;
+  /**
+   * Compte plateforme (PlatformCredential) utilisé — multi-comptes (P49).
+   * Mémorisé pour que les relances (retry) réutilisent le même compte.
+   */
+  credentialId?: Types.ObjectId;
   externalUrl?: string;
+  /** Identifiant du cours côté plateforme (renseigné par createCourse). */
+  externalId?: string;
   /** Point de reprise pour les déploiements pausés/interrompus. */
   checkpoint: {
     lessonIndex: number;
     step: string;
   };
+  /** Instantané des leçons déployées — base du diff de mise à jour (P46). */
+  deployedVersions: IDeployedLesson[];
   logs: LogEntry[];
   createdAt: Date;
   updatedAt: Date;
@@ -47,10 +69,26 @@ const deploymentSchema = new Schema<IDeployment>(
     platform: { type: String, required: true, trim: true },
     status: { type: String, enum: [...DEPLOYMENT_STATUSES], default: 'pending' },
     mode: { type: String, enum: [...DEPLOYMENT_MODES], default: 'auto' },
+    credentialId: { type: Schema.Types.ObjectId, ref: 'PlatformCredential' },
     externalUrl: { type: String },
+    externalId: { type: String },
     checkpoint: {
       lessonIndex: { type: Number, default: 0, min: 0 },
       step: { type: String, default: '' },
+    },
+    deployedVersions: {
+      type: [
+        new Schema<IDeployedLesson>(
+          {
+            lessonId: { type: Schema.Types.ObjectId, ref: 'Lesson', required: true },
+            contentHash: { type: String, required: true },
+            version: { type: Number, default: 1, min: 1 },
+            deployedAt: { type: Date, default: Date.now },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
     },
     logs: { type: [logEntrySchema], default: [] },
   },

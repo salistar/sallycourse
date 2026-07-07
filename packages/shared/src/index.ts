@@ -13,8 +13,12 @@ export * from './config';
 // @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
 export * from './crypto';
 // @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+export * from './platform-credentials';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
 export * from './storage';
 // @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
 export * from './queues';
 // @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
 export * from './udemy-compliance';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+export * from './lesson-delta';

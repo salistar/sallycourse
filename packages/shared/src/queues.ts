@@ -66,8 +66,28 @@ export interface PackagingJobData {
 
 export interface DeploymentJobData {
   courseId: string;
-  /** Plateforme cible (déploiement Udemy par défaut). */
-  platform?: 'udemy' | 'youtube';
+  /**
+   * Plateforme cible (résolue via le registre d'adapters ; 'udemy' par défaut).
+   * Chaîne libre : l'orchestrateur multi-déploiement enfile toute plateforme
+   * disposant d'un adapter enregistré.
+   */
+  platform?: string;
+  /** Propriétaire du cours (créé le Deployment si absent). */
+  userId?: string;
+  /**
+   * Compte plateforme (PlatformCredential) à utiliser — multi-comptes (P49).
+   * Absent → premier compte connecté pour (userId, platform), sinon mode simulé.
+   */
+  credentialId?: string;
+  /** Mode d'exécution (auto par défaut). */
+  mode?: 'auto' | 'assisted' | 'manual';
+  /**
+   * Action : 'deploy' = déploiement complet (défaut), 'update' = mise à jour
+   * ciblée des leçons modifiées (P46), 'report' = génération du rapport PDF de
+   * déploiement du cours (P50, toutes plateformes confondues — le champ platform
+   * est alors ignoré).
+   */
+  action?: 'deploy' | 'update' | 'report';
 }
 
 /** Map queue → type du payload de job. `keyof QueueJobData` couvre exactement QueueName. */

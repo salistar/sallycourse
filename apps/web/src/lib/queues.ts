@@ -4,6 +4,7 @@ import {
   QUEUES,
   getConfig,
   type ContentJobData,
+  type DeploymentJobData,
   type OutlineJobData,
   type PackagingJobData,
 } from '@sallycourse/shared';
@@ -19,6 +20,7 @@ interface QueueStore {
   outlineQueue?: Queue<OutlineJobData>;
   contentQueue?: Queue<ContentJobData>;
   packagingQueue?: Queue<PackagingJobData>;
+  deploymentQueue?: Queue<DeploymentJobData>;
 }
 
 const globalWithQueues = globalThis as typeof globalThis & {
@@ -75,4 +77,14 @@ export function getPackagingQueue(): Queue<PackagingJobData> {
     });
   }
   return store.packagingQueue;
+}
+
+/** Queue 'deployment' — publication d'un cours sur une plateforme cible. */
+export function getDeploymentQueue(): Queue<DeploymentJobData> {
+  if (!store.deploymentQueue) {
+    store.deploymentQueue = new Queue<DeploymentJobData>(QUEUES.deployment, {
+      connection: getConnection(),
+    });
+  }
+  return store.deploymentQueue;
 }

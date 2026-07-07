@@ -11,6 +11,7 @@ import {
 import { requireApiUser } from '@/lib/session';
 import { getContentQueue } from '@/lib/queues';
 import { approveOutlinePayloadSchema } from '@/lib/outline-payload';
+import { dispatchWebhook } from '@/lib/deploy/webhooks';
 
 /**
  * POST /api/courses/[id]/approve-outline — validation du plan par l'utilisateur :
@@ -129,6 +130,14 @@ export async function POST(
   // si Redis est indisponible.
   course.status = 'generating';
   await course.save();
+
+  // Notifie les webhooks abonnés (fire-and-forget : ne bloque pas la réponse).
+  void dispatchWebhook(user.id!, 'outline_ready', {
+    courseId,
+    title: course.title,
+    sections: sectionDocs.length,
+    lessons: lessonDocs.length,
+  });
 
   return NextResponse.json(
     { id: courseId, status: course.status, sections: sectionDocs.length, lessons: lessonDocs.length },

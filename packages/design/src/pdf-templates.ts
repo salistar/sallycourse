@@ -31,6 +31,7 @@ export const PdfTemplate = {
   QuizSolutions: 'quiz-solutions',
   Cheatsheet: 'cheatsheet',
   Certificate: 'certificate',
+  DeploymentReport: 'deployment-report',
 } as const;
 
 export type PdfTemplateName = (typeof PdfTemplate)[keyof typeof PdfTemplate];
@@ -159,6 +160,68 @@ const certificateSchema = pdfBaseSchema.extend({
   signerRole: z.string().default(''),
 });
 
+/* ------------------------------------------------------------------ */
+/* Gabarit « rapport de déploiement » (P50)                            */
+/* ------------------------------------------------------------------ */
+
+/** Statuts de déploiement affichables — alignés DEPLOYMENT_STATUSES (db). */
+const deploymentStatusSchema = z.enum([
+  'pending',
+  'running',
+  'paused',
+  'failed',
+  'published',
+]);
+
+/** Une plateforme du rapport : issue de l'agrégation pure côté worker. */
+const reportPlatformSchema = z.object({
+  /** Libellé lisible (« Udemy », « YouTube »…). */
+  platform: z.string().min(1),
+  status: deploymentStatusSchema,
+  /** Libellé localisé du statut (« Publié », « Échec »…). */
+  statusLabel: z.string().min(1),
+  /** Mode d'exécution lisible (« Automatique »…). */
+  mode: z.string().default(''),
+  /** URL publiée (vide si non publié). */
+  externalUrl: z.string().default(''),
+  /** Identifiant côté plateforme (vide si absent). */
+  externalId: z.string().default(''),
+  /** Nombre de leçons téléversées (checkpoint). */
+  lessonsUploaded: z.number().int().nonnegative().default(0),
+  /** Durée lisible (« 4 min 12 s », « — »). */
+  duration: z.string().default(''),
+  /** État de revue (« approved », « in_review »…) — vide si sans objet. */
+  reviewState: z.string().default(''),
+});
+
+/** Ton d'un item de checklist conformité. */
+const checklistToneSchema = z.enum(['ok', 'warn', 'err']);
+
+const checklistItemSchema = z.object({
+  tone: checklistToneSchema.default('ok'),
+  title: z.string().min(1),
+  detail: z.string().default(''),
+});
+
+const deploymentReportSchema = pdfBaseSchema.extend({
+  docKicker: z.string().default('Rapport de déploiement'),
+  courseTitle: z.string().min(1),
+  /** Ligne « Généré le … ». */
+  generatedLine: z.string().default(''),
+  /** Ligne de durée globale (« Durée totale : … »). */
+  durationLine: z.string().default(''),
+  footerNote: z.string().default(''),
+  editionLine: z.string().default(''),
+  /** Libellés localisables des compteurs de synthèse. */
+  platformsLabel: z.string().default('Plateformes'),
+  publishedLabel: z.string().default('Publiées'),
+  failedLabel: z.string().default('En échec'),
+  platformsSectionTitle: z.string().default('Déploiements par plateforme'),
+  checklistSectionTitle: z.string().default('Checklist de conformité'),
+  platforms: z.array(reportPlatformSchema).default([]),
+  checklist: z.array(checklistItemSchema).default([]),
+});
+
 /** Schéma zod de chaque gabarit — exporté pour validation en amont (worker). */
 export const pdfTemplateSchemas = {
   [PdfTemplate.Cover]: coverSchema,
@@ -166,6 +229,7 @@ export const pdfTemplateSchemas = {
   [PdfTemplate.QuizSolutions]: quizSolutionsSchema,
   [PdfTemplate.Cheatsheet]: cheatsheetSchema,
   [PdfTemplate.Certificate]: certificateSchema,
+  [PdfTemplate.DeploymentReport]: deploymentReportSchema,
 } as const;
 
 /** Données d'entrée par gabarit (défauts optionnels). */
@@ -182,6 +246,10 @@ export type WorkbookPdfInput = PdfTemplateInput['workbook'];
 export type QuizSolutionsPdfInput = PdfTemplateInput['quiz-solutions'];
 export type CheatsheetPdfInput = PdfTemplateInput['cheatsheet'];
 export type CertificatePdfInput = PdfTemplateInput['certificate'];
+export type DeploymentReportPdfInput = PdfTemplateInput['deployment-report'];
+export type ReportPlatform = z.input<typeof reportPlatformSchema>;
+export type ReportChecklistItem = z.input<typeof checklistItemSchema>;
+export type ReportChecklistTone = z.infer<typeof checklistToneSchema>;
 export type QuizQuestion = z.output<typeof quizQuestionSchema>;
 export type CheatsheetSection = z.output<typeof cheatsheetSectionSchema>;
 export type CheatsheetTone = z.output<typeof cheatsheetToneSchema>;
@@ -255,6 +323,67 @@ function cheatsheetCardFragment(section: CheatsheetSection): string {
     `    ${items}`,
     '  </ul>',
     '</section>',
+  ].join('\n');
+}
+
+/* -- Fragments du rapport de déploiement (P50) --------------------- */
+
+/** Carte d'une plateforme : statut, URL publiée, id, leçons, durée, revue. */
+function reportPlatformFragment(
+  p: z.output<typeof reportPlatformSchema>,
+): string {
+  const url =
+    p.externalUrl === ''
+      ? '<span class="dr-value">—</span>'
+      : `<span class="dr-value"><a href="${escapeHtml(p.externalUrl)}">${escapeHtml(p.externalUrl)}</a></span>`;
+  const externalId =
+    p.externalId === ''
+      ? ''
+      : `<div class="dr-cell"><div class="dr-label">Identifiant</div><div class="dr-value mono">${escapeHtml(p.externalId)}</div></div>`;
+  const review =
+    p.reviewState === ''
+      ? ''
+      : `<div class="dr-review"><span class="rl">Revue :</span> ${escapeHtml(p.reviewState)}</div>`;
+  return [
+    '<article class="dr-platform">',
+    '  <div class="dr-platform-head">',
+    `    <span class="dr-platform-name">${escapeHtml(p.platform)}</span>`,
+    `    <span class="dr-badge st-${p.status}">${escapeHtml(p.statusLabel)}</span>`,
+    '  </div>',
+    '  <div class="dr-grid">',
+    `    <div class="dr-cell"><div class="dr-label">Mode</div><div class="dr-value">${escapeHtml(p.mode || '—')}</div></div>`,
+    `    <div class="dr-cell"><div class="dr-label">Leçons publiées</div><div class="dr-value">${p.lessonsUploaded}</div></div>`,
+    `    <div class="dr-cell"><div class="dr-label">Durée</div><div class="dr-value">${escapeHtml(p.duration || '—')}</div></div>`,
+    `    <div class="dr-cell" style="grid-column: 1 / -1;"><div class="dr-label">URL publiée</div>${url}</div>`,
+    `    ${externalId}`,
+    '  </div>',
+    `  ${review}`,
+    '</article>',
+  ].join('\n');
+}
+
+/** Marque unicode par ton d'item de checklist. */
+const CHECK_MARK: Record<ReportChecklistTone, string> = {
+  ok: '✓',
+  warn: '!',
+  err: '✕',
+};
+
+/** Item de checklist conformité (rond coloré + titre + détail). */
+function checklistItemFragment(
+  item: z.output<typeof checklistItemSchema>,
+): string {
+  const detail =
+    item.detail === ''
+      ? ''
+      : `<div class="dr-check-detail">${escapeHtml(item.detail)}</div>`;
+  return [
+    `<div class="dr-check ${item.tone}">`,
+    `  <span class="dr-mark" aria-hidden="true">${CHECK_MARK[item.tone]}</span>`,
+    '  <div class="dr-check-body">',
+    `    <div class="dr-check-title">${escapeHtml(item.title)}</div>${detail}`,
+    '  </div>',
+    '</div>',
   ].join('\n');
 }
 
@@ -370,6 +499,38 @@ function buildPlaceholders(
         qrDataUri: escapeHtml(d.qrDataUri), // attribut src (échappement sûr)
         signerName: escapeHtml(d.signerName),
         signerRole: escapeHtml(d.signerRole),
+      };
+    }
+    case PdfTemplate.DeploymentReport: {
+      const d = data as PdfTemplateData['deployment-report'];
+      const published = d.platforms.filter((p) => p.status === 'published').length;
+      const failed = d.platforms.filter((p) => p.status === 'failed').length;
+      const platformsHtml =
+        d.platforms.length === 0
+          ? '<div class="dr-empty">Aucun déploiement enregistré pour ce cours.</div>'
+          : d.platforms.map(reportPlatformFragment).join('\n    ');
+      const checklistHtml =
+        d.checklist.length === 0
+          ? '<div class="dr-empty">Aucun point de conformité à signaler.</div>'
+          : d.checklist.map(checklistItemFragment).join('\n      ');
+      return {
+        ...basePlaceholders(d),
+        docKicker: escapeHtml(d.docKicker),
+        courseTitle: escapeHtml(d.courseTitle),
+        generatedLine: escapeHtml(d.generatedLine),
+        durationLine: escapeHtml(d.durationLine),
+        footerNote: escapeHtml(d.footerNote),
+        editionLine: escapeHtml(d.editionLine),
+        platformsLabel: escapeHtml(d.platformsLabel),
+        publishedLabel: escapeHtml(d.publishedLabel),
+        failedLabel: escapeHtml(d.failedLabel),
+        platformsSectionTitle: escapeHtml(d.platformsSectionTitle),
+        checklistSectionTitle: escapeHtml(d.checklistSectionTitle),
+        platformCount: String(d.platforms.length),
+        publishedCount: String(published),
+        failedCount: String(failed),
+        platformsHtml, // fragments générés + échappés en interne
+        checklistHtml, // fragments générés + échappés en interne
       };
     }
   }

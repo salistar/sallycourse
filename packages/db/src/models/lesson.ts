@@ -24,6 +24,19 @@ export interface ILessonAssets {
   audioUrl?: string;
 }
 
+/**
+ * Entrée d'historique de version d'une leçon (P46) : trace chaque contenu
+ * diffusable produit (empreinte + date), pour suivre les régénérations et
+ * proposer la mise à jour des plateformes déjà déployées.
+ */
+export interface ILessonVersion {
+  /** Empreinte du contenu diffusable (== lessonContentHash côté worker). */
+  contentHash: string;
+  createdAt: Date;
+  /** Note libre (« régénération article », « édition script »…). */
+  note?: string;
+}
+
 export interface ILesson {
   sectionId: Types.ObjectId;
   courseId: Types.ObjectId;
@@ -45,6 +58,8 @@ export interface ILesson {
   assets: ILessonAssets;
   /** Hash du contenu source — évite de regénérer un asset identique. */
   contentHash?: string;
+  /** Historique des versions de contenu (P46, ordre chronologique). */
+  versions?: ILessonVersion[];
 }
 
 export type LessonDocument = HydratedDocument<ILesson>;
@@ -70,6 +85,19 @@ const lessonSchema = new Schema<ILesson>({
     audioUrl: { type: String },
   },
   contentHash: { type: String },
+  versions: {
+    type: [
+      new Schema<ILessonVersion>(
+        {
+          contentHash: { type: String, required: true },
+          createdAt: { type: Date, default: Date.now },
+          note: { type: String },
+        },
+        { _id: false },
+      ),
+    ],
+    default: [],
+  },
 });
 
 lessonSchema.index({ sectionId: 1, order: 1 });

@@ -8,6 +8,8 @@ import { LessonTree } from './lesson-tree';
 import { LessonPanel } from './lesson-panel';
 import { ProgressBanner } from './progress-banner';
 import { DownloadPackButton } from './download-pack-button';
+import { IntroVideoUpload } from './intro-video-upload';
+import { DeployPanel } from './deploy-panel';
 import { QaReportPanel } from './qa-report-panel';
 import type { CourseDetailView, CourseStatus, Difficulty, Locale } from './types';
 
@@ -58,6 +60,9 @@ export function CourseDetail({ course }: CourseDetailProps) {
   const badge = COURSE_STATUS_BADGE[course.status];
   const createdAt = new Date(course.createdAt);
   const lessonCount = allLessons.length;
+
+  const deployable = course.status === 'ready' || course.status === 'published';
+  const [deployOpen, setDeployOpen] = React.useState(false);
 
   return (
     <ToastProvider>
@@ -119,18 +124,38 @@ export function CourseDetail({ course }: CourseDetailProps) {
                   </Button>
                 </span>
               )}
-              <span title="Bientôt disponible" className="inline-flex">
-                <Button variant="gold" size="sm" disabled aria-disabled="true">
+              {deployable ? (
+                <Button
+                  variant="gold"
+                  size="sm"
+                  aria-expanded={deployOpen}
+                  onClick={() => setDeployOpen((v) => !v)}
+                >
                   <Rocket aria-hidden="true" />
                   Déployer
                 </Button>
-              </span>
+              ) : (
+                <span title="Disponible une fois le cours généré" className="inline-flex">
+                  <Button variant="gold" size="sm" disabled aria-disabled="true">
+                    <Rocket aria-hidden="true" />
+                    Déployer
+                  </Button>
+                </span>
+              )}
             </div>
           </div>
         </header>
 
         {/* ── Timeline de génération (cours en production) ─────── */}
         {course.status === 'generating' && <ProgressBanner courseId={course.id} />}
+
+        {/* ── Vidéo d'intro webcam (compliance max Udemy, P48) ─── */}
+        {deployable && <IntroVideoUpload courseId={course.id} />}
+
+        {/* ── Orchestrateur de déploiement (P44), sur demande ──── */}
+        {deployable && deployOpen && (
+          <DeployPanel courseId={course.id} lessonCount={lessonCount} />
+        )}
 
         {/* ── Rapport de contrôle qualité (P26), une fois exécuté ─ */}
         {course.qaReport && <QaReportPanel report={course.qaReport} />}

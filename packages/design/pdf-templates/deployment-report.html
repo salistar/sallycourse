@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="{{lang}}" dir="{{direction}}">
+<head>
+  <meta charset="utf-8">
+  <title>SALISTAR — rapport de déploiement</title>
+  <style>
+    /* ============================================================
+       SALISTAR — rapport de déploiement (A4 portrait, thème clair)
+       Rendu : Playwright page.pdf() (Chromium) — pas de margin boxes
+       WeasyPrint (string()/@bottom non gérées par Chromium) : l'en-tête
+       et le pied vivent dans le flux du document.
+       Couleurs figées issues de packages/design/src/tokens.json
+       (source de vérité : packages/design/src/tokens.ts)
+
+       Fragments injectés BRUTS (HTML de confiance généré par le loader) :
+         {{{platformsHtml}}}  — cartes plateforme (contrat .dr-platform…)
+         {{{checklistHtml}}}  — items de conformité (contrat .dr-check…)
+       ============================================================ */
+    :root {
+      --paper: #FFFFFF;
+      --paper-subtle: #FAF8FC;   /* neutral.50 */
+      --ink: #231B2F;            /* neutral.900 */
+      --ink-soft: #4B4157;       /* neutral.700 */
+      --muted: #7F7492;          /* neutral.500 */
+      --line: #E7E2EE;           /* neutral.200 */
+      --rule: #D3CBDF;           /* neutral.300 */
+      --violet-50: #F8F4FC;
+      --violet-100: #EFE6F8;
+      --violet-300: #C8A9E4;
+      --violet-500: #8E55BE;
+      --violet-600: #7239A2;
+      --violet-700: #5B2A86;
+      --violet-900: #381A53;
+      --gold-100: #F8EDC7;
+      --gold-300: #E8C75C;
+      --gold-400: #DEB232;
+      --gold-500: #D4A017;
+      --gold-600: #B28212;
+      --gold-900: #573D11;
+      --ok: #1E7A4B;
+      --ok-bg: #E6F4EC;
+      --warn: #9A6B12;
+      --warn-bg: #FBF0D6;
+      --err: #B4271F;
+      --err-bg: #FBE7E5;
+      --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+      --font-sans: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+      --font-arabic: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+      --font-mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+    }
+
+    @page { size: A4; margin: 16mm 15mm 18mm; }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      font-size: 10pt;
+      line-height: 1.5;
+    }
+    .display { font-family: var(--font-display); font-weight: 600; }
+
+    /* Règles arabes : jamais de serif, jamais d'italique, titres ≥ 600. */
+    html[dir="rtl"] body { font-family: var(--font-arabic); }
+    html[dir="rtl"] .display,
+    html[dir="rtl"] h1, html[dir="rtl"] h2, html[dir="rtl"] h3 {
+      font-family: var(--font-arabic);
+      font-style: normal;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    html[dir="rtl"] .brand,
+    html[dir="rtl"] .kicker,
+    html[dir="rtl"] .dr-label { letter-spacing: 0; }
+
+    /* ── Masthead (bandeau de titre) ─────────────────────────── */
+    .masthead {
+      position: relative;
+      overflow: hidden;
+      background: var(--violet-900);
+      color: #F3F0F7;
+      border-radius: 4mm;
+      padding: 9mm 10mm;
+      margin-bottom: 7mm;
+    }
+    .masthead .glow {
+      position: absolute;
+      inset-inline-end: -30mm;
+      top: -40mm;
+      width: 110mm;
+      height: 110mm;
+      background: radial-gradient(closest-side, rgba(142, 85, 190, 0.55), transparent 70%);
+    }
+    .brand {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 3mm;
+      font-size: 10pt;
+      font-weight: 600;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--violet-300);
+    }
+    .brand::before {
+      content: "";
+      width: 2.8mm;
+      height: 2.8mm;
+      transform: rotate(45deg);
+      border-radius: 0.6mm;
+      background: linear-gradient(135deg, var(--gold-300), var(--gold-600));
+    }
+    .kicker {
+      position: relative;
+      margin-top: 5mm;
+      color: var(--gold-300);
+      font-size: 8.5pt;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    .doc-title {
+      position: relative;
+      margin-top: 2mm;
+      font-size: 22pt;
+      line-height: 1.12;
+      color: #FFFFFF;
+    }
+    .doc-meta {
+      position: relative;
+      margin-top: 4mm;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2mm 6mm;
+      font-size: 8.5pt;
+      color: var(--violet-300);
+    }
+    .doc-meta span { white-space: nowrap; }
+
+    /* ── Bandeau de synthèse (compteurs) ─────────────────────── */
+    .summary {
+      display: flex;
+      gap: 3mm;
+      margin-bottom: 7mm;
+    }
+    .stat {
+      flex: 1;
+      background: var(--paper-subtle);
+      border: 0.3pt solid var(--line);
+      border-radius: 3mm;
+      padding: 4mm 4.5mm;
+    }
+    .stat-value {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 18pt;
+      line-height: 1;
+      color: var(--violet-700);
+    }
+    .stat.is-published .stat-value { color: var(--ok); }
+    .stat.is-failed .stat-value { color: var(--err); }
+    .stat-label {
+      margin-top: 2mm;
+      font-size: 7.5pt;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── Sections ────────────────────────────────────────────── */
+    .section { margin-bottom: 7mm; }
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 3mm;
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 13pt;
+      color: var(--ink);
+      margin-bottom: 3.5mm;
+    }
+    .section-title::before {
+      content: "";
+      width: 2.6mm;
+      height: 2.6mm;
+      transform: rotate(45deg);
+      border-radius: 0.6mm;
+      background: linear-gradient(135deg, var(--violet-500), var(--gold-400));
+    }
+
+    /* ── Cartes plateforme ───────────────────────────────────── */
+    .dr-platform {
+      break-inside: avoid;
+      border: 0.3pt solid var(--line);
+      border-radius: 3mm;
+      padding: 4.5mm 5mm;
+      margin-bottom: 3mm;
+      background: var(--paper);
+    }
+    .dr-platform-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 4mm;
+    }
+    .dr-platform-name {
+      font-weight: 600;
+      font-size: 11.5pt;
+      color: var(--ink);
+    }
+    .dr-badge {
+      display: inline-block;
+      padding: 1mm 3mm;
+      border-radius: 5mm;
+      font-size: 7.5pt;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .dr-badge.st-published { background: var(--ok-bg); color: var(--ok); }
+    .dr-badge.st-failed { background: var(--err-bg); color: var(--err); }
+    .dr-badge.st-running,
+    .dr-badge.st-pending { background: var(--violet-100); color: var(--violet-700); }
+    .dr-badge.st-paused { background: var(--warn-bg); color: var(--warn); }
+
+    .dr-grid {
+      margin-top: 3.5mm;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3mm 4mm;
+    }
+    .dr-cell { min-width: 0; }
+    .dr-label {
+      font-size: 7pt;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .dr-value {
+      margin-top: 0.8mm;
+      font-size: 9.5pt;
+      color: var(--ink-soft);
+      word-break: break-word;
+    }
+    .dr-value.mono { font-family: var(--font-mono); font-size: 8.5pt; }
+    .dr-value a { color: var(--violet-700); text-decoration: none; }
+
+    .dr-review {
+      margin-top: 3.5mm;
+      padding-top: 3mm;
+      border-top: 0.3pt dashed var(--rule);
+      font-size: 8.5pt;
+      color: var(--ink-soft);
+    }
+    .dr-review .rl { color: var(--muted); }
+
+    .dr-empty {
+      border: 0.3pt dashed var(--rule);
+      border-radius: 3mm;
+      padding: 6mm;
+      text-align: center;
+      color: var(--muted);
+      font-size: 9.5pt;
+    }
+
+    /* ── Checklist de conformité ─────────────────────────────── */
+    .dr-check {
+      break-inside: avoid;
+      display: flex;
+      align-items: flex-start;
+      gap: 3mm;
+      padding: 2.5mm 0;
+      border-bottom: 0.3pt solid var(--line);
+    }
+    .dr-check:last-child { border-bottom: none; }
+    .dr-mark {
+      flex-shrink: 0;
+      width: 5mm;
+      height: 5mm;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8pt;
+      font-weight: 700;
+    }
+    .dr-check.ok .dr-mark { background: var(--ok-bg); color: var(--ok); }
+    .dr-check.warn .dr-mark { background: var(--warn-bg); color: var(--warn); }
+    .dr-check.err .dr-mark { background: var(--err-bg); color: var(--err); }
+    .dr-check-body { min-width: 0; }
+    .dr-check-title { font-weight: 600; font-size: 9.5pt; color: var(--ink); }
+    .dr-check-detail { margin-top: 0.5mm; font-size: 8.5pt; color: var(--muted); }
+
+    /* ── Pied de page (dans le flux, dernière page) ──────────── */
+    .colophon {
+      margin-top: 8mm;
+      padding-top: 3mm;
+      border-top: 0.3pt solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      gap: 6mm;
+      font-size: 7.5pt;
+      color: var(--muted);
+    }
+    .colophon .edition {
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--violet-700);
+    }
+  </style>
+</head>
+<body>
+  <header class="masthead">
+    <div class="glow"></div>
+    <div class="brand">Salistar</div>
+    <div class="kicker">{{docKicker}}</div>
+    <h1 class="display doc-title">{{courseTitle}}</h1>
+    <div class="doc-meta">
+      <span>{{generatedLine}}</span>
+      <span>{{durationLine}}</span>
+    </div>
+  </header>
+
+  <div class="summary">
+    <div class="stat">
+      <div class="stat-value">{{platformCount}}</div>
+      <div class="stat-label">{{platformsLabel}}</div>
+    </div>
+    <div class="stat is-published">
+      <div class="stat-value">{{publishedCount}}</div>
+      <div class="stat-label">{{publishedLabel}}</div>
+    </div>
+    <div class="stat is-failed">
+      <div class="stat-value">{{failedCount}}</div>
+      <div class="stat-label">{{failedLabel}}</div>
+    </div>
+  </div>
+
+  <section class="section">
+    <h2 class="section-title">{{platformsSectionTitle}}</h2>
+    {{{platformsHtml}}}
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">{{checklistSectionTitle}}</h2>
+    <div class="dr-checklist">
+      {{{checklistHtml}}}
+    </div>
+  </section>
+
+  <footer class="colophon">
+    <span>{{footerNote}}</span>
+    <span class="edition">{{editionLine}}</span>
+  </footer>
+</body>
+</html>
