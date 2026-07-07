@@ -79,6 +79,8 @@ export interface CourseKeys {
   lesson(sectionOrder: number, lessonOrder: number): LessonKeys;
   marketing(fileName: string): string;
   exportFile(fileName: string): string;
+  /** Ressource téléchargeable du cours (Prompt 65) : courses/{id}/resources/{fileName} */
+  resource(fileName: string): string;
 }
 
 export const storageKeys = {
@@ -106,6 +108,7 @@ export const storageKeys = {
       },
       marketing: (fileName: string) => `${prefix}/marketing/${fileName}`,
       exportFile: (fileName: string) => `${prefix}/exports/${fileName}`,
+      resource: (fileName: string) => `${prefix}/resources/${fileName}`,
     };
   },
 };

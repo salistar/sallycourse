@@ -10,15 +10,27 @@ import {
   QUEUES,
   Section,
   UDEMY,
+  defaultJobOptions,
+  makeJobId,
   outlineSchema,
   publishProgress,
+  type Difficulty,
+  type Locale,
   type Outline,
   type OutlineJobData,
 } from '../shared.js';
 import { getRedisConnection } from '../queues/connection.js';
-import { logger } from '../queues/index.js';
+import { createQueue, logger } from '../queues/index.js';
 import { callClaudeJson } from '../lib/claude.js';
 import { outlineSystemPrompt, outlineUserPrompt } from '../prompts/outline.js';
+import { LESSON_CONTENT_JOB } from './content-generation.js';
+import {
+  derivedCourseTitle,
+  planDerivation,
+  translateOutlineSystemPrompt,
+  translateOutlineUserPrompt,
+  validateTranslationStructure,
+} from '../lib/derive.js';
 
 /** Tentatives de génération quand les validations MÉTIER échouent (schéma OK). */
 const MAX_BUSINESS_ATTEMPTS = 3;
@@ -175,9 +187,113 @@ async function persistOutline(courseId: string, outline: Outline): Promise<{ sec
   }
 }
 
+/** Tentatives de traduction quand la structure de l'outline traduit diverge. */
+const MAX_TRANSLATION_ATTEMPTS = 3;
+
+/**
+ * Dérivation (P64) : réutilise l'outline du cours source, le traduit si la
+ * langue change (avec vérification de fidélité structurelle et retry), sinon
+ * le recopie tel quel (simple changement de niveau — le contenu sera régénéré
+ * au niveau cible par le pipeline de contenu habituel).
+ */
+async function buildDerivedOutline(params: {
+  courseId: string;
+  sourceCourseId: string;
+  targetLocale: Locale;
+  targetDifficulty: Difficulty;
+  userId: string;
+}): Promise<Outline> {
+  const source = await Course.findById(params.sourceCourseId).lean();
+  if (!source) throw new Error(`cours source introuvable : ${params.sourceCourseId}`);
+
+  const sourceOutline = outlineSchema.safeParse(source.outline);
+  if (!sourceOutline.success) {
+    throw new Error(`le cours source n'a pas d'outline valide : ${params.sourceCourseId}`);
+  }
+
+  const plan = planDerivation({
+    sourceLocale: source.locale,
+    sourceDifficulty: source.difficulty,
+    targetLocale: params.targetLocale,
+    targetDifficulty: params.targetDifficulty,
+  });
+  if (!plan.ok) {
+    // Ne devrait pas arriver (la route API l'a déjà vérifié) — garde défensive.
+    return sourceOutline.data;
+  }
+
+  if (!plan.spec.translate) {
+    return sourceOutline.data;
+  }
+
+  // ── Traduction avec retry sur fidélité structurelle ──
+  const system = translateOutlineSystemPrompt();
+  const baseUser = translateOutlineUserPrompt(sourceOutline.data, plan.spec.targetLocale);
+  let feedback: string[] = [];
+  for (let attempt = 1; attempt <= MAX_TRANSLATION_ATTEMPTS; attempt++) {
+    await report(
+      params.courseId,
+      10 + attempt * 10,
+      attempt === 1 ? 'Traduction du plan source' : `Correction de la traduction (tentative ${attempt})`,
+      attempt === 1 ? 'info' : 'warn',
+    );
+
+    const user =
+      feedback.length === 0
+        ? baseUser
+        : `${baseUser}\n\nTa précédente traduction a modifié la structure — corrige impérativement :\n${feedback
+            .map((p) => `- ${p}`)
+            .join('\n')}`;
+
+    const candidate = await callClaudeJson({
+      schema: outlineSchema,
+      system,
+      user,
+      maxTokens: OUTLINE_MAX_TOKENS,
+      cost: { courseId: params.courseId, userId: params.userId },
+    });
+
+    feedback = validateTranslationStructure(sourceOutline.data, candidate);
+    if (feedback.length === 0) return candidate;
+    logger.warn({ courseId: params.courseId, attempt, problems: feedback }, 'traduction non fidèle à la structure source');
+  }
+
+  throw new Error(
+    `traduction non conforme après ${MAX_TRANSLATION_ATTEMPTS} tentatives :\n${feedback.join('\n')}`,
+  );
+}
+
+/**
+ * Après une dérivation, on saute la revue manuelle du plan (déjà validé sur le
+ * cours source) : le cours passe directement en génération et le job de la
+ * première leçon est enfilé, comme le fait approve-outline pour un cours normal.
+ */
+async function enqueueFirstLessonAfterDerive(courseId: string): Promise<void> {
+  const firstSection = await Section.findOne({ courseId }).sort({ order: 1 }).lean();
+  if (!firstSection) return;
+  const firstLesson = await Lesson.findOne({ courseId, sectionId: firstSection._id })
+    .sort({ order: 1 })
+    .lean();
+  if (!firstLesson) return;
+
+  await GenerationJob.findOneAndUpdate(
+    { courseId },
+    { $set: { step: QUEUES.content, progress: 0 }, $unset: { error: '' } },
+    { upsert: true },
+  );
+
+  const queue = createQueue(QUEUES.content);
+  const lessonId = firstLesson._id.toString();
+  const jobId = makeJobId(courseId, QUEUES.content, lessonId);
+  await queue.remove(jobId).catch(() => undefined);
+  await queue.add(LESSON_CONTENT_JOB, { courseId, lessonId }, { ...defaultJobOptions, jobId });
+
+  await Course.updateOne({ _id: courseId }, { $set: { status: 'generating' } });
+}
+
 /** Processor de la queue outline-generation. */
 export async function processOutlineGeneration(job: Job<OutlineJobData>): Promise<OutlineResult> {
-  const { courseId } = job.data;
+  const { courseId, derive } = job.data;
 
   try {
     await report(courseId, 5, 'Chargement du cours');
@@ -186,6 +302,39 @@ export async function processOutlineGeneration(job: Job<OutlineJobData>): Promis
 
     course.status = 'generating';
     await course.save();
+
+    // ── Dérivation (P64) : réutilise/traduit l'outline source, saute la revue ──
+    if (derive) {
+      const source = await Course.findById(derive.sourceCourseId).select('locale difficulty').lean();
+      if (!source) throw new Error(`cours source introuvable : ${derive.sourceCourseId}`);
+
+      const outline = await buildDerivedOutline({
+        courseId,
+        sourceCourseId: derive.sourceCourseId,
+        targetLocale: course.locale,
+        targetDifficulty: course.difficulty,
+        userId: String(course.userId),
+      });
+
+      const derivedTitle = derivedCourseTitle(course.title, {
+        sourceLocale: source.locale,
+        targetLocale: course.locale,
+        sourceDifficulty: source.difficulty,
+        targetDifficulty: course.difficulty,
+        translate: source.locale !== course.locale,
+      }, outline);
+      if (derivedTitle !== course.title) {
+        await Course.updateOne({ _id: courseId }, { $set: { title: derivedTitle } });
+      }
+
+      await report(courseId, 70, 'Plan dérivé — écriture des sections et leçons');
+      const { sections, lessons } = await persistOutline(courseId, outline);
+
+      await enqueueFirstLessonAfterDerive(courseId);
+
+      await report(courseId, 100, `Plan dérivé : ${sections} sections, ${lessons} leçons`);
+      return { courseId, sections, lessons };
+    }
 
     const baseUser = outlineUserPrompt({
       title: course.title,

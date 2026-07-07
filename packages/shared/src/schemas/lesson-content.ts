@@ -178,3 +178,32 @@ export const marketingSchema = z.object({
   titleIdeas: z.array(titleIdeaSchema).length(MARKETING_TITLE_IDEAS),
 });
 export type MarketingContent = z.infer<typeof marketingSchema>;
+
+// ── Ressources téléchargeables du cours (Prompt 65) ─────────────
+// Générées en fin de pipeline : glossaire des termes clés + liste de
+// ressources « pour aller plus loin », produits par Claude à partir du plan
+// et des résumés de leçons. Le cheat sheet et le workbook (PDF) réutilisent
+// ce même contenu (glossaire → cartes cheatsheet, TPs → sections workbook).
+
+export const glossaryEntrySchema = z.object({
+  term: z.string().min(1),
+  definition: z.string().min(1),
+});
+export type GlossaryEntry = z.infer<typeof glossaryEntrySchema>;
+
+export const furtherResourceSchema = z.object({
+  title: z.string().min(1),
+  /** Type de ressource (article, doc officielle, outil, livre…) — libre, affiché tel quel. */
+  kind: z.string().min(1),
+  /** URL optionnelle (Claude ne doit inventer que des URLs plausibles/génériques, jamais garanti valide). */
+  url: z.string().url().optional(),
+  description: z.string().min(1),
+});
+export type FurtherResource = z.infer<typeof furtherResourceSchema>;
+
+/** Contenu généré par le LLM pour le glossaire + les ressources « pour aller plus loin ». */
+export const courseResourcesContentSchema = z.object({
+  glossary: z.array(glossaryEntrySchema).min(5).max(40),
+  furtherResources: z.array(furtherResourceSchema).min(3).max(20),
+});
+export type CourseResourcesContent = z.infer<typeof courseResourcesContentSchema>;

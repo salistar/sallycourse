@@ -26,6 +26,7 @@ import { closeSlideBrowser } from './media/slide-renderer.js';
 import { killTpContainersOlderThan } from './media/tp-environments.js';
 import { startReviewScheduler, stopReviewScheduler } from './deploy/review-poll.js';
 import { startAnalyticsScheduler, stopAnalyticsScheduler } from './lib/analytics/refresh.js';
+import { startFeedbackWorker, stopFeedbackWorker } from './deploy/feedback-loop.js';
 
 /** Reaper des conteneurs TP orphelins (P22) : au démarrage puis toutes les 15 min. */
 const TP_REAPER_INTERVAL_MS = 15 * 60 * 1_000;
@@ -66,6 +67,8 @@ async function main(): Promise<void> {
   registerWorker(QUEUES.packaging, processPackaging, { concurrency: 1 });
   // Déploiement plateformes (Udemy/YouTube) : concurrency 2.
   registerWorker(QUEUES.deployment, processDeployment, { concurrency: 2 });
+  // Analyse des retours étudiants (P62) : queue dédiée hors registre typé.
+  startFeedbackWorker();
 
   startHeartbeat();
   startTpReaper();
@@ -90,6 +93,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
     stopTpReaper();
     await stopReviewScheduler();
     await stopAnalyticsScheduler();
+    await stopFeedbackWorker();
     await closeAll();
     await closeSlideBrowser();
     await mongoose.disconnect();

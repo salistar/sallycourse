@@ -91,7 +91,7 @@ export async function POST(
   await connectDb();
 
   const course = await CourseModel.findOne({ _id: id, userId: user.id })
-    .select('_id status')
+    .select('_id status aiDisclosureAccepted')
     .lean();
   if (!course) {
     return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
@@ -102,6 +102,20 @@ export async function POST(
     return NextResponse.json(
       { error: 'Le cours doit être généré (prêt) avant tout déploiement.' },
       { status: 409 },
+    );
+  }
+
+  // Mention IA générée (P66, conformité Udemy) : la plateforme exige la
+  // transparence sur le contenu généré par IA. Bloque le déploiement udemy
+  // tant que l'auteur n'a pas coché la case dans le flow de publication.
+  if (requested.includes('udemy') && !course.aiDisclosureAccepted) {
+    return NextResponse.json(
+      {
+        error:
+          "Vous devez confirmer la mention « contenu généré par IA » avant de publier sur Udemy.",
+        code: 'ai_disclosure_required',
+      },
+      { status: 403 },
     );
   }
 

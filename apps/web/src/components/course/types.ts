@@ -99,6 +99,33 @@ export interface ReviewFeedbackView {
   generatedAt: string;
 }
 
+/** Une entrée du glossaire du cours (P65). */
+export interface GlossaryEntryView {
+  term: string;
+  definition: string;
+}
+
+/** Une ressource « pour aller plus loin » (P65). */
+export interface FurtherResourceView {
+  title: string;
+  kind: string;
+  url?: string;
+  description: string;
+}
+
+/**
+ * Ressources téléchargeables enrichies (P65) — cheat sheet + workbook PDF
+ * (URLs présignées) et contenu structuré (glossaire, ressources). Null tant
+ * qu'aucune génération n'a tourné.
+ */
+export interface CourseResourcesView {
+  glossary: GlossaryEntryView[];
+  furtherResources: FurtherResourceView[];
+  cheatsheetUrl?: string;
+  workbookUrl?: string;
+  generatedAt: string;
+}
+
 export interface CourseDetailView {
   id: string;
   title: string;
@@ -111,4 +138,6 @@ export interface CourseDetailView {
   qaReport?: QaReportView | null;
   /** Analyse des retours étudiants (P62) — null tant qu'aucune analyse n'a tourné. */
   feedback?: ReviewFeedbackView | null;
+  /** Ressources téléchargeables enrichies (P65) — null tant qu'aucune génération n'a tourné. */
+  resources?: CourseResourcesView | null;
 }

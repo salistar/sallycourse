@@ -13,7 +13,10 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
   // Seuls les specs visuels vivent ici ; les tests unitaires restent sous Vitest.
+  // tests/e2e/** est exclu : ces specs (Prompt 67) utilisent playwright.e2e.config.ts
+  // (pas de webServer auto-démarré, stack complète Next+worker+Mongo+Redis requise).
   testMatch: /.*\.spec\.ts/,
+  testIgnore: /tests[\\/]e2e[\\/].*/,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

@@ -23,6 +23,7 @@ import { generateArticle } from '../generators/article.js';
 import { generateQuiz } from '../generators/quiz.js';
 import { generateTp } from '../generators/tp.js';
 import { generateCourseMarketing } from '../generators/marketing.js';
+import { generateCourseResources } from '../generators/resources.js';
 import { runCourseQa } from '../lib/qa.js';
 import { buildContinuityContext, summarizeLesson } from '../lib/continuity.js';
 import { lessonContentHash } from '../deploy/updates.js';
@@ -115,6 +116,20 @@ async function report(
  * et libère le claim, sans invalider la leçon qui vient d'aboutir.
  */
 /**
+ * Génère les ressources téléchargeables enrichies (P65) : cheat sheet PDF,
+ * workbook PDF, glossaire et ressources complémentaires. Best-effort — un
+ * échec ne bloque JAMAIS la finalisation du cours (ce sont des bonus, pas un
+ * garde-fou comme le QA) ; l'utilisateur peut les régénérer plus tard.
+ */
+async function generateCourseResourcesBestEffort(courseId: string): Promise<void> {
+  try {
+    await generateCourseResources({ courseId });
+  } catch (err) {
+    logger.warn({ courseId, err }, 'génération des ressources téléchargeables ignorée (échec best-effort)');
+  }
+}
+
+/**
  * Émet la notification « génération terminée » pour le propriétaire du cours.
  * Best-effort : ne jette jamais (une notif ratée ne compromet pas le cours).
  */
@@ -177,6 +192,12 @@ export async function finalizeCourseIfComplete(courseId: string): Promise<void> 
     // 2) Marketing (P28), puis bascule 'ready' confirmée après marketing.
     await report(courseId, 95, 'Contrôle qualité validé — génération de la landing marketing');
     const marketing = await generateCourseMarketing({ courseId });
+
+    // 3) Ressources téléchargeables enrichies (P65) — bonus best-effort,
+    // n'invalide jamais la finalisation du cours en cas d'échec.
+    await report(courseId, 97, 'Génération des ressources téléchargeables (cheat sheet, workbook, glossaire)');
+    await generateCourseResourcesBestEffort(courseId);
+
     await Course.updateOne({ _id: courseId }, { $set: { status: 'ready' } });
     await report(
       courseId,

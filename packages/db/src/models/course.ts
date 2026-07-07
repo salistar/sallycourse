@@ -38,6 +38,18 @@ export interface ICourse {
    * analyse n'a tourné.
    */
   improvementSuggestions?: unknown;
+  /**
+   * Mention IA générée acceptée par l'auteur (P66, RGPD/légal) — case à
+   * cocher OBLIGATOIRE avant tout déploiement vers Udemy (transparence
+   * contenu généré par IA). Bloque le déploiement udemy tant que false.
+   */
+  aiDisclosureAccepted: boolean;
+  /**
+   * Ressources téléchargeables enrichies (P65) : cheat sheet PDF, workbook PDF,
+   * glossaire et liste « pour aller plus loin », générées en fin de pipeline.
+   * Mixed en base (clés S3 + statut) ; null tant qu'aucune génération n'a tourné.
+   */
+  resources?: unknown;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -67,6 +79,8 @@ const courseSchema = new Schema<ICourse>(
     qaReport: { type: Schema.Types.Mixed, default: null },
     marketing: { type: Schema.Types.Mixed, default: null },
     improvementSuggestions: { type: Schema.Types.Mixed, default: null },
+    aiDisclosureAccepted: { type: Boolean, default: false },
+    resources: { type: Schema.Types.Mixed, default: null },
   },
   { timestamps: true },
 );

@@ -146,6 +146,9 @@ export function DeployPanel({ courseId, lessonCount }: DeployPanelProps) {
   // Mises à jour ciblées disponibles par plateforme déployée (P46).
   const [platformUpdates, setPlatformUpdates] = React.useState<PlatformUpdates[]>([]);
   const [updating, setUpdating] = React.useState<string | null>(null);
+  // Mention « contenu généré par IA » (P66) — obligatoire pour publier sur Udemy.
+  const [aiDisclosureAccepted, setAiDisclosureAccepted] = React.useState(false);
+  const [savingDisclosure, setSavingDisclosure] = React.useState(false);
 
   // Flux de progression temps réel (canal partagé avec la génération).
   const { step: liveStep, progress: liveProgress, logs: liveLogs } = useCourseProgress(courseId);
@@ -190,10 +193,21 @@ export function DeployPanel({ courseId, lessonCount }: DeployPanelProps) {
     })();
     void refresh();
     void refreshUpdates();
+    void (async () => {
+      try {
+        const res = await fetch(`/api/courses/${courseId}/ai-disclosure`);
+        if (!cancelled && res.ok) {
+          const data = (await res.json()) as { accepted?: boolean };
+          setAiDisclosureAccepted(Boolean(data.accepted));
+        }
+      } catch {
+        // Best-effort : la case reste décochée par défaut.
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [refresh, refreshUpdates]);
+  }, [courseId, refresh, refreshUpdates]);
 
   // Rafraîchissement piloté par le direct : à chaque événement de déploiement,
   // on resynchronise les lignes (statut/checkpoint/URL persistés côté worker).
@@ -263,8 +277,35 @@ export function DeployPanel({ courseId, lessonCount }: DeployPanelProps) {
     });
   }
 
+  // Udemy exige la transparence sur le contenu généré par IA (P66) : tant que
+  // la case n'est pas cochée, le lancement est bloqué côté UI (et re-vérifié
+  // côté API — ne jamais faire confiance au client seul).
+  const udemySelected = selected.has('udemy');
+  const needsAiDisclosure = udemySelected && !aiDisclosureAccepted;
+
+  /** Enregistre l'acceptation de la mention IA générée sur le cours. */
+  async function toggleAiDisclosure(next: boolean): Promise<void> {
+    setSavingDisclosure(true);
+    try {
+      const res = await fetch(`/api/courses/${courseId}/ai-disclosure`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accepted: next }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { accepted?: boolean };
+        setAiDisclosureAccepted(Boolean(data.accepted));
+      }
+    } catch {
+      // Best-effort : la case revient à son état précédent au prochain chargement.
+    } finally {
+      setSavingDisclosure(false);
+    }
+  }
+
   async function launch(): Promise<void> {
     if (!selectedList.length) return;
+    if (needsAiDisclosure) return;
     setLaunching(true);
     try {
       const res = await fetch(`/api/courses/${courseId}/deploy`, {
@@ -436,6 +477,35 @@ export function DeployPanel({ courseId, lessonCount }: DeployPanelProps) {
           )}
         </div>
 
+        {/* ── Mention IA générée (P66) — obligatoire pour Udemy ─────── */}
+        {udemySelected && (
+          <label
+            className={cn(
+              'flex items-start gap-3 rounded-md border p-3 text-sm',
+              needsAiDisclosure
+                ? 'border-accent/50 bg-accent/5'
+                : 'border-border bg-surface-subtle',
+            )}
+          >
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 shrink-0 accent-primary"
+              checked={aiDisclosureAccepted}
+              disabled={savingDisclosure}
+              onChange={(e) => void toggleAiDisclosure(e.target.checked)}
+            />
+            <span>
+              <span className="font-medium text-foreground">
+                Je confirme que ce cours contient du contenu généré par IA.
+              </span>{' '}
+              <span className="text-muted">
+                Udemy exige cette mention de transparence avant toute publication sur sa
+                plateforme. Sans elle, le déploiement vers Udemy sera refusé.
+              </span>
+            </span>
+          </label>
+        )}
+
         {/* ── Barre de lancement ────────────────────────────────── */}
         <div className="flex flex-wrap items-end justify-between gap-4 rounded-md border border-border bg-surface-subtle p-4">
           <div className="flex flex-wrap items-end gap-4">
@@ -459,12 +529,17 @@ export function DeployPanel({ courseId, lessonCount }: DeployPanelProps) {
                   ? 'Aucune plateforme'
                   : `${selectedList.length} plateforme${selectedList.length > 1 ? 's' : ''} · ${formatDuration(estimateSeconds)}`}
               </p>
+              {needsAiDisclosure && (
+                <p className="mt-1 text-2xs text-accent">
+                  Cochez la mention IA générée ci-dessus pour publier sur Udemy.
+                </p>
+              )}
             </div>
           </div>
           <Button
             variant="gold"
             loading={launching}
-            disabled={selectedList.length === 0}
+            disabled={selectedList.length === 0 || needsAiDisclosure}
             onClick={() => void launch()}
           >
             {!launching && <Rocket aria-hidden="true" />}

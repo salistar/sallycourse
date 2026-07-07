@@ -26,6 +26,9 @@ export default defineConfig({
       { find: '@sallycourse/shared', replacement: pkg('shared', 'src', 'index.ts') },
       { find: '@sallycourse/db', replacement: pkg('db', 'src', 'index.ts') },
       { find: '@sallycourse/design', replacement: pkg('design', 'src', 'index.ts') },
+      // Alias du projet (tsconfig `@/*` → `src/*`) — nécessaire aux tests de
+      // routes API qui importent via l'alias plutôt qu'en relatif.
+      { find: '@', replacement: path.resolve(here, 'src') },
     ],
   },
   test: {

@@ -8,10 +8,12 @@ import {
   MARKETING_TITLE_IDEAS,
   QUIZ,
   UDEMY,
+  courseResourcesContentSchema,
   marketingSchema,
   outlineSchema,
   quizQuestionSchema,
   slideScriptSchema,
+  type CourseResourcesContent,
   type MarketingContent,
   type Outline,
   type QuizQuestion,
@@ -472,6 +474,51 @@ export function mockMarketing(title: string): MarketingContent {
   });
 }
 
+// ── Ressources téléchargeables du cours (Prompt 65) ─────────────
+/** Termes génériques recombinés avec le titre — glossaire toujours trié alphabétiquement. */
+const GLOSSARY_TERM_TEMPLATES = [
+  'Architecture',
+  'Bonnes pratiques',
+  'Cas d’usage',
+  'Configuration',
+  'Dépendance',
+  'Environnement',
+  'Fondamentaux',
+  'Itération',
+  'Performance',
+  'Sécurité',
+] as const;
+
+const RESOURCE_KIND_TEMPLATES = [
+  { kind: 'Documentation', title: 'Documentation officielle' },
+  { kind: 'Article', title: 'Article de référence' },
+  { kind: 'Outil', title: 'Outil complémentaire' },
+  { kind: 'Communauté', title: 'Forum de la communauté' },
+] as const;
+
+/**
+ * Glossaire + ressources mock conformes à courseResourcesContentSchema.
+ * Déterministe par titre : mêmes entrées pour un même cours.
+ */
+export function mockCourseResources(title: string): CourseResourcesContent {
+  const t = title.trim() || 'le cours';
+  const glossary = GLOSSARY_TERM_TEMPLATES.map((term) => ({
+    term: `${term} (${t})`,
+    definition: `Notion de « ${term.toLowerCase()} » appliquée à ${t} : élément clé abordé dans le plan du cours.`,
+  })).sort((a, b) => a.term.localeCompare(b.term, 'fr'));
+
+  const furtherResources = RESOURCE_KIND_TEMPLATES.map(({ kind, title: kindTitle }, i) => ({
+    title: `${kindTitle} — ${t}`,
+    kind,
+    description: `Ressource complémentaire pour approfondir ${t} au-delà du contenu du cours.`,
+    ...(hashString(`${t}:resource:${i}`) % 2 === 0
+      ? {}
+      : { url: `https://example.org/${t.toLowerCase().replace(/\s+/g, '-')}-${i}` }),
+  }));
+
+  return courseResourcesContentSchema.parse({ glossary, furtherResources });
+}
+
 // ── Quiz ────────────────────────────────────────────────────────
 export const mockQuizSchema = z.array(quizQuestionSchema).min(1);
 
@@ -512,6 +559,7 @@ export function mockFixtureFor<T>(schema: z.ZodType<T>, user: string): T {
     mockArticle(title),
     mockTp(title),
     mockMarketing(title),
+    mockCourseResources(title),
   ];
   for (const candidate of candidates) {
     const parsed = schema.safeParse(candidate);

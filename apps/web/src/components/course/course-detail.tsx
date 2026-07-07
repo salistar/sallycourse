@@ -12,6 +12,8 @@ import { DeriveButton } from './derive-button';
 import { IntroVideoUpload } from './intro-video-upload';
 import { DeployPanel } from './deploy-panel';
 import { QaReportPanel } from './qa-report-panel';
+import { FeedbackPanel } from './feedback-panel';
+import { ResourcesPanel } from './resources-panel';
 import type { CourseDetailView, CourseStatus, Difficulty, Locale } from './types';
 
 /**
@@ -185,6 +187,12 @@ export function CourseDetail({ course }: CourseDetailProps) {
 
         {/* ── Rapport de contrôle qualité (P26), une fois exécuté ─ */}
         {course.qaReport && <QaReportPanel report={course.qaReport} />}
+
+        {/* ── Retours étudiants (P62), dès que le cours est diffusable ─ */}
+        <FeedbackPanel courseId={course.id} feedback={course.feedback} reviewable={deployable} />
+
+        {/* ── Ressources téléchargeables (P65), une fois générées ─ */}
+        <ResourcesPanel resources={course.resources} />
 
         {/* ── Arborescence + panneau de prévisualisation ───────── */}
         {course.sections.length === 0 ? (

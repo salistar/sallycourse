@@ -1,0 +1,179 @@
+# Déploiement — SALLYCOURSE (staging, Hetzner via SSH + Docker Compose).
+#
+# Déclenchement : manuel (workflow_dispatch) ou push d'un tag `v*`.
+# Étapes : build+push des images vers GHCR → SSH sur le serveur Hetzner
+# → docker compose pull/up → healthcheck /api/health → rollback si échec.
+#
+# ── Secrets requis (Settings → Secrets and variables → Actions) ─────────
+#   GHCR_USERNAME       — utilisateur GitHub avec droit d'écriture packages
+#                         (ou ${{ github.actor }} + GITHUB_TOKEN suffisent
+#                         en général ; ce secret n'est nécessaire que si un
+#                         compte dédié est utilisé)
+#   HETZNER_HOST         — IP ou hostname du serveur (ex. 88.198.205.229)
+#   HETZNER_USER         — utilisateur SSH (ex. deploy)
+#   HETZNER_SSH_KEY      — clé privée SSH (format PEM, sans passphrase)
+#   HETZNER_SSH_PORT     — port SSH (optionnel, défaut 22)
+#   DEPLOY_PATH          — chemin absolu du projet sur le serveur
+#                         (contient docker-compose.yml + .env de prod)
+#
+# GITHUB_TOKEN (fourni automatiquement) est utilisé pour l'auth GHCR —
+# aucun secret supplémentaire n'est nécessaire pour le registre lui-même.
+
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environnement cible'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'tag' }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: ${{ github.repository_owner }}/sallycourse
+
+jobs:
+  build-and-push:
+    name: Build & push (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        app: [web, worker]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Connexion à GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Métadonnées image (tags/labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}-${{ matrix.app }}
+          tags: |
+            type=sha,format=long
+            type=ref,event=tag
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+
+      - name: Build & push ${{ matrix.app }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+  deploy:
+    name: Déploiement Hetzner (${{ github.event.inputs.environment || 'staging' }})
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Déployer via SSH (pull + up)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          port: ${{ secrets.HETZNER_SSH_PORT || 22 }}
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.DEPLOY_PATH }}"
+
+            # Trace l'image actuellement déployée pour un rollback ciblé.
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+              images -q web > /tmp/sallycourse_prev_web.id || true
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+              images -q worker > /tmp/sallycourse_prev_worker.id || true
+
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} \
+              -u "${{ github.actor }}" --password-stdin
+
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+              --profile core pull web worker
+
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+              --profile core up -d --remove-orphans
+
+      - name: Attendre le démarrage
+        run: sleep 15
+
+      - name: Healthcheck post-déploiement
+        id: healthcheck
+        continue-on-error: true
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          port: ${{ secrets.HETZNER_SSH_PORT || 22 }}
+          script: |
+            set -euo pipefail
+            for i in 1 2 3 4 5; do
+              if curl --fail --silent --max-time 5 http://localhost:3000/api/health; then
+                exit 0
+              fi
+              echo "Tentative $i échouée, nouvel essai dans 5s..."
+              sleep 5
+            done
+            exit 1
+
+      - name: Rollback si healthcheck en échec
+        if: steps.healthcheck.outcome == 'failure'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          port: ${{ secrets.HETZNER_SSH_PORT || 22 }}
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.DEPLOY_PATH }}"
+            echo "Healthcheck en échec : rollback vers l'image précédente."
+            PREV_WEB=$(cat /tmp/sallycourse_prev_web.id 2>/dev/null || true)
+            PREV_WORKER=$(cat /tmp/sallycourse_prev_worker.id 2>/dev/null || true)
+            if [ -n "$PREV_WEB" ] && [ -n "$PREV_WORKER" ]; then
+              docker tag "$PREV_WEB" sallycourse-web:rollback || true
+              docker tag "$PREV_WORKER" sallycourse-worker:rollback || true
+              docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+                --profile core up -d --remove-orphans
+            else
+              echo "Aucune image précédente tracée — rollback manuel requis."
+            fi
+
+      - name: Échouer le job si le healthcheck a échoué
+        if: steps.healthcheck.outcome == 'failure'
+        run: |
+          echo "::error::Healthcheck post-déploiement en échec — rollback tenté, vérification manuelle recommandée."
+          exit 1

@@ -13,8 +13,10 @@ import { requireUser } from '@/lib/session';
 import { CourseDetail } from '@/components/course';
 import type {
   CourseDetailView,
+  CourseResourcesView,
   LessonView,
   QaReportView,
+  ReviewFeedbackView,
   SectionView,
   SlideView,
 } from '@/components/course';
@@ -105,6 +107,111 @@ function toQaReportView(raw: unknown): QaReportView | null {
     passed: report.passed,
     ranAt: typeof report.ranAt === 'string' ? report.ranAt : new Date().toISOString(),
     checks,
+  };
+}
+
+/**
+ * Normalise `Course.improvementSuggestions` (champ Mixed, P62) en DTO
+ * sérialisable pour le client, en résolvant chaque `lessonRef` (titre exact
+ * de leçon produit par l'analyse) vers son `lessonId` réel — nécessaire pour
+ * que le bouton « appliquer » régénère la bonne leçon. Toute structure
+ * inattendue renvoie null (aucune section affichée).
+ */
+function toFeedbackView(
+  raw: unknown,
+  lessonTitleToId: Map<string, string>,
+): ReviewFeedbackView | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const analysis = raw as {
+    themes?: unknown;
+    suggestions?: unknown;
+    reviewCount?: unknown;
+    averageRating?: unknown;
+    generatedAt?: unknown;
+  };
+  if (!Array.isArray(analysis.themes) || !Array.isArray(analysis.suggestions)) return null;
+
+  const themes: ReviewFeedbackView['themes'] = analysis.themes
+    .filter((t): t is Record<string, unknown> => Boolean(t) && typeof t === 'object')
+    .map((t) => {
+      const sentiment: ReviewFeedbackView['themes'][number]['sentiment'] =
+        t.sentiment === 'positive' || t.sentiment === 'negative' ? t.sentiment : 'neutral';
+      return {
+        label: typeof t.label === 'string' ? t.label : '',
+        sentiment,
+        count: typeof t.count === 'number' ? t.count : 0,
+        quotes: Array.isArray(t.quotes) ? t.quotes.filter((q): q is string => typeof q === 'string') : [],
+      };
+    });
+
+  const suggestions = analysis.suggestions
+    .filter((s): s is Record<string, unknown> => Boolean(s) && typeof s === 'object')
+    .map((s) => {
+      const lessonRef = typeof s.lessonRef === 'string' ? s.lessonRef : null;
+      return {
+        lessonRef,
+        lessonId: lessonRef ? (lessonTitleToId.get(lessonRef) ?? null) : null,
+        action: typeof s.action === 'string' ? s.action : '',
+        rationale: typeof s.rationale === 'string' ? s.rationale : '',
+      };
+    });
+
+  return {
+    themes,
+    suggestions,
+    reviewCount: typeof analysis.reviewCount === 'number' ? analysis.reviewCount : 0,
+    averageRating: typeof analysis.averageRating === 'number' ? analysis.averageRating : 0,
+    generatedAt: typeof analysis.generatedAt === 'string' ? analysis.generatedAt : new Date().toISOString(),
+  };
+}
+
+/**
+ * Normalise `Course.resources` (champ Mixed, P65) en DTO sérialisable pour le
+ * client, en présignant les clés S3 des PDF (cheat sheet + workbook). Toute
+ * structure inattendue ou génération non aboutie renvoie null (section masquée).
+ */
+async function toResourcesView(raw: unknown): Promise<CourseResourcesView | null> {
+  if (!raw || typeof raw !== 'object') return null;
+  const resources = raw as {
+    status?: unknown;
+    content?: { glossary?: unknown; furtherResources?: unknown };
+    files?: { cheatsheetKey?: unknown; workbookKey?: unknown };
+    generatedAt?: unknown;
+  };
+  if (resources.status !== 'ready' || !resources.content) return null;
+
+  const glossary = Array.isArray(resources.content.glossary)
+    ? resources.content.glossary
+        .filter((g): g is Record<string, unknown> => Boolean(g) && typeof g === 'object')
+        .map((g) => ({
+          term: typeof g.term === 'string' ? g.term : '',
+          definition: typeof g.definition === 'string' ? g.definition : '',
+        }))
+    : [];
+
+  const furtherResources = Array.isArray(resources.content.furtherResources)
+    ? resources.content.furtherResources
+        .filter((r): r is Record<string, unknown> => Boolean(r) && typeof r === 'object')
+        .map((r) => ({
+          title: typeof r.title === 'string' ? r.title : '',
+          kind: typeof r.kind === 'string' ? r.kind : '',
+          description: typeof r.description === 'string' ? r.description : '',
+          ...(typeof r.url === 'string' && r.url ? { url: r.url } : {}),
+        }))
+    : [];
+
+  const cheatsheetKey =
+    typeof resources.files?.cheatsheetKey === 'string' ? resources.files.cheatsheetKey : undefined;
+  const workbookKey =
+    typeof resources.files?.workbookKey === 'string' ? resources.files.workbookKey : undefined;
+  const [cheatsheetUrl, workbookUrl] = await Promise.all([safePresign(cheatsheetKey), safePresign(workbookKey)]);
+
+  return {
+    glossary,
+    furtherResources,
+    cheatsheetUrl,
+    workbookUrl,
+    generatedAt: typeof resources.generatedAt === 'string' ? resources.generatedAt : new Date().toISOString(),
   };
 }
 
@@ -216,6 +323,12 @@ export default async function CourseDetailPage({
     }),
   );
 
+  // Map titre → id de leçon (dernière leçon gagne en cas de doublon) : sert à
+  // résoudre les `lessonRef` de l'analyse de feedback (P62) vers un lessonId.
+  const lessonTitleToId = new Map(lessons.map((lesson) => [lesson.title, lesson._id.toString()]));
+
+  const resourcesView = await toResourcesView(course.resources);
+
   const courseView: CourseDetailView = {
     id: course._id.toString(),
     title: course.title,
@@ -225,6 +338,8 @@ export default async function CourseDetailPage({
     createdAt: course.createdAt.toISOString(),
     sections: sectionsView,
     qaReport: toQaReportView(course.qaReport),
+    feedback: toFeedbackView(course.improvementSuggestions, lessonTitleToId),
+    resources: resourcesView,
   };
 
   return <CourseDetail course={courseView} />;
