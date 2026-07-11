@@ -32,7 +32,11 @@ const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
 });
 
 export const metadata: Metadata = {
-  title: 'SallyCourse',
+  metadataBase: new URL(process.env.APP_URL ?? 'http://localhost:3000'),
+  title: {
+    default: 'SallyCourse — Créez un cours en ligne en quelques minutes',
+    template: '%s · SallyCourse',
+  },
   description: 'Génération automatique de cours — titre + niveau → cours complet.',
 };
 

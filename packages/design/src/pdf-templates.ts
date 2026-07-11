@@ -144,6 +144,11 @@ const cheatsheetSchema = pdfDocSchema.extend({
   sections: z.array(cheatsheetSectionSchema).min(1).max(24),
 });
 
+/** Couleur hexadécimale (#RGB ou #RRGGBB) — garde-fou avant injection CSS brute. */
+const hexColorSchema = z
+  .string()
+  .regex(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i, 'couleur hexadécimale invalide (#RRGGBB attendu)');
+
 const certificateSchema = pdfBaseSchema.extend({
   certLabel: z.string().min(1).default("Certificat d'accomplissement"),
   /** Ligne d'attribution au-dessus du nom (« décerné à »). */
@@ -159,6 +164,17 @@ const certificateSchema = pdfBaseSchema.extend({
   qrDataUri: z.string().startsWith('data:', 'qrDataUri doit être un data URI'),
   signerName: z.string().min(1),
   signerRole: z.string().default(''),
+  /**
+   * Marque blanche (Prompt 88, plan Business) : nom affiché dans le header et
+   * le sceau — défaut « Salistar » (marque de la plateforme). `brandLogoUrl`
+   * vide (défaut) → aucune balise <img> injectée dans le header.
+   */
+  brandName: z.string().min(1).default('Salistar'),
+  brandLogoUrl: z.string().default(''),
+  /** Couleur principale (remplace le violet de marque) — défaut violet-500. */
+  brandPrimaryHex: hexColorSchema.default('#8E55BE'),
+  /** Couleur d'accent (remplace l'or de marque) — défaut gold-500. */
+  brandAccentHex: hexColorSchema.default('#D4A017'),
 });
 
 /* ------------------------------------------------------------------ */
@@ -524,6 +540,12 @@ function buildPlaceholders(
     }
     case PdfTemplate.Certificate: {
       const d = data as PdfTemplateData['certificate'];
+      // Logo école (marque blanche) : balise <img> générée + échappée en
+      // interne si une URL est fournie, sinon fragment vide (rien injecté).
+      const brandLogoImgHtml =
+        d.brandLogoUrl === ''
+          ? ''
+          : `<img class="brand-logo" src="${escapeHtml(d.brandLogoUrl)}" alt="${escapeHtml(d.brandName)}">`;
       return {
         ...basePlaceholders(d),
         certLabel: escapeHtml(d.certLabel),
@@ -536,6 +558,11 @@ function buildPlaceholders(
         qrDataUri: escapeHtml(d.qrDataUri), // attribut src (échappement sûr)
         signerName: escapeHtml(d.signerName),
         signerRole: escapeHtml(d.signerRole),
+        brandName: escapeHtml(d.brandName),
+        brandLogoImgHtml, // fragment généré + échappé en interne
+        sealLabel: escapeHtml(d.brandName.toUpperCase()),
+        brandPrimaryHex: d.brandPrimaryHex, // validé hex par zod — injection CSS sûre
+        brandAccentHex: d.brandAccentHex, // validé hex par zod — injection CSS sûre
       };
     }
     case PdfTemplate.DeploymentReport: {

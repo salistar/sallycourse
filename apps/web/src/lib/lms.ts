@@ -93,6 +93,36 @@ export interface CertificateParams {
   /** Date de complétion ; défaut = maintenant. */
   completedAt?: Date;
   locale?: 'fr' | 'en' | 'ar';
+  /** Marque blanche (Prompt 88) — omis/undefined → défauts SALISTAR. */
+  branding?: CertificateBranding;
+}
+
+/* ------------------------------------------------------------------ */
+/* Marque blanche du certificat (Prompt 88, plan Business)             */
+/* ------------------------------------------------------------------ */
+
+export interface CertificateBranding {
+  schoolName: string;
+  logoUrl?: string;
+  primaryColorHex: string;
+  accentColorHex: string;
+}
+
+/**
+ * Résout le branding à appliquer au certificat : les couleurs/logo de l'école
+ * ne remplacent SALISTAR que pour un utilisateur plan **business** ayant
+ * effectivement configuré un SchoolBranding — dans tous les autres cas
+ * (plan free/pro, ou business sans branding), le résultat est `undefined` et
+ * `renderCertificateHtml` retombe sur les défauts SALISTAR du gabarit.
+ * PURE : ne fait aucun I/O, l'appelant fournit déjà le document chargé.
+ */
+export function resolveCertificateBranding(
+  userPlan: string | null | undefined,
+  branding: CertificateBranding | null | undefined,
+): CertificateBranding | undefined {
+  if (userPlan !== 'business') return undefined;
+  if (!branding) return undefined;
+  return branding;
 }
 
 /** Locales Intl pour formater la date de complétion dans la langue du cours. */
@@ -121,6 +151,16 @@ export function renderCertificateHtml(params: CertificateParams): string {
     signerName: 'SallyCourse',
     signerRole: 'Plateforme de formation',
     // certLabel / awardLine / descriptionLine : défauts du gabarit (fr).
+    // brandName/brandLogoUrl/brandPrimaryHex/brandAccentHex : défauts SALISTAR
+    // du gabarit si params.branding est absent (voir resolveCertificateBranding).
+    ...(params.branding
+      ? {
+          brandName: params.branding.schoolName,
+          brandLogoUrl: params.branding.logoUrl ?? '',
+          brandPrimaryHex: params.branding.primaryColorHex,
+          brandAccentHex: params.branding.accentColorHex,
+        }
+      : {}),
   };
   // Le schéma zod du gabarit applique les défauts (input → data validée).
   return renderPdfTemplate(PdfTemplate.Certificate, input);

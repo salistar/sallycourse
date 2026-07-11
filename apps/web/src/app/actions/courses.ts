@@ -11,6 +11,7 @@ import {
   Lesson,
   Quiz,
   Section,
+  Testimonial,
 } from '@sallycourse/db';
 import { auth } from '@/lib/auth';
 
@@ -93,5 +94,59 @@ export async function renameCourse(courseId: string, title: string): Promise<Cou
     return { ok: true };
   } catch {
     return { ok: false, error: 'Renommage impossible pour le moment. Réessayez.' };
+  }
+}
+
+const testimonialQuoteSchema = z.string().trim().min(10, 'Trop court (10 caractères minimum).').max(600, 'Trop long (600 caractères maximum).');
+
+/**
+ * Active/désactive l'affichage d'un cours sur la vitrine publique /showcase
+ * (Prompt 89). Propriété vérifiée comme les autres actions de ce fichier.
+ * Optionnel : témoignage joint (citation + note), remplacé si déjà existant.
+ */
+export async function setShowcaseOptIn(
+  courseId: string,
+  optIn: boolean,
+  testimonial?: { quote: string; rating?: number },
+): Promise<CourseActionResult> {
+  const userId = await currentUserId();
+  if (!userId) return { ok: false, error: 'Authentification requise.' };
+  if (!Types.ObjectId.isValid(courseId)) return { ok: false, error: 'Identifiant de cours invalide.' };
+
+  try {
+    await connectDb();
+    const course = await Course.findOneAndUpdate(
+      { _id: courseId, userId },
+      { $set: { showcaseOptIn: optIn } },
+      { new: true },
+    )
+      .select('_id')
+      .lean();
+    if (!course) return { ok: false, error: 'Cours introuvable.' };
+
+    if (optIn && testimonial?.quote) {
+      const parsed = testimonialQuoteSchema.safeParse(testimonial.quote);
+      if (!parsed.success) {
+        return { ok: false, error: parsed.error.issues[0]?.message ?? 'Témoignage invalide.' };
+      }
+      const rating =
+        typeof testimonial.rating === 'number' && testimonial.rating >= 1 && testimonial.rating <= 5
+          ? Math.round(testimonial.rating)
+          : undefined;
+      await Testimonial.findOneAndUpdate(
+        { courseId },
+        { $set: { userId, courseId, quote: parsed.data, ...(rating ? { rating } : {}) } },
+        { upsert: true },
+      );
+    } else if (!optIn) {
+      // Retrait de la vitrine : le témoignage associé n'a plus lieu d'être public.
+      await Testimonial.deleteOne({ courseId });
+    }
+
+    revalidatePath('/showcase');
+    revalidatePath(`/dashboard/courses/${courseId}`);
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Mise à jour impossible pour le moment. Réessayez.' };
   }
 }

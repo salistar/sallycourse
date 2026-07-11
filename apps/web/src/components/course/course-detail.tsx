@@ -12,8 +12,10 @@ import { DeriveButton } from './derive-button';
 import { IntroVideoUpload } from './intro-video-upload';
 import { DeployPanel } from './deploy-panel';
 import { QaReportPanel } from './qa-report-panel';
+import { QualityScorePanel } from './quality-score-panel';
 import { FeedbackPanel } from './feedback-panel';
 import { ResourcesPanel } from './resources-panel';
+import { TranslatePanel } from './translate-panel';
 import type { CourseDetailView, CourseStatus, Difficulty, Locale } from './types';
 
 /**
@@ -184,17 +186,33 @@ export function CourseDetail({ course }: CourseDetailProps) {
 
         {/* ── Orchestrateur de déploiement (P44), sur demande ──── */}
         {deployable && deployOpen && (
-          <DeployPanel courseId={course.id} lessonCount={lessonCount} />
+          <DeployPanel
+            courseId={course.id}
+            lessonCount={lessonCount}
+            qualityScore={course.qualityScore?.score ?? null}
+          />
         )}
 
         {/* ── Rapport de contrôle qualité (P26), une fois exécuté ─ */}
         {course.qaReport && <QaReportPanel report={course.qaReport} />}
+
+        {/* ── Score de qualité pédagogique (P94), une fois évalué ─ */}
+        <QualityScorePanel qualityScore={course.qualityScore} />
 
         {/* ── Retours étudiants (P62), dès que le cours est diffusable ─ */}
         <FeedbackPanel courseId={course.id} feedback={course.feedback} reviewable={deployable} />
 
         {/* ── Ressources téléchargeables (P65), une fois générées ─ */}
         <ResourcesPanel resources={course.resources} />
+
+        {/* ── Traduction du cours publié (P92), cours déjà déployé ─ */}
+        {course.status === 'published' && (
+          <TranslatePanel
+            courseId={course.id}
+            sourceLocale={course.locale}
+            dubbedVersions={course.dubbedVersions ?? []}
+          />
+        )}
 
         {/* ── Arborescence + panneau de prévisualisation ───────── */}
         {course.sections.length === 0 ? (

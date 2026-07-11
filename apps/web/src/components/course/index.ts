@@ -16,8 +16,10 @@ export { DownloadReportButton, type DownloadReportButtonProps } from './download
 export { IntroVideoUpload, type IntroVideoUploadProps } from './intro-video-upload';
 export { DeployPanel, type DeployPanelProps } from './deploy-panel';
 export { QaReportPanel, type QaReportPanelProps } from './qa-report-panel';
+export { QualityScorePanel, type QualityScorePanelProps } from './quality-score-panel';
 export { FeedbackPanel, type FeedbackPanelProps } from './feedback-panel';
 export { ResourcesPanel, type ResourcesPanelProps } from './resources-panel';
+export { TranslatePanel, type TranslatePanelProps } from './translate-panel';
 export {
   ArticleEditor,
   VideoScriptEditor,
@@ -36,10 +38,13 @@ export type {
   SlideView,
   QaReportView,
   QaCheckView,
+  QualityScoreView,
+  QualityRubricView,
   ReviewThemeView,
   ImprovementSuggestionView,
   ReviewFeedbackView,
   GlossaryEntryView,
   FurtherResourceView,
   CourseResourcesView,
+  DubbedVersionView,
 } from './types';

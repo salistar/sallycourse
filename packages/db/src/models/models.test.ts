@@ -7,6 +7,7 @@ import { Lesson } from './lesson';
 import { Quiz } from './quiz';
 import { GenerationJob } from './generation-job';
 import { Deployment } from './deployment';
+import { SchoolBranding } from './school-branding';
 
 // Validation pure (validateSync) — aucune connexion Mongo requise.
 
@@ -182,5 +183,38 @@ describe('Deployment', () => {
       mode: 'yolo',
     });
     expect(doc.validateSync()?.errors['mode']).toBeDefined();
+  });
+});
+
+describe('SchoolBranding', () => {
+  it('accepte un document valide avec les couleurs de marque par défaut', () => {
+    const doc = new SchoolBranding({ userId: oid(), schoolName: 'École Atlas' });
+    expect(doc.validateSync()).toBeUndefined();
+    expect(doc.primaryColorHex).toBe('#8E55BE');
+    expect(doc.accentColorHex).toBe('#D4A017');
+  });
+
+  it('accepte des couleurs hex custom (3 et 6 chiffres)', () => {
+    const doc = new SchoolBranding({
+      userId: oid(),
+      schoolName: 'École Atlas',
+      primaryColorHex: '#123456',
+      accentColorHex: '#fff',
+    });
+    expect(doc.validateSync()).toBeUndefined();
+  });
+
+  it('rejette une couleur non hexadécimale', () => {
+    const doc = new SchoolBranding({
+      userId: oid(),
+      schoolName: 'École Atlas',
+      primaryColorHex: 'violet',
+    });
+    expect(doc.validateSync()?.errors['primaryColorHex']).toBeDefined();
+  });
+
+  it('rejette un schoolName manquant', () => {
+    const doc = new SchoolBranding({ userId: oid() });
+    expect(doc.validateSync()?.errors['schoolName']).toBeDefined();
   });
 });

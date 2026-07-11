@@ -26,6 +26,10 @@ const EMAIL_TEMPLATE_BY_TYPE: Record<NotificationType, EmailTemplateName | undef
   review_approved: 'review_approved',
   review_rejected: 'review_rejected',
   quota_reached: 'quota_reached',
+  // Pas d'email : simple log de traçabilité interne (voir voice-clone.ts).
+  voice_clone_used: undefined,
+  // Pas d'email : suggestion consultable dans le dashboard (voir course-refresh.ts).
+  course_refresh_available: undefined,
 };
 
 export interface NotifyInput {

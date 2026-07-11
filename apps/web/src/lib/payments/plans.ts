@@ -5,6 +5,9 @@ import {
   Subscription as SubscriptionModel,
   type PaymentProvider,
 } from '@sallycourse/db';
+import { toApproxUsd } from '@/lib/affiliate';
+import { creditAffiliateConversion } from '@/lib/payments/affiliate-service';
+import { logger } from '@/lib/logger';
 
 /**
  * Tarification & activation de plan (P54). Source unique des prix affichés et
@@ -98,7 +101,7 @@ export async function activatePlan(input: ActivatePlanInput): Promise<ActivatePl
 
   await connectDb();
 
-  const user = await UserModel.findById(userId).select('_id').lean();
+  const user = await UserModel.findById(userId).select('_id pendingReferralCode').lean();
   if (!user) return { ok: false, reason: 'Utilisateur introuvable.', applied: false };
 
   const currentPeriodEnd = input.currentPeriodEnd ?? addOneMonth();
@@ -107,7 +110,7 @@ export async function activatePlan(input: ActivatePlanInput): Promise<ActivatePl
   // Sans providerRef (mock), on upsert sur (userId, provider) le dernier actif.
   const filter = providerRef ? { provider, providerRef } : { userId, provider };
 
-  await SubscriptionModel.updateOne(
+  const upsertResult = await SubscriptionModel.updateOne(
     filter,
     {
       $set: {
@@ -125,7 +128,29 @@ export async function activatePlan(input: ActivatePlanInput): Promise<ActivatePl
   // Le plan de l'utilisateur reflète l'abonnement actif.
   await UserModel.updateOne({ _id: userId }, { $set: { plan } });
 
+  // Première activation (pas un rejeu de webhook) : crédite le référent (P89)
+  // si un code d'affiliation était en attente, puis le vide (usage unique).
+  const isFirstActivation = upsertResult.upsertedCount > 0;
+  if (isFirstActivation && user.pendingReferralCode) {
+    await creditReferralIfAny(user.pendingReferralCode, plan);
+    await UserModel.updateOne({ _id: userId }, { $set: { pendingReferralCode: null } });
+  }
+
   return { ok: true, reason: 'Plan activé.', applied: true };
+}
+
+/**
+ * Crédite le référent d'un code d'affiliation à partir du prix EUR du plan
+ * (approximation USD) — best-effort, n'échoue jamais l'activation du plan.
+ */
+async function creditReferralIfAny(code: string, plan: PaidPlanId): Promise<void> {
+  try {
+    const price = PLAN_PRICING[plan].EUR;
+    const amountUsd = toApproxUsd(price.amountMinor, price.currency);
+    await creditAffiliateConversion(code, amountUsd);
+  } catch (err) {
+    logger.warn({ err, code, plan }, 'Affiliation : échec du crédit de commission');
+  }
 }
 
 /**

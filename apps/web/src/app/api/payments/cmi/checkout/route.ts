@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { getConfig } from '@sallycourse/shared';
 import { connectDb, User as UserModel } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
 import { getCmiConfig, prepareCmiCheckout } from '@/lib/payments/cmi';
 import { isPaidPlan } from '@/lib/payments/plans';
+import { AFFILIATE_COOKIE_NAME, isValidAffiliateCode } from '@/lib/affiliate';
 
 /**
  * POST /api/payments/cmi/checkout — initie un paiement CMI (Maroc, MAD).
@@ -43,6 +45,13 @@ export async function POST(request: Request) {
   const dbUser = await UserModel.findById(user.id).select('email name').lean();
   if (!dbUser) {
     return NextResponse.json({ error: 'Utilisateur introuvable.' }, { status: 404 });
+  }
+
+  // Affiliation (P89) : mémorise le code référent en attente (cookie posé par
+  // /r/[code]) pour crédit à l'activation confirmée du plan (callback CMI).
+  const refCode = (await cookies()).get(AFFILIATE_COOKIE_NAME)?.value;
+  if (refCode && isValidAffiliateCode(refCode)) {
+    await UserModel.updateOne({ _id: user.id }, { $set: { pendingReferralCode: refCode } });
   }
 
   const appUrl = getConfig().APP_URL.replace(/\/$/, '');

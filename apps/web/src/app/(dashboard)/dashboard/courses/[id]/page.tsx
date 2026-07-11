@@ -16,6 +16,7 @@ import type {
   CourseResourcesView,
   LessonView,
   QaReportView,
+  QualityScoreView,
   ReviewFeedbackView,
   SectionView,
   SlideView,
@@ -107,6 +108,29 @@ function toQaReportView(raw: unknown): QaReportView | null {
     passed: report.passed,
     ranAt: typeof report.ranAt === 'string' ? report.ranAt : new Date().toISOString(),
     checks,
+  };
+}
+
+/**
+ * Normalise `Course.qualityScore` (champ Mixed, P94) en DTO sérialisable pour
+ * le client. Toute structure inattendue renvoie null (aucun panneau affiché).
+ */
+function toQualityScoreView(raw: unknown): QualityScoreView | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const q = raw as { score?: unknown; rubric?: unknown; feedback?: unknown; evaluatedAt?: unknown };
+  if (typeof q.score !== 'number' || !q.rubric || typeof q.rubric !== 'object') return null;
+  const rubric = q.rubric as Record<string, unknown>;
+  const numOr0 = (v: unknown) => (typeof v === 'number' ? v : 0);
+  return {
+    score: q.score,
+    rubric: {
+      clarity: numOr0(rubric.clarity),
+      progression: numOr0(rubric.progression),
+      examples: numOr0(rubric.examples),
+      engagement: numOr0(rubric.engagement),
+    },
+    feedback: Array.isArray(q.feedback) ? q.feedback.filter((f): f is string => typeof f === 'string') : [],
+    evaluatedAt: typeof q.evaluatedAt === 'string' ? q.evaluatedAt : new Date().toISOString(),
   };
 }
 
@@ -328,6 +352,13 @@ export default async function CourseDetailPage({
   const lessonTitleToId = new Map(lessons.map((lesson) => [lesson.title, lesson._id.toString()]));
 
   const resourcesView = await toResourcesView(course.resources);
+  const dubbedVersionsView = (course.dubbedVersions ?? []).map((v) => ({
+    locale: v.locale,
+    status: v.status,
+    lessonsWithSubtitles: v.srtKeys?.length ?? 0,
+    lessonsWithVideo: v.videoKeys?.length ?? 0,
+    updatedAt: (v.updatedAt ?? new Date()).toISOString(),
+  }));
 
   const courseView: CourseDetailView = {
     id: course._id.toString(),
@@ -338,8 +369,10 @@ export default async function CourseDetailPage({
     createdAt: course.createdAt.toISOString(),
     sections: sectionsView,
     qaReport: toQaReportView(course.qaReport),
+    qualityScore: toQualityScoreView(course.qualityScore),
     feedback: toFeedbackView(course.improvementSuggestions, lessonTitleToId),
     resources: resourcesView,
+    dubbedVersions: dubbedVersionsView,
   };
 
   return <CourseDetail course={courseView} />;

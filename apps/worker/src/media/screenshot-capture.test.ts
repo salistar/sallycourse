@@ -4,8 +4,11 @@ import { describe, expect, it } from 'vitest';
 import {
   ScreenshotCaptureError,
   assertUrlAllowed,
+  buildScreencastPostProcessArgs,
+  buildZoompanFilter,
   hashScreenshotSpec,
   isBlockedIp,
+  isScreencastSpec,
   readPngSize,
 } from './screenshot-capture.js';
 import type { TpScreenshotSpec } from '../shared.js';
@@ -113,5 +116,130 @@ describe('hashScreenshotSpec', () => {
     // différents avec la même spec produisent la même clé de cache.
     const specCopy: TpScreenshotSpec = JSON.parse(JSON.stringify(baseSpec));
     expect(hashScreenshotSpec(baseSpec)).toBe(hashScreenshotSpec(specCopy));
+  });
+});
+
+// ── Prompt 85 : mode screencast ─────────────────────────────────────
+
+describe('isScreencastSpec', () => {
+  it('détecte le mode screencast quand recordVideo est vrai', () => {
+    const spec: TpScreenshotSpec = {
+      url: 'https://example.com/demo',
+      actions: [],
+      caption: 'Démo',
+      recordVideo: true,
+    };
+    expect(isScreencastSpec(spec)).toBe(true);
+  });
+
+  it('reste en mode capture simple par défaut (absence de recordVideo, comportement historique)', () => {
+    const spec: TpScreenshotSpec = {
+      url: 'https://example.com/demo',
+      actions: [],
+      caption: 'Démo',
+    };
+    expect(isScreencastSpec(spec)).toBe(false);
+  });
+
+  it('reste en mode capture simple si recordVideo est explicitement faux', () => {
+    const spec: TpScreenshotSpec = {
+      url: 'https://example.com/demo',
+      actions: [],
+      caption: 'Démo',
+      recordVideo: false,
+    };
+    expect(isScreencastSpec(spec)).toBe(false);
+  });
+});
+
+describe('buildZoompanFilter', () => {
+  it('retourne null sans focusRect (rien à zoomer)', () => {
+    expect(
+      buildZoompanFilter({ sourceWidth: 1920, sourceHeight: 1080, totalFrames: 90, fps: 30 }),
+    ).toBeNull();
+  });
+
+  it('retourne null si les dimensions ou le nombre de frames sont invalides', () => {
+    const focusRect = { x: 100, y: 100, width: 200, height: 100 };
+    expect(buildZoompanFilter({ sourceWidth: 0, sourceHeight: 1080, focusRect, totalFrames: 90, fps: 30 })).toBeNull();
+    expect(buildZoompanFilter({ sourceWidth: 1920, sourceHeight: 1080, focusRect, totalFrames: 0, fps: 30 })).toBeNull();
+  });
+
+  it('construit une expression zoompan valide centrée sur le focusRect', () => {
+    const filter = buildZoompanFilter({
+      sourceWidth: 1920,
+      sourceHeight: 1080,
+      focusRect: { x: 800, y: 400, width: 200, height: 100 },
+      totalFrames: 90,
+      fps: 30,
+    });
+    expect(filter).not.toBeNull();
+    expect(filter).toMatch(/^zoompan=/);
+    expect(filter).toContain('s=1920x1080');
+    expect(filter).toContain('fps=30');
+    expect(filter).toContain('d=1');
+    // Le facteur de zoom par défaut (1.6) doit apparaître dans l'expression z.
+    expect(filter).toContain('1.600');
+  });
+
+  it('applique le zoomFactor personnalisé', () => {
+    const filter = buildZoompanFilter({
+      sourceWidth: 1920,
+      sourceHeight: 1080,
+      focusRect: { x: 800, y: 400, width: 200, height: 100 },
+      totalFrames: 90,
+      fps: 30,
+      zoomFactor: 2,
+    });
+    expect(filter).toContain('2.000');
+  });
+});
+
+describe('buildScreencastPostProcessArgs', () => {
+  const base = {
+    inputVideo: '/tmp/raw.webm',
+    output: '/tmp/out.mp4',
+    sourceWidth: 1920,
+    sourceHeight: 1080,
+    durationSeconds: 5,
+  };
+
+  it('sans narration : piste audio désactivée (-an), une seule entrée', () => {
+    const args = buildScreencastPostProcessArgs(base);
+    expect(args).toContain('-an');
+    expect(args.filter((a) => a === '-i')).toHaveLength(1);
+    expect(args.at(-1)).toBe('/tmp/out.mp4');
+  });
+
+  it('avec narration : mixe audio AAC, mappe vidéo+audio, cale sur le plus court', () => {
+    const args = buildScreencastPostProcessArgs({ ...base, narrationAudio: '/tmp/narration.mp3' });
+    expect(args.filter((a) => a === '-i')).toHaveLength(2);
+    expect(args).toContain('-shortest');
+    expect(args).toContain('aac');
+    expect(args).toContain('-map');
+    expect(args).not.toContain('-an');
+  });
+
+  it('sans focusRect : filtre vidéo de repli (scale+fps), pas de zoompan', () => {
+    const args = buildScreencastPostProcessArgs(base);
+    const vfIndex = args.indexOf('-vf');
+    expect(vfIndex).toBeGreaterThanOrEqual(0);
+    expect(args[vfIndex + 1]).toContain('scale=1920:1080');
+    expect(args[vfIndex + 1]).not.toContain('zoompan');
+  });
+
+  it('avec focusRect : filtre vidéo = zoompan', () => {
+    const args = buildScreencastPostProcessArgs({
+      ...base,
+      focusRect: { x: 800, y: 400, width: 200, height: 100 },
+    });
+    const vfIndex = args.indexOf('-vf');
+    expect(args[vfIndex + 1]).toContain('zoompan');
+  });
+
+  it('encode toujours en H.264 yuv420p (compatibilité lecteurs)', () => {
+    const args = buildScreencastPostProcessArgs(base);
+    expect(args).toContain('libx264');
+    expect(args).toContain('yuv420p');
   });
 });

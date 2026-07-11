@@ -58,5 +58,143 @@
   },
   "settings": {
     "title": "Settings"
+  },
+  "marketing": {
+    "nav": {
+      "features": "Features",
+      "pricing": "Pricing",
+      "showcase": "Showcase",
+      "login": "Sign in",
+      "cta": "Create my first course"
+    },
+    "hero": {
+      "badge": "AI-powered course generation",
+      "title": "From idea to complete online course in minutes",
+      "subtitle": "SallyCourse turns a simple title and level into a structured course: videos, articles, hands-on exercises, quizzes, and multi-platform deployment, ready to publish.",
+      "ctaPrimary": "Create my first course",
+      "ctaSecondary": "View the showcase",
+      "trust": "Already used to generate hundreds of courses"
+    },
+    "comparison": {
+      "title": "40 hours of manual work become 40 minutes",
+      "subtitle": "What used to take weeks of scripting, filming and editing now fits into a single automated generation.",
+      "beforeLabel": "Before SallyCourse",
+      "afterLabel": "With SallyCourse",
+      "before": [
+        "Write the course outline by hand",
+        "Script every single video",
+        "Film and edit hours of footage",
+        "Build quizzes and exercises one by one",
+        "Manually publish on every platform"
+      ],
+      "after": [
+        "Course outline generated in seconds",
+        "Scripts, voiceover and videos generated automatically",
+        "Premium slides and diagrams ready to use",
+        "Quizzes and exercises generated with the content",
+        "One-click deployment to multiple platforms"
+      ],
+      "beforeTime": "≈ 40 hours",
+      "afterTime": "≈ 40 minutes"
+    },
+    "features": {
+      "title": "Everything you need to publish a professional course",
+      "subtitle": "A complete pipeline, from first idea to going live.",
+      "items": [
+        {
+          "title": "Smart generation",
+          "description": "A title and a level are enough: outline, lessons, articles, scripts and quizzes are generated automatically by AI."
+        },
+        {
+          "title": "Voice, video and avatar",
+          "description": "Realistic voiceovers, animated videos and video avatars bring every lesson to life without a studio."
+        },
+        {
+          "title": "Multi-platform deployment",
+          "description": "Publish in one click to Udemy, YouTube, Teachable, Thinkific, Podia, Gumroad, Skillshare and more."
+        },
+        {
+          "title": "Premium design",
+          "description": "Slides, PDFs and thumbnails generated with a consistent design system, with zero layout effort."
+        },
+        {
+          "title": "Quizzes and assessment",
+          "description": "Exercises and quizzes generated alongside the content, aligned with learning objectives."
+        },
+        {
+          "title": "Analytics and affiliate",
+          "description": "Track your courses' performance and monetize your audience with affiliate links."
+        }
+      ]
+    },
+    "pricingPreview": {
+      "title": "A plan for every stage",
+      "subtitle": "From the free plan to an unlimited Business plan with API and multi-account access.",
+      "cta": "See all pricing plans"
+    },
+    "testimonials": {
+      "title": "Already creating with SallyCourse",
+      "subtitle": "Instructors who transformed how they produce courses.",
+      "empty": [
+        {
+          "quote": "I published my first course in one evening, content and videos included.",
+          "author": "Amine, independent instructor",
+          "rating": 5
+        },
+        {
+          "quote": "Multi-platform deployment saves me days of work every month.",
+          "author": "Sofia, content creator",
+          "rating": 5
+        },
+        {
+          "quote": "The slide design is stunning, I no longer need a designer.",
+          "author": "Karim, training consultant",
+          "rating": 4
+        }
+      ]
+    },
+    "faq": {
+      "title": "Frequently asked questions",
+      "subtitle": "Everything you need to know before you start.",
+      "items": [
+        {
+          "question": "How does course generation work?",
+          "answer": "You provide a title and difficulty level: SallyCourse automatically generates the outline, lessons, articles, video scripts, quizzes and related resources."
+        },
+        {
+          "question": "Can I deploy to multiple platforms?",
+          "answer": "Yes, depending on your plan you can deploy simultaneously to Udemy, YouTube, Teachable, Thinkific, Podia, Gumroad, Skillshare and other SCORM-compatible platforms."
+        },
+        {
+          "question": "Is the generated content unique?",
+          "answer": "Each course is generated from your title and preferences, producing original content tailored to your topic."
+        },
+        {
+          "question": "Can I edit the generated course?",
+          "answer": "Yes, every lesson, quiz and resource remains editable before publishing from your dashboard."
+        },
+        {
+          "question": "What happens if I change plans?",
+          "answer": "You can change plans at any time; your existing courses remain available and new limits apply immediately."
+        }
+      ]
+    },
+    "footer": {
+      "tagline": "End-to-end automated online course generation.",
+      "product": "Product",
+      "company": "Company",
+      "legal": "Legal",
+      "links": {
+        "features": "Features",
+        "pricing": "Pricing",
+        "showcase": "Showcase",
+        "login": "Sign in",
+        "signup": "Create account",
+        "cgu": "Terms",
+        "cgv": "Sales terms",
+        "privacy": "Privacy"
+      },
+      "rights": "All rights reserved."
+    }
   }
 }

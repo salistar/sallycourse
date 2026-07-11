@@ -2,3 +2,6 @@
 export * from './types';
 export * from './aggregate';
 export { AnalyticsDashboard } from './analytics-dashboard';
+// A/B testing des landing pages (P87).
+export * from './ab-testing';
+export { AbTestingPanel } from './ab-testing-panel';

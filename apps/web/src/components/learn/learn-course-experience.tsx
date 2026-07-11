@@ -5,6 +5,7 @@ import {
   Award,
   CheckCircle2,
   Circle,
+  ExternalLink,
   FileText,
   FlaskConical,
   HelpCircle,
@@ -310,11 +311,52 @@ function LessonPlayer({
 
         {/* TP : pas de player dédié dans le LMS — renvoi vers le pack. */}
         {lesson.type === 'tp' && (
-          <p className="text-sm text-muted">
-            Les travaux pratiques se réalisent dans l’environnement fourni avec le cours.
-          </p>
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-muted">
+              Les travaux pratiques se réalisent dans l’environnement fourni avec le cours.
+            </p>
+            {lesson.sandboxLinks && <SandboxLinksPanel links={lesson.sandboxLinks} />}
+          </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Boutons d'ouverture du TP dans un IDE en ligne (P84) : deux projets
+ * distincts (code de départ / solution), chacun ouvrable dans StackBlitz ou
+ * CodeSandbox. N'apparaît que si le langage du TP a été détecté côté worker.
+ */
+function SandboxLinksPanel({ links }: { links: NonNullable<LearnLessonView['sandboxLinks']> }) {
+  const rows: Array<{ label: string; project: { stackblitzUrl: string; codesandboxUrl: string } }> = [
+    { label: 'Code de départ', project: links.starter },
+    { label: 'Solution', project: links.solution },
+  ];
+  return (
+    <div className="flex flex-col gap-3 rounded-md border border-border bg-surface-subtle p-4">
+      <p className="text-sm font-medium text-foreground">
+        TP interactif ({links.language}) — ouvrez le projet directement dans votre navigateur
+      </p>
+      {rows.map((row) => (
+        <div key={row.label} className="flex flex-wrap items-center gap-2">
+          <span className="min-w-24 text-xs font-semibold uppercase tracking-wide text-muted">
+            {row.label}
+          </span>
+          <a href={row.project.stackblitzUrl} target="_blank" rel="noreferrer">
+            <Button variant="secondary" size="sm">
+              <ExternalLink aria-hidden="true" />
+              Ouvrir dans StackBlitz
+            </Button>
+          </a>
+          <a href={row.project.codesandboxUrl} target="_blank" rel="noreferrer">
+            <Button variant="secondary" size="sm">
+              <ExternalLink aria-hidden="true" />
+              Ouvrir dans CodeSandbox
+            </Button>
+          </a>
+        </div>
+      ))}
+    </div>
   );
 }

@@ -44,6 +44,9 @@ export const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   ELEVENLABS_API_KEY: z.string().min(1).optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),
+  // Avatar vidéo (P82) — HeyGen choisi (API REST simple, statut de rendu
+  // pollable, coût prévisible /min). Absente → mode mock (carte titre animée).
+  HEYGEN_API_KEY: z.string().min(1).optional(),
   MOCK_PROVIDERS: envBoolean.default(false),
 
   // ── Chiffrement des credentials plateformes ───────────────────

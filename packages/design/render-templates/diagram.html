@@ -11,6 +11,20 @@
        par renderTemplate() et centré dans la zone.
        Couleurs figées issues de packages/design/src/tokens.json
        (source de vérité : packages/design/src/tokens.ts)
+
+       Prompt 83 — deux origines possibles pour {{diagramHtml}}, choisies
+       en amont par apps/worker/src/media/slide-renderer.ts :
+         1. SVG mermaid.js pré-rendu (si la dépendance est installée) ;
+         2. à défaut (mermaid absent des dépendances du worker — cf.
+            depsNeeded), un schéma de repli généré par
+            renderMermaidFallbackSvg() (@sallycourse/shared/schemas/lesson-content
+            + apps/worker/src/media/mermaid-fallback.ts) : les nœuds/arêtes
+            du texte Mermoid sont parsés puis disposés en colonnes reliées
+            par des flèches SVG simples. Dégradation visuelle assumée
+            (pas de mise en page automatique façon dagre) mais zéro
+            dépendance réseau et zéro crash si `mermaid` n'est pas dispo.
+       Ce gabarit ne sait pas d'où vient le SVG : il se contente de le
+       centrer dans `.board`, inchangé depuis avant P83.
        ============================================================ */
     :root {
       --bg: #0D0714;              /* neutral.950 */

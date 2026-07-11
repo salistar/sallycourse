@@ -13,6 +13,24 @@ import { lessonTypeSchema, type LessonType } from '@sallycourse/shared';
 export const LESSON_STATUSES = ['pending', 'generating', 'ready', 'failed'] as const;
 export type LessonStatus = (typeof LESSON_STATUSES)[number];
 
+/**
+ * Liens vers un projet interactif ouvrable dans un IDE en ligne (P84), pour
+ * une leçon TP dont le langage a été détecté. Deux variantes distinctes :
+ * code de départ (exercice à compléter) et solution (code final).
+ */
+export interface ISandboxProjectLinks {
+  stackblitzUrl: string;
+  codesandboxUrl: string;
+}
+
+export interface ISandboxLinks {
+  /** Langage détecté ayant servi à choisir le template (ex: 'javascript', 'python'). */
+  language: string;
+  starter: ISandboxProjectLinks;
+  solution: ISandboxProjectLinks;
+  generatedAt: Date;
+}
+
 export interface ILessonAssets {
   videoUrl?: string;
   articleMd?: string;
@@ -22,6 +40,14 @@ export interface ILessonAssets {
   srtUrl?: string;
   vttUrl?: string;
   audioUrl?: string;
+  /** Liens StackBlitz/CodeSandbox pour les TP de code (P84). */
+  sandboxLinks?: ISandboxLinks;
+  /**
+   * Clés S3 des screencasts (Prompt 85) : mini-vidéos de démonstration par
+   * étape de TP (zoom + narration synchronisée), ordre des steps du script.
+   * Additif — absent/vide pour toute leçon sans étape en mode screencast.
+   */
+  screencasts?: string[];
 }
 
 /**
@@ -83,6 +109,25 @@ const lessonSchema = new Schema<ILesson>({
     srtUrl: { type: String },
     vttUrl: { type: String },
     audioUrl: { type: String },
+    sandboxLinks: {
+      type: new Schema<ISandboxLinks>(
+        {
+          language: { type: String, required: true },
+          starter: {
+            stackblitzUrl: { type: String, required: true },
+            codesandboxUrl: { type: String, required: true },
+          },
+          solution: {
+            stackblitzUrl: { type: String, required: true },
+            codesandboxUrl: { type: String, required: true },
+          },
+          generatedAt: { type: Date, default: Date.now },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
+    screencasts: { type: [String], default: undefined },
   },
   contentHash: { type: String },
   versions: {

@@ -28,6 +28,7 @@ import { generateTp } from '../generators/tp.js';
 import { generateCourseMarketing } from '../generators/marketing.js';
 import { generateCourseResources } from '../generators/resources.js';
 import { runCourseQa } from '../lib/qa.js';
+import { evaluateAndStoreCourseQuality } from '../lib/quality-score.js';
 import { buildContinuityContext, summarizeLesson } from '../lib/continuity.js';
 import { lessonContentHash } from '../deploy/updates.js';
 
@@ -194,11 +195,19 @@ export async function finalizeCourseIfComplete(courseId: string): Promise<void> 
       return;
     }
 
-    // 2) Marketing (P28), puis bascule 'ready' confirmée après marketing.
+    // 2) Score de qualité pédagogique (P94) — bonus best-effort, n'invalide
+    // jamais la finalisation (le seuil est vérifié plus tard, au déploiement).
+    await report(courseId, 92, 'Évaluation de la qualité pédagogique du cours');
+    const lessonsForQuality = await Lesson.find({ courseId })
+      .select('title type status assets')
+      .lean();
+    await evaluateAndStoreCourseQuality(courseId, claimed, lessonsForQuality);
+
+    // 3) Marketing (P28), puis bascule 'ready' confirmée après marketing.
     await report(courseId, 95, 'Contrôle qualité validé — génération de la landing marketing');
     const marketing = await generateCourseMarketing({ courseId });
 
-    // 3) Ressources téléchargeables enrichies (P65) — bonus best-effort,
+    // 4) Ressources téléchargeables enrichies (P65) — bonus best-effort,
     // n'invalide jamais la finalisation du cours en cas d'échec.
     await report(courseId, 97, 'Génération des ressources téléchargeables (cheat sheet, workbook, glossaire)');
     await generateCourseResourcesBestEffort(courseId);

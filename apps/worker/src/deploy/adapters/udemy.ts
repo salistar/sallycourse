@@ -686,6 +686,65 @@ export class UdemyAdapter extends BaseDeploymentAdapter {
     }, 'udemy.submitForReview');
   }
 
+  // ────────────────────────────────────────────────────────────────
+  // (92) Sous-titres traduits sur une leçon déjà déployée
+  // ────────────────────────────────────────────────────────────────
+
+  /**
+   * Ajoute/remplace le fichier .srt d'une leçon vidéo déjà uploadée, dans la
+   * langue `locale`. Ouvre le curriculum du cours (ctx.externalId requis — la
+   * leçon doit avoir été précédemment uploadLesson'ée), ré-utilise l'input
+   * captions existant. En mock : log uniquement, aucun navigateur.
+   */
+  override async addCaptions(
+    ctx: DeployContext,
+    lesson: ILesson,
+    index: number,
+    locale: string,
+    srtContent: string,
+  ): Promise<void> {
+    if (lesson.type !== 'video') {
+      await this.log(ctx, 'info', `addCaptions ignoré : leçon ${index + 1} n'est pas une vidéo.`);
+      return;
+    }
+    await this.guardMock(
+      ctx,
+      () => this.realAddCaptions(ctx, lesson, index, locale, srtContent),
+      async () => {
+        await this.log(
+          ctx,
+          'info',
+          `sous-titres ${locale} ajoutés (simulé) à la leçon ${index + 1} « ${lesson.title} »`,
+        );
+      },
+    );
+  }
+
+  private async realAddCaptions(
+    ctx: DeployContext,
+    lesson: ILesson,
+    index: number,
+    locale: string,
+    srtContent: string,
+  ): Promise<void> {
+    if (!ctx.externalId) {
+      throw new Error('addCaptions : cours non créé côté Udemy (externalId manquant).');
+    }
+    const page = await this.ensurePage(ctx);
+    await this.withRetry(async () => {
+      await page.goto(
+        `${UDEMY_BASE}/course-manager/${ctx.externalId}/manage/curriculum/`,
+        { waitUntil: 'domcontentloaded' },
+      );
+      await page.locator(SELECTORS.curriculum.captionFileInput).first().setInputFiles({
+        name: `captions-${locale}.srt`,
+        mimeType: 'application/x-subrip',
+        buffer: Buffer.from(srtContent, 'utf-8'),
+      });
+      await this.log(ctx, 'info', `sous-titres ${locale} uploadés sur la leçon ${index + 1} « ${lesson.title} »`);
+    }, `udemy.addCaptions[${index}][${locale}]`);
+  }
+
   async getStatus(ctx: DeployContext): Promise<DeployStatus> {
     return this.guardMock<DeployStatus>(
       ctx,

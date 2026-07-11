@@ -64,5 +64,14 @@ export const createCourseInputSchema = z.object({
   ttsVoice: z.string().optional(),
   targetPlatforms: z.array(z.string()).default([]),
   approxSections: z.number().int().min(3).max(30).optional(),
+  /**
+   * Avatar vidéo (P82, bêta) — additif. Optionnel côté type (comme ttsVoice/
+   * approxSections) pour ne pas casser les appelants existants de
+   * createCourseForUser qui ne le renseignent pas encore ; createCourseForUser
+   * traite absent/false de façon identique (comportement inchangé par défaut).
+   */
+  avatarEnabled: z.boolean().optional(),
+  /** Avatar HeyGen choisi — ignoré si avatarEnabled=false. */
+  avatarId: z.string().optional(),
 });
 export type CreateCourseInput = z.infer<typeof createCourseInputSchema>;

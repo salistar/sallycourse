@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
-import { QUEUES, defaultJobOptions, makeJobId } from '@sallycourse/shared';
+import { QUALITY_SCORE, QUEUES, defaultJobOptions, makeJobId } from '@sallycourse/shared';
 import {
   Course as CourseModel,
   Deployment,
@@ -32,6 +32,12 @@ const deploySchema = z.object({
    * Optionnel — plateforme absente → le worker retient le compte le plus récent.
    */
   credentials: z.record(z.string(), z.string()).optional(),
+  /**
+   * Confirmation explicite (P94) : autorise le déploiement malgré un score de
+   * qualité pédagogique sous le seuil. Défaut false — le blocage est visible,
+   * jamais silencieux (l'utilisateur doit cocher une case dédiée côté UI).
+   */
+  confirmLowQuality: z.boolean().optional().default(false),
 });
 
 export async function POST(
@@ -91,7 +97,7 @@ export async function POST(
   await connectDb();
 
   const course = await CourseModel.findOne({ _id: id, userId: user.id })
-    .select('_id status aiDisclosureAccepted')
+    .select('_id status aiDisclosureAccepted qualityScore')
     .lean();
   if (!course) {
     return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
@@ -114,6 +120,26 @@ export async function POST(
         error:
           "Vous devez confirmer la mention « contenu généré par IA » avant de publier sur Udemy.",
         code: 'ai_disclosure_required',
+      },
+      { status: 403 },
+    );
+  }
+
+  // Score de qualité pédagogique (P94) : bloque avec message clair si sous le
+  // seuil, mais reste contournable par l'utilisateur avec confirmation
+  // explicite (confirmLowQuality) — jamais un blocage silencieux.
+  const rawScore = (course.qualityScore as { score?: unknown } | null | undefined)?.score;
+  const score = typeof rawScore === 'number' ? rawScore : null;
+  if (score !== null && score < QUALITY_SCORE.MIN_DEPLOY_THRESHOLD && !parsed.data.confirmLowQuality) {
+    return NextResponse.json(
+      {
+        error:
+          `Score de qualité pédagogique ${score}/100, sous le seuil recommandé de ` +
+          `${QUALITY_SCORE.MIN_DEPLOY_THRESHOLD}/100. Améliorez le cours avant publication, ` +
+          `ou confirmez explicitement pour publier malgré tout.`,
+        code: 'quality_score_below_threshold',
+        score,
+        threshold: QUALITY_SCORE.MIN_DEPLOY_THRESHOLD,
       },
       { status: 403 },
     );

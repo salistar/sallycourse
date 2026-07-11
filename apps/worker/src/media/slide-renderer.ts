@@ -24,6 +24,7 @@ import {
   uploadObject,
   renderTemplate,
   SlideTemplateEnum,
+  detectSlideContentType,
   type SlideTemplateName,
   type SlideTemplateInput,
   type Slide,
@@ -32,6 +33,7 @@ import {
   type Locale,
 } from '../shared.js';
 import { logger } from '../queues/index.js';
+import { renderMermaidFallbackSvg } from './mermaid-fallback.js';
 
 /* ------------------------------------------------------------------ */
 /* Navigateur partagé (singleton par process)                          */
@@ -161,11 +163,20 @@ export function buildSlideTemplate(
           language: slide.language?.trim() || 'text',
           fileName: '',
           // Pas de shiki : code brut échappé, enrobé ligne à ligne par le gabarit.
-          codeHtml: escapeCode(slide.code?.trimEnd() || '// (code)'),
+          // Surbrillance ligne-par-ligne (P83) : voir buildCodeHtmlWithHighlight.
+          codeHtml: buildCodeHtmlWithHighlight(slide),
         },
       };
 
     case 'comparison': {
+      // Détection P83 : un tableau structuré (>2 colonnes) prime sur le
+      // découpage bullets/2 colonnes historique — rendu par le même gabarit
+      // « comparison » en compressant les colonnes excédentaires en items
+      // annotés (le gabarit D7 reste limité à 2 colonnes visuelles).
+      if (slide.comparisonTable) {
+        return buildComparisonTableSlide(slide.comparisonTable, lessonBase, title, ctx.locale);
+      }
+
       const bullets = clampBullets(slide.bullets, 8, title);
       const mid = Math.ceil(bullets.length / 2);
       const left = bullets.slice(0, mid);
@@ -199,17 +210,48 @@ export function buildSlideTemplate(
         },
       };
 
-    case 'diagram':
+    case 'diagram': {
+      // Détection automatique du type de contenu enrichi (P83) : un schéma
+      // Mermaid embarqué ou une frise chronologique priment sur la liste à
+      // puces historique. `detectSlideContentType` est pur (shared) ; seule
+      // la génération du SVG de repli mermaid vit ici (dépend de node:fs
+      // indirectement via parseMermaidFlowchart, aucune I/O réelle).
+      const contentType = detectSlideContentType(slide);
+
+      if (contentType === 'timeline' && slide.timeline) {
+        return {
+          name: SlideTemplateEnum.Timeline,
+          data: {
+            ...lessonBase,
+            title,
+            steps: slide.timeline.steps.map((s) => ({
+              date: s.date,
+              label: s.label,
+              description: s.description ?? '',
+            })),
+          },
+        };
+      }
+
+      if (contentType === 'comparisonTable' && slide.comparisonTable) {
+        return buildComparisonTableSlide(slide.comparisonTable, lessonBase, title, ctx.locale);
+      }
+
+      const mermaidSource = slide.mermaid?.source ?? extractMermaidFromText(slide);
+      const diagramHtml = mermaidSource
+        ? renderMermaidFallbackSvg(mermaidSource)
+        : diagramFromBullets(slide.bullets, title);
+
       return {
         name: SlideTemplateEnum.Diagram,
         data: {
           ...lessonBase,
           title,
-          // Faute de schéma préparé en amont, on liste les points en HTML simple.
-          diagramHtml: diagramFromBullets(slide.bullets, title),
+          diagramHtml,
           caption: '',
         },
       };
+    }
 
     case 'recap':
       return {
@@ -264,6 +306,99 @@ function diagramFromBullets(bullets: string[], title: string): string {
     .map((b) => `<li>${escapeCode(b)}</li>`)
     .join('');
   return `<ul class="diagram-flow">${list}</ul>`;
+}
+
+/**
+ * Repli texte (P83) : cherche un bloc Mermoid dans notes/bullets pour les
+ * scripts qui n'auraient pas encore le champ structuré `slide.mermaid`.
+ * Retourne `undefined` si rien de plausible n'est trouvé.
+ */
+function extractMermaidFromText(slide: Slide): string | undefined {
+  const candidates = [slide.notes ?? '', ...slide.bullets, slide.narration];
+  for (const text of candidates) {
+    if (/^(flowchart|graph)\s+(TD|TB|LR|RL|BT)/im.test(text.trim())) return text.trim();
+  }
+  return undefined;
+}
+
+/**
+ * Construit le gabarit « comparison » à partir d'un tableau structuré (P83) :
+ * chaque colonne au-delà des 2 premières est fusionnée dans le texte de
+ * l'item (« Col3: valeur ») — le gabarit D7 reste visuellement à 2 colonnes,
+ * mais aucune donnée n'est perdue. Dégradation en « content » si le tableau
+ * ne fournit qu'une seule colonne exploitable.
+ */
+function buildComparisonTableSlide(
+  table: NonNullable<Slide['comparisonTable']>,
+  lessonBase: Record<string, unknown>,
+  title: string,
+  locale: Locale,
+): { name: SlideTemplateName; data: SlideTemplateInput[SlideTemplateName] } {
+  const [colA, colB, ...restCols] = table.columns;
+  if (!colA) {
+    return {
+      name: SlideTemplateEnum.Content,
+      data: { ...lessonBase, title, bullets: clampBullets([title], 5, title) } as never,
+    };
+  }
+  if (!colB) {
+    // Une seule colonne : dégradation en liste à puces "label — valeur".
+    const bullets = table.rows.map((r) => `${r.label} — ${r.values[0] ?? ''}`);
+    return {
+      name: SlideTemplateEnum.Content,
+      data: { ...lessonBase, title, bullets: clampBullets(bullets, 5, title) } as never,
+    };
+  }
+
+  const formatItem = (row: (typeof table.rows)[number], colIndex: number): string => {
+    const value = row.values[colIndex] ?? '';
+    const extras = restCols
+      .map((col, i) => {
+        const v = row.values[i + 2];
+        return v ? `${col}: ${v}` : '';
+      })
+      .filter(Boolean)
+      .join(' · ');
+    return extras ? `${row.label} (${value}) ${extras}` : `${row.label} (${value})`;
+  };
+
+  return {
+    name: SlideTemplateEnum.Comparison,
+    data: {
+      ...lessonBase,
+      title,
+      left: { title: colA, items: table.rows.slice(0, 4).map((r) => formatItem(r, 0)) },
+      right: { title: colB, items: table.rows.slice(0, 4).map((r) => formatItem(r, 1)) },
+    } as never,
+  };
+  // `locale` réservé pour une localisation future des libellés de colonnes
+  // additionnelles ; non utilisé tant que restCols n'a pas de libellé dédié.
+  void locale;
+}
+
+/**
+ * Construit le HTML du code avec surbrillance ligne-par-ligne (P83).
+ * Sans `codeHighlightSteps`, comportement inchangé (aucune ligne .line-active).
+ * Avec, la DERNIÈRE étape définit l'état final affiché sur la slide statique
+ * (rendu PNG unique — pas de balayage temporel ici, réservé au futur rendu
+ * vidéo image-par-image façon D8, cf. header du fichier code.html).
+ */
+function buildCodeHtmlWithHighlight(slide: Slide): string {
+  const escaped = escapeCode(slide.code?.trimEnd() || '// (code)');
+  const steps = slide.codeHighlightSteps;
+  if (!steps || steps.length === 0) return escaped;
+
+  const activeLines = new Set(steps[steps.length - 1]?.lines ?? []);
+  if (activeLines.size === 0) return escaped;
+
+  const lines = escaped.split('\n');
+  return lines
+    .map((line, i) => {
+      const content = line === '' ? '&#8203;' : line;
+      const cls = activeLines.has(i) ? ' class="line line-active"' : ' class="line"';
+      return `<span${cls}>${content}</span>`;
+    })
+    .join('\n');
 }
 
 /* ------------------------------------------------------------------ */

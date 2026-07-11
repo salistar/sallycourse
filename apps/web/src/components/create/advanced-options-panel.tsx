@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, Minus, Plus, SlidersHorizontal, X } from 'lucide-react';
-import type { Locale } from '@sallycourse/shared';
+import { Check, FileText, Minus, Plus, SlidersHorizontal, Upload, X } from 'lucide-react';
+import { detectSourceMaterialKind, type Locale } from '@sallycourse/shared';
 import { cn } from '@/lib/cn';
 import { Button, Select } from '@/components/ui';
 import { transitions } from '@/components/motion/motion-config';
@@ -25,7 +25,25 @@ export interface AdvancedOptions {
   ttsVoice: string;
   targetPlatforms: string[];
   approxSections: number;
+  /** Avatar vidéo (P82, bêta) — segment « talking head » en intro/conclusion de section. */
+  avatarEnabled: boolean;
+  /** Avatar HeyGen choisi — ignoré si avatarEnabled=false. */
+  avatarId: string;
+  /**
+   * Import de contenu existant (Prompt 90, RAG simple) — support source
+   * (PDF/PPTX/Markdown) choisi par l'utilisateur, uploadé APRÈS la création
+   * du cours (POST /api/courses/[id]/import-material, le cours n'a pas
+   * encore d'id au moment de ce choix). Transitoire : jamais envoyé dans
+   * createCourseInputSchema, ni persisté tel quel côté état.
+   */
+  sourceMaterialFile: File | null;
 }
+
+/** Avatars HeyGen proposés — maquette locale, remplacée plus tard par l'API HeyGen. */
+export const AVATAR_OPTIONS = [
+  { id: 'heygen-avatar-clara', label: 'Clara — professionnelle' },
+  { id: 'heygen-avatar-marc', label: 'Marc — décontracté' },
+] as const;
 
 /** Voix TTS disponibles — maquette locale, remplacée plus tard par l'API. */
 export const TTS_VOICES = [
@@ -59,6 +77,9 @@ export const DEFAULT_ADVANCED_OPTIONS: AdvancedOptions = {
   ttsVoice: TTS_VOICES[0].id,
   targetPlatforms: ['udemy'],
   approxSections: 8,
+  avatarEnabled: false,
+  avatarId: AVATAR_OPTIONS[0].id,
+  sourceMaterialFile: null,
 };
 
 /* ------------------------------------------------------------------ */
@@ -103,6 +124,49 @@ function PlatformCheckbox({
       </span>
       {label}
     </button>
+  );
+}
+
+/** Interrupteur accessible maison (Radix absent) — bouton role=switch. */
+function ToggleSwitch({
+  label,
+  hint,
+  checked,
+  onToggle,
+}: {
+  label: string;
+  hint?: string;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-sm border border-border bg-surface px-3 py-2.5">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-sm font-medium text-foreground">{label}</span>
+        {hint && <span className="text-xs text-muted/80">{hint}</span>}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={onToggle}
+        className={cn(
+          'relative h-6 w-11 shrink-0 rounded-full transition-colors duration-fast ease-standard',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/80',
+          'focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+          checked ? 'bg-primary' : 'bg-input',
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className={cn(
+            'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-fast ease-standard',
+            checked ? 'translate-x-[22px] rtl:-translate-x-[22px]' : 'translate-x-0.5 rtl:-translate-x-0.5',
+          )}
+        />
+      </button>
+    </div>
   );
 }
 
@@ -151,6 +215,91 @@ function SectionsStepper({
       </div>
       <p className="px-1 text-xs text-muted/80">
         Entre {SECTIONS_MIN} et {SECTIONS_MAX} — l’IA ajuste au sujet.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Import de contenu existant (Prompt 90) — sélection d'un support source
+ * (PDF/PPTX/Markdown) uploadé une fois le cours créé. Validation du type
+ * client-side (miroir de detectSourceMaterialKind) pour un retour immédiat.
+ */
+function SourceMaterialField({
+  file,
+  onChange,
+}: {
+  file: File | null;
+  onChange: (file: File | null) => void;
+}) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handlePick = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = event.target.files?.[0] ?? null;
+    if (!picked) {
+      onChange(null);
+      setError(null);
+      return;
+    }
+    if (!detectSourceMaterialKind(picked.name, picked.type)) {
+      setError('Format non supporté — PDF, PPTX ou Markdown attendu.');
+      onChange(null);
+      return;
+    }
+    setError(null);
+    onChange(picked);
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="px-1 text-xs font-semibold text-muted">
+        Importer un support existant (optionnel)
+      </span>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".pdf,.pptx,.md,.markdown,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/markdown"
+        className="sr-only"
+        onChange={handlePick}
+      />
+      {file ? (
+        <div className="flex items-center justify-between gap-2 rounded-sm border border-primary/60 bg-primary-soft px-3 py-2.5 text-sm text-foreground">
+          <span className="flex min-w-0 items-center gap-2">
+            <FileText className="size-4 shrink-0 text-primary" aria-hidden="true" />
+            <span className="truncate">{file.name}</span>
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            aria-label="Retirer le support"
+            onClick={() => {
+              onChange(null);
+              if (inputRef.current) inputRef.current.value = '';
+            }}
+          >
+            <X aria-hidden="true" />
+          </Button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className={cn(
+            'flex w-full items-center justify-center gap-2 rounded-sm border border-dashed border-input bg-surface px-3 py-2.5 text-sm text-muted',
+            'transition-all duration-fast ease-standard hover:border-ring/50 hover:text-foreground',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/80',
+            'focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+          )}
+        >
+          <Upload className="size-4" aria-hidden="true" />
+          Choisir un fichier PDF, PPTX ou Markdown
+        </button>
+      )}
+      {error && <p className="px-1 text-xs text-danger">{error}</p>}
+      <p className="px-1 text-xs text-muted/80">
+        Le plan de cours s’appuiera sur ce contenu (progression, vocabulaire, exemples).
       </p>
     </div>
   );
@@ -313,6 +462,34 @@ export function AdvancedOptionsPanel({ value, onChange, triggerClassName }: Adva
                   Les exports (formats, miniatures) s’adaptent à chaque plateforme.
                 </p>
               </fieldset>
+
+              <div className="flex flex-col gap-2">
+                <ToggleSwitch
+                  label="Avatar vidéo (bêta)"
+                  hint="Un avatar présente chaque section en intro et conclusion."
+                  checked={value.avatarEnabled}
+                  onToggle={() => patch({ avatarEnabled: !value.avatarEnabled })}
+                />
+                {value.avatarEnabled && (
+                  <Select
+                    label="Avatar"
+                    hint="Généré via HeyGen ; repli automatique en carte titre si indisponible."
+                    value={value.avatarId}
+                    onChange={(event) => patch({ avatarId: event.target.value })}
+                  >
+                    {AVATAR_OPTIONS.map((avatar) => (
+                      <option key={avatar.id} value={avatar.id}>
+                        {avatar.label}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </div>
+
+              <SourceMaterialField
+                file={value.sourceMaterialFile}
+                onChange={(sourceMaterialFile) => patch({ sourceMaterialFile })}
+              />
 
               <SectionsStepper value={value.approxSections} onChange={(approxSections) => patch({ approxSections })} />
 

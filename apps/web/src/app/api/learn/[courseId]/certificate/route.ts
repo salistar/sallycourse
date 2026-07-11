@@ -1,7 +1,7 @@
 import { isValidObjectId } from 'mongoose';
-import { connectDb, Course, Enrollment } from '@sallycourse/db';
+import { connectDb, Course, Enrollment, SchoolBranding, User as UserModel } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
-import { renderCertificateHtml } from '@/lib/lms';
+import { renderCertificateHtml, resolveCertificateBranding } from '@/lib/lms';
 
 /**
  * GET /api/learn/[courseId]/certificate — certificat de complétion (gabarit
@@ -36,10 +36,28 @@ export async function GET(
     );
   }
 
-  const course = await Course.findById(courseId).select('title locale').lean();
+  const course = await Course.findById(courseId).select('title locale userId').lean();
   if (!course) {
     return Response.json({ error: 'Cours introuvable.' }, { status: 404 });
   }
+
+  // Marque blanche (Prompt 88) : branding de l'AUTEUR du cours (l'école qui a
+  // publié la formation), pas de l'apprenant qui obtient le certificat.
+  const [author, branding] = await Promise.all([
+    UserModel.findById(course.userId).select('plan').lean(),
+    SchoolBranding.findOne({ userId: course.userId }).lean(),
+  ]);
+  const resolvedBranding = resolveCertificateBranding(
+    author?.plan,
+    branding
+      ? {
+          schoolName: branding.schoolName,
+          logoUrl: branding.logoUrl,
+          primaryColorHex: branding.primaryColorHex,
+          accentColorHex: branding.accentColorHex,
+        }
+      : null,
+  );
 
   const html = renderCertificateHtml({
     recipientName: user.name ?? user.email ?? 'Apprenant',
@@ -47,6 +65,7 @@ export async function GET(
     certificateId: String(enrollment._id),
     completedAt: new Date(enrollment.completedAt),
     locale: course.locale,
+    branding: resolvedBranding,
   });
 
   return new Response(html, {

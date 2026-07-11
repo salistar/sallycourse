@@ -19,6 +19,53 @@ export const SLIDE_TEMPLATES = [
 export const slideTemplateSchema = z.enum(SLIDE_TEMPLATES);
 export type SlideTemplate = z.infer<typeof slideTemplateSchema>;
 
+// ── Slides enrichies par type de contenu (Prompt 83) ────────────────
+// Détection automatique du type de contenu d'une slide "diagram" : schéma
+// Mermaid embarqué en texte (mermaidSource), tableau de comparaison structuré
+// (comparisonTable) ou frise chronologique (timeline). Champs 100% optionnels
+// et additifs : une slide sans ces champs se comporte exactement comme avant
+// (dégradation gracieuse déjà assurée par buildSlideTemplate côté worker).
+
+/** Syntaxe Mermaid minimale supportée par le parseur de repli (flowchart). */
+export const mermaidDiagramSchema = z.object({
+  /** Texte Mermoid brut tel que produit par le LLM (ex. "flowchart TD\nA-->B"). */
+  source: z.string().min(1),
+});
+export type MermaidDiagram = z.infer<typeof mermaidDiagramSchema>;
+
+/** Ligne de tableau comparatif : une valeur par colonne (même ordre que `columns`). */
+export const comparisonTableRowSchema = z.object({
+  label: z.string().min(1),
+  values: z.array(z.string()).min(1),
+});
+export type ComparisonTableRow = z.infer<typeof comparisonTableRowSchema>;
+
+/** Tableau de comparaison structuré (au-delà des 2 colonnes du gabarit "comparison" simple). */
+export const comparisonTableSchema = z.object({
+  columns: z.array(z.string().min(1)).min(1).max(4),
+  rows: z.array(comparisonTableRowSchema).min(1).max(8),
+});
+export type ComparisonTable = z.infer<typeof comparisonTableSchema>;
+
+/** Étape datée d'une frise chronologique. */
+export const timelineStepSchema = z.object({
+  /** Date ou repère temporel affiché tel quel (ex. "2024", "Semaine 3", "J+1"). */
+  date: z.string().min(1),
+  label: z.string().min(1),
+  description: z.string().optional(),
+});
+export type TimelineStep = z.infer<typeof timelineStepSchema>;
+
+export const timelineSchema = z.object({
+  steps: z.array(timelineStepSchema).min(2).max(8),
+});
+export type Timeline = z.infer<typeof timelineSchema>;
+
+/** Type de contenu enrichi détecté pour une slide "diagram" (null = repli liste à puces). */
+export const SLIDE_CONTENT_TYPES = ['diagram', 'comparisonTable', 'timeline'] as const;
+export const slideContentTypeSchema = z.enum(SLIDE_CONTENT_TYPES);
+export type SlideContentType = z.infer<typeof slideContentTypeSchema>;
+
 export const slideSchema = z.object({
   template: slideTemplateSchema,
   title: z.string().min(1),
@@ -34,8 +81,141 @@ export const slideSchema = z.object({
   audioKey: z.string().min(1).optional(),
   /** Durée mesurée de l'audio de la slide, en secondes (ffprobe). Rétro-compatible. */
   audioSeconds: z.number().positive().optional(),
+  /**
+   * Schéma Mermaid embarqué en texte (template === 'diagram'). Optionnel et
+   * additif : rend possible un rendu SVG (mermaid si dispo, sinon repli maison).
+   */
+  mermaid: mermaidDiagramSchema.optional(),
+  /** Tableau de comparaison structuré (template === 'comparison' ou 'diagram'). */
+  comparisonTable: comparisonTableSchema.optional(),
+  /** Frise chronologique (nouveau gabarit "timeline"). */
+  timeline: timelineSchema.optional(),
+  /**
+   * Lignes du code à mettre en surbrillance progressivement, synchronisées
+   * avec la narration (template === 'code'). Chaque entrée = un pas ; les
+   * indices de `lines` (0-based) reçoivent la classe .line-active à ce pas.
+   * Optionnel : sans cette liste, le code s'affiche sans surbrillance (inchangé).
+   */
+  codeHighlightSteps: z
+    .array(
+      z.object({
+        lines: z.array(z.number().int().nonnegative()).min(1),
+      }),
+    )
+    .optional(),
 });
 export type Slide = z.infer<typeof slideSchema>;
+
+/* ------------------------------------------------------------------ */
+/* Détection automatique du type de contenu (pure, sans dépendance)    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Détecte le type de contenu enrichi d'une slide à partir des champs
+ * structurés déjà présents (priorité : mermaid > comparisonTable > timeline)
+ * OU, à défaut, d'une détection best-effort sur le texte brut (narration +
+ * bullets) pour des scripts produits avant l'ajout de ces champs :
+ *  - un bloc mermaid textuel commençant par "flowchart"/"graph" avec des
+ *    flèches "-->" est reconnu comme diagramme ;
+ *  - des dates en tête de bullets ("2024 — …", "J+1 : …") sont reconnues
+ *    comme frise chronologique.
+ * Retourne `null` si aucun signal structuré n'est trouvé (repli liste à puces).
+ */
+export function detectSlideContentType(slide: Slide): SlideContentType | null {
+  if (slide.mermaid) return 'diagram';
+  if (slide.comparisonTable) return 'comparisonTable';
+  if (slide.timeline) return 'timeline';
+
+  // Repli texte : cherche un bloc mermaid dans bullets/notes.
+  const haystack = [slide.notes ?? '', ...slide.bullets].join('\n');
+  if (isLikelyMermaidSource(haystack)) return 'diagram';
+
+  // Repli texte : au moins 2 bullets commençant par un repère temporel.
+  const datedBullets = slide.bullets.filter((b) => TIMELINE_BULLET_RE.test(b.trim()));
+  if (datedBullets.length >= 2) return 'timeline';
+
+  return null;
+}
+
+/** Repère temporel en tête de ligne : "2024", "J+3", "Semaine 2", "Étape 1", suivi de — ou :. */
+const TIMELINE_BULLET_RE = /^(?:\d{4}|J\+\d+|Semaine\s+\d+|Étape\s+\d+|Jour\s+\d+)\s*[—:-]/i;
+
+/** Heuristique légère : texte plausiblement du Mermaid (flowchart/graph + arêtes). */
+export function isLikelyMermaidSource(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  const hasHeader = /^(flowchart|graph)\s+(TD|TB|LR|RL|BT)/im.test(trimmed);
+  const hasEdge = /--?>|--?-/.test(trimmed);
+  return hasHeader && hasEdge;
+}
+
+/* ------------------------------------------------------------------ */
+/* Parseur Mermaid minimal (flowchart) — repli SANS la lib `mermaid`   */
+/* ------------------------------------------------------------------ */
+
+/** Nœud extrait d'un flowchart Mermaid. */
+export interface MermaidNode {
+  readonly id: string;
+  readonly label: string;
+}
+/** Arête orientée extraite d'un flowchart Mermaid. */
+export interface MermaidEdge {
+  readonly from: string;
+  readonly to: string;
+  /** Libellé optionnel porté par la flèche (ex. "A -->|oui| B"). */
+  readonly label?: string;
+}
+/** Graphe minimal parsé d'une source Mermaid. */
+export interface ParsedMermaidGraph {
+  readonly nodes: readonly MermaidNode[];
+  readonly edges: readonly MermaidEdge[];
+}
+
+/** Extrait id + libellé d'un token de nœud Mermaid : A, A[Texte], A(Texte), A{{Texte}}, A((Texte)). */
+const NODE_TOKEN_RE = /^([A-Za-z0-9_-]+)(?:(\[|\(\(|\{\{|\()([^\]}]*?)(?:\]|\)\)|\}\}|\)))?$/;
+
+function parseNodeToken(token: string): MermaidNode {
+  const trimmed = token.trim();
+  const match = NODE_TOKEN_RE.exec(trimmed);
+  if (!match) return { id: trimmed, label: trimmed };
+  const id = match[1]!;
+  const label = match[3]?.trim() || id;
+  return { id, label };
+}
+
+/**
+ * Parseur volontairement minimal d'un flowchart Mermaid (une ligne = un lien
+ * "A --> B", "A -->|libellé| B", ou "A --- B"). Ignore silencieusement les
+ * lignes non reconnues (styles, classDef, commentaires %%…) — dégradation
+ * gracieuse plutôt qu'un rejet total. Ne remplace PAS mermaid.js : sert
+ * uniquement de repli quand la dépendance n'est pas installée (voir
+ * apps/worker/src/media/slide-renderer.ts).
+ */
+export function parseMermaidFlowchart(source: string): ParsedMermaidGraph {
+  const nodes = new Map<string, MermaidNode>();
+  const edges: MermaidEdge[] = [];
+
+  const lineRe = /^\s*([A-Za-z0-9_-]+(?:\[[^\]]*\]|\(\([^)]*\)\)|\{\{[^}]*\}\}|\([^)]*\))?)\s*(-{1,3}>|-{2,3})(?:\|([^|]*)\|)?\s*([A-Za-z0-9_-]+(?:\[[^\]]*\]|\(\([^)]*\)\)|\{\{[^}]*\}\}|\([^)]*\))?)\s*$/;
+
+  for (const rawLine of source.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('%%')) continue;
+    if (/^(flowchart|graph)\s/i.test(line)) continue; // en-tête, pas un lien
+
+    const match = lineRe.exec(line);
+    if (!match) continue;
+
+    const fromNode = parseNodeToken(match[1]!);
+    const toNode = parseNodeToken(match[4]!);
+    const edgeLabel = match[3]?.trim();
+
+    nodes.set(fromNode.id, fromNode);
+    nodes.set(toNode.id, toNode);
+    edges.push({ from: fromNode.id, to: toNode.id, ...(edgeLabel ? { label: edgeLabel } : {}) });
+  }
+
+  return { nodes: Array.from(nodes.values()), edges };
+}
 
 export const slideScriptSchema = z.object({
   slides: z.array(slideSchema).min(2),
@@ -116,6 +296,14 @@ export const tpScreenshotSpecSchema = z
     focusSelector: z.string().min(1).optional(),
     /** Légende affichée sous la capture dans le TP. */
     caption: z.string().min(1),
+    /**
+     * Active le mode screencast (Prompt 85) : au lieu d'une capture image
+     * unique, rejoue la spec en enregistrant une vidéo (Playwright
+     * recordVideo) avec zoom automatique sur `focusSelector` et narration TTS
+     * synchronisée en post-traitement. Absent/false ⇒ comportement historique
+     * (capture image simple), aucune régression pour les specs existantes.
+     */
+    recordVideo: z.boolean().optional(),
   })
   .superRefine((spec, ctx) => {
     if (!spec.url && spec.actions[0]?.type !== 'goto') {
@@ -207,3 +395,27 @@ export const courseResourcesContentSchema = z.object({
   furtherResources: z.array(furtherResourceSchema).min(3).max(20),
 });
 export type CourseResourcesContent = z.infer<typeof courseResourcesContentSchema>;
+
+// ── Score de qualité pédagogique (Prompt 94) ────────────────────────
+/** Un axe de la rubrique (0 à RUBRIC_MAX_PER_CRITERION points, cf. constants.ts). */
+export const qualityRubricSchema = z.object({
+  clarity: z.number().min(0).max(25),
+  progression: z.number().min(0).max(25),
+  examples: z.number().min(0).max(25),
+  engagement: z.number().min(0).max(25),
+});
+export type QualityRubric = z.infer<typeof qualityRubricSchema>;
+
+/** Sortie brute attendue du LLM (ou de l'heuristique mock) — sans horodatage. */
+export const qualityEvaluationSchema = z.object({
+  score: z.number().min(0).max(100),
+  rubric: qualityRubricSchema,
+  feedback: z.array(z.string().min(1)).min(1).max(10),
+});
+export type QualityEvaluation = z.infer<typeof qualityEvaluationSchema>;
+
+/** Score persisté sur Course.qualityScore — évaluation + horodatage d'exécution. */
+export const qualityScoreSchema = qualityEvaluationSchema.extend({
+  evaluatedAt: z.string(),
+});
+export type QualityScore = z.infer<typeof qualityScoreSchema>;

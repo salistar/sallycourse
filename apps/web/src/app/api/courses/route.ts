@@ -62,7 +62,16 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await createCourseForUser(user.id!, user.plan ?? 'free', parsed.data);
+  // Import de contenu existant (P90) : quand le formulaire signale qu'un
+  // upload de matériel source va suivre juste après (POST .../import-material),
+  // on laisse un court délai avant le premier traitement du job outline pour
+  // éviter la course entre l'enqueue et l'upload (best-effort, non bloquant :
+  // un flag absent ou upload en retard dégrade simplement vers "sans contexte").
+  const willImportMaterial = Boolean((body as { importsMaterial?: unknown })?.importsMaterial);
+
+  const result = await createCourseForUser(user.id!, user.plan ?? 'free', parsed.data, {
+    ...(willImportMaterial ? { enqueueDelayMs: 8000 } : {}),
+  });
   if (!result.ok) {
     switch (result.error.kind) {
       case 'quota':

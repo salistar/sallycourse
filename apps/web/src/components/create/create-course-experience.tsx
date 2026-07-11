@@ -204,6 +204,8 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
       ttsVoice: options.ttsVoice,
       targetPlatforms: options.targetPlatforms,
       approxSections: options.approxSections,
+      avatarEnabled: options.avatarEnabled,
+      avatarId: options.avatarEnabled ? options.avatarId : undefined,
     });
 
     if (!result.success) {
@@ -219,7 +221,14 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
       const response = await fetch('/api/courses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(result.data),
+        // importsMaterial (P90) : signale au serveur qu'un upload de support
+        // source va suivre juste après, pour différer le premier traitement
+        // du job outline (voir /api/courses POST). Champ hors schéma partagé,
+        // ignoré silencieusement par createCourseInputSchema côté validation.
+        body: JSON.stringify({
+          ...result.data,
+          importsMaterial: Boolean(options.sourceMaterialFile),
+        }),
       });
       const data = (await response.json().catch(() => null)) as
         | { id?: string; error?: string; code?: string }
@@ -245,6 +254,33 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
           variant: 'danger',
         });
         return;
+      }
+
+      // Import de contenu existant (P90) : le cours vient d'obtenir un id,
+      // on peut maintenant uploader le support choisi. Best-effort — un
+      // échec d'upload ne bloque jamais la création du cours (juste un toast).
+      if (options.sourceMaterialFile) {
+        try {
+          const materialForm = new FormData();
+          materialForm.append('file', options.sourceMaterialFile);
+          const materialResponse = await fetch(`/api/courses/${data.id}/import-material`, {
+            method: 'POST',
+            body: materialForm,
+          });
+          if (!materialResponse.ok) {
+            toast({
+              title: 'Support source non importé',
+              description: 'Le cours a été créé, mais le fichier n’a pas pu être importé.',
+              variant: 'warning',
+            });
+          }
+        } catch {
+          toast({
+            title: 'Support source non importé',
+            description: 'Le cours a été créé, mais le fichier n’a pas pu être importé.',
+            variant: 'warning',
+          });
+        }
       }
 
       // Acte 2 : transition cinématique existante, puis page du cours.

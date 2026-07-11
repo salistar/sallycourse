@@ -73,6 +73,25 @@ const spec = {
           code: { type: 'string' },
         },
       },
+      ZapierSubscribeRequest: {
+        type: 'object',
+        required: ['event', 'targetUrl'],
+        properties: {
+          event: {
+            type: 'string',
+            enum: ['outline_ready', 'generation_complete', 'deployed', 'review_approved'],
+          },
+          targetUrl: { type: 'string', format: 'uri' },
+        },
+      },
+      ZapierSubscribeResponse: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          event: { type: 'string' },
+          targetUrl: { type: 'string' },
+        },
+      },
     },
   },
   paths: {
@@ -156,6 +175,71 @@ const spec = {
           '202': { description: 'Déploiements enfilés' },
           '400': { description: 'Données invalides ou plateforme inconnue' },
           '409': { description: 'Cours non prêt' },
+        },
+      },
+    },
+    '/zapier/hooks': {
+      get: {
+        summary: 'Lister les abonnements Zapier (webhooks)',
+        operationId: 'listZapierHooks',
+        responses: { '200': { description: 'Abonnements du porteur de la clé' } },
+      },
+      post: {
+        summary: 'Subscribe REST Hook Zapier — crée un abonnement webhook',
+        operationId: 'zapierSubscribe',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ZapierSubscribeRequest' },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Abonnement créé',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ZapierSubscribeResponse' },
+              },
+            },
+          },
+          '400': { description: 'Données invalides' },
+          '401': { description: 'Clé API manquante ou invalide' },
+        },
+      },
+    },
+    '/zapier/hooks/{id}': {
+      delete: {
+        summary: 'Unsubscribe REST Hook Zapier — supprime un abonnement',
+        operationId: 'zapierUnsubscribe',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': { description: 'Abonnement supprimé' },
+          '404': { description: 'Abonnement introuvable' },
+        },
+      },
+    },
+    '/zapier/triggers/{event}/sample': {
+      get: {
+        summary: 'Exemple de payload pour un déclencheur Zapier',
+        operationId: 'zapierTriggerSample',
+        parameters: [
+          {
+            name: 'event',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+              enum: ['outline_ready', 'generation_complete', 'deployed', 'review_approved'],
+            },
+          },
+        ],
+        responses: {
+          '200': { description: 'Tableau contenant un exemple de payload' },
+          '404': { description: 'Événement inconnu' },
         },
       },
     },

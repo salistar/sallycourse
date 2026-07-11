@@ -19,13 +19,17 @@
       --fg: #F3F0F7;              /* neutral.100 */
       --muted: #A89DBA;           /* neutral.400 */
       --violet-300: #C8A9E4;
-      --violet-500: #8E55BE;
+      /* Couleur principale — remplacée par le branding école (plan Business,
+         Prompt 88) via {{brandPrimaryHex}} ; défaut = violet de marque SALISTAR. */
+      --violet-500: {{brandPrimaryHex}};
       --violet-700: #5B2A86;
       --violet-800: #49226C;
       --violet-900: #381A53;
       --gold-300: #E8C75C;
       --gold-400: #DEB232;
-      --gold-500: #D4A017;
+      /* Couleur d'accent — remplacée par le branding école via {{brandAccentHex}} ;
+         défaut = or de marque SALISTAR. */
+      --gold-500: {{brandAccentHex}};
       --gold-600: #B28212;
       --font-display: "Fraunces", Georgia, "Times New Roman", serif;
       --font-sans: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -109,6 +113,8 @@
       border-radius: 0.7mm;
       background: linear-gradient(135deg, var(--gold-300), var(--gold-600));
     }
+    /* Logo école (marque blanche, Prompt 88) — masqué si aucune image fournie. */
+    .brand-logo { height: 8mm; width: auto; object-fit: contain; }
 
     .cert-body {
       position: relative;
@@ -235,7 +241,10 @@
       </g>
     </svg>
 
-    <header class="brand">Salistar</header>
+    <!-- Marque : SALISTAR par défaut, ou l'école (nom + logo) en marque
+         blanche plan Business (Prompt 88) — {{brandLogoImgHtml}} est vide par
+         défaut (aucune balise <img> injectée) et {{brandName}} vaut « Salistar » . -->
+    <header class="brand">{{{brandLogoImgHtml}}}{{brandName}}</header>
 
     <main class="cert-body">
       <div class="cert-label">{{certLabel}}</div>
@@ -274,7 +283,7 @@
         <g stroke="#E8C75C" stroke-width="1.4" stroke-linecap="round">
           <path d="M60 26v6"/><path d="M60 88v6"/><path d="M26 60h6"/><path d="M88 60h6"/>
         </g>
-        <text x="60" y="93" text-anchor="middle" fill="#E8C75C" font-family="Figtree, sans-serif" font-size="6.5" font-weight="700" letter-spacing="2">SALISTAR</text>
+        <text x="60" y="93" text-anchor="middle" fill="#E8C75C" font-family="Figtree, sans-serif" font-size="6.5" font-weight="700" letter-spacing="2">{{sealLabel}}</text>
       </svg>
 
       <!-- Bloc signature. -->

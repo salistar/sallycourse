@@ -29,6 +29,21 @@
 // chaque job = une leçon, BullMQ distribue les leçons sur les workers CPU
 // disponibles ; augmenter WORKER_CPU_VIDEORENDER_CONCURRENCY parallélise donc
 // directement le rendu inter-leçons sans changement de code ici.
+//
+// Prompt 82 — Avatar vidéo optionnel (bêta, Course.avatarEnabled/avatarId) :
+//   POINT D'INSERTION PRÉCIS : le segment avatar est un segment PLEIN CADRE
+//   (pas un overlay incrusté — choix documenté : plus simple à assembler avec
+//   le pipeline concat demuxer existant, cohérent avec le reste du montage)
+//   inséré :
+//     - en TÊTE de la PREMIÈRE leçon d'une section (juste après le segment
+//       d'intro carte titre historique, AVANT les slides) — avatarSegment 'intro' ;
+//     - en QUEUE de la DERNIÈRE leçon d'une section (après la dernière slide,
+//       dernier segment du montage) — avatarSegment 'outro'.
+//   Le segment est généré UNE FOIS par section (cache S3 storageKeys…
+//   avatarSegment) et réutilisé si déjà présent, pour ne pas re-solliciter
+//   HeyGen à chaque leçon. Si Course.avatarEnabled est false (défaut), AUCUN
+//   changement : le rendu historique (intro carte titre + slides) reste
+//   inchangé bit pour bit.
 
 import { createWriteStream } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -38,6 +53,7 @@ import { pipeline } from 'node:stream/promises';
 import type { Readable } from 'node:stream';
 import { execa } from 'execa';
 import {
+  AVATAR,
   Course,
   Lesson,
   Section,
@@ -48,6 +64,7 @@ import {
   uploadObject,
   type SlideScript,
 } from '../shared.js';
+import { generateAvatarSegment } from './avatar.js';
 import { logger } from '../queues/index.js';
 import { recordRenderCost } from '../lib/cost.js';
 import { CourseCancelledError, checkCancelled, killIfActive } from '../lib/cancellation.js';
@@ -476,6 +493,49 @@ export function resetNvencCacheForTests(): void {
 }
 
 /**
+ * Récupère (cache S3) ou génère puis met en cache le segment avatar 'intro'
+ * ou 'outro' d'une SECTION (Prompt 82). Généré une seule fois par section :
+ * les leçons suivantes de la même section réutilisent le fichier déjà uploadé
+ * (HeadObject avant tout appel HeyGen, même logique que le cache TTS).
+ * Le texte narré est minimal (titre de section) — un texte plus riche pourrait
+ * être injecté plus tard sans changer la signature (paramètre `text`).
+ */
+async function getOrGenerateAvatarSegment(
+  courseId: string,
+  lessonId: string,
+  sectionOrder: number,
+  sectionTitle: string,
+  avatarId: string,
+  kind: 'intro' | 'outro',
+  dest: string,
+): Promise<void> {
+  const key = storageKeys.course(courseId).avatarSegment(sectionOrder, kind);
+  const cached = await downloadToFile(key, dest);
+  if (cached) return;
+
+  const text =
+    kind === 'intro'
+      ? `Bienvenue dans la section ${sectionTitle}.`
+      : `Nous arrivons à la fin de la section ${sectionTitle}. À bientôt pour la suite !`;
+  const result = await generateAvatarSegment(text, avatarId, { courseId, lessonId });
+  await uploadObject(key, await readFile(result.filePath), 'video/mp4');
+  await rm(path.dirname(result.filePath), { recursive: true, force: true }).catch(() => undefined);
+  // Copie locale pour l'assemblage de CETTE leçon (le fichier généré a déjà
+  // été supprimé avec son dossier temporaire ci-dessus) : on re-télécharge
+  // depuis le cache S3 qu'on vient d'écrire, chemin le plus simple et robuste.
+  const ok = await downloadToFile(key, dest);
+  if (!ok) throw new AvatarSegmentError(kind, 'échec de relecture du segment avatar juste uploadé');
+}
+
+/** Erreur dédiée (distincte de VideoRenderError) pour isoler l'origine avatar dans les logs. */
+class AvatarSegmentError extends Error {
+  constructor(kind: string, message: string) {
+    super(`avatar-segment[${kind}] : ${message}`);
+    this.name = 'AvatarSegmentError';
+  }
+}
+
+/**
  * Résout le preset EFFECTIVEMENT applicable : si l'appelant demande 'nvenc'
  * mais que le GPU n'est pas disponible, retombe silencieusement sur 'final'
  * (x264 slow/CRF19, la meilleure qualité CPU) plutôt que de faire échouer le
@@ -587,6 +647,20 @@ export async function renderLessonVideo(
   const sectionOrder = section?.order ?? 0;
   const keys = storageKeys.course(courseId).lesson(sectionOrder, lesson.order);
 
+  // Avatar vidéo (P82) : la leçon est-elle la première/dernière de sa section ?
+  // Sert à décider l'insertion des segments avatarSegment 'intro'/'outro' —
+  // no-op complet (aucune requête ni changement de comportement) si
+  // Course.avatarEnabled est false (défaut).
+  const avatarEnabled = Boolean(course.avatarEnabled && course.avatarId);
+  let isFirstLessonOfSection = false;
+  let isLastLessonOfSection = false;
+  if (avatarEnabled) {
+    const siblingOrders = await Lesson.find({ sectionId: lesson.sectionId }).select('order').lean();
+    const orders = siblingOrders.map((l) => l.order);
+    isFirstLessonOfSection = orders.length === 0 || lesson.order === Math.min(...orders);
+    isLastLessonOfSection = orders.length === 0 || lesson.order === Math.max(...orders);
+  }
+
   const dir = await mkdtemp(path.join(tmpdir(), `video-${lessonId}-`));
   try {
     // 1) Intro : image tenue VIDEO.INTRO_SECONDS, sans audio.
@@ -638,6 +712,55 @@ export async function renderLessonVideo(
       segmentPaths.push(out);
     }
 
+    // 3bis) Avatar vidéo (P82, bêta) : segments PLEIN CADRE insérés en tête
+    // (intro, première leçon de section) et/ou en queue (outro, dernière
+    // leçon) de la liste de segments à concaténer — cf. commentaire d'en-tête
+    // « POINT D'INSERTION PRÉCIS ». Chaque segment est mis en cache par
+    // section (getOrGenerateAvatarSegment) : un seul appel HeyGen par section,
+    // pas par leçon. Aucun effet si avatarEnabled=false (défaut).
+    let avatarExtraSeconds = 0;
+    if (avatarEnabled && isFirstLessonOfSection) {
+      await checkCancelled(courseId);
+      const introPath = path.join(dir, 'avatar-intro.mp4');
+      try {
+        await getOrGenerateAvatarSegment(
+          courseId,
+          lessonId,
+          sectionOrder,
+          section?.title ?? course.title,
+          course.avatarId!,
+          'intro',
+          introPath,
+        );
+        segmentPaths.unshift(introPath);
+        avatarExtraSeconds += AVATAR.SEGMENT_SECONDS;
+      } catch (err) {
+        // Avatar en échec ne doit jamais bloquer le rendu vidéo existant :
+        // on log et on continue SANS le segment (repli sur le comportement
+        // historique intro carte titre + slides).
+        logger.warn({ err, sectionOrder }, 'segment avatar intro indisponible — rendu sans avatar');
+      }
+    }
+    if (avatarEnabled && isLastLessonOfSection) {
+      await checkCancelled(courseId);
+      const outroPath = path.join(dir, 'avatar-outro.mp4');
+      try {
+        await getOrGenerateAvatarSegment(
+          courseId,
+          lessonId,
+          sectionOrder,
+          section?.title ?? course.title,
+          course.avatarId!,
+          'outro',
+          outroPath,
+        );
+        segmentPaths.push(outroPath);
+        avatarExtraSeconds += AVATAR.SEGMENT_SECONDS;
+      } catch (err) {
+        logger.warn({ err, sectionOrder }, 'segment avatar outro indisponible — rendu sans avatar');
+      }
+    }
+
     // 4) Concaténation finale (concat demuxer, faststart).
     const concatList = path.join(dir, 'concat.txt');
     await writeFile(concatList, buildConcatFile(segmentPaths), 'utf8');
@@ -651,7 +774,7 @@ export async function renderLessonVideo(
 
     // 5) Vérification ffprobe (durée / résolution / audio).
     const probe = await probeVideo(finalPath);
-    const expected = expectedDurationSeconds(segments);
+    const expected = expectedDurationSeconds(segments) + avatarExtraSeconds;
     const problems = verifyProbe(probe, expected);
     if (problems.length > 0) {
       throw new VideoRenderError('verify', lessonId, problems.join(' ; '));

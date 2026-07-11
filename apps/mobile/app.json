@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "SallyCourse",
+    "slug": "sallycourse-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#0B1120"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sallycourse.mobile"
+    },
+    "android": {
+      "package": "com.sallycourse.mobile"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "extra": {
+      "apiBaseUrl": "https://app.sallycourse.com"
+    }
+  }
+}

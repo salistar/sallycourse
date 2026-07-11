@@ -101,9 +101,22 @@ export interface DeploymentJobData {
    * Action : 'deploy' = déploiement complet (défaut), 'update' = mise à jour
    * ciblée des leçons modifiées (P46), 'report' = génération du rapport PDF de
    * déploiement du cours (P50, toutes plateformes confondues — le champ platform
-   * est alors ignoré).
+   * est alors ignoré), 'translate' = traduction des sous-titres d'un cours déjà
+   * déployé + upload des captions via l'adapter (P92, toutes plateformes déployées
+   * si `platform` absent).
    */
-  action?: 'deploy' | 'update' | 'report';
+  action?: 'deploy' | 'update' | 'report' | 'translate';
+  /**
+   * Langues cibles de la traduction (P92, action='translate' uniquement) — codes
+   * Locale ('fr'|'en'|'ar'), jusqu'à 10. Ignoré pour les autres actions.
+   */
+  targetLocales?: string[];
+  /**
+   * Doublage optionnel (P92) : si vrai, régénère aussi l'audio (TTS) et le MP4
+   * dans chaque langue cible (Course.dubbedVersions), en plus des sous-titres
+   * traduits. Défaut false (traduction des sous-titres seule, moins coûteux).
+   */
+  dub?: boolean;
 }
 
 /** Map queue → type du payload de job. `keyof QueueJobData` couvre exactement QueueName. */

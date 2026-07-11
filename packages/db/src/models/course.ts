@@ -29,6 +29,14 @@ export interface ICourse {
   /** Clé S3 de la vidéo d'intro webcam (~60 s) — mode compliance max Udemy (P48). */
   introVideoKey?: string;
   qaReport?: unknown;
+  /**
+   * Score de qualité pédagogique (Prompt 94) : {score:0-100, rubric:{clarity,
+   * progression, examples, engagement}, feedback:string[], evaluatedAt}.
+   * Mixed en base, validé par qualityScoreSchema (Zod) côté @sallycourse/shared.
+   * Null tant qu'aucune évaluation n'a tourné. Sert de garde-fou (contournable)
+   * avant tout déploiement Udemy.
+   */
+  qualityScore?: unknown;
   /** Landing marketing générée (JSON marketingSchema + clés S3 des visuels) — Mixed. */
   marketing?: unknown;
   /**
@@ -61,6 +69,76 @@ export interface ICourse {
   archived?: boolean;
   /** Date de bascule en archivé (null si jamais archivé ou réactivé). */
   archivedAt?: Date | null;
+  /**
+   * Avatar vidéo « talking head » (Prompt 82, bêta) — insère un segment avatar
+   * généré (HeyGen, ou repli carte titre animée en mock) en intro/conclusion de
+   * chaque section. Additif, défaut false : aucun changement pour les cours
+   * existants tant que non activé explicitement (toggle options avancées).
+   */
+  avatarEnabled?: boolean;
+  /** Identifiant d'avatar HeyGen choisi (ignoré si avatarEnabled=false). */
+  avatarId?: string;
+  /**
+   * Opt-in explicite de l'auteur (Prompt 89) : autorise l'affichage de ce
+   * cours sur la vitrine publique /showcase (titre, difficulté, éventuel
+   * témoignage). Additif, défaut false : aucun cours n'apparaît sans action
+   * volontaire de son auteur.
+   */
+  showcaseOptIn?: boolean;
+  /**
+   * Import de contenu existant (Prompt 90, RAG simple) : true si l'utilisateur
+   * a fourni au moins un support source (PDF/PPTX/Markdown) exploité pour
+   * générer le plan. Signal utilisé par le mode compliance Udemy (P48) —
+   * contenu moins suspect de générique quand basé sur du matériel fourni.
+   * Additif, défaut false : aucun changement pour les cours existants.
+   */
+  sourceMaterial?: boolean;
+  /**
+   * Descripteurs des fichiers source importés (Mixed, validé par
+   * sourceMaterialFilesSchema côté @sallycourse/shared) — clé S3, nom,
+   * type, taille. Null tant qu'aucun import n'a eu lieu.
+   */
+  sourceMaterialFiles?: unknown;
+  /**
+   * Suggestions de mise à jour du cours (Prompt 91) : détection périodique
+   * (cron trimestriel) de sujets probablement obsolètes, produite par
+   * detectOutdatedTopics (raisonnement du LLM sur ses connaissances, PAS de
+   * recherche web réelle — voir lib/course-refresh.ts côté worker). Mixed en
+   * base, validée par refreshSuggestionsSchema (Zod, @sallycourse/shared).
+   * Null tant qu'aucune détection n'a tourné. N'entraîne JAMAIS de
+   * régénération automatique — l'utilisateur déclenche la mise à jour leçon
+   * par leçon depuis l'UI (bouton « Mettre à jour », réutilise le mécanisme
+   * de régénération existant POST /api/lessons/[id]/regenerate).
+   */
+  refreshSuggestions?: unknown;
+  /**
+   * Versions doublées du cours (Prompt 92, traduction des cours publiés) :
+   * une entrée par langue cible avec doublage activé — sous-titres traduits +
+   * vidéos ré-assemblées (nouveau TTS via tts.ts + nouveau MP4 via
+   * video-render.ts, cf. lib/translate-published.ts côté worker). Additif,
+   * tableau vide par défaut : aucun effet sur les cours existants tant
+   * qu'aucune traduction avec doublage n'a été lancée. Au plus une entrée par
+   * locale (une nouvelle génération remplace l'entrée existante de cette locale).
+   */
+  dubbedVersions?: IDubbedVersion[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Une déclinaison doublée du cours dans une langue cible : sous-titres et
+ * vidéos régénérés, indexés par leçon (même ordre que Lesson.order, un
+ * élément par leçon vidéo du cours — chaîne vide tant que cette leçon n'a pas
+ * encore été traitée). `status` suit le cycle de vie de la génération,
+ * best-effort et jamais bloquant pour le cours source.
+ */
+export interface IDubbedVersion {
+  locale: Locale;
+  status: 'pending' | 'generating' | 'ready' | 'failed';
+  /** Clé S3 du .srt traduit par leçon (index = ordre absolu de la leçon). */
+  srtKeys: string[];
+  /** Clé S3 du .mp4 doublé par leçon (chaîne vide tant que non généré). */
+  videoKeys: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -88,12 +166,39 @@ const courseSchema = new Schema<ICourse>(
     coverImageUrl: { type: String },
     introVideoKey: { type: String },
     qaReport: { type: Schema.Types.Mixed, default: null },
+    qualityScore: { type: Schema.Types.Mixed, default: null },
     marketing: { type: Schema.Types.Mixed, default: null },
     improvementSuggestions: { type: Schema.Types.Mixed, default: null },
     aiDisclosureAccepted: { type: Boolean, default: false },
     resources: { type: Schema.Types.Mixed, default: null },
     archived: { type: Boolean, default: false },
     archivedAt: { type: Date, default: null },
+    avatarEnabled: { type: Boolean, default: false },
+    avatarId: { type: String },
+    showcaseOptIn: { type: Boolean, default: false },
+    sourceMaterial: { type: Boolean, default: false },
+    sourceMaterialFiles: { type: Schema.Types.Mixed, default: null },
+    refreshSuggestions: { type: Schema.Types.Mixed, default: null },
+    dubbedVersions: {
+      type: [
+        new Schema<IDubbedVersion>(
+          {
+            locale: { type: String, enum: [...LOCALES], required: true },
+            status: {
+              type: String,
+              enum: ['pending', 'generating', 'ready', 'failed'],
+              default: 'pending',
+            },
+            srtKeys: { type: [String], default: [] },
+            videoKeys: { type: [String], default: [] },
+            createdAt: { type: Date, default: Date.now },
+            updatedAt: { type: Date, default: Date.now },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
   },
   { timestamps: true },
 );

@@ -13,6 +13,18 @@ export interface LearnQuizQuestionView {
   explanation: string;
 }
 
+/** Liens vers un projet interactif ouvrable dans un IDE en ligne (P84). */
+export interface LearnSandboxProjectLinks {
+  stackblitzUrl: string;
+  codesandboxUrl: string;
+}
+
+export interface LearnSandboxLinksView {
+  language: string;
+  starter: LearnSandboxProjectLinks;
+  solution: LearnSandboxProjectLinks;
+}
+
 export interface LearnLessonView {
   id: string;
   sectionId: string;
@@ -27,6 +39,8 @@ export interface LearnLessonView {
   articleMd?: string;
   /** Questions du quiz (leçon 'quiz'), sinon tableau vide. */
   quiz: LearnQuizQuestionView[];
+  /** Liens StackBlitz/CodeSandbox (leçon 'tp' de code, P84), sinon undefined. */
+  sandboxLinks?: LearnSandboxLinksView;
 }
 
 export interface LearnSectionView {

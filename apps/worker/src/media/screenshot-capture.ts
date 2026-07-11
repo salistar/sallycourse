@@ -3,9 +3,26 @@
 // Playwright isolé, avec garde SSRF stricte, puis produit la capture BRUTE
 // (pleine page ou élément focalisé). L'habillage éditorial (annotateScreenshot
 // + composition sharp) et la persistance vivent dans le processor associé.
+//
+// Prompt 85 — Mode screencast : quand spec.recordVideo est vrai, au lieu d'une
+// capture image unique, on rejoue la spec en enregistrant une VIDÉO native
+// Playwright (context.recordVideo, pas de nouvelle dépendance), puis on
+// post-traite avec ffmpeg :
+//   1. zoom automatique (filtre zoompan) sur la zone de focusSelector, si
+//      connue au moment de l'enregistrement (mesurée AVANT la fermeture du
+//      contexte, car recordVideo écrit le fichier à la fermeture) ;
+//   2. narration TTS synchronisée, concaténée en piste audio par-dessus le
+//      screencast muet (réutilise synthesizeSlide de tts.ts).
+// Les helpers de construction d'arguments ffmpeg sont PURS (testables sans
+// navigateur ni binaire ffmpeg réel) ; seule renderScreencastFromSpec fait de
+// l'I/O (Playwright + ffmpeg + TTS).
 import { createHash } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { execa } from 'execa';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import type { TpScreenshotAction, TpScreenshotSpec } from '../shared.js';
 
@@ -310,4 +327,277 @@ export async function captureFromSpec(
 /** Lance un navigateur Chromium headless mutualisé pour une salve de captures. */
 export async function launchCaptureBrowser(): Promise<Browser> {
   return chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+}
+
+/* ------------------------------------------------------------------ */
+/* Mode screencast (Prompt 85)                                         */
+/* ------------------------------------------------------------------ */
+
+/** Vrai si la spec doit être rejouée en screencast (vidéo) plutôt qu'en capture image simple. */
+export function isScreencastSpec(spec: TpScreenshotSpec): boolean {
+  return spec.recordVideo === true;
+}
+
+/** Rectangle en pixels (coordonnées de la vidéo source), borné à des entiers pairs. */
+export interface FocusRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Options de construction du filtre zoompan ffmpeg. */
+export interface ZoompanOptions {
+  /** Dimensions de la vidéo source (screencast Playwright). */
+  sourceWidth: number;
+  sourceHeight: number;
+  /** Zone à mettre en évidence — absente ⇒ pas de zoom (aucun filtre nécessaire). */
+  focusRect?: FocusRect;
+  /** Nombre total de frames de sortie (fps de sortie × durée). */
+  totalFrames: number;
+  /** Cadence de sortie (images/seconde). */
+  fps: number;
+  /** Facteur de zoom cible sur la zone focus (1 = pas de zoom). */
+  zoomFactor?: number;
+}
+
+/** Facteur de zoom par défaut appliqué sur la zone de focus. */
+export const DEFAULT_ZOOM_FACTOR = 1.6;
+/** Fraction de la durée totale consacrée à la montée en zoom (ease-in), le reste tient le cadrage. */
+const ZOOM_RAMP_FRACTION = 0.25;
+
+/**
+ * Construit l'expression du filtre ffmpeg `zoompan` qui zoome progressivement
+ * vers `focusRect` puis tient le cadrage jusqu'à la fin du clip. Pur : aucune
+ * I/O, testable indépendamment de ffmpeg/Playwright. Retourne `null` si aucun
+ * focusRect n'est fourni (rien à zoomer — le screencast reste en cadrage large).
+ *
+ * Approche : zoompan anime `z` (facteur de zoom) en rampe linéaire sur les
+ * ZOOM_RAMP_FRACTION premières frames jusqu'à `zoomFactor`, puis le maintient.
+ * `x`/`y` centrent la fenêtre de zoom sur le centre du focusRect, bornés pour
+ * ne jamais sortir du cadre source (in_w/in_h disponibles dans l'expression).
+ */
+export function buildZoompanFilter(options: ZoompanOptions): string | null {
+  const { sourceWidth, sourceHeight, focusRect, totalFrames, fps, zoomFactor = DEFAULT_ZOOM_FACTOR } = options;
+  if (!focusRect || totalFrames <= 0 || sourceWidth <= 0 || sourceHeight <= 0) return null;
+
+  const rampFrames = Math.max(1, Math.round(totalFrames * ZOOM_RAMP_FRACTION));
+  const centerX = focusRect.x + focusRect.width / 2;
+  const centerY = focusRect.y + focusRect.height / 2;
+
+  // z : 1 → zoomFactor en rampe linéaire sur rampFrames, puis plateau.
+  const zExpr = `min(1+((${zoomFactor.toFixed(3)}-1)/${rampFrames})*on,${zoomFactor.toFixed(3)})`;
+  // x/y : centre la fenêtre de zoom sur le focusRect, borné dans [0, in_w-iw] / [0, in_h-ih].
+  const xExpr = `min(max(${centerX.toFixed(1)}-(iw/2),0),iw*${zoomFactor.toFixed(3)}-iw)`;
+  const yExpr = `min(max(${centerY.toFixed(1)}-(ih/2),0),ih*${zoomFactor.toFixed(3)}-ih)`;
+
+  return `zoompan=z='${zExpr}':x='${xExpr}':y='${yExpr}':d=1:s=${sourceWidth}x${sourceHeight}:fps=${fps}`;
+}
+
+/**
+ * Arguments ffmpeg complets pour post-traiter un screencast brut : applique
+ * (optionnellement) le zoom automatique sur focusRect, réencode en H.264, et
+ * mixe la piste de narration si fournie (`-shortest` cale la sortie sur le
+ * plus court des deux flux, la vidéo étant normalement plus longue).
+ * Pur : construit uniquement le tableau d'arguments, aucune exécution ici.
+ */
+export function buildScreencastPostProcessArgs(params: {
+  inputVideo: string;
+  narrationAudio?: string;
+  output: string;
+  sourceWidth: number;
+  sourceHeight: number;
+  focusRect?: FocusRect;
+  durationSeconds: number;
+  fps?: number;
+  zoomFactor?: number;
+}): string[] {
+  const fps = params.fps ?? 30;
+  const totalFrames = Math.max(1, Math.round(params.durationSeconds * fps));
+  const zoom = buildZoompanFilter({
+    sourceWidth: params.sourceWidth,
+    sourceHeight: params.sourceHeight,
+    focusRect: params.focusRect,
+    totalFrames,
+    fps,
+    zoomFactor: params.zoomFactor,
+  });
+
+  const args: string[] = ['-y', '-i', params.inputVideo];
+  if (params.narrationAudio) {
+    args.push('-i', params.narrationAudio);
+  }
+
+  const vf = zoom ?? `scale=${params.sourceWidth}:${params.sourceHeight},fps=${fps}`;
+  args.push('-vf', vf, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p');
+
+  if (params.narrationAudio) {
+    args.push('-c:a', 'aac', '-b:a', '192k', '-map', '0:v:0', '-map', '1:a:0', '-shortest');
+  } else {
+    args.push('-an');
+  }
+  args.push(params.output);
+  return args;
+}
+
+/** Résultat d'un screencast rendu : vidéo muxée + focusRect mesuré (diagnostic). */
+export interface CapturedScreencast {
+  /** Chemin local du MP4 final (zoom + narration éventuelle appliqués). */
+  path: string;
+  durationSeconds: number;
+  focusRect?: FocusRect;
+}
+
+/**
+ * Mesure le rectangle (page pixels, == vidéo pixels car deviceScaleFactor=1)
+ * du focusSelector, si présent et visible. `null` si absent/introuvable —
+ * le screencast reste alors en cadrage large (pas de zoom).
+ */
+async function measureFocusRect(page: Page, focusSelector?: string): Promise<FocusRect | undefined> {
+  if (!focusSelector) return undefined;
+  const locator = page.locator(focusSelector).first();
+  if ((await locator.count()) === 0) return undefined;
+  const box = await locator.boundingBox();
+  if (!box) return undefined;
+  return { x: Math.round(box.x), y: Math.round(box.y), width: Math.round(box.width), height: Math.round(box.height) };
+}
+
+/**
+ * Rejoue une spec en screencast : enregistre une vidéo Playwright native
+ * (context.recordVideo) pendant le rejeu des actions, mesure le focusRect
+ * avant de fermer le contexte (recordVideo n'écrit le fichier qu'à la
+ * fermeture), puis retourne le .webm brut + le focusRect mesuré. Le
+ * post-traitement (zoom + narration) est appliqué par l'appelant via
+ * buildScreencastPostProcessArgs (séparation I/O brute vs. post-process pur).
+ */
+export async function captureScreencastFromSpec(
+  browser: Browser,
+  spec: TpScreenshotSpec,
+  workDir: string,
+  options: CaptureOptions = {},
+): Promise<{ rawVideoPath: string; focusRect?: FocusRect }> {
+  const { trustedLoopback } = options;
+  const deadline = Date.now() + CAPTURE_TIMEOUT_MS;
+  const perActionTimeout = (): number => Math.max(1_000, deadline - Date.now());
+
+  let context: BrowserContext | undefined;
+  try {
+    context = await browser.newContext({
+      viewport: { ...CAPTURE_VIEWPORT },
+      deviceScaleFactor: 1,
+      ignoreHTTPSErrors: false,
+      recordVideo: { dir: workDir, size: { ...CAPTURE_VIEWPORT } },
+    });
+    context.setDefaultTimeout(CAPTURE_TIMEOUT_MS);
+    const page = await context.newPage();
+
+    if (spec.url) {
+      await assertUrlAllowed(spec.url, trustedLoopback);
+      await page.goto(spec.url, { waitUntil: 'domcontentloaded', timeout: perActionTimeout() });
+    }
+
+    for (const action of spec.actions) {
+      if (Date.now() >= deadline) {
+        throw new ScreenshotCaptureError('budget de capture épuisé pendant le rejeu des actions', spec.url);
+      }
+      await runAction(page, action, perActionTimeout(), trustedLoopback);
+    }
+
+    await waitForStability(page, deadline);
+    const focusRect = await measureFocusRect(page, spec.focusSelector);
+
+    const video = page.video();
+    await context.close();
+    context = undefined;
+    if (!video) {
+      throw new ScreenshotCaptureError('enregistrement vidéo indisponible (recordVideo non initialisé)', spec.url);
+    }
+    const rawVideoPath = await video.path();
+    return { rawVideoPath, focusRect };
+  } catch (err) {
+    if (err instanceof ScreenshotCaptureError) throw err;
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new ScreenshotCaptureError(`screencast échoué — ${reason}`, spec.url);
+  } finally {
+    await context?.close().catch(() => undefined);
+  }
+}
+
+/**
+ * Orchestration complète d'un screencast : capture vidéo brute (Playwright),
+ * synthèse de narration TTS (réutilise synthesizeSlide de tts.ts, mock-friendly
+ * via MOCK_PROVIDERS/absence de clé), puis post-traitement ffmpeg (zoom +
+ * mux narration). Retourne le MP4 final prêt à uploader.
+ *
+ * `narrationText` optionnel : sans texte, le screencast est rendu MUET (zoom
+ * appliqué mais aucune piste audio) — cas d'une étape sans légende parlée.
+ */
+export async function renderScreencastFromSpec(
+  browser: Browser,
+  spec: TpScreenshotSpec,
+  params: {
+    narrationText?: string;
+    locale?: string;
+    voice?: string;
+  } = {},
+  options: CaptureOptions = {},
+): Promise<CapturedScreencast> {
+  const dir = await mkdtemp(path.join(tmpdir(), 'screencast-'));
+  try {
+    const { rawVideoPath, focusRect } = await captureScreencastFromSpec(browser, spec, dir, options);
+
+    // Durée mesurée par ffprobe (le .webm Playwright ne porte pas de durée fiable en métadonnées simples).
+    const { stdout } = await execa('ffprobe', [
+      '-v',
+      'error',
+      '-show_entries',
+      'format=duration',
+      '-of',
+      'default=noprint_wrappers=1:nokey=1',
+      rawVideoPath,
+    ]);
+    const durationSeconds = Number.parseFloat(stdout.trim()) || 1;
+
+    // Narration optionnelle : réutilise le pipeline TTS existant (cache + repli silence).
+    let narrationPath: string | undefined;
+    if (params.narrationText && params.narrationText.trim()) {
+      const { synthesizeSlide } = await import('./tts.js');
+      const { getObjectStream } = await import('../shared.js');
+      const synth = await synthesizeSlide({
+        text: params.narrationText,
+        locale: params.locale ?? 'fr',
+        voice: params.voice,
+      });
+      narrationPath = path.join(dir, 'narration.mp3');
+      const stream = await getObjectStream(synth.cacheKey);
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+      await writeFile(narrationPath, Buffer.concat(chunks));
+    }
+
+    const finalPath = path.join(dir, 'screencast-final.mp4');
+    const args = buildScreencastPostProcessArgs({
+      inputVideo: rawVideoPath,
+      narrationAudio: narrationPath,
+      output: finalPath,
+      sourceWidth: CAPTURE_VIEWPORT.width,
+      sourceHeight: CAPTURE_VIEWPORT.height,
+      focusRect,
+      durationSeconds,
+    });
+    await execa('ffmpeg', args);
+
+    // Déplace le résultat hors du dossier temporaire de travail (l'appelant nettoiera `dir`
+    // après avoir lu le fichier — on renomme dans un chemin stable pour éviter une racecourse
+    // avec un futur rm(dir) si l'appelant lit après coup).
+    const stableDir = await mkdtemp(path.join(tmpdir(), 'screencast-out-'));
+    const stablePath = path.join(stableDir, 'screencast.mp4');
+    await rename(finalPath, stablePath);
+
+    return { path: stablePath, durationSeconds, focusRect };
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
 }

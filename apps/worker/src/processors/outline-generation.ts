@@ -10,7 +10,10 @@ import {
   QUEUES,
   Section,
   UDEMY,
+  buildSourceMaterialContext,
+  chunkText,
   defaultJobOptions,
+  getObjectStream,
   makeJobId,
   outlineSchema,
   publishProgress,
@@ -18,12 +21,15 @@ import {
   type Locale,
   type Outline,
   type OutlineJobData,
+  type SourceMaterialFile,
 } from '../shared.js';
+import { extractSourceMaterialText } from '../lib/rag-extract.js';
 import { getRedisConnection } from '../queues/connection.js';
 import { createQueue, logger } from '../queues/index.js';
 import { priorityForPlan } from '../queues/priority.js';
 import { planForCourse } from '../queues/plan-lookup.js';
 import { callClaudeJson } from '../lib/claude.js';
+import { getActivePrompt } from '../lib/prompt-registry.js';
 import { outlineSystemPrompt, outlineUserPrompt } from '../prompts/outline.js';
 import { LESSON_CONTENT_JOB } from './content-generation.js';
 import {
@@ -295,6 +301,47 @@ async function enqueueFirstLessonAfterDerive(courseId: string): Promise<void> {
   await Course.updateOne({ _id: courseId }, { $set: { status: 'generating' } });
 }
 
+/** Nombre max d'octets lus par fichier source pour l'extraction (garde-fou mémoire). */
+const SOURCE_MATERIAL_MAX_BYTES = 25 * 1024 * 1024;
+
+/** Concatène les chunks de tous les buffers d'un flux Node lisible en un Buffer unique. */
+async function readStreamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of stream) {
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += buf.length;
+    if (total > SOURCE_MATERIAL_MAX_BYTES) break;
+    chunks.push(buf);
+  }
+  return Buffer.concat(chunks);
+}
+
+/**
+ * Import de contenu existant (Prompt 90, RAG simple) : si le cours a du
+ * matériel source (Course.sourceMaterialFiles, uploadé via
+ * /api/courses/[id]/import-material), télécharge chaque fichier depuis S3,
+ * extrait son texte (PDF/PPTX/Markdown, avec repli dégradé si les libs
+ * d'extraction riches sont absentes) puis chunke et assemble le contexte à
+ * injecter dans le prompt système. Best-effort : une erreur sur un fichier
+ * n'interrompt pas la génération (log + fichier ignoré).
+ */
+async function loadSourceMaterialContext(courseId: string, files: SourceMaterialFile[]): Promise<string> {
+  const allChunks: string[] = [];
+  for (const file of files) {
+    try {
+      const stream = await getObjectStream(file.key);
+      const buffer = await readStreamToBuffer(stream);
+      const { text, mode, warning } = await extractSourceMaterialText(buffer, file.kind);
+      if (warning) logger.warn({ courseId, file: file.fileName, mode }, warning);
+      allChunks.push(...chunkText(text));
+    } catch (err) {
+      logger.warn({ courseId, file: file.fileName, err }, 'rag: extraction du support source impossible — ignoré');
+    }
+  }
+  return buildSourceMaterialContext(allChunks);
+}
+
 /** Processor de la queue outline-generation. */
 export async function processOutlineGeneration(job: Job<OutlineJobData>): Promise<OutlineResult> {
   const { courseId, derive } = job.data;
@@ -340,12 +387,25 @@ export async function processOutlineGeneration(job: Job<OutlineJobData>): Promis
       return { courseId, sections, lessons };
     }
 
+    // Import de contenu existant (P90) : contexte issu des supports source
+    // uploadés (best-effort, chaîne vide si aucun fichier ou échec total).
+    let sourceMaterialExcerpt = '';
+    if (course.sourceMaterial && Array.isArray(course.sourceMaterialFiles) && course.sourceMaterialFiles.length > 0) {
+      await report(courseId, 8, 'Lecture du matériel source fourni');
+      sourceMaterialExcerpt = await loadSourceMaterialContext(
+        courseId,
+        course.sourceMaterialFiles as SourceMaterialFile[],
+      );
+    }
+
     const baseUser = outlineUserPrompt({
       title: course.title,
       difficulty: course.difficulty,
       locale: course.locale,
     });
-    const system = outlineSystemPrompt();
+    // Prompt 93 — playground admin : surcharge en base si une version est
+    // active pour "outline.system", sinon comportement inchangé (fallback).
+    const system = await getActivePrompt('outline.system', outlineSystemPrompt(sourceMaterialExcerpt || undefined));
 
     // Boucle métier : le schéma est garanti par callClaudeJson, mais les règles
     // Udemy (sections, minutes vidéo, quiz/section) peuvent nécessiter un retry

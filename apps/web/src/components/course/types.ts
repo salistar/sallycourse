@@ -72,6 +72,22 @@ export interface QaReportView {
   checks: QaCheckView[];
 }
 
+/** Rubrique détaillée du score de qualité pédagogique (Prompt 94), 0-25 chacun. */
+export interface QualityRubricView {
+  clarity: number;
+  progression: number;
+  examples: number;
+  engagement: number;
+}
+
+/** Score de qualité pédagogique d'un cours (null si jamais évalué). */
+export interface QualityScoreView {
+  score: number;
+  rubric: QualityRubricView;
+  feedback: string[];
+  evaluatedAt: string;
+}
+
 /** Un thème récurrent extrait des avis étudiants (P62). */
 export interface ReviewThemeView {
   label: string;
@@ -126,6 +142,15 @@ export interface CourseResourcesView {
   generatedAt: string;
 }
 
+/** Une version doublée du cours dans une langue cible (Prompt 92). */
+export interface DubbedVersionView {
+  locale: Locale;
+  status: 'pending' | 'generating' | 'ready' | 'failed';
+  lessonsWithSubtitles: number;
+  lessonsWithVideo: number;
+  updatedAt: string;
+}
+
 export interface CourseDetailView {
   id: string;
   title: string;
@@ -136,8 +161,12 @@ export interface CourseDetailView {
   sections: SectionView[];
   /** Rapport QA (Prompt 26) — null tant que le contrôle n'a pas tourné. */
   qaReport?: QaReportView | null;
+  /** Score de qualité pédagogique (Prompt 94) — null tant qu'aucune évaluation n'a tourné. */
+  qualityScore?: QualityScoreView | null;
   /** Analyse des retours étudiants (P62) — null tant qu'aucune analyse n'a tourné. */
   feedback?: ReviewFeedbackView | null;
   /** Ressources téléchargeables enrichies (P65) — null tant qu'aucune génération n'a tourné. */
   resources?: CourseResourcesView | null;
+  /** Versions doublées existantes (P92) — tableau vide tant qu'aucune traduction n'a tourné. */
+  dubbedVersions?: DubbedVersionView[];
 }

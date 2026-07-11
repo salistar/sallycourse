@@ -120,4 +120,18 @@ export interface DeploymentAdapter {
   submitForReview(ctx: DeployContext): Promise<void>;
   /** Interroge l'état courant côté plateforme. */
   getStatus(ctx: DeployContext): Promise<DeployStatus>;
+  /**
+   * Ajoute/remplace les sous-titres (.srt) d'une leçon DÉJÀ déployée, dans une
+   * langue donnée (P92, traduction des cours publiés). Optionnel — seules les
+   * plateformes exposant une notion de captions (Udemy, YouTube) l'implémentent
+   * réellement ; l'implémentation par défaut de BaseDeploymentAdapter est un
+   * no-op documenté (aucune erreur, aucun effet) pour les autres.
+   */
+  addCaptions?(
+    ctx: DeployContext,
+    lesson: ILesson,
+    index: number,
+    locale: string,
+    srtContent: string,
+  ): Promise<void>;
 }

@@ -94,7 +94,12 @@ interface PlatformUpdates {
 export interface DeployPanelProps {
   courseId: string;
   lessonCount: number;
+  /** Score de qualité pédagogique courant (P94), null si jamais évalué. */
+  qualityScore?: number | null;
 }
+
+/** Seuil d'affichage aligné sur QUALITY_SCORE.MIN_DEPLOY_THRESHOLD (packages/shared). */
+const QUALITY_THRESHOLD = 60;
 
 /* ------------------------------------------------------------------ */
 /* Correspondances d'affichage                                          */
@@ -135,7 +140,7 @@ function isActive(status: DeployStatus): boolean {
 /* Composant principal                                                  */
 /* ------------------------------------------------------------------ */
 
-export function DeployPanel({ courseId, lessonCount }: DeployPanelProps) {
+export function DeployPanel({ courseId, lessonCount, qualityScore = null }: DeployPanelProps) {
   const { toast } = useToast();
   const [catalog, setCatalog] = React.useState<CatalogEntry[]>([]);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
@@ -149,6 +154,8 @@ export function DeployPanel({ courseId, lessonCount }: DeployPanelProps) {
   // Mention « contenu généré par IA » (P66) — obligatoire pour publier sur Udemy.
   const [aiDisclosureAccepted, setAiDisclosureAccepted] = React.useState(false);
   const [savingDisclosure, setSavingDisclosure] = React.useState(false);
+  // Confirmation explicite (P94) — score de qualité sous le seuil, contournement volontaire.
+  const [confirmLowQuality, setConfirmLowQuality] = React.useState(false);
 
   // Flux de progression temps réel (canal partagé avec la génération).
   const { step: liveStep, progress: liveProgress, logs: liveLogs } = useCourseProgress(courseId);
@@ -283,6 +290,12 @@ export function DeployPanel({ courseId, lessonCount }: DeployPanelProps) {
   const udemySelected = selected.has('udemy');
   const needsAiDisclosure = udemySelected && !aiDisclosureAccepted;
 
+  // Score de qualité pédagogique (P94) sous le seuil : lancement bloqué tant
+  // que l'utilisateur n'a pas coché la confirmation explicite (jamais de
+  // blocage silencieux — le message et la case sont visibles ci-dessous).
+  const qualityBelowThreshold = qualityScore !== null && qualityScore < QUALITY_THRESHOLD;
+  const needsQualityConfirmation = qualityBelowThreshold && !confirmLowQuality;
+
   /** Enregistre l'acceptation de la mention IA générée sur le cours. */
   async function toggleAiDisclosure(next: boolean): Promise<void> {
     setSavingDisclosure(true);
@@ -306,12 +319,13 @@ export function DeployPanel({ courseId, lessonCount }: DeployPanelProps) {
   async function launch(): Promise<void> {
     if (!selectedList.length) return;
     if (needsAiDisclosure) return;
+    if (needsQualityConfirmation) return;
     setLaunching(true);
     try {
       const res = await fetch(`/api/courses/${courseId}/deploy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platforms: selectedList, mode }),
+        body: JSON.stringify({ platforms: selectedList, mode, confirmLowQuality }),
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) {
@@ -506,6 +520,32 @@ export function DeployPanel({ courseId, lessonCount }: DeployPanelProps) {
           </label>
         )}
 
+        {/* ── Score de qualité sous le seuil (P94) — confirmation explicite ─ */}
+        {qualityBelowThreshold && (
+          <label
+            className={cn(
+              'flex items-start gap-3 rounded-md border p-3 text-sm',
+              needsQualityConfirmation ? 'border-danger/50 bg-danger/5' : 'border-border bg-surface-subtle',
+            )}
+          >
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 shrink-0 accent-primary"
+              checked={confirmLowQuality}
+              onChange={(e) => setConfirmLowQuality(e.target.checked)}
+            />
+            <span>
+              <span className="font-medium text-foreground">
+                Je confirme vouloir publier malgré un score de qualité pédagogique de{' '}
+                {qualityScore}/100 (sous le seuil recommandé de {QUALITY_THRESHOLD}/100).
+              </span>{' '}
+              <span className="text-muted">
+                Consultez le détail de la rubrique et les recommandations plus bas sur la page.
+              </span>
+            </span>
+          </label>
+        )}
+
         {/* ── Barre de lancement ────────────────────────────────── */}
         <div className="flex flex-wrap items-end justify-between gap-4 rounded-md border border-border bg-surface-subtle p-4">
           <div className="flex flex-wrap items-end gap-4">
@@ -534,12 +574,17 @@ export function DeployPanel({ courseId, lessonCount }: DeployPanelProps) {
                   Cochez la mention IA générée ci-dessus pour publier sur Udemy.
                 </p>
               )}
+              {needsQualityConfirmation && (
+                <p className="mt-1 text-2xs text-danger">
+                  Cochez la confirmation de qualité ci-dessus pour publier malgré tout.
+                </p>
+              )}
             </div>
           </div>
           <Button
             variant="gold"
             loading={launching}
-            disabled={selectedList.length === 0 || needsAiDisclosure}
+            disabled={selectedList.length === 0 || needsAiDisclosure || needsQualityConfirmation}
             onClick={() => void launch()}
           >
             {!launching && <Rocket aria-hidden="true" />}

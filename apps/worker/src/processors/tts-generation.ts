@@ -8,8 +8,10 @@ import {
   Lesson,
   QUEUES,
   Section,
+  User,
   getObjectStream,
   makeJobId,
+  notify,
   publishProgress,
   slideScriptSchema,
   storageKeys,
@@ -95,6 +97,23 @@ export async function processTtsGeneration(job: Job<TtsJobData>): Promise<TtsRes
     const lessonKeys = storageKeys.course(courseId).lesson(section.order, lesson.order);
     const locale = course.locale;
     const voice = course.ttsVoice;
+
+    // Traçabilité voix clonée (P81) : si la voix utilisée est la voix clonée du
+    // propriétaire du cours, on logue l'usage via une Notification interne
+    // (watermark = log de conformité, pas de tatouage audio — voir voice-clone.ts).
+    // Best-effort, une seule fois par leçon (pas par slide).
+    if (voice) {
+      const owner = await User.findById(course.userId).select('clonedVoiceId').lean();
+      if (owner?.clonedVoiceId && owner.clonedVoiceId === voice) {
+        await notify(String(course.userId), {
+          type: 'voice_clone_used',
+          title: 'Voix clonée utilisée',
+          body: `Votre voix clonée a été utilisée pour générer l'audio de la leçon « ${lesson.title ?? lessonId} ».`,
+          link: `/dashboard/courses/${courseId}`,
+          email: false,
+        }).catch((err) => logger.warn({ courseId, lessonId, err }, 'log traçabilité voix clonée échoué'));
+      }
+    }
 
     // Reprise granulaire (P69) : chaque slide synthétisée est checkpointée
     // (GenerationJob.checkpoint) AVANT de passer à la suivante. Si le worker

@@ -82,6 +82,27 @@ export abstract class BaseDeploymentAdapter implements DeploymentAdapter {
   abstract submitForReview(ctx: DeployContext): Promise<void>;
   abstract getStatus(ctx: DeployContext): Promise<DeployStatus>;
 
+  /**
+   * Ajout de sous-titres traduits sur une leçon déjà déployée (P92). Défaut :
+   * no-op documenté — journalise l'absence de support et retourne sans erreur.
+   * Les adapters qui exposent réellement une notion de captions (Udemy,
+   * YouTube) surchargent cette méthode ; les autres héritent de ce repli sans
+   * modification.
+   */
+  async addCaptions(
+    ctx: DeployContext,
+    _lesson: ILesson,
+    _index: number,
+    locale: string,
+    _srtContent: string,
+  ): Promise<void> {
+    await this.log(
+      ctx,
+      'info',
+      `addCaptions non supporté par l'adapter « ${this.platform} » — sous-titres ${locale} ignorés (no-op).`,
+    );
+  }
+
   /** Retry par défaut de l'adapter (surchargeable). */
   protected retryOptions(): RetryOptions {
     return { attempts: 3, baseDelayMs: 1_000 };

@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { getConfig } from '@sallycourse/shared';
+import { connectDb, User as UserModel } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
 import { activatePlan, isPaidPlan } from '@/lib/payments/plans';
+import { AFFILIATE_COOKIE_NAME, isValidAffiliateCode } from '@/lib/affiliate';
 import { logger } from '@/lib/logger';
 
 /**
@@ -41,6 +44,14 @@ export async function POST(request: Request) {
   const plan = (body as { plan?: unknown })?.plan;
   if (typeof plan !== 'string' || !isPaidPlan(plan)) {
     return NextResponse.json({ error: 'Plan invalide (pro | business attendu).' }, { status: 400 });
+  }
+
+  // Affiliation (P89) : mémorise le code référent en attente s'il n'a pas déjà
+  // été capturé par un checkout réel (le mock saute cette étape).
+  const refCode = (await cookies()).get(AFFILIATE_COOKIE_NAME)?.value;
+  if (refCode && isValidAffiliateCode(refCode)) {
+    await connectDb();
+    await UserModel.updateOne({ _id: user.id }, { $set: { pendingReferralCode: refCode } });
   }
 
   const result = await activatePlan({

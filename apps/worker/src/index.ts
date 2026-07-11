@@ -20,9 +20,11 @@ import { closeSlideBrowser } from './media/slide-renderer.js';
 import { killTpContainersOlderThan } from './media/tp-environments.js';
 import { startReviewScheduler, stopReviewScheduler } from './deploy/review-poll.js';
 import { startAnalyticsScheduler, stopAnalyticsScheduler } from './lib/analytics/refresh.js';
+import { startAbTestingScheduler, stopAbTestingScheduler } from './deploy/ab-testing.js';
 import { startFeedbackWorker, stopFeedbackWorker } from './deploy/feedback-loop.js';
 import { startMetricsServer, stopMetricsServer } from './lib/metrics-server.js';
 import { startRetentionScheduler, stopRetentionScheduler } from './lib/retention.js';
+import { startCourseRefreshScheduler, stopCourseRefreshScheduler } from './lib/course-refresh.js';
 
 /** Reaper des conteneurs TP orphelins (P22) : au démarrage puis toutes les 15 min. */
 const TP_REAPER_INTERVAL_MS = 15 * 60 * 1_000;
@@ -79,9 +81,18 @@ async function main(): Promise<void> {
   // publiés (Udemy/YouTube), agrégé ensuite par le dashboard.
   await startAnalyticsScheduler();
 
+  // Cron A/B testing des landing pages (P87) : rotation round-robin hebdomadaire
+  // des variantes de titre (marketingSchema.titleIdeas) par cours/plateforme.
+  await startAbTestingScheduler();
+
   // Cron archivage à froid (P79) : marque Course.archived=true après 90+
   // jours d'inactivité (exclusion des listings actifs, réactivable).
   await startRetentionScheduler();
+
+  // Cron mise à jour des cours (P91) : détection trimestrielle de sujets
+  // probablement obsolètes (raisonnement LLM, pas de recherche web réelle),
+  // suggestions persistées + notification — jamais de régénération automatique.
+  await startCourseRefreshScheduler();
 }
 
 let shuttingDown = false;
@@ -96,7 +107,9 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
     stopQueueBlockedScheduler();
     await stopReviewScheduler();
     await stopAnalyticsScheduler();
+    await stopAbTestingScheduler();
     await stopRetentionScheduler();
+    await stopCourseRefreshScheduler();
     await stopFeedbackWorker();
     await stopMetricsServer();
     await closeAll();

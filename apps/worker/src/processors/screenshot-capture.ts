@@ -36,9 +36,12 @@ import { logger } from '../queues/index.js';
 import {
   captureFromSpec,
   hashScreenshotSpec,
+  isScreencastSpec,
   launchCaptureBrowser,
+  renderScreencastFromSpec,
   type CapturedScreenshot,
 } from '../media/screenshot-capture.js';
+import { readFile } from 'node:fs/promises';
 import { mongoCheckpointStore, withCheckpoint } from '../lib/idempotency.js';
 import { bumpCacheStat } from '../lib/cache.js';
 
@@ -51,6 +54,8 @@ export interface ScreenshotCaptureResult {
   failed: number;
   /** Placeholders {{screenshot:…}} remplacés dans l'article lié. */
   placeholdersReplaced: number;
+  /** Nombre de screencasts produits (Prompt 85, étapes avec recordVideo). */
+  screencasts: number;
 }
 
 /** Publie la progression + journalise dans GenerationJob (best-effort). */
@@ -248,7 +253,7 @@ export async function processScreenshotCapture(
   const parsed = tpSchema.safeParse(lesson.script);
   if (lesson.type !== 'tp' || !parsed.success) {
     await report(courseId, 100, `Aucune capture à produire pour « ${lesson.title} » (leçon non-TP ou script absent)`);
-    return { courseId, lessonId, captured: 0, failed: 0, placeholdersReplaced: 0 };
+    return { courseId, lessonId, captured: 0, failed: 0, placeholdersReplaced: 0, screencasts: 0 };
   }
 
   const section = await Section.findById(lesson.sectionId);
@@ -258,7 +263,7 @@ export async function processScreenshotCapture(
   const specs = stepsWithSpec(parsed.data);
   if (specs.length === 0) {
     await report(courseId, 100, `TP « ${lesson.title} » sans étape à illustrer`);
-    return { courseId, lessonId, captured: 0, failed: 0, placeholdersReplaced: 0 };
+    return { courseId, lessonId, captured: 0, failed: 0, placeholdersReplaced: 0, screencasts: 0 };
   }
 
   await report(courseId, 5, `Capture d'écran : ${specs.length} étape(s) à illustrer pour « ${lesson.title} »`);
@@ -272,9 +277,12 @@ export async function processScreenshotCapture(
     ok: boolean;
     key?: string;
     caption?: string;
+    /** Clé S3 du screencast (Prompt 85), présente uniquement si spec.recordVideo. */
+    screencastKey?: string;
   }
 
   let failed = 0;
+  const screencastKeys: string[] = [];
   try {
     // Reprise granulaire (P69) : chaque étape (réussie OU en échec toléré) est
     // checkpointée avant de passer à la suivante. Un crash DUR du worker (pas
@@ -307,7 +315,26 @@ export async function processScreenshotCapture(
           await uploadObject(contentKey, annotated, 'image/png').catch((err) => {
             logger.warn({ contentKey, err }, 'écriture du cache de capture par contenu impossible (non bloquant)');
           });
-          return { ok: true, key, caption: spec.caption };
+
+          // Screencast (Prompt 85) : en plus de la capture image (ci-dessus,
+          // conservée pour l'article/annotation), produit une mini-vidéo de
+          // démonstration si l'étape le demande. Échec de screencast toléré
+          // isolément (log + on continue avec la capture image seule).
+          let screencastKey: string | undefined;
+          if (isScreencastSpec(spec)) {
+            try {
+              const screencast = await renderScreencastFromSpec(browser, spec, {
+                narrationText: spec.caption,
+              });
+              const scKey = keys.screencast(i);
+              await uploadObject(scKey, await readFile(screencast.path), 'video/mp4');
+              screencastKey = scKey;
+            } catch (err) {
+              logger.warn({ courseId, lessonId, step: stepNumber, err }, 'screencast en échec (non bloquant)');
+            }
+          }
+
+          return { ok: true, key, caption: spec.caption, screencastKey };
         } catch (err) {
           logger.warn({ courseId, lessonId, step: stepNumber, err }, 'capture en échec (non bloquante)');
           return { ok: false };
@@ -336,6 +363,7 @@ export async function processScreenshotCapture(
     for (const r of results) {
       if (r.ok && r.key) uploadedKeys.push(r.key);
       if (r.ok && r.caption) captions.push(r.caption);
+      if (r.ok && r.screencastKey) screencastKeys.push(r.screencastKey);
     }
   } finally {
     await browser.close().catch(() => undefined);
@@ -343,6 +371,11 @@ export async function processScreenshotCapture(
 
   // Persiste les captures produites sur la leçon TP elle-même.
   lesson.assets.screenshots = uploadedKeys;
+  // Screencasts (Prompt 85) : additif, uniquement rempli si au moins une étape
+  // du TP a demandé recordVideo — sinon on laisse le champ absent (undefined).
+  if (screencastKeys.length > 0) {
+    lesson.assets.screencasts = screencastKeys;
+  }
   await lesson.save();
 
   // Reporte les captures dans l'article de la leçon liée (même section).
@@ -356,7 +389,7 @@ export async function processScreenshotCapture(
   await report(
     courseId,
     100,
-    `Captures terminées : ${uploadedKeys.length} produite(s), ${failed} en échec, ${placeholdersReplaced} placeholder(s) d'article remplacé(s)`,
+    `Captures terminées : ${uploadedKeys.length} produite(s), ${screencastKeys.length} screencast(s), ${failed} en échec, ${placeholdersReplaced} placeholder(s) d'article remplacé(s)`,
     failed > 0 ? 'warn' : 'info',
   );
 
@@ -366,5 +399,6 @@ export async function processScreenshotCapture(
     captured: uploadedKeys.length,
     failed,
     placeholdersReplaced,
+    screencasts: screencastKeys.length,
   };
 }

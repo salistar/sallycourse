@@ -303,6 +303,75 @@ export class YouTubeAdapter extends BaseDeploymentAdapter {
     );
   }
 
+  // ── Sous-titres traduits sur une leçon déjà déployée (P92) ─────
+  /**
+   * Ajoute une piste de captions dans `locale` sur la vidéo déjà publiée d'une
+   * leçon. Retrouve la vidéo via Deployment.deployedVersions (aucun stockage
+   * dédié vidéo→id ici) ; si l'appelant connaît déjà l'externalId vidéo, il
+   * peut aussi passer directement par la même route `captions.insert`.
+   * Nécessite authenticate() préalable (session mémorisée par déploiement).
+   */
+  override async addCaptions(
+    ctx: DeployContext,
+    lesson: ILesson,
+    _index: number,
+    locale: string,
+    srtContent: string,
+  ): Promise<void> {
+    const session = this.requireSession(ctx);
+    const videoId = this.videoIdFor(ctx, lesson);
+    if (!videoId) {
+      await this.log(
+        ctx,
+        'warn',
+        `addCaptions : id vidéo YouTube introuvable pour la leçon « ${lesson.title} » — ignoré.`,
+      );
+      return;
+    }
+    await this.guardMock(
+      ctx,
+      async () => {
+        const metadata = JSON.stringify({
+          snippet: { videoId, language: locale, name: `Sous-titres (${locale})`, isDraft: false },
+        });
+        const boundary = `sc-${hashId(`${videoId}-${locale}`)}`;
+        const multipart = buildMultipart(boundary, metadata, srtContent, 'application/octet-stream');
+        await this.withRetry(
+          () =>
+            fetch(`${UPLOAD_API}/captions?part=snippet&uploadType=multipart`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${session.accessToken}`,
+                'Content-Type': `multipart/related; boundary=${boundary}`,
+              },
+              body: multipart,
+            }),
+          'captions.insert',
+        );
+        await this.log(ctx, 'info', `sous-titres ${locale} ajoutés à la vidéo ${watchUrl(videoId)}`);
+      },
+      async () => {
+        await this.log(ctx, 'info', `sous-titres ${locale} ajoutés (simulé) à la vidéo « ${lesson.title} »`);
+      },
+    );
+  }
+
+  /**
+   * Id vidéo YouTube d'une leçon déjà déployée. LIMITATION DOCUMENTÉE : l'adapter
+   * ne persiste actuellement l'id vidéo nulle part (Deployment.deployedVersions
+   * ne trace que contentHash/version, pas l'externalId plateforme par leçon).
+   * En mock, on retombe sur l'id déterministe généré par uploadLesson (même
+   * formule) pour que le pipeline reste testable de bout en bout. En réel, cette
+   * méthode retourne undefined tant qu'un mapping lessonId→videoId n'est pas
+   * ajouté (ex. futur champ sur IDeployedLesson) — addCaptions journalise alors
+   * l'impossibilité au lieu d'échouer silencieusement.
+   */
+  private videoIdFor(ctx: DeployContext, lesson: ILesson): string | undefined {
+    const index = ctx.lessons.findIndex((l) => docId(l) === docId(lesson));
+    if (index < 0) return undefined;
+    return ctx.mock ? `mock-video-${hashId(`${ctx.externalId}:${index}`)}` : undefined;
+  }
+
   // ── Landing / review ────────────────────────────────────────────
   async setLandingPage(ctx: DeployContext): Promise<void> {
     // YouTube n'a pas de « landing » : la playlist EST la page du cours. On la

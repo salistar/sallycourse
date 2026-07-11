@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="{{lang}}" dir="{{direction}}">
+<head>
+  <meta charset="utf-8">
+  <title>SALISTAR — slide frise chronologique</title>
+  <style>
+    /* ============================================================
+       SALISTAR — gabarit "timeline" 1920×1080 (rendu Playwright, Prompt 83)
+       Frise horizontale : ligne violette continue, jalons or datés,
+       jusqu'à 6 étapes réparties à intervalle régulier.
+       Couleurs figées issues de packages/design/src/tokens.json
+       (source de vérité : packages/design/src/tokens.ts)
+       ============================================================ */
+    :root {
+      --bg: #0D0714;              /* neutral.950 */
+      --surface: #171021;         /* themes.dark.surface */
+      --surface-subtle: #231B2F;  /* neutral.900 */
+      --fg: #F3F0F7;              /* neutral.100 */
+      --muted: #A89DBA;           /* neutral.400 */
+      --border: #362D43;          /* neutral.800 */
+      --violet-300: #C8A9E4;
+      --violet-400: #AB7DD3;
+      --violet-500: #8E55BE;
+      --violet-700: #5B2A86;
+      --violet-800: #49226C;
+      --violet-900: #381A53;
+      --violet-950: #250F3A;
+      --gold-200: #F1DC92;
+      --gold-300: #E8C75C;
+      --gold-400: #DEB232;
+      --gold-500: #D4A017;
+      --gold-600: #B28212;
+      --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+      --font-sans: Figtree, "Segoe UI", system-ui, -apple-system, sans-serif;
+      --font-arabic: "Slide Arabic", "IBM Plex Sans Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+    }
+
+    /* Police arabe : @font-face en pur fallback système (zéro réseau) */
+    @font-face {
+      font-family: "Slide Arabic";
+      src: local("IBM Plex Sans Arabic"), local("Noto Sans Arabic"), local("Segoe UI"), local("Tahoma");
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 1920px; height: 1080px; overflow: hidden; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    /* Règles arabes : jamais de serif, jamais d'italique, titres ≥ 600 */
+    html[dir="rtl"] body { font-family: var(--font-arabic); }
+    html[dir="rtl"] h1, html[dir="rtl"] h2, html[dir="rtl"] .display {
+      font-family: var(--font-arabic);
+      font-style: normal;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    html[dir="rtl"] .kicker, html[dir="rtl"] .footer-course { letter-spacing: 0; }
+
+    .slide {
+      position: relative;
+      width: 1920px;
+      height: 1080px;
+      padding: 96px 160px 176px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .display { font-family: var(--font-display); font-weight: 600; }
+
+    .kicker {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      color: var(--gold-400);
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+    .kicker::after {
+      content: "";
+      height: 1px;
+      width: 96px;
+      background: linear-gradient(to right, var(--gold-500), transparent);
+    }
+    html[dir="rtl"] .kicker::after { background: linear-gradient(to left, var(--gold-500), transparent); }
+
+    .title {
+      margin-top: 24px;
+      font-size: 58px;
+      line-height: 1.15;
+      letter-spacing: -0.015em;
+      max-width: 1500px;
+      text-wrap: balance;
+    }
+
+    /* ---------- Frise ---------- */
+    .timeline {
+      position: relative;
+      margin-top: 84px;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      align-items: flex-start;
+      /* Répartit les jalons à intervalle régulier, quel que soit leur nombre. */
+      justify-content: space-between;
+      gap: 24px;
+    }
+    /* Ligne continue horizontale, centrée sur les jalons */
+    .timeline::before {
+      content: "";
+      position: absolute;
+      top: 26px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(to right, transparent, var(--violet-500) 6%, var(--violet-500) 94%, transparent);
+    }
+
+    .step {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1 1 0;
+      min-width: 0;
+      text-align: center;
+      padding-top: 68px;
+    }
+    /* Jalon : losange or sur la ligne */
+    .step-dot {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      width: 36px;
+      height: 36px;
+      transform: translateX(-50%) rotate(45deg);
+      border-radius: 6px;
+      background: linear-gradient(135deg, var(--gold-300), var(--gold-600));
+      box-shadow: 0 0 0 10px var(--bg), 0 0 24px rgba(212, 160, 23, 0.4); /* gold.500 */
+    }
+    .step-date {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 30px;
+      color: var(--gold-300);
+      white-space: nowrap;
+    }
+    .step-label {
+      margin-top: 18px;
+      font-size: 30px;
+      line-height: 1.35;
+      color: var(--fg);
+      text-wrap: pretty;
+      max-width: 320px;
+    }
+    .step-description {
+      margin-top: 14px;
+      font-size: 22px;
+      line-height: 1.5;
+      color: var(--muted);
+      text-wrap: pretty;
+      max-width: 300px;
+    }
+    .step-description:empty { display: none; }
+
+    /* Pied de page discret : titre du cours + progression */
+    .footer {
+      position: absolute;
+      bottom: 64px;
+      inset-inline: 160px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 48px;
+      color: var(--muted);
+    }
+    .footer-course {
+      font-size: 20px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 1100px;
+      opacity: 0.85;
+    }
+    .footer-progress { display: flex; align-items: center; gap: 20px; flex: none; }
+    .footer-track {
+      width: 320px;
+      height: 5px;
+      border-radius: 9999px;
+      background: var(--border);
+      overflow: hidden;
+    }
+    .footer-fill {
+      height: 100%;
+      border-radius: 9999px;
+      background: linear-gradient(to right, var(--violet-500), var(--violet-400) 55%, var(--gold-400));
+    }
+    html[dir="rtl"] .footer-fill { background: linear-gradient(to left, var(--violet-500), var(--violet-400) 55%, var(--gold-400)); }
+    .footer-label { font-size: 21px; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <div class="slide">
+    <header>
+      <div class="kicker"><span>{{lessonLabel}} {{lessonNumber}}</span></div>
+      <h2 class="display title">{{title}}</h2>
+    </header>
+
+    <!-- Fragments <div class="step"> générés et échappés par renderTemplate() — 6 max -->
+    <section class="timeline" aria-label="frise chronologique">
+      {{steps}}
+    </section>
+
+    <footer class="footer">
+      <div class="footer-course">{{courseTitle}}</div>
+      <div class="footer-progress">
+        <div class="footer-track"><div class="footer-fill" style="width: {{progress}}%"></div></div>
+        <span class="footer-label">{{progress}}%</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

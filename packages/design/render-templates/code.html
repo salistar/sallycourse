@@ -227,6 +227,50 @@
       box-shadow: inset 3px 0 0 var(--gold-500);
     }
 
+    /* ------------------------------------------------------------------
+       Surbrillance ligne-par-ligne synchronisée avec la narration (P83).
+       Même pattern déterministe que les templates motion D8 (voir
+       render-templates/motion/README.md) : PAS de `transition`, un seul
+       `--t` ∈ [0,1] posé sur <html>, keyframes en pause + délai négatif.
+       Le worker pose .line-active sur les <span class="line"> concernées
+       par le pas courant (cf. Slide.codeHighlightSteps) ; .line-activating
+       est réservée au pas en cours de balayage (transition dim → active
+       capturée frame par frame, comme .is-activating de bullet-highlight).
+       ------------------------------------------------------------------ */
+    :root { --t: 0; --code-step: 450ms; }
+
+    pre.code .line { opacity: 0.55; }
+    pre.code .line.line-active {
+      opacity: 1;
+      background: linear-gradient(to right, rgba(142, 85, 190, 0.22), transparent 85%);
+      box-shadow: inset 3px 0 0 var(--gold-500);
+    }
+    /* Pas de surbrillance du tout (codeHighlightSteps absent) : pleine opacité, inchangé. */
+    pre.code:not(:has(.line-active, .line-activating)) .line { opacity: 1; }
+
+    /* Balayage dim → active du pas en cours, seeké via --t (pattern D8). */
+    pre.code .line.line-activating {
+      animation-name: code-line-warm;
+      animation-duration: var(--code-step);
+      animation-play-state: paused !important;
+      animation-fill-mode: both;
+      animation-timing-function: linear; /* l'easing vit dans les keyframes */
+      animation-delay: calc(-1 * var(--t) * var(--code-step));
+    }
+    @keyframes code-line-warm {
+      0% {
+        opacity: 0.55;
+        background: transparent;
+        box-shadow: none;
+        animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      100% {
+        opacity: 1;
+        background: linear-gradient(to right, rgba(142, 85, 190, 0.22), transparent 85%);
+        box-shadow: inset 3px 0 0 var(--gold-500);
+      }
+    }
+
     /* Palette syntaxique violette — classes utilisables par le colorateur */
     .tok-kw    { color: var(--violet-300); font-weight: 600; } /* mots-clés */
     .tok-str   { color: var(--gold-300); }                     /* chaînes */

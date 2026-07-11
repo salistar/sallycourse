@@ -8,6 +8,7 @@ import type { CostContext } from '../lib/cost.js';
 import { hashString } from '../lib/mock-fixtures.js';
 import { logger } from '../queues/index.js';
 import { tpSystemPrompt, tpUserPrompt, type TpPromptInput } from '../prompts/tp.js';
+import { buildTpProjectFiles, createSandboxLinks, detectTpLanguage } from '../media/sandbox-links.js';
 
 /** Tentatives quand les validations MÉTIER échouent (le schéma est garanti par callClaudeJson). */
 const MAX_BUSINESS_ATTEMPTS = 3;
@@ -166,6 +167,34 @@ export async function generateTpContent(input: TpPromptInput, cost?: CostContext
 }
 
 /**
+ * Génère les liens de projet interactif (StackBlitz/CodeSandbox, P84) pour un
+ * TP dont un langage de code a été détecté, et les persiste sur
+ * Lesson.assets.sandboxLinks. Best-effort : un échec (ou aucun langage détecté)
+ * n'invalide jamais la génération du TP — c'est un bonus, pas un garde-fou.
+ */
+export async function attachSandboxLinksBestEffort(lessonId: string, lessonTitle: string, tp: TpContent): Promise<void> {
+  try {
+    const language = detectTpLanguage(tp);
+    if (!language) return; // TP non lié à un langage de code précis (ex: config manuelle d'outil)
+
+    const { starterFiles, solutionFiles } = buildTpProjectFiles(tp, language);
+    const links = await createSandboxLinks({ title: lessonTitle, language, starterFiles, solutionFiles });
+
+    await Lesson.updateOne(
+      { _id: lessonId },
+      {
+        $set: {
+          'assets.sandboxLinks': { language, ...links, generatedAt: new Date() },
+        },
+      },
+    );
+    logger.info({ lessonId, language }, 'liens sandbox TP générés et persistés');
+  } catch (err) {
+    logger.warn({ lessonId, err }, 'génération des liens sandbox TP ignorée (échec best-effort)');
+  }
+}
+
+/**
  * Génère le TP d'une leçon et le persiste : Lesson.script reçoit le TpContent
  * validé et status passe à 'ready'. Jette en cas d'échec (le dispatcher
  * content-generation gère alors le statut 'failed').
@@ -201,6 +230,9 @@ export async function generateTp(params: {
   lesson.script = tp;
   lesson.status = 'ready';
   await lesson.save();
+
+  // Liens de projet interactif (P84) — best-effort, ne bloque jamais le TP.
+  await attachSandboxLinksBestEffort(lessonId, lesson.title, tp);
 
   const result: TpResult = {
     lessonId,

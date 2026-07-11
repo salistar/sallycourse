@@ -19,6 +19,25 @@ export interface IUser {
   role: 'user' | 'admin';
   /** Compte banni par un admin (P57) — bloque l'usage sans supprimer les données. */
   banned: boolean;
+  /**
+   * Voix clonée (P81, ElevenLabs Voice Cloning) — champs additifs. voiceId
+   * ElevenLabs (ou fictif déterministe en mock) réutilisable comme Course.ttsVoice.
+   */
+  clonedVoiceId?: string;
+  /** Statut du clonage : aucune demande / en cours / prête / échouée. */
+  voiceCloneStatus?: 'none' | 'pending' | 'ready' | 'failed';
+  /** Consentement explicite requis avant tout clonage (case cochée côté UI). */
+  voiceCloneConsent?: boolean;
+  /** Durée (s) de l'échantillon audio ayant servi au clonage — traçabilité. */
+  voiceCloneSampleSeconds?: number;
+  /**
+   * Code d'affiliation référent en attente (Prompt 89) : capturé depuis le
+   * cookie de tracking (sc_ref) au moment où l'utilisateur initie un paiement
+   * (checkout CMI, activation mock). `activatePlan` le consomme pour créditer
+   * une commission au référent puis le vide — jamais utilisé après la
+   * première conversion. Additif, absent par défaut.
+   */
+  pendingReferralCode?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -38,6 +57,11 @@ const userSchema = new Schema<IUser>(
     locale: { type: String, enum: [...LOCALES], default: 'fr' },
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
     banned: { type: Boolean, default: false },
+    clonedVoiceId: { type: String },
+    voiceCloneStatus: { type: String, enum: ['none', 'pending', 'ready', 'failed'], default: 'none' },
+    voiceCloneConsent: { type: Boolean, default: false },
+    voiceCloneSampleSeconds: { type: Number, min: 0 },
+    pendingReferralCode: { type: String, default: null },
   },
   { timestamps: true },
 );

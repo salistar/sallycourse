@@ -35,6 +35,7 @@ import { runResumableUploads } from '../deploy/resume.js';
 import { selectCredential, type CredentialCandidate } from '../deploy/credential-select.js';
 import { runDeploymentUpdate, writeDeployedSnapshot } from '../deploy/update-runner.js';
 import { generateDeploymentReport, type DeploymentLike } from '../deploy/report.js';
+import { translatePublishedCourse } from '../lib/translate-published.js';
 import { detectLessonUpdates, nextSnapshot } from '../deploy/updates.js';
 import type {
   BoundPublishProgress,
@@ -184,6 +185,36 @@ export async function processDeployment(
       const message = err instanceof Error ? err.message : String(err);
       logger.error({ courseId, err }, 'échec de la génération du rapport de déploiement');
       await report(0, `Échec du rapport : ${message}`, 'error').catch(() => undefined);
+      throw err;
+    }
+  }
+
+  // ── Action « translate » (P92) : traduction des sous-titres d'un cours déjà
+  // déployé + upload des captions sur chaque plateforme déployée, doublage
+  // optionnel (nouveau TTS + MP4). Indépendant d'un adapter précis (agit sur
+  // TOUS les déploiements du cours, ou seulement `platform` si fourni).
+  if (job.data.action === 'translate') {
+    try {
+      await report(5, 'Traduction des sous-titres en cours');
+      const result = await translatePublishedCourse(courseId, job.data.targetLocales ?? [], {
+        dub: job.data.dub,
+        platforms: job.data.platform ? [job.data.platform] : undefined,
+      });
+      await report(
+        100,
+        `Traduction terminée : ${result.lessonsTranslated} leçon(s) × ${result.locales.length} langue(s)` +
+          (result.errors.length > 0 ? ` (${result.errors.length} erreur(s))` : ''),
+      );
+      logger.info({ courseId, result }, 'traduction du cours publié terminée');
+      return {
+        platform: 'translate',
+        status: 'published',
+        lessonsUploaded: result.lessonsTranslated,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error({ courseId, err }, 'échec de la traduction du cours publié');
+      await report(0, `Échec de la traduction : ${message}`, 'error').catch(() => undefined);
       throw err;
     }
   }

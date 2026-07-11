@@ -25,3 +25,4 @@ export { Badge, badgeVariants, type BadgeProps } from './badge';
 export { Progress, type ProgressProps } from './progress';
 export { Tabs, TabsList, TabsTrigger, TabsContent, type TabsProps, type TabsTriggerProps, type TabsContentProps } from './tabs';
 export { EmptyState, type EmptyStateProps } from './empty-state';
+export { BarChart, type BarChartProps, type BarChartPoint } from './bar-chart';

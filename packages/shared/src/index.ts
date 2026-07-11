@@ -26,3 +26,9 @@ export * from './lesson-delta';
 export * from './course-templates';
 // @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
 export * from './pricing-table';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+export * from './school-branding';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+export * from './rag';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+export * from './fx-rates';

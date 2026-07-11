@@ -6,6 +6,7 @@ import {
   connectDb,
   Course as CourseModel,
   CourseAnalytics as CourseAnalyticsModel,
+  LandingVariant as LandingVariantModel,
 } from '@sallycourse/db';
 import { requireUser } from '@/lib/session';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
@@ -14,8 +15,9 @@ import {
   aggregateAnalytics,
   PLATFORM_LABELS,
   type PlatformRow,
+  type VariantRow,
 } from '@/components/analytics';
-import { AnalyticsDashboard } from '@/components/analytics';
+import { AnalyticsDashboard, AbTestingPanel } from '@/components/analytics';
 
 /**
  * Dashboard analytics consolidé d'un cours (P61) — Server Component :
@@ -63,6 +65,25 @@ export default async function CourseAnalyticsPage({
 
   const totals = aggregateAnalytics(rows);
 
+  // Test A/B des landing pages (P87) : variantes de titre par plateforme,
+  // regroupées pour l'affichage (une section par plateforme testée).
+  const variantDocs = await LandingVariantModel.find({ courseId: course._id })
+    .sort({ platform: 1, variantIndex: 1 })
+    .lean();
+  const variantsByPlatform = new Map<string, VariantRow[]>();
+  for (const v of variantDocs) {
+    const list = variantsByPlatform.get(v.platform) ?? [];
+    list.push({
+      variantIndex: v.variantIndex,
+      title: v.title,
+      isActive: v.isActive,
+      impressions: v.impressions,
+      conversions: v.conversions,
+      lastActivatedAt: v.lastActivatedAt ? new Date(v.lastActivatedAt).toISOString() : null,
+    });
+    variantsByPlatform.set(v.platform, list);
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -91,6 +112,15 @@ export default async function CourseAnalyticsPage({
       ) : (
         <AnalyticsDashboard rows={rows} totals={totals} />
       )}
+
+      {[...variantsByPlatform.entries()].map(([platform, variants]) => (
+        <AbTestingPanel
+          key={platform}
+          platform={platform}
+          platformLabel={PLATFORM_LABELS[platform] ?? platform}
+          variants={variants}
+        />
+      ))}
     </div>
   );
 }

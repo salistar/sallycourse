@@ -112,6 +112,13 @@ export default async function LearnCoursePage({
           correctIndex: q.correctIndex,
           explanation: q.explanation ?? '',
         })),
+        sandboxLinks: l.assets?.sandboxLinks
+          ? {
+              language: l.assets.sandboxLinks.language,
+              starter: { ...l.assets.sandboxLinks.starter },
+              solution: { ...l.assets.sandboxLinks.solution },
+            }
+          : undefined,
       };
     }),
   );

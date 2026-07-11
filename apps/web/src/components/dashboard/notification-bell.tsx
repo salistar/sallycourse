@@ -11,6 +11,7 @@ import {
   ThumbsUp,
   ThumbsDown,
   AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import { transitions } from '@/components/motion';
 import { cn } from '@/lib/cn';
@@ -28,7 +29,9 @@ type NotificationType =
   | 'deployment_complete'
   | 'review_approved'
   | 'review_rejected'
-  | 'quota_reached';
+  | 'quota_reached'
+  | 'voice_clone_used'
+  | 'course_refresh_available';
 
 interface NotificationItem {
   id: string;
@@ -55,6 +58,8 @@ const TYPE_META: Record<
   review_approved: { icon: ThumbsUp, tone: 'text-success' },
   review_rejected: { icon: ThumbsDown, tone: 'text-danger' },
   quota_reached: { icon: AlertTriangle, tone: 'text-warning' },
+  voice_clone_used: { icon: AlertTriangle, tone: 'text-muted' },
+  course_refresh_available: { icon: RefreshCw, tone: 'text-accent-400' },
 };
 
 /** Intervalle de rafraîchissement (ms) tant que la cloche est montée. */

@@ -8,6 +8,13 @@ export interface OutlinePromptInput {
   locale: Locale;
   /** Souhait utilisateur — jamais en dessous de UDEMY.MIN_SECTIONS. */
   approxSections?: number;
+  /**
+   * Import de contenu existant (Prompt 90, RAG simple) — extraits chunkés du
+   * matériel source fourni par l'utilisateur (PDF/PPTX/Markdown), déjà
+   * assemblés par buildSourceMaterialContext(). Absent/vide → comportement
+   * inchangé (génération sans contexte source).
+   */
+  sourceMaterialExcerpt?: string;
 }
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {
@@ -23,11 +30,20 @@ const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 /** Prompt système : contrat de sortie JSON strict conforme à outlineSchema. */
-export function outlineSystemPrompt(): string {
+export function outlineSystemPrompt(sourceMaterialExcerpt?: string): string {
   return [
     `Tu es un ingénieur pédagogique senior spécialisé dans les cours Udemy à succès.`,
     `Tu produis des plans de cours complets, immédiatement exploitables par un pipeline automatisé.`,
     ``,
+    ...(sourceMaterialExcerpt
+      ? [
+          `Base-toi sur cet extrait de matériel source fourni par l'utilisateur (PDF/PPTX/Markdown) pour structurer le plan : reprends sa progression, son vocabulaire et ses exemples autant que pertinent, sans le recopier mot pour mot.`,
+          `--- DÉBUT DU MATÉRIEL SOURCE ---`,
+          sourceMaterialExcerpt,
+          `--- FIN DU MATÉRIEL SOURCE ---`,
+          ``,
+        ]
+      : []),
     `RÈGLES IMPÉRATIVES DU PLAN :`,
     `1. Au moins ${UDEMY.MIN_SECTIONS} sections, ordonnées selon une progression pédagogique adaptée au niveau demandé.`,
     `2. Au moins ${UDEMY.MIN_TOTAL_VIDEO_MINUTES} minutes de vidéo au total (somme des durationMin des leçons de type "video").`,

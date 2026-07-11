@@ -31,6 +31,8 @@ export const SlideTemplate = {
   Diagram: 'diagram',
   Recap: 'recap',
   SectionTransition: 'section-transition',
+  /** Frise chronologique (Prompt 83) — étapes datées réparties sur une ligne. */
+  Timeline: 'timeline',
 } as const;
 
 export type SlideTemplateName = (typeof SlideTemplate)[keyof typeof SlideTemplate];
@@ -128,6 +130,19 @@ const sectionTransitionSchema = baseSchema.extend({
   title: z.string().min(1),
 });
 
+/** Une étape de la frise (Prompt 83) — date + libellé, description optionnelle. */
+const timelineStepInputSchema = z.object({
+  date: z.string().min(1),
+  label: z.string().min(1),
+  description: z.string().default(''),
+});
+
+const timelineSchema = lessonSchema.extend({
+  title: z.string().min(1),
+  /** 6 étapes MAXIMUM — au-delà, la frise devient illisible en 1920px. */
+  steps: z.array(timelineStepInputSchema).min(2).max(6),
+});
+
 /** Schéma zod de chaque gabarit — exporté pour validation en amont (worker). */
 export const slideTemplateSchemas = {
   [SlideTemplate.Title]: titleSchema,
@@ -138,6 +153,7 @@ export const slideTemplateSchemas = {
   [SlideTemplate.Diagram]: diagramSchema,
   [SlideTemplate.Recap]: recapSchema,
   [SlideTemplate.SectionTransition]: sectionTransitionSchema,
+  [SlideTemplate.Timeline]: timelineSchema,
 } as const;
 
 /** Données d'entrée par gabarit (défauts optionnels). */
@@ -157,6 +173,7 @@ export type QuoteSlideInput = SlideTemplateInput['quote'];
 export type DiagramSlideInput = SlideTemplateInput['diagram'];
 export type RecapSlideInput = SlideTemplateInput['recap'];
 export type SectionTransitionSlideInput = SlideTemplateInput['section-transition'];
+export type TimelineSlideInput = SlideTemplateInput['timeline'];
 
 /* ------------------------------------------------------------------ */
 /* Échappement et helpers de fragments                                 */
@@ -199,6 +216,16 @@ function checklistFragment(text: string): string {
     '<path d="M4.5 12.5 10 18 19.5 7" stroke="var(--gold-400)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' +
     '</svg>';
   return `<li><span class="check">${check}</span><span class="check-text">${escapeHtml(text)}</span></li>`;
+}
+
+/** Jalon daté du gabarit frise chronologique (Prompt 83). */
+function timelineStepFragment(step: { date: string; label: string; description: string }): string {
+  return (
+    `<div class="step"><span class="step-dot" aria-hidden="true"></span>` +
+    `<span class="step-date">${escapeHtml(step.date)}</span>` +
+    `<span class="step-label">${escapeHtml(step.label)}</span>` +
+    `<span class="step-description">${escapeHtml(step.description)}</span></div>`
+  );
 }
 
 /**
@@ -339,6 +366,14 @@ function buildPlaceholders(
         sectionLabel: escapeHtml(d.sectionLabel),
         sectionNumber: formatNumber(d.sectionNumber),
         title: escapeHtml(d.title),
+      };
+    }
+    case SlideTemplate.Timeline: {
+      const d = data as SlideTemplateData['timeline'];
+      return {
+        ...lessonPlaceholders(d),
+        title: escapeHtml(d.title),
+        steps: d.steps.map(timelineStepFragment).join('\n      '),
       };
     }
   }

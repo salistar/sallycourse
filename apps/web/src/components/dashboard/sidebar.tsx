@@ -7,6 +7,8 @@ import { signOut } from 'next-auth/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ChevronsUpDown,
+  Compass,
+  Gift,
   Layers,
   LayoutDashboard,
   LogOut,
@@ -72,7 +74,9 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/dashboard/new', label: 'Nouveau cours', icon: PlusCircle },
+  { href: '/dashboard/niche-research', label: 'Trouver un sujet', icon: Compass },
   { href: '/dashboard/batch', label: 'Génération en batch', icon: Layers },
+  { href: '/dashboard/affiliate', label: 'Affiliation', icon: Gift },
   { href: '/settings', label: 'Paramètres', icon: Settings },
 ];
 

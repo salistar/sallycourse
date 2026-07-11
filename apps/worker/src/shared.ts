@@ -40,14 +40,17 @@ export { renderTemplate, SlideTemplate as SlideTemplateEnum, SLIDE_TEMPLATE_NAME
 export { renderPdfTemplate, PdfTemplate, type PdfTemplateName, type QuizSolutionsPdfInput, type DeploymentReportPdfInput, type ReportPlatform, type ReportChecklistItem, type ReportChecklistTone, type WorkbookPdfInput, type CheatsheetPdfInput, type CheatsheetSection } from '@sallycourse/design/pdf-templates.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { connectDb } from '@sallycourse/db/connect.js';
+// prettier-ignore
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
-export { Course, type CourseDocument, type ICourse } from '@sallycourse/db/models/course.js';
+export { Course, type CourseDocument, type ICourse, type IDubbedVersion } from '@sallycourse/db/models/course.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { Section, type ISection } from '@sallycourse/db/models/section.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { User, type IUser } from '@sallycourse/db/models/user.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
-export { Lesson, LESSON_STATUSES, type ILesson, type LessonStatus, type ILessonVersion } from '@sallycourse/db/models/lesson.js';
+// prettier-ignore
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
+export { Lesson, LESSON_STATUSES, type ILesson, type LessonStatus, type ILessonVersion, type ISandboxLinks, type ISandboxProjectLinks } from '@sallycourse/db/models/lesson.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { GenerationJob, type IGenerationJob } from '@sallycourse/db/models/generation-job.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
@@ -74,9 +77,17 @@ export { CostRecord, COST_KINDS, type ICostRecord, type CostRecordDocument, type
 export { CourseAnalytics, type ICourseAnalytics, type CourseAnalyticsDocument } from '@sallycourse/db/models/course-analytics.js';
 // prettier-ignore
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { LandingVariant, type ILandingVariant, type LandingVariantDocument } from '@sallycourse/db/models/landing-variant.js';
+// prettier-ignore
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { claudeCostUsd, ttsCostUsd, renderCostUsd, imageCostUsd, CLAUDE_PRICING_USD_PER_MTOK, TTS_USD_PER_CHAR, RENDER_USD_PER_SECOND, IMAGE_USD_PER_UNIT } from '@sallycourse/shared/pricing-table.js';
 // prettier-ignore
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { notify, type NotifyInput, type NotifyResult } from '@sallycourse/db/notification-service.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { Notification, NOTIFICATION_TYPES, type INotification, type NotificationType } from '@sallycourse/db/models/notification.js';
+// prettier-ignore
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { chunkText, selectContextChunks, buildSourceMaterialContext, detectSourceMaterialKind, sourceMaterialFilesSchema, sourceMaterialFileSchema, CHUNK_SIZE_CHARS, CHUNK_OVERLAP_CHARS, MAX_CONTEXT_CHUNKS, type SourceMaterialKind, type SourceMaterialFile } from '@sallycourse/shared/rag.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { PromptTemplate, type IPromptTemplate, type PromptTemplateDocument } from '@sallycourse/db/models/prompt-template.js';

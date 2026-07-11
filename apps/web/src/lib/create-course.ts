@@ -101,6 +101,8 @@ export async function createCourseForUser(
       targetPlatforms: input.targetPlatforms,
       watermark,
       status: 'generating',
+      avatarEnabled: input.avatarEnabled,
+      avatarId: input.avatarId,
     });
   } catch {
     // La création a échoué après réservation : on rend le crédit.

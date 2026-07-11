@@ -104,3 +104,68 @@ describe('POST /api/courses/[id]/deploy — mention IA générée (P66)', () => 
     expect(queueAddMock).not.toHaveBeenCalled();
   });
 });
+
+// Test du gate « score de qualité pédagogique » (P94) : bloque sous le seuil
+// sans confirmation explicite, mais reste contournable (confirmLowQuality).
+describe('POST /api/courses/[id]/deploy — score de qualité (P94)', () => {
+  it('bloque le déploiement si le score est sous le seuil sans confirmation', async () => {
+    mockSessionUser();
+    mockCourse({
+      _id: 'course-1',
+      status: 'ready',
+      aiDisclosureAccepted: true,
+      qualityScore: { score: 40, rubric: {}, feedback: [] },
+    });
+
+    const res = await POST(request({ platforms: ['youtube'], mode: 'auto' }), { params });
+
+    expect(res.status).toBe(403);
+    const data = (await res.json()) as { code?: string; score?: number };
+    expect(data.code).toBe('quality_score_below_threshold');
+    expect(data.score).toBe(40);
+    expect(queueAddMock).not.toHaveBeenCalled();
+  });
+
+  it('autorise le déploiement sous le seuil avec confirmLowQuality=true', async () => {
+    mockSessionUser();
+    mockCourse({
+      _id: 'course-1',
+      status: 'ready',
+      aiDisclosureAccepted: true,
+      qualityScore: { score: 40, rubric: {}, feedback: [] },
+    });
+
+    const res = await POST(
+      request({ platforms: ['youtube'], mode: 'auto', confirmLowQuality: true }),
+      { params },
+    );
+
+    expect(res.status).toBe(202);
+    expect(queueAddMock).toHaveBeenCalled();
+  });
+
+  it('autorise sans confirmation quand le score atteint le seuil', async () => {
+    mockSessionUser();
+    mockCourse({
+      _id: 'course-1',
+      status: 'ready',
+      aiDisclosureAccepted: true,
+      qualityScore: { score: 75, rubric: {}, feedback: [] },
+    });
+
+    const res = await POST(request({ platforms: ['youtube'], mode: 'auto' }), { params });
+
+    expect(res.status).toBe(202);
+    expect(queueAddMock).toHaveBeenCalled();
+  });
+
+  it('autorise sans confirmation quand aucune évaluation n’a encore tourné', async () => {
+    mockSessionUser();
+    mockCourse({ _id: 'course-1', status: 'ready', aiDisclosureAccepted: true, qualityScore: null });
+
+    const res = await POST(request({ platforms: ['youtube'], mode: 'auto' }), { params });
+
+    expect(res.status).toBe(202);
+    expect(queueAddMock).toHaveBeenCalled();
+  });
+});

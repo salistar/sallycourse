@@ -4,6 +4,8 @@ import {
   isCourseCompleted,
   mergeCompletedLesson,
   progressPercent,
+  renderCertificateHtml,
+  resolveCertificateBranding,
   verificationQrDataUri,
 } from './lms';
 
@@ -75,5 +77,62 @@ describe('verificationQrDataUri', () => {
   });
   it('varie selon l’identifiant', () => {
     expect(verificationQrDataUri('one')).not.toBe(verificationQrDataUri('two'));
+  });
+});
+
+describe('resolveCertificateBranding', () => {
+  const branding = {
+    schoolName: 'École Atlas',
+    logoUrl: 'branding/u1/logo.png',
+    primaryColorHex: '#123456',
+    accentColorHex: '#abcdef',
+  };
+
+  it('retombe sur SALISTAR (undefined) si le plan n’est pas business', () => {
+    expect(resolveCertificateBranding('free', branding)).toBeUndefined();
+    expect(resolveCertificateBranding('pro', branding)).toBeUndefined();
+  });
+
+  it('retombe sur SALISTAR (undefined) si plan business sans branding configuré', () => {
+    expect(resolveCertificateBranding('business', null)).toBeUndefined();
+    expect(resolveCertificateBranding('business', undefined)).toBeUndefined();
+  });
+
+  it('applique le branding si plan business ET branding configuré', () => {
+    expect(resolveCertificateBranding('business', branding)).toEqual(branding);
+  });
+});
+
+describe('renderCertificateHtml — marque blanche (Prompt 88)', () => {
+  const baseParams = {
+    recipientName: 'Ada Lovelace',
+    courseTitle: 'Algorithmes avancés',
+    certificateId: 'cert-123',
+    completedAt: new Date('2026-01-15'),
+    locale: 'fr' as const,
+  };
+
+  it('utilise SALISTAR par défaut sans branding', () => {
+    const html = renderCertificateHtml(baseParams);
+    expect(html).toContain('Salistar');
+    expect(html).toContain('#8E55BE'); // violet-500 par défaut
+    expect(html).toContain('#D4A017'); // gold-500 par défaut
+  });
+
+  it('applique le nom, les couleurs et le logo de l’école si branding fourni', () => {
+    const html = renderCertificateHtml({
+      ...baseParams,
+      branding: {
+        schoolName: 'École Atlas',
+        logoUrl: 'https://cdn.example.com/logo.png',
+        primaryColorHex: '#123456',
+        accentColorHex: '#abcdef',
+      },
+    });
+    expect(html).toContain('École Atlas');
+    expect(html).toContain('#123456');
+    expect(html).toContain('#abcdef');
+    expect(html).toContain('https://cdn.example.com/logo.png');
+    expect(html).not.toContain('>Salistar<');
   });
 });

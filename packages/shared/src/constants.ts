@@ -23,6 +23,18 @@ export const VIDEO = {
   DRAFT_HEIGHT: 720,
 } as const;
 
+/** Avatar vidéo « talking head » (Prompt 82) — segment intro/conclusion de section. */
+export const AVATAR = {
+  /** Durée cible du segment avatar d'intro/conclusion, en secondes. */
+  SEGMENT_SECONDS: 6,
+  /** Intervalle de polling du statut de rendu HeyGen. */
+  POLL_INTERVAL_MS: 3_000,
+  /** Timeout total du polling avant abandon (repli mock). */
+  POLL_TIMEOUT_MS: 120_000,
+  /** Voix HeyGen par défaut (neutre, multilingue). */
+  DEFAULT_VOICE_ID: 'heygen-default-voice',
+} as const;
+
 export const THUMBNAILS = {
   YOUTUBE: { width: 1280, height: 720 },
   OG: { width: 1200, height: 630 },
@@ -32,6 +44,18 @@ export const QUIZ = {
   MIN_QUESTIONS_PER_SECTION: 8,
   MAX_QUESTIONS_PER_SECTION: 12,
   CHOICES_PER_QUESTION: 4,
+} as const;
+
+/**
+ * Score de qualité pédagogique (Prompt 94) — évaluation Claude (ou heuristique
+ * en mode mock) sur 100, ventilée en 4 axes de 0 à 25. Seuil minimum avant
+ * déploiement Udemy : contournable par l'utilisateur avec confirmation
+ * explicite (jamais un blocage silencieux).
+ */
+export const QUALITY_SCORE = {
+  MIN_DEPLOY_THRESHOLD: 60,
+  RUBRIC_MAX_PER_CRITERION: 25,
+  MAX_SCORE: 100,
 } as const;
 
 export const PLANS = {

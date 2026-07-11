@@ -19,6 +19,14 @@ export const NOTIFICATION_TYPES = [
   'review_approved',
   'review_rejected',
   'quota_reached',
+  /** Traçabilité conformité (P81) : audio généré avec une voix clonée. */
+  'voice_clone_used',
+  /**
+   * Mise à jour automatique des cours (P91) : le cron trimestriel a détecté
+   * qu'un cours a probablement des sujets obsolètes et propose des leçons à
+   * mettre à jour (Course.refreshSuggestions). Jamais appliqué seul.
+   */
+  'course_refresh_available',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

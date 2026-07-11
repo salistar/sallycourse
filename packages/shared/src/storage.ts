@@ -67,10 +67,27 @@ export interface LessonKeys {
   screenshot(index: number): string;
   /** Slide vidéo rendue en PNG (gabarits D7 rendus par Playwright). */
   slide(index: number): string;
+  /**
+   * Screencast d'une étape de TP (Prompt 85) : mini-vidéo de démonstration
+   * (Playwright recordVideo + zoom ffmpeg + narration TTS synchronisée) —
+   * courses/{id}/sections/{n}/lessons/{n}/screencasts/{index}.mp4.
+   */
+  screencast(index: number): string;
   captionsSrt(): string;
   captionsVtt(): string;
   audio(slide: number): string;
   quiz(): string;
+  /**
+   * Sous-titres traduits d'une leçon (Prompt 92, traduction des cours publiés) :
+   * courses/{id}/sections/{n}/lessons/{n}/captions-{locale}.srt. Distinct du
+   * .srt d'origine (captionsSrt) — n'écrase jamais la langue source.
+   */
+  captionsSrtLocalized(locale: string): string;
+  /**
+   * Vidéo doublée d'une leçon (Prompt 92, doublage optionnel) : nouveau MP4
+   * réassemblé avec l'audio TTS traduit — courses/{id}/sections/{n}/lessons/{n}/video-{locale}.mp4.
+   */
+  videoLocalized(locale: string): string;
 }
 
 export interface CourseKeys {
@@ -81,6 +98,19 @@ export interface CourseKeys {
   exportFile(fileName: string): string;
   /** Ressource téléchargeable du cours (Prompt 65) : courses/{id}/resources/{fileName} */
   resource(fileName: string): string;
+  /**
+   * Segment avatar « talking head » d'intro/conclusion de section (Prompt 82) :
+   * courses/{id}/sections/{n}/avatar/{intro|outro}.mp4. Généré une fois par
+   * section (indépendant des leçons), réutilisé par toutes les vidéos de la
+   * section lors de l'assemblage final (cf. video-render.ts).
+   */
+  avatarSegment(sectionOrder: number, kind: 'intro' | 'outro'): string;
+  /**
+   * Support source importé par l'utilisateur (Prompt 90, RAG simple) :
+   * courses/{id}/source-material/{fileName} — fichier brut conservé tel quel
+   * (PDF/PPTX/Markdown), extrait puis chunké côté worker (lib/rag-extract.ts).
+   */
+  sourceMaterial(fileName: string): string;
 }
 
 export const storageKeys = {
@@ -106,6 +136,22 @@ export const storageKeys = {
   mongoBackup(name: string): string {
     return `backups/mongo/${name}.tar.gz`;
   },
+  /**
+   * Échantillon audio de clonage vocal (Prompt 81) : clé = voice-samples/{userId}.audio.
+   * Conservé pour traçabilité (préfixe distinct de "courses/", jamais purgé
+   * par deleteCoursePrefix) — un seul échantillon courant par utilisateur.
+   */
+  voiceSample(userId: string): string {
+    return `voice-samples/${userId}.audio`;
+  },
+  /**
+   * Logo de marque blanche du certificat (Prompt 88) : clé =
+   * branding/{userId}/logo.{ext}. Préfixe distinct de "courses/" (jamais
+   * purgé par deleteCoursePrefix) — un seul logo courant par utilisateur.
+   */
+  schoolBrandingLogo(userId: string, ext: string): string {
+    return `branding/${userId}/logo.${ext}`;
+  },
   course(courseId: string): CourseKeys {
     const prefix = `courses/${courseId}`;
     return {
@@ -118,15 +164,21 @@ export const storageKeys = {
           article: () => `${base}/article.md`,
           screenshot: (index: number) => `${base}/screenshots/${index}.png`,
           slide: (index: number) => `${base}/slides/${index}.png`,
+          screencast: (index: number) => `${base}/screencasts/${index}.mp4`,
           captionsSrt: () => `${base}/captions.srt`,
           captionsVtt: () => `${base}/captions.vtt`,
           audio: (slide: number) => `${base}/audio/${slide}.mp3`,
           quiz: () => `${base}/quiz.json`,
+          captionsSrtLocalized: (locale: string) => `${base}/captions-${locale}.srt`,
+          videoLocalized: (locale: string) => `${base}/video-${locale}.mp4`,
         };
       },
       marketing: (fileName: string) => `${prefix}/marketing/${fileName}`,
       exportFile: (fileName: string) => `${prefix}/exports/${fileName}`,
       resource: (fileName: string) => `${prefix}/resources/${fileName}`,
+      avatarSegment: (sectionOrder: number, kind: 'intro' | 'outro') =>
+        `${prefix}/sections/${sectionOrder}/avatar/${kind}.mp4`,
+      sourceMaterial: (fileName: string) => `${prefix}/source-material/${fileName}`,
     };
   },
 };

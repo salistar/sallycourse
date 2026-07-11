@@ -58,5 +58,143 @@
   },
   "settings": {
     "title": "Paramètres"
+  },
+  "marketing": {
+    "nav": {
+      "features": "Fonctionnalités",
+      "pricing": "Tarifs",
+      "showcase": "Vitrine",
+      "login": "Connexion",
+      "cta": "Créer mon premier cours"
+    },
+    "hero": {
+      "badge": "Génération de cours par IA",
+      "title": "De l'idée au cours en ligne complet, en quelques minutes",
+      "subtitle": "SallyCourse transforme un simple titre et un niveau en cours structuré : vidéos, articles, travaux pratiques, quiz et déploiement multi-plateformes, prêt à publier.",
+      "ctaPrimary": "Créer mon premier cours",
+      "ctaSecondary": "Voir la vitrine",
+      "trust": "Déjà utilisé pour générer des centaines de cours"
+    },
+    "comparison": {
+      "title": "40 heures de travail manuel deviennent 40 minutes",
+      "subtitle": "Ce qui prenait des semaines de scénarisation, tournage et montage tient désormais dans une génération automatisée.",
+      "beforeLabel": "Avant SallyCourse",
+      "afterLabel": "Avec SallyCourse",
+      "before": [
+        "Rédiger le plan de cours à la main",
+        "Écrire chaque script de vidéo",
+        "Tourner et monter des heures de vidéo",
+        "Créer les quiz et exercices un par un",
+        "Publier manuellement sur chaque plateforme"
+      ],
+      "after": [
+        "Plan de cours généré en quelques secondes",
+        "Scripts, voix off et vidéos générés automatiquement",
+        "Slides et diagrammes premium prêts à l'emploi",
+        "Quiz et travaux pratiques générés avec le contenu",
+        "Déploiement en un clic vers plusieurs plateformes"
+      ],
+      "beforeTime": "≈ 40 heures",
+      "afterTime": "≈ 40 minutes"
+    },
+    "features": {
+      "title": "Tout ce qu'il faut pour publier un cours professionnel",
+      "subtitle": "Une chaîne complète, de la première idée jusqu'à la mise en ligne.",
+      "items": [
+        {
+          "title": "Génération intelligente",
+          "description": "Titre et niveau suffisent : plan, leçons, articles, scripts et quiz sont générés automatiquement par IA."
+        },
+        {
+          "title": "Voix, vidéo et avatar",
+          "description": "Voix off réalistes, vidéos animées et avatars vidéo pour donner vie à chaque leçon sans studio."
+        },
+        {
+          "title": "Déploiement multi-plateformes",
+          "description": "Publiez en un clic vers Udemy, YouTube, Teachable, Thinkific, Podia, Gumroad, Skillshare et plus encore."
+        },
+        {
+          "title": "Design premium",
+          "description": "Slides, PDF et vignettes générés avec un design system cohérent, sans effort de mise en page."
+        },
+        {
+          "title": "Quiz et évaluation",
+          "description": "Travaux pratiques et quiz générés avec le contenu, alignés sur les objectifs pédagogiques."
+        },
+        {
+          "title": "Analytique et affiliation",
+          "description": "Suivez la performance de vos cours et monétisez votre audience avec des liens d'affiliation."
+        }
+      ]
+    },
+    "pricingPreview": {
+      "title": "Une offre pour chaque étape",
+      "subtitle": "Du plan gratuit au plan Business illimité, avec API et multi-comptes.",
+      "cta": "Voir tous les tarifs"
+    },
+    "testimonials": {
+      "title": "Ils créent déjà avec SallyCourse",
+      "subtitle": "Des formateurs qui ont transformé leur méthode de production de cours.",
+      "empty": [
+        {
+          "quote": "J'ai publié mon premier cours en une soirée, contenu et vidéos compris.",
+          "author": "Amine, formateur indépendant",
+          "rating": 5
+        },
+        {
+          "quote": "Le déploiement multi-plateformes m'a fait gagner des jours de travail chaque mois.",
+          "author": "Sofia, créatrice de contenu",
+          "rating": 5
+        },
+        {
+          "quote": "Le design des slides est bluffant, je n'ai plus besoin de graphiste.",
+          "author": "Karim, consultant formation",
+          "rating": 4
+        }
+      ]
+    },
+    "faq": {
+      "title": "Questions fréquentes",
+      "subtitle": "Tout ce que vous devez savoir avant de commencer.",
+      "items": [
+        {
+          "question": "Comment fonctionne la génération de cours ?",
+          "answer": "Vous indiquez un titre et un niveau de difficulté : SallyCourse génère automatiquement le plan, les leçons, les articles, les scripts vidéo, les quiz et les ressources associées."
+        },
+        {
+          "question": "Puis-je déployer sur plusieurs plateformes ?",
+          "answer": "Oui, selon votre offre vous pouvez déployer simultanément vers Udemy, YouTube, Teachable, Thinkific, Podia, Gumroad, Skillshare et d'autres plateformes compatibles SCORM."
+        },
+        {
+          "question": "Le contenu généré est-il unique ?",
+          "answer": "Chaque cours est généré à partir de votre titre et de vos préférences, produisant un contenu original adapté à votre sujet."
+        },
+        {
+          "question": "Puis-je modifier le cours généré ?",
+          "answer": "Oui, chaque leçon, quiz et ressource reste éditable avant publication depuis votre tableau de bord."
+        },
+        {
+          "question": "Que se passe-t-il si je change d'offre ?",
+          "answer": "Vous pouvez changer d'offre à tout moment ; vos cours existants restent disponibles et les nouvelles limites s'appliquent immédiatement."
+        }
+      ]
+    },
+    "footer": {
+      "tagline": "La génération de cours en ligne, automatisée de bout en bout.",
+      "product": "Produit",
+      "company": "Entreprise",
+      "legal": "Légal",
+      "links": {
+        "features": "Fonctionnalités",
+        "pricing": "Tarifs",
+        "showcase": "Vitrine",
+        "login": "Connexion",
+        "signup": "Créer un compte",
+        "cgu": "CGU",
+        "cgv": "CGV",
+        "privacy": "Confidentialité"
+      },
+      "rights": "Tous droits réservés."
+    }
   }
 }
