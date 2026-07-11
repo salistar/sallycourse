@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import {
+  CalendarClock,
   ChevronDown,
   ExternalLink,
   Globe,
@@ -9,6 +10,7 @@ import {
   Monitor,
   RefreshCw,
   Rocket,
+  Sparkles,
   UploadCloud,
   Zap,
 } from 'lucide-react';
@@ -91,6 +93,29 @@ interface PlatformUpdates {
   updates: UpdatedLesson[];
 }
 
+/** Une plateforme recommandée par la stratégie cross-platform (P110). */
+interface RecommendedPlatform {
+  platform: string;
+  mode: DeploymentMode;
+  rationale: string;
+  timing: number;
+  utm?: Record<string, string>;
+}
+
+/** Une entrée du calendrier de publication échelonné (P110). */
+interface CalendarEntry {
+  platform: string;
+  action: string;
+  dayOffset: number;
+}
+
+/** Réponse de POST /api/courses/[id]/deploy-strategy. */
+interface DeployStrategyResponse {
+  source: 'claude' | 'local';
+  recommendedPlatforms: RecommendedPlatform[];
+  calendarPlan: CalendarEntry[];
+}
+
 export interface DeployPanelProps {
   courseId: string;
   lessonCount: number;
@@ -156,6 +181,9 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
   const [savingDisclosure, setSavingDisclosure] = React.useState(false);
   // Confirmation explicite (P94) — score de qualité sous le seuil, contournement volontaire.
   const [confirmLowQuality, setConfirmLowQuality] = React.useState(false);
+  // Stratégie cross-platform suggérée (P110) — plateformes + calendrier de publication.
+  const [strategy, setStrategy] = React.useState<DeployStrategyResponse | null>(null);
+  const [suggesting, setSuggesting] = React.useState(false);
 
   // Flux de progression temps réel (canal partagé avec la génération).
   const { step: liveStep, progress: liveProgress, logs: liveLogs } = useCourseProgress(courseId);
@@ -346,6 +374,41 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
     }
   }
 
+  /**
+   * Demande une recommandation de stratégie cross-platform (P110) et
+   * pré-remplit la sélection : seules les plateformes recommandées PRÉSENTES
+   * dans le catalogue de déploiement (case à cocher) sont cochées ; les
+   * canaux hors catalogue (réseaux sociaux type LinkedIn/TikTok) restent
+   * affichés à titre informatif dans le calendrier, sans case correspondante.
+   */
+  async function suggestStrategy(): Promise<void> {
+    setSuggesting(true);
+    try {
+      const res = await fetch(`/api/courses/${courseId}/deploy-strategy`, { method: 'POST' });
+      const data = (await res.json().catch(() => null)) as
+        | (DeployStrategyResponse & { error?: string })
+        | null;
+      if (!res.ok || !data) {
+        toast({ variant: 'danger', title: 'Suggestion indisponible', description: data?.error });
+        return;
+      }
+      setStrategy(data);
+      const catalogIds = new Set(catalog.map((c) => c.id));
+      const recommendedInCatalog = data.recommendedPlatforms.filter((p) => catalogIds.has(p.platform));
+      setSelected(new Set(recommendedInCatalog.map((p) => p.platform)));
+      if (recommendedInCatalog[0]) setMode(recommendedInCatalog[0].mode);
+      toast({
+        variant: 'success',
+        title: 'Stratégie suggérée',
+        description: `${data.recommendedPlatforms.length} plateforme(s) recommandée(s).`,
+      });
+    } catch {
+      toast({ variant: 'danger', title: 'Erreur réseau', description: 'Serveur injoignable.' });
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
   async function retry(platform: string): Promise<void> {
     setRetrying(platform);
     try {
@@ -415,13 +478,25 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
               Déployer le cours
             </CardTitle>
           </div>
-          {deployments.length > 0 && (
-            <Badge variant={activeCount > 0 ? 'generating' : 'ready'}>
-              {activeCount > 0
-                ? `${activeCount} en cours`
-                : `${deployments.length} déploiement${deployments.length > 1 ? 's' : ''}`}
-            </Badge>
-          )}
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={suggesting}
+              disabled={catalog.length === 0}
+              onClick={() => void suggestStrategy()}
+            >
+              {!suggesting && <Sparkles aria-hidden="true" />}
+              Suggérer une stratégie
+            </Button>
+            {deployments.length > 0 && (
+              <Badge variant={activeCount > 0 ? 'generating' : 'ready'}>
+                {activeCount > 0
+                  ? `${activeCount} en cours`
+                  : `${deployments.length} déploiement${deployments.length > 1 ? 's' : ''}`}
+              </Badge>
+            )}
+          </div>
         </div>
         <p className="text-sm text-muted">
           Sélectionnez les plateformes cibles, choisissez le mode, puis lancez. Le worker
@@ -490,6 +565,62 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
             })
           )}
         </div>
+
+        {/* ── Stratégie cross-platform suggérée (P110) ──────────────── */}
+        {strategy && (
+          <div className="flex flex-col gap-3 rounded-md border border-primary/30 bg-primary/5 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Sparkles className="size-4 text-primary" aria-hidden="true" />
+                Stratégie suggérée
+              </p>
+              <Badge variant="draft" hideDot className="text-2xs">
+                {strategy.source === 'claude' ? 'Générée par IA' : 'Suggestion locale'}
+              </Badge>
+            </div>
+            <ul className="flex flex-col gap-2">
+              {strategy.recommendedPlatforms.map((p) => (
+                <li key={p.platform} className="rounded-md border border-border bg-surface p-2.5 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-foreground">{platformLabel(p.platform)}</span>
+                    <Badge variant="draft" hideDot className="text-2xs">
+                      {MODE_LABEL[p.mode] ?? p.mode}
+                    </Badge>
+                    <span className="text-2xs text-muted">
+                      {p.timing === 0 ? 'Jour J' : `J+${p.timing}`}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted">{p.rationale}</p>
+                </li>
+              ))}
+            </ul>
+            {strategy.calendarPlan.length > 0 && (
+              <div>
+                <p className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wide text-muted">
+                  <CalendarClock className="size-3.5" aria-hidden="true" />
+                  Calendrier de publication
+                </p>
+                <ul className="mt-1.5 flex flex-col gap-1">
+                  {strategy.calendarPlan
+                    .slice()
+                    .sort((a, b) => a.dayOffset - b.dayOffset)
+                    .map((entry, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-muted">
+                        <span className="shrink-0 tabular-nums font-medium text-foreground">
+                          {entry.dayOffset === 0 ? 'J' : `J+${entry.dayOffset}`}
+                        </span>
+                        <span>
+                          <span className="font-medium text-foreground">{platformLabel(entry.platform)}</span>
+                          {' — '}
+                          {entry.action}
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── Mention IA générée (P66) — obligatoire pour Udemy ─────── */}
         {udemySelected && (

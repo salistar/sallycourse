@@ -91,3 +91,6 @@ export { Notification, NOTIFICATION_TYPES, type INotification, type Notification
 export { chunkText, selectContextChunks, buildSourceMaterialContext, detectSourceMaterialKind, sourceMaterialFilesSchema, sourceMaterialFileSchema, CHUNK_SIZE_CHARS, CHUNK_OVERLAP_CHARS, MAX_CONTEXT_CHUNKS, type SourceMaterialKind, type SourceMaterialFile } from '@sallycourse/shared/rag.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { PromptTemplate, type IPromptTemplate, type PromptTemplateDocument } from '@sallycourse/db/models/prompt-template.js';
+// prettier-ignore
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
+export { ShortClip, SHORT_CLIP_PLATFORMS, SHORT_CLIP_STATUSES, type IShortClip, type ShortClipDocument, type ShortClipPlatform, type ShortClipStatus } from '@sallycourse/db/models/short-clip.js';

@@ -32,6 +32,9 @@ export const CREDENTIAL_PLATFORMS = [
   'skillshare',
   'moodle',
   'internal',
+  // Repurposing courts (Prompt 106) — comptes de publication programmée.
+  'tiktok',
+  'instagram',
 ] as const;
 export type CredentialPlatform = (typeof CREDENTIAL_PLATFORMS)[number];
 
