@@ -37,7 +37,7 @@ export { annotateScreenshot, zoomInsetMaskSvg, type AnnotationSpecInput, type An
 export { renderTemplate, SlideTemplate as SlideTemplateEnum, SLIDE_TEMPLATE_NAMES, escapeHtml, type SlideTemplateName, type SlideTemplateInput } from '@sallycourse/design/render-templates.js';
 // prettier-ignore
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
-export { renderPdfTemplate, PdfTemplate, type PdfTemplateName, type QuizSolutionsPdfInput, type DeploymentReportPdfInput, type ReportPlatform, type ReportChecklistItem, type ReportChecklistTone, type WorkbookPdfInput, type CheatsheetPdfInput, type CheatsheetSection } from '@sallycourse/design/pdf-templates.js';
+export { renderPdfTemplate, PdfTemplate, type PdfTemplateName, type QuizSolutionsPdfInput, type DeploymentReportPdfInput, type ReportPlatform, type ReportChecklistItem, type ReportChecklistTone, type WorkbookPdfInput, type CheatsheetPdfInput, type CheatsheetSection, type LinkedinPitchPdfInput } from '@sallycourse/design/pdf-templates.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { connectDb } from '@sallycourse/db/connect.js';
 // prettier-ignore

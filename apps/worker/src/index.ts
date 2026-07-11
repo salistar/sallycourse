@@ -19,6 +19,7 @@ import './deploy/adapters/thinkific.js';
 import './deploy/adapters/hotmart.js';
 import './deploy/adapters/kajabi.js';
 import './deploy/adapters/coursera-edx.js';
+import './deploy/adapters/linkedin-learning.js';
 import './deploy/adapters/systeme-io.js';
 import './deploy/adapters/wordpress-learndash.js';
 import './deploy/adapters/discord.js';

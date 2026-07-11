@@ -33,6 +33,7 @@ export const PdfTemplate = {
   Certificate: 'certificate',
   DeploymentReport: 'deployment-report',
   Invoice: 'invoice',
+  LinkedinPitch: 'linkedin-pitch',
 } as const;
 
 export type PdfTemplateName = (typeof PdfTemplate)[keyof typeof PdfTemplate];
@@ -273,6 +274,37 @@ const invoiceSchema = pdfBaseSchema.extend({
   footerNote: z.string().default(''),
 });
 
+/* ------------------------------------------------------------------ */
+/* Gabarit « dossier de candidature LinkedIn Learning » (P102)          */
+/* ------------------------------------------------------------------ */
+
+const linkedinPitchSchema = pdfBaseSchema.extend({
+  docKicker: z.string().default('Dossier de candidature — LinkedIn Learning'),
+  courseTitle: z.string().min(1),
+  /** Ligne « Généré le … ». */
+  generatedLine: z.string().default(''),
+  /** Ligne de niveau (ex. « Niveau intermédiaire »). */
+  levelLine: z.string().default(''),
+  /** Pitch percutant du cours (2-3 phrases, généré par Claude). */
+  pitch: z.string().min(1),
+  planSectionTitle: z.string().default('Plan du cours'),
+  /** Bullet points du plan résumé (Claude). */
+  planItems: z.array(z.string().min(1)).min(1).max(20),
+  bioSectionTitle: z.string().default('Bio instructeur suggérée'),
+  instructorBio: z.string().min(1),
+  diffSectionTitle: z.string().default('Arguments différenciants'),
+  /** 3-4 arguments différenciants (Claude). */
+  differentiators: z.array(z.string().min(1)).min(1).max(8),
+  sampleSectionTitle: z.string().default('Extrait vidéo échantillon'),
+  /** URL (présignée ou publique) de la leçon vidéo échantillon — vide si aucune. */
+  sampleVideoUrl: z.string().default(''),
+  /** Titre de la leçon échantillon — vide si aucune vidéo disponible. */
+  sampleVideoTitle: z.string().default(''),
+  applyNoteLabel: z.string().default('Candidature :'),
+  /** Vraies instructions de candidature (formulaire officiel LinkedIn Learning). */
+  applyNote: z.string().min(1),
+});
+
 /** Schéma zod de chaque gabarit — exporté pour validation en amont (worker). */
 export const pdfTemplateSchemas = {
   [PdfTemplate.Cover]: coverSchema,
@@ -282,6 +314,7 @@ export const pdfTemplateSchemas = {
   [PdfTemplate.Certificate]: certificateSchema,
   [PdfTemplate.DeploymentReport]: deploymentReportSchema,
   [PdfTemplate.Invoice]: invoiceSchema,
+  [PdfTemplate.LinkedinPitch]: linkedinPitchSchema,
 } as const;
 
 /** Données d'entrée par gabarit (défauts optionnels). */
@@ -300,6 +333,7 @@ export type CheatsheetPdfInput = PdfTemplateInput['cheatsheet'];
 export type CertificatePdfInput = PdfTemplateInput['certificate'];
 export type DeploymentReportPdfInput = PdfTemplateInput['deployment-report'];
 export type InvoicePdfInput = PdfTemplateInput['invoice'];
+export type LinkedinPitchPdfInput = PdfTemplateInput['linkedin-pitch'];
 export type ReportPlatform = z.input<typeof reportPlatformSchema>;
 export type ReportChecklistItem = z.input<typeof checklistItemSchema>;
 export type ReportChecklistTone = z.infer<typeof checklistToneSchema>;
@@ -436,6 +470,34 @@ function checklistItemFragment(
     '  <div class="dr-check-body">',
     `    <div class="dr-check-title">${escapeHtml(item.title)}</div>${detail}`,
     '  </div>',
+    '</div>',
+  ].join('\n');
+}
+
+/* -- Fragments du dossier de candidature LinkedIn Learning (P102) --- */
+
+/** Puce de plan résumé (bullet point échappé). */
+function linkedinPlanItemFragment(item: string): string {
+  return `<li class="lp-plan-item">${escapeHtml(item)}</li>`;
+}
+
+/** Carte argument différenciant (échappée). */
+function linkedinDifferentiatorFragment(item: string): string {
+  return `<div class="lp-diff-item">${escapeHtml(item)}</div>`;
+}
+
+/** Bloc extrait vidéo échantillon — encart vide si aucune vidéo disponible. */
+function linkedinSampleFragment(url: string, title: string): string {
+  if (url === '') {
+    return '<div class="lp-empty">Aucune leçon vidéo disponible pour l’instant — le pack pourra être régénéré une fois une vidéo publiée.</div>';
+  }
+  const titleLine =
+    title === '' ? '' : `<div class="lp-value" style="margin-bottom: 1.5mm;">${escapeHtml(title)}</div>`;
+  return [
+    '<div class="lp-sample">',
+    '  <span class="lp-label">Leçon sélectionnée</span>',
+    `  ${titleLine}`,
+    `  <span class="lp-value">${escapeHtml(url)}</span>`,
     '</div>',
   ].join('\n');
 }
@@ -621,6 +683,29 @@ function buildPlaceholders(
         total: escapeHtml(d.total),
         paidBadge: escapeHtml(d.paidBadge),
         footerNote: escapeHtml(d.footerNote),
+      };
+    }
+    case PdfTemplate.LinkedinPitch: {
+      const d = data as PdfTemplateData['linkedin-pitch'];
+      return {
+        ...basePlaceholders(d),
+        docKicker: escapeHtml(d.docKicker),
+        courseTitle: escapeHtml(d.courseTitle),
+        generatedLine: escapeHtml(d.generatedLine),
+        levelLine: escapeHtml(d.levelLine),
+        pitch: escapeHtml(d.pitch),
+        planSectionTitle: escapeHtml(d.planSectionTitle),
+        planHtml: d.planItems.map(linkedinPlanItemFragment).join('\n      '), // généré + échappé en interne
+        bioSectionTitle: escapeHtml(d.bioSectionTitle),
+        instructorBio: escapeHtml(d.instructorBio),
+        diffSectionTitle: escapeHtml(d.diffSectionTitle),
+        differentiatorsHtml: d.differentiators
+          .map(linkedinDifferentiatorFragment)
+          .join('\n      '), // généré + échappé en interne
+        sampleSectionTitle: escapeHtml(d.sampleSectionTitle),
+        sampleHtml: linkedinSampleFragment(d.sampleVideoUrl, d.sampleVideoTitle), // généré + échappé en interne
+        applyNoteLabel: escapeHtml(d.applyNoteLabel),
+        applyNote: escapeHtml(d.applyNote),
       };
     }
   }
