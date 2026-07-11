@@ -13,6 +13,28 @@ vi.mock('@anthropic-ai/sdk', () => ({
   },
 }));
 
+// Cache Redis (P72) mocké par un mini-Redis en mémoire : callClaudeJson passe
+// par getOrCompute AVANT tout appel réel — sans ce mock, ces tests « mode
+// réel » tenteraient une vraie connexion Redis (et timeoutent).
+const fakeCacheStore = vi.hoisted(() => new Map<string, string>());
+vi.mock('../queues/connection.js', () => ({
+  getRedisConnection: () => ({
+    get: async (key: string) => fakeCacheStore.get(key) ?? null,
+    set: async (key: string, value: string, ...args: string[]) => {
+      if (args.includes('NX') && fakeCacheStore.has(key)) return null;
+      fakeCacheStore.set(key, value);
+      return 'OK';
+    },
+    del: async (key: string) => (fakeCacheStore.delete(key) ? 1 : 0),
+    exists: async (key: string) => (fakeCacheStore.has(key) ? 1 : 0),
+    incr: async (key: string) => {
+      const next = Number(fakeCacheStore.get(key) ?? '0') + 1;
+      fakeCacheStore.set(key, String(next));
+      return next;
+    },
+  }),
+}));
+
 import {
   courseResourcesContentSchema,
   resetConfigCache,
@@ -64,6 +86,7 @@ function textResponse(payload: unknown): unknown {
 beforeEach(() => {
   mockCreate.mockReset();
   resetClaudeClientForTests();
+  fakeCacheStore.clear();
   setTestEnv();
 });
 

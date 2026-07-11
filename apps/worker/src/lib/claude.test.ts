@@ -12,12 +12,37 @@ vi.mock('@anthropic-ai/sdk', () => ({
   },
 }));
 
+// Cache Redis (P72) mocké par un mini-Redis en mémoire : callClaudeJson passe
+// désormais par getOrCompute AVANT tout appel réel — sans ce mock, les tests
+// de retry/troncature ci-dessous tenteraient une vraie connexion Redis.
+const fakeCacheStore = vi.hoisted(() => new Map<string, string>());
+vi.mock('../queues/connection.js', () => ({
+  getRedisConnection: () => ({
+    get: async (key: string) => fakeCacheStore.get(key) ?? null,
+    set: async (key: string, value: string, ...args: string[]) => {
+      if (args.includes('NX') && fakeCacheStore.has(key)) return null;
+      fakeCacheStore.set(key, value);
+      return 'OK';
+    },
+    del: async (key: string) => (fakeCacheStore.delete(key) ? 1 : 0),
+    exists: async (key: string) => (fakeCacheStore.has(key) ? 1 : 0),
+    incr: async (key: string) => {
+      const next = Number(fakeCacheStore.get(key) ?? '0') + 1;
+      fakeCacheStore.set(key, String(next));
+      return next;
+    },
+  }),
+}));
+
 import { outlineSchema, resetConfigCache } from '../shared.js';
 import {
   MAX_JSON_ATTEMPTS,
+  MAX_RATE_LIMIT_RETRIES,
+  RATE_LIMIT_BASE_DELAY_MS,
   ClaudeJsonError,
   callClaudeJson,
   extractJsonPayload,
+  isRateLimitError,
   resetClaudeClientForTests,
 } from './claude.js';
 
@@ -52,6 +77,7 @@ const simpleSchema = z.object({ name: z.string(), count: z.number().int() });
 beforeEach(() => {
   mockCreate.mockReset();
   resetClaudeClientForTests();
+  fakeCacheStore.clear();
   setTestEnv();
 });
 
@@ -151,5 +177,113 @@ describe('callClaudeJson — troncature', () => {
       callClaudeJson({ schema: simpleSchema, system: 's', user: 'u', maxTokens: 128 }),
     ).rejects.toThrow(/tronquée|max_tokens/);
     expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('callClaudeJson — cache (P72)', () => {
+  it('un second appel identique (même system+user+model) ne rappelle pas le SDK', async () => {
+    mockCreate.mockResolvedValueOnce(textResponse('{"name":"x","count":1}'));
+
+    const first = await callClaudeJson({ schema: simpleSchema, system: 'sys-cache', user: 'user-cache' });
+    const second = await callClaudeJson({ schema: simpleSchema, system: 'sys-cache', user: 'user-cache' });
+
+    expect(first).toEqual({ name: 'x', count: 1 });
+    expect(second).toEqual({ name: 'x', count: 1 });
+    expect(mockCreate).toHaveBeenCalledTimes(1); // 2e appel servi depuis le cache
+  });
+
+  it('un system ou un user différent recalcule (clé de cache distincte)', async () => {
+    mockCreate
+      .mockResolvedValueOnce(textResponse('{"name":"a","count":1}'))
+      .mockResolvedValueOnce(textResponse('{"name":"b","count":2}'));
+
+    const first = await callClaudeJson({ schema: simpleSchema, system: 'sys-1', user: 'user-1' });
+    const second = await callClaudeJson({ schema: simpleSchema, system: 'sys-2', user: 'user-1' });
+
+    expect(first).toEqual({ name: 'a', count: 1 });
+    expect(second).toEqual({ name: 'b', count: 2 });
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it('le mode mock ne passe jamais par le cache (fixtures toujours gratuites)', async () => {
+    setTestEnv({ MOCK_PROVIDERS: 'true' });
+    await callClaudeJson({ schema: outlineSchema, system: 's', user: 'Titre du cours : « Rust »' });
+    await callClaudeJson({ schema: outlineSchema, system: 's', user: 'Titre du cours : « Rust »' });
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(fakeCacheStore.size).toBe(0);
+  });
+});
+
+describe('callClaudeJson — backoff local sur 429 répétés (P77)', () => {
+  it('détecte un 429 via isRateLimitError', () => {
+    expect(isRateLimitError({ status: 429 })).toBe(true);
+    expect(isRateLimitError({ status: 500 })).toBe(false);
+    expect(isRateLimitError(new Error('boom'))).toBe(false);
+    expect(isRateLimitError(null)).toBe(false);
+  });
+
+  it('retente après un délai croissant sur 429 puis réussit', async () => {
+    vi.useFakeTimers();
+    try {
+      const rateLimitErr = Object.assign(new Error('rate limited'), { status: 429 });
+      mockCreate
+        .mockRejectedValueOnce(rateLimitErr)
+        .mockRejectedValueOnce(rateLimitErr)
+        .mockResolvedValueOnce(textResponse('{"name":"x","count":1}'));
+
+      const promise = callClaudeJson({ schema: simpleSchema, system: 's-429', user: 'u-429' });
+      // Laisse la micro-tâche du premier appel s'exécuter avant d'avancer les timers.
+      await vi.advanceTimersByTimeAsync(RATE_LIMIT_BASE_DELAY_MS * (2 ** 0 + 2 ** 1) + 10);
+
+      const result = await promise;
+      expect(result).toEqual({ name: 'x', count: 1 });
+      expect(mockCreate).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it(`abandonne après ${MAX_RATE_LIMIT_RETRIES} tentatives supplémentaires de 429 persistant`, async () => {
+    vi.useFakeTimers();
+    try {
+      const rateLimitErr = Object.assign(new Error('rate limited'), { status: 429 });
+      mockCreate.mockRejectedValue(rateLimitErr);
+
+      const promise = callClaudeJson({ schema: simpleSchema, system: 's-429b', user: 'u-429b' }).catch(
+        (err) => err,
+      );
+
+      // Avance largement au-delà de la somme des délais croissants.
+      let totalDelay = 0;
+      for (let i = 0; i <= MAX_RATE_LIMIT_RETRIES; i++) totalDelay += RATE_LIMIT_BASE_DELAY_MS * 2 ** i;
+      await vi.advanceTimersByTimeAsync(totalDelay + 1000);
+
+      const err = await promise;
+      expect(err).toBe(rateLimitErr);
+      // 1 essai initial + MAX_RATE_LIMIT_RETRIES retries = MAX_RATE_LIMIT_RETRIES + 1 appels.
+      expect(mockCreate).toHaveBeenCalledTimes(MAX_RATE_LIMIT_RETRIES + 1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ne retente pas sur une erreur autre que 429 (échoue immédiatement)', async () => {
+    const other = Object.assign(new Error('serveur en panne'), { status: 500 });
+    mockCreate.mockRejectedValueOnce(other);
+
+    await expect(
+      callClaudeJson({ schema: simpleSchema, system: 's-500', user: 'u-500' }),
+    ).rejects.toThrow('serveur en panne');
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('claudeCacheKey', () => {
+  it('est déterministe et dépend des trois paramètres', async () => {
+    const { claudeCacheKey } = await import('./claude.js');
+    expect(claudeCacheKey('s', 'u', 'm')).toBe(claudeCacheKey('s', 'u', 'm'));
+    expect(claudeCacheKey('s', 'u', 'm')).not.toBe(claudeCacheKey('s2', 'u', 'm'));
+    expect(claudeCacheKey('s', 'u', 'm')).not.toBe(claudeCacheKey('s', 'u2', 'm'));
+    expect(claudeCacheKey('s', 'u', 'm')).not.toBe(claudeCacheKey('s', 'u', 'm2'));
   });
 });

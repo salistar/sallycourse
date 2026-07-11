@@ -7,12 +7,32 @@ import { getConfig } from '../shared.js';
 import { logger } from '../queues/index.js';
 import { mockFixtureFor } from './mock-fixtures.js';
 import { recordClaudeCost, type CostContext } from './cost.js';
+import { getOrCompute, hashCacheKey } from './cache.js';
 
 /** Modèle par défaut du pipeline de génération. */
 export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-5';
 /** Nombre maximal de tentatives (appel initial + retries de validation). */
 export const MAX_JSON_ATTEMPTS = 3;
 const DEFAULT_MAX_TOKENS = 8192;
+/**
+ * Prompt 77 — mode dégradé : file d'attente locale (pas de nouvelle infra) sur
+ * 429 répétés. `client.messages.create` est déjà retry-friendly côté SDK
+ * (backoff interne par défaut), mais un 429 persistant remontait tel quel et
+ * faisait échouer tout le job. On ajoute ici un délai croissant AVANT chaque
+ * nouvel essai, borné à MAX_RATE_LIMIT_RETRIES tentatives supplémentaires.
+ */
+export const MAX_RATE_LIMIT_RETRIES = 4;
+/** Délai de base du backoff croissant sur 429 (doublé à chaque tentative). */
+export const RATE_LIMIT_BASE_DELAY_MS = 1_000;
+/** Durée de vie du cache des appels Claude (Prompt 72) — 30 jours. */
+export const CLAUDE_CACHE_TTL_SEC = 30 * 24 * 3600;
+/** Préfixe des clés de cache Claude dans Redis. */
+const CLAUDE_CACHE_PREFIX = 'cache:claude:';
+
+/** Clé de cache déterministe pour un appel Claude : hash(system+user+model). */
+export function claudeCacheKey(system: string, user: string, model: string): string {
+  return `${CLAUDE_CACHE_PREFIX}${hashCacheKey(system, user, model)}`;
+}
 
 export interface CallClaudeJsonParams<T> {
   /**
@@ -34,6 +54,15 @@ export interface CallClaudeJsonParams<T> {
   temperature?: number;
   /** Optionnel — rattache le coût (tokens in/out) à un cours (Prompt 55). */
   cost?: CostContext;
+  /**
+   * Prompt 72 — désactive le cache Redis pour CET appel (défaut : false).
+   * À utiliser pour les tentatives ≥2 des boucles de retry MÉTIER qui
+   * réinjectent le même feedback textuel (article/marketing/quiz/tp/
+   * video-script) : sans ce drapeau, la 2e tentative rejouerait le même
+   * hash(system+user+model) que la 1re, et le retry ne convergerait jamais
+   * (toujours la même réponse invalide servie depuis le cache).
+   */
+  skipCache?: boolean;
 }
 
 /** Erreur enrichie : tentatives effectuées, dernière sortie brute, issues Zod. */
@@ -91,6 +120,42 @@ export function extractJsonPayload(raw: string): string {
   return trimmed;
 }
 
+/** Vrai si l'erreur SDK est un 429 (rate limit) — détection structurelle (pas d'instanceof, évite un couplage dur au SDK dans les tests). */
+export function isRateLimitError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { status?: number }).status === 429;
+}
+
+/** Attente asynchrone — isolée pour rester mockable/contrôlable par fake timers. */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Enveloppe `client.messages.create` d'un backoff croissant local sur 429
+ * répétés : 1s, 2s, 4s, 8s (RATE_LIMIT_BASE_DELAY_MS doublé à chaque tentative),
+ * jusqu'à MAX_RATE_LIMIT_RETRIES tentatives supplémentaires. Toute autre erreur
+ * (ou 429 persistant au-delà du budget) est rejetée telle quelle.
+ */
+async function createWithRateLimitBackoff(
+  client: Anthropic,
+  request: Anthropic.MessageCreateParamsNonStreaming,
+): Promise<Anthropic.Message> {
+  let lastErr: unknown;
+  for (let retry = 0; retry <= MAX_RATE_LIMIT_RETRIES; retry++) {
+    try {
+      return await client.messages.create(request);
+    } catch (err) {
+      if (!isRateLimitError(err) || retry === MAX_RATE_LIMIT_RETRIES) throw err;
+      lastErr = err;
+      const delayMs = RATE_LIMIT_BASE_DELAY_MS * 2 ** retry;
+      logger.warn({ retry, delayMs }, 'callClaudeJson : 429 reçu — attente avant nouvel essai');
+      await sleep(delayMs);
+    }
+  }
+  // Inatteignable (la boucle jette ou retourne toujours) — satisfait le typage.
+  throw lastErr;
+}
+
 /** Concatène les blocs texte d'une réponse Messages API. */
 function textOfResponse(response: Anthropic.Message): string {
   return response.content
@@ -101,13 +166,18 @@ function textOfResponse(response: Anthropic.Message): string {
 
 /**
  * Appelle Claude et retourne un JSON validé par `schema`.
- * - Mode mock (MOCK_PROVIDERS ou ANTHROPIC_API_KEY absente) : fixture locale.
- * - Sinon : jusqu'à MAX_JSON_ATTEMPTS appels ; chaque échec de validation est
+ * - Mode mock (MOCK_PROVIDERS ou ANTHROPIC_API_KEY absente) : fixture locale,
+ *   jamais mise en cache (déjà gratuite et déterministe).
+ * - Sinon : vérifie D'ABORD le cache Redis (clé = hash(system+user+model)) avant
+ *   tout appel payant — deux tâches de génération demandant le même prompt
+ *   (même système, même contenu utilisateur, même modèle) ne paient qu'une fois.
+ *   `cost` n'est PAS rejoué sur un hit (aucun token consommé, rien à comptabiliser).
+ * - jusqu'à MAX_JSON_ATTEMPTS appels ; chaque échec de validation est
  *   réinjecté dans la conversation pour que le modèle corrige sa sortie.
  * - stop_reason === 'max_tokens' → ClaudeJsonError explicite (troncature).
  */
 export async function callClaudeJson<T>(params: CallClaudeJsonParams<T>): Promise<T> {
-  const { schema, system, user, model = DEFAULT_CLAUDE_MODEL, maxTokens = DEFAULT_MAX_TOKENS, temperature, cost } = params;
+  const { schema, system, user, model = DEFAULT_CLAUDE_MODEL, skipCache = false } = params;
   const config = getConfig();
 
   if (config.MOCK_PROVIDERS || !config.ANTHROPIC_API_KEY) {
@@ -115,13 +185,23 @@ export async function callClaudeJson<T>(params: CallClaudeJsonParams<T>): Promis
     return mockFixtureFor(schema, user);
   }
 
-  const client = getClient(config.ANTHROPIC_API_KEY);
+  if (skipCache) return callClaudeJsonUncached(params);
+
+  const key = claudeCacheKey(system, user, model);
+  return getOrCompute<T>(key, CLAUDE_CACHE_TTL_SEC, () => callClaudeJsonUncached(params), 'claude');
+}
+
+/** Appel Claude réel, sans passage par le cache (utilisé en interne par callClaudeJson). */
+async function callClaudeJsonUncached<T>(params: CallClaudeJsonParams<T>): Promise<T> {
+  const { schema, system, user, model = DEFAULT_CLAUDE_MODEL, maxTokens = DEFAULT_MAX_TOKENS, temperature, cost } = params;
+  const config = getConfig();
+  const client = getClient(config.ANTHROPIC_API_KEY!);
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: user }];
   let lastRaw = '';
   let lastIssues = '';
 
   for (let attempt = 1; attempt <= MAX_JSON_ATTEMPTS; attempt++) {
-    const response = await client.messages.create({
+    const response = await createWithRateLimitBackoff(client, {
       model,
       max_tokens: maxTokens,
       system,

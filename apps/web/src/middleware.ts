@@ -1,11 +1,15 @@
 import NextAuth from 'next-auth';
 import { NextResponse } from 'next/server';
 import { authConfig } from '@/lib/auth.config';
+import { applySecurityHeaders } from '@/lib/security-headers';
+import { isCsrfSuspicious } from '@/lib/csrf';
 
 /**
  * Middleware de protection : /dashboard/* et /api/* exigent une session,
  * sauf les routes publiques (/api/auth/*, /api/health). Instancié depuis
- * la config edge-safe (pas de Mongoose ici).
+ * la config edge-safe (pas de Mongoose ici). Applique aussi (P76) les
+ * en-têtes de sécurité à TOUTE réponse et bloque les mutations API dont
+ * l'Origin/Referer ne correspond pas à l'app (CSRF sur routes classiques).
  */
 const { auth } = NextAuth(authConfig);
 
@@ -17,21 +21,33 @@ function isPublicApi(pathname: string): boolean {
   );
 }
 
+/** Enveloppe toute réponse sortante avec les en-têtes de sécurité. */
+function secured(response: NextResponse): NextResponse {
+  applySecurityHeaders(response.headers);
+  return response;
+}
+
 export default auth((request) => {
   const { pathname, search } = request.nextUrl;
 
-  if (isPublicApi(pathname)) return NextResponse.next();
-  if (request.auth?.user) return NextResponse.next();
+  if (isCsrfSuspicious(request)) {
+    return secured(
+      NextResponse.json({ error: 'Origine de la requête invalide.' }, { status: 403 }),
+    );
+  }
+
+  if (isPublicApi(pathname)) return secured(NextResponse.next());
+  if (request.auth?.user) return secured(NextResponse.next());
 
   // Négociation : les clients HTML sont redirigés, les autres reçoivent du JSON.
   const wantsHtml = (request.headers.get('accept') ?? '').includes('text/html');
   if (!wantsHtml || pathname.startsWith('/api')) {
-    return NextResponse.json({ error: 'Authentification requise.' }, { status: 401 });
+    return secured(NextResponse.json({ error: 'Authentification requise.' }, { status: 401 }));
   }
 
   const loginUrl = new URL('/login', request.nextUrl.origin);
   loginUrl.searchParams.set('callbackUrl', `${pathname}${search}`);
-  return NextResponse.redirect(loginUrl);
+  return secured(NextResponse.redirect(loginUrl));
 });
 
 export const config = {

@@ -7,6 +7,7 @@ import {
   type DeploymentJobData,
   type OutlineJobData,
   type PackagingJobData,
+  type TtsJobData,
 } from '@sallycourse/shared';
 
 /**
@@ -22,6 +23,7 @@ interface QueueStore {
   packagingQueue?: Queue<PackagingJobData>;
   deploymentQueue?: Queue<DeploymentJobData>;
   feedbackQueue?: Queue<{ courseId: string }>;
+  ttsQueue?: Queue<TtsJobData>;
 }
 
 /** Nom de la queue d'analyse de feedback (miroir du worker, hors registre typé). */
@@ -83,6 +85,18 @@ export function getPackagingQueue(): Queue<PackagingJobData> {
     });
   }
   return store.packagingQueue;
+}
+
+/**
+ * Queue 'tts-generation' — (P79) point d'entrée de la réactivation d'un cours
+ * archivé : réutilise Lesson.script déjà en base (aucun rappel LLM), reprend
+ * directement la synthèse vocale + rendu vidéo + sous-titres.
+ */
+export function getTtsQueue(): Queue<TtsJobData> {
+  if (!store.ttsQueue) {
+    store.ttsQueue = new Queue<TtsJobData>(QUEUES.tts, { connection: getConnection() });
+  }
+  return store.ttsQueue;
 }
 
 /** Queue 'deployment' — publication d'un cours sur une plateforme cible. */

@@ -4,9 +4,11 @@ import { describe, expect, it } from 'vitest';
 import {
   ScreenshotCaptureError,
   assertUrlAllowed,
+  hashScreenshotSpec,
   isBlockedIp,
   readPngSize,
 } from './screenshot-capture.js';
+import type { TpScreenshotSpec } from '../shared.js';
 
 describe('isBlockedIp', () => {
   it('bloque les IPv4 privées, loopback, lien-local et métadonnées', () => {
@@ -74,5 +76,42 @@ describe('readPngSize', () => {
 
   it('jette si la signature PNG est absente', () => {
     expect(() => readPngSize(Buffer.alloc(24))).toThrow(ScreenshotCaptureError);
+  });
+});
+
+describe('hashScreenshotSpec', () => {
+  const baseSpec: TpScreenshotSpec = {
+    url: 'https://example.com/demo',
+    actions: [{ type: 'click', selector: '#start' }],
+    caption: 'Écran de démarrage',
+  };
+
+  it('est déterministe : la même spec produit le même hash', () => {
+    expect(hashScreenshotSpec(baseSpec)).toBe(hashScreenshotSpec({ ...baseSpec }));
+  });
+
+  it('change si la légende change (composée DANS l’image annotée)', () => {
+    expect(hashScreenshotSpec(baseSpec)).not.toBe(hashScreenshotSpec({ ...baseSpec, caption: 'Autre légende' }));
+  });
+
+  it('change si les actions changent', () => {
+    const other: TpScreenshotSpec = {
+      ...baseSpec,
+      actions: [{ type: 'click', selector: '#autre' }],
+    };
+    expect(hashScreenshotSpec(baseSpec)).not.toBe(hashScreenshotSpec(other));
+  });
+
+  it('change si focusSelector change', () => {
+    expect(hashScreenshotSpec(baseSpec)).not.toBe(
+      hashScreenshotSpec({ ...baseSpec, focusSelector: '#panel' }),
+    );
+  });
+
+  it('est indépendant du cours/de la leçon (deux specs identiques dans des contextes différents partagent le hash)', () => {
+    // hashScreenshotSpec ne prend QUE la spec : deux TP dans des cours
+    // différents avec la même spec produisent la même clé de cache.
+    const specCopy: TpScreenshotSpec = JSON.parse(JSON.stringify(baseSpec));
+    expect(hashScreenshotSpec(baseSpec)).toBe(hashScreenshotSpec(specCopy));
   });
 });

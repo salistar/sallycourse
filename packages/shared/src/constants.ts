@@ -44,6 +44,26 @@ export const PLANS = {
 
 export type PlanId = keyof typeof PLANS;
 
+// Priorité des files BullMQ par plan (P73) — plus PETIT nombre = traité en
+// premier (convention BullMQ). business passe devant pro, lui-même devant free.
+export const PLAN_QUEUE_PRIORITY: Record<PlanId, number> = {
+  business: 1,
+  pro: 5,
+  free: 10,
+};
+
+/**
+ * Priorité BullMQ correspondant au plan d'un utilisateur — à passer dans les
+ * JobOptions via `{ priority: priorityForPlan(user.plan) }`. Plan absent/inconnu
+ * → retombe sur la priorité 'free' (aucun passe-droit implicite).
+ */
+export function priorityForPlan(plan: PlanId | string | null | undefined): number {
+  if (plan && plan in PLAN_QUEUE_PRIORITY) {
+    return PLAN_QUEUE_PRIORITY[plan as PlanId];
+  }
+  return PLAN_QUEUE_PRIORITY.free;
+}
+
 export const LOCALES = ['fr', 'en', 'ar'] as const;
 export type Locale = (typeof LOCALES)[number];
 export const RTL_LOCALES: readonly Locale[] = ['ar'];

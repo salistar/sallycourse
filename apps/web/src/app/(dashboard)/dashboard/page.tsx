@@ -73,6 +73,8 @@ function freshnessLabel(status: CourseStatus, updatedAt: Date, jobStep?: string)
       return `publié ${rel}`;
     case 'failed':
       return step ? `échec à l’étape ${step}` : `échec ${rel}`;
+    case 'cancelled':
+      return `annulé ${rel}`;
   }
 }
 

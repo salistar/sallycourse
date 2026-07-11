@@ -34,9 +34,51 @@ export interface ProgressBannerProps {
   className?: string;
 }
 
+/** Formate une durée (ms) en libellé court français (P73). */
+function formatWaitLabel(ms: number): string {
+  const totalMinutes = Math.round(ms / 60_000);
+  if (totalMinutes < 1) return "moins d'une minute";
+  if (totalMinutes < 60) return `~${totalMinutes} min`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes > 0 ? `~${hours} h ${minutes} min` : `~${hours} h`;
+}
+
+/** Intervalle de rafraîchissement de l'estimation de temps d'attente. */
+const ESTIMATE_POLL_MS = 15_000;
+
 export function ProgressBanner({ courseId, className }: ProgressBannerProps) {
   const router = useRouter();
   const { step, progress, logs, connected } = useCourseProgress(courseId);
+
+  // Estimation du temps d'attente (P73) — rafraîchie tant que la génération
+  // tourne ; masquée si la file est vide ou sans historique (estimatedWaitMs=0).
+  const [waitMs, setWaitMs] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    if (!step) {
+      setWaitMs(null);
+      return;
+    }
+    let cancelled = false;
+    const load = async (): Promise<void> => {
+      try {
+        const res = await fetch(
+          `/api/courses/${encodeURIComponent(courseId)}/queue-estimate?step=${encodeURIComponent(step)}`,
+        );
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { estimatedWaitMs?: number };
+        if (!cancelled) setWaitMs(data.estimatedWaitMs ?? 0);
+      } catch {
+        // Best-effort : l'estimation est un bonus UX, pas un garde-fou.
+      }
+    };
+    void load();
+    const timer = setInterval(load, ESTIMATE_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [courseId, step]);
 
   const hasError = logs.some((log) => log.level === 'error');
   const stepIndex = Math.max(
@@ -80,6 +122,12 @@ export function ProgressBanner({ courseId, className }: ProgressBannerProps) {
         </div>
         {/* Pas encore d'événement reçu → barre indéterminée. */}
         <Progress value={overall} label="Avancement global" showLabel={overall !== undefined} />
+        {/* Estimation du temps d'attente (P73) — masquée si file vide/sans historique. */}
+        {!finished && !hasError && waitMs !== null && waitMs > 0 && (
+          <p className="text-2xs text-muted">
+            Temps d'attente estimé avant traitement : {formatWaitLabel(waitMs)}
+          </p>
+        )}
       </CardHeader>
 
       <CardContent className="grid gap-6 lg:grid-cols-[minmax(240px,300px)_1fr]">

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { isValidObjectId } from 'mongoose';
-import { QUEUES, defaultJobOptions, makeJobId } from '@sallycourse/shared';
+import { QUEUES, defaultJobOptions, makeJobId, priorityForPlan } from '@sallycourse/shared';
 import {
   connectDb,
   Course as CourseModel,
@@ -116,7 +116,12 @@ export async function POST(
       const jobId = makeJobId(courseId, QUEUES.content, lessonId);
       // Un run précédent garderait le jobId réservé : purge avant re-add.
       await queue.remove(jobId).catch(() => undefined);
-      await queue.add('lesson-content', { courseId, lessonId }, { ...defaultJobOptions, jobId });
+      await queue.add(
+        'lesson-content',
+        { courseId, lessonId },
+        // Priorité BullMQ selon le plan (P73) — business/pro passent devant free.
+        { ...defaultJobOptions, jobId, priority: priorityForPlan(user.plan) },
+      );
     }
   } catch {
     // Redis indisponible : le cours reste en revue, l'utilisateur peut réessayer.

@@ -19,6 +19,15 @@ export interface IGenerationJob {
   logs: LogEntry[];
   error?: string;
   attempts: number;
+  /**
+   * Checkpoints de reprise granulaire (P69) : { [jobId]: CheckpointEntry[] }.
+   * jobId = identifiant stable de l'item en cours (ex. lessonId) ; permet à
+   * withCheckpoint (worker/src/lib/idempotency.ts) de reprendre une boucle
+   * multi-items (slides TTS, étapes de capture…) exactement où elle s'est
+   * arrêtée après un crash, sans retraiter les items déjà faits. Purgé une
+   * fois tous les items traités.
+   */
+  checkpoint?: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -33,6 +42,7 @@ const generationJobSchema = new Schema<IGenerationJob>(
     logs: { type: [logEntrySchema], default: [] },
     error: { type: String },
     attempts: { type: Number, default: 0, min: 0 },
+    checkpoint: { type: Schema.Types.Mixed, default: undefined },
   },
   { timestamps: true },
 );

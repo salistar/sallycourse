@@ -50,6 +50,17 @@ export interface ICourse {
    * Mixed en base (clés S3 + statut) ; null tant qu'aucune génération n'a tourné.
    */
   resources?: unknown;
+  /**
+   * Archivage à froid (P79) : true si le cours est inactif depuis 90+ jours
+   * (voir lib/retention.ts côté worker). Un cours archivé reste consultable
+   * mais est exclu des listings actifs ; réactivable via
+   * POST /api/courses/[id]/reactivate (ré-enqueue depuis Lesson.script, sans
+   * rappel LLM). Champ additif, default false — ne modifie aucun comportement
+   * existant pour les cours jamais archivés.
+   */
+  archived?: boolean;
+  /** Date de bascule en archivé (null si jamais archivé ou réactivé). */
+  archivedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -81,6 +92,8 @@ const courseSchema = new Schema<ICourse>(
     improvementSuggestions: { type: Schema.Types.Mixed, default: null },
     aiDisclosureAccepted: { type: Boolean, default: false },
     resources: { type: Schema.Types.Mixed, default: null },
+    archived: { type: Boolean, default: false },
+    archivedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

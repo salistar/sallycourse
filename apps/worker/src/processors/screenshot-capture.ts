@@ -20,6 +20,7 @@ import {
   annotateScreenshot,
   extractScreenshotPlaceholders,
   getObjectStream,
+  objectExists,
   publishProgress,
   storageKeys,
   tpSchema,
@@ -34,9 +35,12 @@ import { getRedisConnection } from '../queues/connection.js';
 import { logger } from '../queues/index.js';
 import {
   captureFromSpec,
+  hashScreenshotSpec,
   launchCaptureBrowser,
   type CapturedScreenshot,
 } from '../media/screenshot-capture.js';
+import { mongoCheckpointStore, withCheckpoint } from '../lib/idempotency.js';
+import { bumpCacheStat } from '../lib/cache.js';
 
 export interface ScreenshotCaptureResult {
   courseId: string;
@@ -262,35 +266,76 @@ export async function processScreenshotCapture(
   const browser = await launchCaptureBrowser();
   const uploadedKeys: string[] = [];
   const captions: string[] = [];
-  let failed = 0;
 
+  /** Résultat checkpointé d'une étape : capture réussie (clé+légende) ou échec toléré. */
+  interface StepCheckpoint {
+    ok: boolean;
+    key?: string;
+    caption?: string;
+  }
+
+  let failed = 0;
   try {
-    for (let i = 0; i < specs.length; i++) {
-      const spec = specs[i]!;
-      const stepNumber = i + 1;
-      try {
-        const captured = await captureFromSpec(browser, spec);
-        const annotated = await composeAnnotated(captured, buildAnnotationSpec(captured, spec, stepNumber));
-        const key = keys.screenshot(i);
-        await uploadObject(key, annotated, 'image/png');
-        uploadedKeys.push(key);
-        captions.push(spec.caption);
+    // Reprise granulaire (P69) : chaque étape (réussie OU en échec toléré) est
+    // checkpointée avant de passer à la suivante. Un crash DUR du worker (pas
+    // une erreur de capture, déjà tolérée ci-dessous) au milieu de la boucle
+    // ne fait donc perdre que l'étape en cours — la relance rejoue les étapes
+    // déjà traitées sans rouvrir Playwright dessus ni sauter d'étape.
+    const { results } = await withCheckpoint<TpScreenshotSpec, StepCheckpoint>({
+      jobId: lessonId,
+      steps: specs,
+      store: mongoCheckpointStore(courseId, QUEUES.screenshot),
+      runStep: async (spec, i) => {
+        const stepNumber = i + 1;
+        try {
+          const key = keys.screenshot(i);
+          // Cache par CONTENU (Prompt 72) : deux TP — même cours ou cours
+          // différents — qui rejouent la même spec (url/actions/focus/légende)
+          // réutilisent la capture déjà annotée sans relancer Playwright/sharp.
+          const contentKey = storageKeys.screenshotCache(hashScreenshotSpec(spec));
+          if (await objectExists(contentKey)) {
+            const cached = await streamToBuffer(await getObjectStream(contentKey));
+            await uploadObject(key, cached, 'image/png');
+            await bumpCacheStat('screenshot', 'hit');
+            return { ok: true, key, caption: spec.caption };
+          }
+          await bumpCacheStat('screenshot', 'miss');
+
+          const captured = await captureFromSpec(browser, spec);
+          const annotated = await composeAnnotated(captured, buildAnnotationSpec(captured, spec, stepNumber));
+          await uploadObject(key, annotated, 'image/png');
+          await uploadObject(contentKey, annotated, 'image/png').catch((err) => {
+            logger.warn({ contentKey, err }, 'écriture du cache de capture par contenu impossible (non bloquant)');
+          });
+          return { ok: true, key, caption: spec.caption };
+        } catch (err) {
+          logger.warn({ courseId, lessonId, step: stepNumber, err }, 'capture en échec (non bloquante)');
+          return { ok: false };
+        }
+      },
+      onStep: async ({ index, total, result }) => {
+        const stepNumber = index + 1;
+        if (!result.ok) {
+          failed += 1;
+          await report(
+            courseId,
+            Math.round(5 + (stepNumber / total) * 80),
+            `Capture ${stepNumber}/${total} échouée`,
+            'warn',
+          );
+          return;
+        }
         await report(
           courseId,
-          Math.round(5 + ((i + 1) / specs.length) * 80),
-          `Capture ${stepNumber}/${specs.length} produite : ${spec.caption}`,
+          Math.round(5 + (stepNumber / total) * 80),
+          `Capture ${stepNumber}/${total} produite : ${result.caption ?? ''}`,
         );
-      } catch (err) {
-        failed += 1;
-        const message = err instanceof Error ? err.message : String(err);
-        logger.warn({ courseId, lessonId, step: stepNumber, err }, 'capture en échec (non bloquante)');
-        await report(
-          courseId,
-          Math.round(5 + ((i + 1) / specs.length) * 80),
-          `Capture ${stepNumber}/${specs.length} échouée : ${message}`,
-          'warn',
-        );
-      }
+      },
+    });
+
+    for (const r of results) {
+      if (r.ok && r.key) uploadedKeys.push(r.key);
+      if (r.ok && r.caption) captions.push(r.caption);
     }
   } finally {
     await browser.close().catch(() => undefined);

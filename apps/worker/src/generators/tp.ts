@@ -150,6 +150,10 @@ export async function generateTpContent(input: TpPromptInput, cost?: CostContext
       system,
       user,
       maxTokens: TP_MAX_TOKENS,
+      // Retry métier (P72) : le feedback réinjecté peut être identique d'une
+      // tentative à l'autre — sans skipCache, la 2e tentative rejouerait la
+      // même réponse (invalide) servie depuis le cache et ne convergerait jamais.
+      skipCache: attempt > 1,
       ...(cost ? { cost } : {}),
     });
 

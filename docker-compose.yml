@@ -22,6 +22,10 @@ services:
       context: .
       dockerfile: apps/worker/Dockerfile
     env_file: .env
+    ports:
+      # /metrics (P75, format texte maison) — scrutable par uptime-kuma en
+      # profil monitoring ; sans impact si le profil n'est pas démarré.
+      - "9090:9090"
     depends_on:
       mongo:
         condition: service_healthy
@@ -124,9 +128,32 @@ services:
       - "1025:1025" # SMTP (pointer SMTP_URL=smtp://mailpit:1025 dessus)
     profiles: [debug]
 
+  # ── Monitoring production (profil MONITORING, P75) ───────────────
+  # Supervision externe : uptime-kuma surveille /api/health (web) et le
+  # heartbeat Redis du worker (clé worker:heartbeat, TTL ~30s côté worker).
+  # Démarrage : docker compose --profile monitoring up -d
+  #   uptime-kuma  http://localhost:3001  (créer les moniteurs au premier lancement :
+  #                 1. HTTP(s) → http://web:3000/api/health, intervalle 60s
+  #                 2. Redis   → redis://redis:6379, clé/canal worker:heartbeat
+  #   worker /metrics est exposé en interne sur :9090 (METRICS_PORT), scrutable
+  #   par un moniteur "HTTP Keyword" pointant http://worker:9090/metrics.
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    ports:
+      - "3001:3001"
+    volumes:
+      - uptime-kuma-data:/app/data
+    depends_on:
+      web:
+        condition: service_started
+      worker:
+        condition: service_started
+    profiles: [monitoring]
+
 volumes:
   mongo-data:
   redis-data:
   minio-data:
   ollama-data:
   piper-data:
+  uptime-kuma-data:

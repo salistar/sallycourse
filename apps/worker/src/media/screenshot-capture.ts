@@ -3,10 +3,32 @@
 // Playwright isolé, avec garde SSRF stricte, puis produit la capture BRUTE
 // (pleine page ou élément focalisé). L'habillage éditorial (annotateScreenshot
 // + composition sharp) et la persistance vivent dans le processor associé.
+import { createHash } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import type { TpScreenshotAction, TpScreenshotSpec } from '../shared.js';
+
+/**
+ * Hash déterministe d'une TpScreenshotSpec (Prompt 72) : deux leçons — dans le
+ * même cours ou dans des cours différents — qui rejouent EXACTEMENT la même
+ * spec (url, actions, focusSelector, caption) produisent la même clé, ce qui
+ * permet de réutiliser la capture déjà annotée au lieu de relancer Playwright.
+ * La légende fait partie du hash car elle est composée DANS l'image annotée.
+ */
+export function hashScreenshotSpec(spec: TpScreenshotSpec): string {
+  const normalized = JSON.stringify({
+    url: spec.url ?? null,
+    focusSelector: spec.focusSelector ?? null,
+    caption: spec.caption,
+    actions: spec.actions.map((a) => ({
+      type: a.type,
+      selector: a.selector ?? null,
+      value: a.value ?? null,
+    })),
+  });
+  return createHash('sha256').update(normalized).digest('hex');
+}
 
 /** Résolution du viewport de capture — Full HD, aligné sur les slides D7/D8. */
 export const CAPTURE_VIEWPORT = { width: 1920, height: 1080 } as const;

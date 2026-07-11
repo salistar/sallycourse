@@ -3,6 +3,7 @@ import {
   QUEUES,
   defaultJobOptions,
   makeJobId,
+  priorityForPlan,
   type CreateCourseInput,
   type PlanId,
 } from '@sallycourse/shared';
@@ -121,6 +122,8 @@ export async function createCourseForUser(
       {
         ...defaultJobOptions,
         jobId: makeJobId(courseId, QUEUES.outline),
+        // Priorité BullMQ selon le plan (P73) — business/pro passent devant free.
+        priority: priorityForPlan(plan),
         // Délai optionnel : échelonnement des lots (P63).
         ...(options?.enqueueDelayMs ? { delay: options.enqueueDelayMs } : {}),
       },

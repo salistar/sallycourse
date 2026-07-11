@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { hash } from 'bcryptjs';
 import { z } from 'zod';
 import { connectDb, User as UserModel } from '@sallycourse/db';
+import { extractClientIp, rateLimit } from '@/lib/rate-limit';
 
 /** Payload d'inscription — messages en français pour affichage direct. */
 const registerSchema = z.object({
@@ -10,8 +11,20 @@ const registerSchema = z.object({
   password: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caractères.'),
 });
 
+/** Limite anti-abus (P70) : une IP ne peut créer que 5 comptes / 10 minutes. */
+const REGISTER_IP_LIMIT = { limit: 5, windowSec: 600 };
+
 /** POST /api/auth/register — crée un compte (plan free) avec mot de passe hashé. */
 export async function POST(request: Request) {
+  const ip = extractClientIp(request);
+  const ipLimit = await rateLimit(`register:ip:${ip}`, REGISTER_IP_LIMIT);
+  if (!ipLimit.allowed) {
+    return NextResponse.json(
+      { error: "Trop de tentatives d'inscription depuis cette adresse, réessayez plus tard." },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((ipLimit.resetAt.getTime() - Date.now()) / 1000)) } },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();

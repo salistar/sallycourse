@@ -88,6 +88,24 @@ export const storageKeys = {
   ttsCache(hash: string): string {
     return `tts-cache/${hash}.mp3`;
   },
+  /**
+   * Cache de captures d'écran partagé entre cours (Prompt 72) : clé = hash
+   * sha256 du screenshotSpec (contenu, pas le cours) — deux TP différents qui
+   * rejouent exactement la même spec (même url/actions/focusSelector/caption)
+   * réutilisent la capture déjà annotée sans relancer Playwright.
+   */
+  screenshotCache(hash: string): string {
+    return `screenshot-cache/${hash}.png`;
+  },
+  /**
+   * Backup MongoDB (Prompt 74) : clé = backups/mongo/{nom-horodaté}.tar.gz.
+   * `name` est produit par formatBackupName() côté worker (ou par le script
+   * bash équivalent) — ce préfixe est distinct de "courses/" pour ne jamais
+   * être supprimé par deleteCoursePrefix.
+   */
+  mongoBackup(name: string): string {
+    return `backups/mongo/${name}.tar.gz`;
+  },
   course(courseId: string): CourseKeys {
     const prefix = `courses/${courseId}`;
     return {
@@ -237,6 +255,36 @@ export async function deleteCoursePrefix(courseId: string): Promise<number> {
     return deleted;
   } catch (err) {
     throw new StorageError('deleteCoursePrefix', prefix, err);
+  }
+}
+
+/**
+ * Liste les clés d'un préfixe donné (paginé, toutes pages agrégées). Générique
+ * — utilisé notamment par le script de backup pour lister/purger
+ * "backups/mongo/" selon la politique de rétention (Prompt 74).
+ */
+export async function listObjectKeys(prefix: string): Promise<string[]> {
+  const s3 = getS3Client();
+  const keys: string[] = [];
+  let continuationToken: string | undefined;
+  try {
+    do {
+      const page = await s3.send(
+        new ListObjectsV2Command({
+          Bucket: bucket(),
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+          MaxKeys: 1000,
+        }),
+      );
+      for (const obj of page.Contents ?? []) {
+        if (obj.Key) keys.push(obj.Key);
+      }
+      continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (continuationToken);
+    return keys;
+  } catch (err) {
+    throw new StorageError('listObjectKeys', prefix, err);
   }
 }
 

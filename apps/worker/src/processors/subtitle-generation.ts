@@ -37,6 +37,7 @@ import {
 } from '../shared.js';
 import { getRedisConnection } from '../queues/connection.js';
 import { logger } from '../queues/index.js';
+import { purgeCourseIntermediateAssets } from '../lib/retention.js';
 import {
   alignToReference,
   subtitlesFromScript,
@@ -245,6 +246,16 @@ export async function processSubtitleGeneration(job: Job<SubtitleJobData>): Prom
 
     await report(courseId, 100, `Sous-titres prêts : ${cues.length} lignes${degraded ? ' (mode dégradé)' : ''}`);
     logger.info({ courseId, lessonId, cues: cues.length, srtKey, vttKey, degraded }, 'sous-titres générés');
+
+    // Rétention (P79) : la vidéo est assemblée ET les sous-titres finaux sont
+    // écrits — les slides PNG et l'audio par slide de cette leçon deviennent
+    // intermédiaires. Purge best-effort, jamais bloquante pour le pipeline.
+    // purgeCourseIntermediateAssets ne touche QUE les leçons 'ready' (skip les
+    // autres), donc une leçon voisine encore en cours reste intacte.
+    await purgeCourseIntermediateAssets(courseId).catch((err) =>
+      logger.warn({ courseId, lessonId, err }, 'retention : purge des assets intermédiaires ignorée'),
+    );
+
     return { courseId, lessonId, cues: cues.length, srtKey, vttKey, degraded };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

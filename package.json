@@ -15,7 +15,9 @@
     "up:full": "docker compose --profile full up -d",
     "down": "docker compose down",
     "logs": "docker compose logs -f",
-    "seed": "pnpm --filter @sallycourse/worker seed"
+    "seed": "pnpm --filter @sallycourse/worker seed",
+    "backup:mongo": "bash scripts/backup-mongo.sh",
+    "restore:mongo": "bash scripts/restore-mongo.sh"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

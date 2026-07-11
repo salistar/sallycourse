@@ -33,6 +33,8 @@ const COURSE_STATUS_BADGE: Record<
   ready: { variant: 'ready', label: 'Prêt' },
   published: { variant: 'published', label: 'Publié' },
   failed: { variant: 'failed', label: 'Échec' },
+  // Annulation (P73) — pas de variante Badge dédiée, réutilise 'failed' (arrêt).
+  cancelled: { variant: 'failed', label: 'Annulé' },
 };
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {

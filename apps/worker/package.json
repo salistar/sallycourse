@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "start:cpu": "tsx src/entrypoints/worker-cpu.ts",
+    "start:api": "tsx src/entrypoints/worker-api.ts",
+    "start:browser": "tsx src/entrypoints/worker-browser.ts",
     "mock-server": "tsx src/mocks/mock-server.ts",
     "seed": "tsx src/seed/seed.ts",
     "build": "tsc -p tsconfig.json",

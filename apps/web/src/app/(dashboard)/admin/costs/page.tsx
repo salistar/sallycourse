@@ -7,6 +7,8 @@ import { Badge, Card, CardContent, CardHeader, CardTitle, EmptyState } from '@/c
 import { cn } from '@/lib/cn';
 import { requireAdmin } from '../guard';
 import { costByCourse, marginByPlan, type CostRow } from './cost-stats';
+import { deriveCacheStats, overallHitRate, totalEstimatedSavingsUsd } from './cache-stats';
+import { readCacheCounts } from './read-cache-stats';
 
 /**
  * Dashboard admin des coûts de génération (P55) : coût par cours (ventilé par
@@ -88,6 +90,19 @@ export default async function AdminCostsPage() {
 
   const alerts = courseCosts.filter((c) => c.overThreshold);
   const grandTotal = courseCosts.reduce((acc, c) => acc + c.totalUsd, 0);
+
+  // ── Cache intelligent (P72) : taux de hit + économie estimée par namespace ──
+  const cacheCounts = await readCacheCounts();
+  const cacheStats = deriveCacheStats(cacheCounts);
+  const cacheSavingsTotal = totalEstimatedSavingsUsd(cacheStats);
+  const cacheHitRateOverall = overallHitRate(cacheStats);
+  const percent = new Intl.NumberFormat('fr-FR', { style: 'percent', maximumFractionDigits: 1 });
+
+  const CACHE_NAMESPACE_LABELS: Record<(typeof cacheStats)[number]['namespace'], string> = {
+    claude: 'Appels Claude',
+    tts: 'Synthèse vocale (TTS)',
+    screenshot: 'Captures d’écran',
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -230,6 +245,65 @@ export default async function AdminCostsPage() {
         )}
         <p className="text-2xs text-muted">
           Ventilation par nature — {Object.values(KIND_LABELS).join(' · ')}. Montants en USD.
+        </p>
+      </section>
+
+      {/* Cache intelligent (P72) */}
+      <section className="flex flex-col gap-3">
+        <h2 className="font-display text-lg font-semibold text-foreground">Cache</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm text-muted">Taux de hit global</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="font-display text-2xl font-semibold tabular-nums text-foreground">
+                {percent.format(cacheHitRateOverall)}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm text-muted">Économie estimée</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="font-display text-2xl font-semibold tabular-nums text-foreground">
+                {usd2.format(cacheSavingsTotal)}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-border bg-surface/60">
+          <table className="w-full min-w-[48rem] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-border text-start text-2xs uppercase tracking-wide text-muted">
+                <th className="px-4 py-3 text-start font-semibold">Cache</th>
+                <th className="px-4 py-3 text-end font-semibold">Hits</th>
+                <th className="px-4 py-3 text-end font-semibold">Miss</th>
+                <th className="px-4 py-3 text-end font-semibold">Taux de hit</th>
+                <th className="px-4 py-3 text-end font-semibold">Économie estimée</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cacheStats.map((s) => (
+                <tr key={s.namespace} className="border-b border-border/60 last:border-b-0">
+                  <td className="px-4 py-3 font-medium text-foreground">{CACHE_NAMESPACE_LABELS[s.namespace]}</td>
+                  <td className="px-4 py-3 text-end tabular-nums text-muted">{s.hits}</td>
+                  <td className="px-4 py-3 text-end tabular-nums text-muted">{s.misses}</td>
+                  <td className="px-4 py-3 text-end tabular-nums text-muted">{percent.format(s.hitRate)}</td>
+                  <td className="px-4 py-3 text-end font-semibold tabular-nums text-foreground">
+                    {usd2.format(s.estimatedSavingsUsd)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-2xs text-muted">
+          Économie = nombre de hits × coût moyen évité (estimé depuis la table de tarifs, taille d’appel typique du
+          pipeline). Cache Claude (30 jours, clé = hash système+message+modèle), cache TTS (permanent, clé =
+          hash texte+voix, déjà en place), cache de captures d’écran par contenu (permanent, clé = hash de la
+          spec — réutilisé entre leçons et entre cours).
         </p>
       </section>
     </div>

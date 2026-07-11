@@ -17,6 +17,7 @@ const TABS = [
   { href: '/admin/courses', label: 'Cours' },
   { href: '/admin/costs', label: 'Coûts' },
   { href: '/admin/jobs', label: 'Jobs' },
+  { href: '/admin/resilience', label: 'Résilience' },
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {

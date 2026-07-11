@@ -106,6 +106,9 @@ export async function generateQuizQuestions(
       system,
       user,
       maxTokens: QUIZ_MAX_TOKENS,
+      // Retry métier (P72) : feedback potentiellement identique d'une tentative
+      // à l'autre — désactive le cache pour ne pas rejouer la même réponse.
+      skipCache: attempt > 1,
       ...(cost ? { cost } : {}),
     })) as QuizQuestion[];
 

@@ -18,6 +18,9 @@ import {
 } from '../shared.js';
 import { getRedisConnection } from '../queues/connection.js';
 import { createQueue, logger } from '../queues/index.js';
+import { priorityForPlan } from '../queues/priority.js';
+import { planForCourse } from '../queues/plan-lookup.js';
+import { CourseCancelledError, checkCancelled } from '../lib/cancellation.js';
 import { generateVideoScript } from '../generators/video-script.js';
 import { generateArticle } from '../generators/article.js';
 import { generateQuiz } from '../generators/quiz.js';
@@ -77,7 +80,9 @@ export async function enqueueNextLesson(courseId: string, currentLessonId: strin
     const queue = createQueue(QUEUES.content);
     const jobId = makeJobId(courseId, QUEUES.content, next.id);
     await queue.remove(jobId).catch(() => undefined);
-    await queue.add(LESSON_CONTENT_JOB, { courseId, lessonId: next.id }, { ...defaultJobOptions, jobId });
+    // Priorité (P73) : la leçon suivante hérite de la priorité du plan du cours.
+    const priority = priorityForPlan(await planForCourse(courseId));
+    await queue.add(LESSON_CONTENT_JOB, { courseId, lessonId: next.id }, { ...defaultJobOptions, jobId, priority });
     logger.info({ courseId, nextLessonId: next.id }, 'leçon suivante enfilée (continuité séquentielle)');
     return next.id;
   } catch (err) {
@@ -262,6 +267,9 @@ export async function processContentGeneration(job: Job<ContentJobData>): Promis
   if (!lesson) throw new Error(`leçon introuvable : ${lessonId}`);
 
   try {
+    // Annulation (P73) : vérifiée avant de démarrer CETTE leçon — le chaînage
+    // séquentiel (une leçon enfile la suivante) s'arrête donc dès la prochaine.
+    await checkCancelled(courseId);
     await Lesson.updateOne({ _id: lessonId }, { $set: { status: 'generating' } });
     await report(courseId, 10, `Génération du contenu « ${lesson.title} » (${lesson.type})`);
 
@@ -309,6 +317,13 @@ export async function processContentGeneration(job: Job<ContentJobData>): Promis
     await finalizeCourseIfComplete(courseId);
     return { courseId, lessonId, type: lesson.type };
   } catch (err) {
+    // Annulation utilisateur (P73) : arrêt propre, la leçon reste dans son
+    // dernier état connu (pas 'failed') et la chaîne séquentielle ne repart pas.
+    if (err instanceof CourseCancelledError) {
+      logger.info({ courseId, lessonId }, 'génération de contenu interrompue (cours annulé)');
+      await report(courseId, 0, 'Génération annulée par l\'utilisateur.', 'warn').catch(() => undefined);
+      return { courseId, lessonId, type: lesson.type };
+    }
     const message = err instanceof Error ? err.message : String(err);
     logger.error({ courseId, lessonId, err }, 'échec de la génération de contenu');
     await Lesson.updateOne({ _id: lessonId }, { $set: { status: 'failed' } }).catch(() => undefined);

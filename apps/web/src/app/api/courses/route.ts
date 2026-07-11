@@ -3,16 +3,36 @@ import { createCourseInputSchema } from '@sallycourse/shared';
 import { connectDb, Course as CourseModel } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
 import { createCourseForUser } from '@/lib/create-course';
+import { extractClientIp, rateLimit } from '@/lib/rate-limit';
+import { moderateCourseTitle } from '@/lib/moderation';
 
 /**
  * /api/courses — création (POST) et listing (GET) des cours de l'utilisateur.
  * La création délègue à createCourseForUser (quota mensuel → Course →
  * GenerationJob → enqueue outline), logique partagée avec l'API publique v1.
+ * P70 : rate limiting (IP + utilisateur) et modération du titre avant génération.
  */
+
+/** Limites POST /api/courses — au-delà, l'IP ou l'utilisateur patiente. */
+const COURSE_CREATE_IP_LIMIT = { limit: 20, windowSec: 60 };
+const COURSE_CREATE_USER_LIMIT = { limit: 10, windowSec: 60 };
 
 export async function POST(request: Request) {
   const user = await requireApiUser();
   if (user instanceof Response) return user;
+
+  const ip = extractClientIp(request);
+  const [ipLimit, userLimit] = await Promise.all([
+    rateLimit(`courses:ip:${ip}`, COURSE_CREATE_IP_LIMIT),
+    rateLimit(`courses:user:${user.id}`, COURSE_CREATE_USER_LIMIT),
+  ]);
+  const hit = !ipLimit.allowed ? ipLimit : !userLimit.allowed ? userLimit : null;
+  if (hit) {
+    return NextResponse.json(
+      { error: 'Trop de créations de cours, réessayez plus tard.', code: 'rate_limited' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((hit.resetAt.getTime() - Date.now()) / 1000)) } },
+    );
+  }
 
   let body: unknown;
   try {
@@ -26,6 +46,19 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: 'Données invalides.', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
+    );
+  }
+
+  // Modération du titre AVANT réservation de quota / création (P70).
+  const moderation = await moderateCourseTitle(parsed.data.title);
+  if (!moderation.allowed) {
+    return NextResponse.json(
+      {
+        error: moderation.reason ?? 'Ce titre de cours ne peut pas être généré.',
+        code: 'content_blocked',
+        category: moderation.category,
+      },
+      { status: 422 },
     );
   }
 

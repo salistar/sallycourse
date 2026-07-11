@@ -35,6 +35,8 @@ const STATUS_BADGE: Record<CourseStatus, 'draft' | 'generating' | 'ready' | 'pub
   ready: 'ready',
   published: 'published',
   failed: 'failed',
+  // Annulation (P73) — pas de variante Badge dédiée, réutilise 'failed' (arrêt).
+  cancelled: 'failed',
 };
 
 function parseStatus(raw: string | undefined): 'all' | CourseStatus {

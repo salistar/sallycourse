@@ -21,6 +21,8 @@ import {
 } from '../shared.js';
 import { getRedisConnection } from '../queues/connection.js';
 import { createQueue, logger } from '../queues/index.js';
+import { priorityForPlan } from '../queues/priority.js';
+import { planForCourse } from '../queues/plan-lookup.js';
 import { callClaudeJson } from '../lib/claude.js';
 import { outlineSystemPrompt, outlineUserPrompt } from '../prompts/outline.js';
 import { LESSON_CONTENT_JOB } from './content-generation.js';
@@ -286,7 +288,9 @@ async function enqueueFirstLessonAfterDerive(courseId: string): Promise<void> {
   const lessonId = firstLesson._id.toString();
   const jobId = makeJobId(courseId, QUEUES.content, lessonId);
   await queue.remove(jobId).catch(() => undefined);
-  await queue.add(LESSON_CONTENT_JOB, { courseId, lessonId }, { ...defaultJobOptions, jobId });
+  // Priorité (P73) selon le plan du propriétaire du cours dérivé.
+  const priority = priorityForPlan(await planForCourse(courseId));
+  await queue.add(LESSON_CONTENT_JOB, { courseId, lessonId }, { ...defaultJobOptions, jobId, priority });
 
   await Course.updateOne({ _id: courseId }, { $set: { status: 'generating' } });
 }

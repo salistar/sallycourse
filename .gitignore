@@ -16,3 +16,4 @@ tmp/
 playwright-report/
 test-results/
 .turbo/
+backups/

@@ -2,16 +2,10 @@
 // Les processors métier (outline, contenu, TTS, …) seront enregistrés ici
 // via registerWorker(QUEUES.xxx, processor) au fil des prompts suivants.
 import mongoose from 'mongoose';
-import { connectDb, getConfig, QUEUES, QUEUE_NAMES } from './shared.js';
-import { closeAll, createQueue, logger, registerWorker, startHeartbeat } from './queues/index.js';
-import { processOutlineGeneration } from './processors/outline-generation.js';
-import { processContentGeneration } from './processors/content-generation.js';
-import { processTtsGeneration } from './processors/tts-generation.js';
-import { processSubtitleGeneration } from './processors/subtitle-generation.js';
-import { processScreenshotCapture } from './processors/screenshot-capture.js';
-import { processVideoRender } from './processors/video-render.js';
-import { processPackaging } from './processors/packaging.js';
-import { processDeployment } from './processors/deployment.js';
+import { connectDb, getConfig } from './shared.js';
+import { closeAll, getRegisteredQueues, logger, startHeartbeat } from './queues/index.js';
+import { startQueueBlockedScheduler, stopQueueBlockedScheduler, type BlockableQueueLike } from './lib/alerts.js';
+import { registerApiQueues, registerCpuQueues, registerBrowserQueues } from './entrypoints/register-groups.js';
 // Import à effet de bord : enregistre les adapters de déploiement dans le registre.
 import './deploy/adapters/udemy.js';
 import './deploy/adapters/podia.js';
@@ -27,6 +21,8 @@ import { killTpContainersOlderThan } from './media/tp-environments.js';
 import { startReviewScheduler, stopReviewScheduler } from './deploy/review-poll.js';
 import { startAnalyticsScheduler, stopAnalyticsScheduler } from './lib/analytics/refresh.js';
 import { startFeedbackWorker, stopFeedbackWorker } from './deploy/feedback-loop.js';
+import { startMetricsServer, stopMetricsServer } from './lib/metrics-server.js';
+import { startRetentionScheduler, stopRetentionScheduler } from './lib/retention.js';
 
 /** Reaper des conteneurs TP orphelins (P22) : au démarrage puis toutes les 15 min. */
 const TP_REAPER_INTERVAL_MS = 15 * 60 * 1_000;
@@ -51,27 +47,29 @@ async function main(): Promise<void> {
   await connectDb(config.MONGO_URI);
   logger.info({ env: config.NODE_ENV }, 'worker SallyCourse : Mongo connecté');
 
-  // Instancie les queues du pipeline (registre chaud, connexion Redis partagée).
-  for (const name of QUEUE_NAMES) createQueue(name);
-  logger.info({ queues: QUEUE_NAMES }, 'queues initialisées');
+  // Instancie + enregistre toutes les queues (comportement historique : tout
+  // dans un seul process). P71 : chaque groupe peut aussi tourner isolément
+  // via les entrypoints dédiés (src/entrypoints/worker-{cpu,api,browser}.ts).
+  const apiQueues = registerApiQueues();
+  const cpuQueues = registerCpuQueues();
+  const browserQueues = registerBrowserQueues();
+  logger.info({ queues: [...apiQueues, ...cpuQueues, ...browserQueues] }, 'queues initialisées');
 
-  // Processors métier (les étapes suivantes ajouteront les leurs ici).
-  registerWorker(QUEUES.outline, processOutlineGeneration, { concurrency: 2 });
-  registerWorker(QUEUES.content, processContentGeneration, { concurrency: 3 });
-  registerWorker(QUEUES.tts, processTtsGeneration, { concurrency: 2 });
-  registerWorker(QUEUES.subtitle, processSubtitleGeneration, { concurrency: 1 });
-  registerWorker(QUEUES.screenshot, processScreenshotCapture, { concurrency: 1 });
-  // Rendu vidéo FFmpeg : concurrency 1 (tâche CPU, un seul montage à la fois).
-  registerWorker(QUEUES.videoRender, processVideoRender, { concurrency: 1 });
-  // Packaging export ZIP : concurrency 1 (archive streamée + rendu PDF).
-  registerWorker(QUEUES.packaging, processPackaging, { concurrency: 1 });
-  // Déploiement plateformes (Udemy/YouTube) : concurrency 2.
-  registerWorker(QUEUES.deployment, processDeployment, { concurrency: 2 });
   // Analyse des retours étudiants (P62) : queue dédiée hors registre typé.
   startFeedbackWorker();
 
   startHeartbeat();
   startTpReaper();
+
+  // Serveur de métriques interne (P75) : GET /metrics, scrappé par uptime-kuma
+  // ou tout autre superviseur (profil docker-compose MONITORING).
+  startMetricsServer();
+
+  // Scan anti-blocage des queues (P75) : alerte ops si le job en attente le
+  // plus ancien dépasse le seuil (queue qui n'avance plus). Cast : l'API Queue
+  // BullMQ est structurellement compatible (getJobs(['waiting','delayed'])
+  // retourne des Job pourvus d'un id/timestamp), seul le typage générique gêne.
+  startQueueBlockedScheduler(() => getRegisteredQueues() as unknown as readonly BlockableQueueLike[]);
 
   // Cron review & alerting (P47) : poll quotidien du statut de revue des
   // déploiements, notification utilisateur, plan de correction en cas de rejet.
@@ -80,6 +78,10 @@ async function main(): Promise<void> {
   // Cron analytics (P61) : rafraîchissement périodique des métriques des cours
   // publiés (Udemy/YouTube), agrégé ensuite par le dashboard.
   await startAnalyticsScheduler();
+
+  // Cron archivage à froid (P79) : marque Course.archived=true après 90+
+  // jours d'inactivité (exclusion des listings actifs, réactivable).
+  await startRetentionScheduler();
 }
 
 let shuttingDown = false;
@@ -91,9 +93,12 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   logger.info({ signal }, 'arrêt du worker demandé');
   try {
     stopTpReaper();
+    stopQueueBlockedScheduler();
     await stopReviewScheduler();
     await stopAnalyticsScheduler();
+    await stopRetentionScheduler();
     await stopFeedbackWorker();
+    await stopMetricsServer();
     await closeAll();
     await closeSlideBrowser();
     await mongoose.disconnect();

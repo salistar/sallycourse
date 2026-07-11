@@ -5,6 +5,9 @@ import mongoose from 'mongoose';
 import { pino } from 'pino';
 import { defaultJobOptions, type QueueJobData, type QueueName } from '../shared.js';
 import { closeSharedRedis, getRedisConnection } from './connection.js';
+// P75 (monitoring) : compteurs /metrics + alerting ops sur échec définitif.
+import { recordJobCompleted, recordJobFailed } from '../lib/metrics-server.js';
+import { notifyOps } from '../lib/alerts.js';
 
 /**
  * pnpm installe deux ioredis (worker 5.11.x vs celui embarqué par bullmq 5.10.x) :
@@ -14,7 +17,40 @@ function bullConnection(): ConnectionOptions {
   return getRedisConnection() as unknown as ConnectionOptions;
 }
 
-export const logger = pino({ name: 'sallycourse-worker' });
+/**
+ * Chemins caviardés dans les logs (P76 — audit sécurité) : le worker loggue
+ * parfois des payloads de job bruts (job.data) qui peuvent contenir des
+ * identifiants sensibles (credentials plateforme, clés API, tokens).
+ */
+const REDACTED_PATHS = [
+  'password',
+  '*.password',
+  'token',
+  '*.token',
+  '*.data.token',
+  'accessToken',
+  '*.accessToken',
+  'refreshToken',
+  '*.refreshToken',
+  'apiKey',
+  '*.apiKey',
+  '*.data.apiKey',
+  'secret',
+  '*.secret',
+  '*.data.secret',
+  'credentials',
+  '*.credentials',
+  '*.data.credentials',
+  'authorization',
+  '*.authorization',
+  'headers.authorization',
+  'headers.cookie',
+];
+
+export const logger = pino({
+  name: 'sallycourse-worker',
+  redact: { paths: REDACTED_PATHS, censor: '[caviardé]' },
+});
 
 /** Canal Redis sur lequel le worker publie son heartbeat. */
 export const WORKER_HEARTBEAT_CHANNEL = 'worker:heartbeat';
@@ -36,6 +72,11 @@ export function createQueue<N extends QueueName>(name: N): Queue<QueueJobData[N]
     queueRegistry.set(name, queue);
   }
   return queue as Queue<QueueJobData[N]>;
+}
+
+/** Liste des queues enregistrées (P75 — monitoring : scan périodique anti-blocage). */
+export function getRegisteredQueues(): ReadonlyArray<Queue> {
+  return [...queueRegistry.values()];
 }
 
 /**
@@ -95,17 +136,29 @@ export function registerWorker<N extends QueueName>(
   worker.on('failed', (job, err) => {
     const courseId = (job?.data as { courseId?: string } | undefined)?.courseId;
     const attempts = job?.opts.attempts ?? 1;
-    const definitive = (job?.attemptsMade ?? 0) >= attempts;
+    const attemptsMade = job?.attemptsMade ?? 0;
+    const definitive = attemptsMade >= attempts;
     logger.error(
-      { queue: name, jobId: job?.id, courseId, attemptsMade: job?.attemptsMade, definitive, err },
+      { queue: name, jobId: job?.id, courseId, attemptsMade, definitive, err },
       `job en échec${definitive ? ' définitif' : ' (retentative planifiée)'}`,
     );
+    recordJobFailed(name);
+    // Alerte ops dès la 3ᵉ tentative (échec répété), pas seulement à l'échec
+    // définitif : permet d'agir avant que attempts (souvent 3) soit épuisé.
+    if (attemptsMade >= 3) {
+      void notifyOps(
+        `job "${name}" en échec répété (tentative ${attemptsMade}${definitive ? ', définitif' : ''}) — cours ${courseId ?? 'inconnu'} : ${err.message}`,
+        'critical',
+      );
+    }
     if (definitive) void markGenerationJobFailed(name, job, err);
   });
   worker.on('error', (err) => logger.error({ queue: name, err }, 'erreur worker'));
   worker.on('completed', (job) => {
     const courseId = (job.data as { courseId?: string } | undefined)?.courseId;
     logger.info({ queue: name, jobId: job.id, courseId }, 'job terminé');
+    const durationMs = job.finishedOn && job.processedOn ? job.finishedOn - job.processedOn : 0;
+    recordJobCompleted(name, durationMs);
   });
 
   workerRegistry.set(name, worker as Worker);

@@ -15,6 +15,8 @@ export const courseStatusSchema = z.enum([
   'ready',
   'published',
   'failed',
+  // Annulation propre demandée par l'utilisateur en cours de génération (P73).
+  'cancelled',
 ]);
 export type CourseStatus = z.infer<typeof courseStatusSchema>;
 

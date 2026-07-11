@@ -1,10 +1,17 @@
 import NextAuth, { type NextAuthResult } from 'next-auth';
+import { CredentialsSignin } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { compare, hash } from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { connectDb, User as UserModel } from '@sallycourse/db';
 import { authConfig, type AppJwtClaims } from './auth.config';
+import { checkLoginLockout, clearLoginLockout, extractClientIp, recordLoginFailure } from './rate-limit';
+
+/** Erreur dédiée pour le verrouillage progressif (P70) — code exploitable côté UI. */
+class AccountLockedError extends CredentialsSignin {
+  code = 'account_locked';
+}
 
 /**
  * Config Auth.js complète (runtime Node) : Credentials (email + mot de passe
@@ -28,17 +35,28 @@ const nextAuth = NextAuth({
         email: { label: 'Email', type: 'email' },
         password: { label: 'Mot de passe', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const parsed = credentialsSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
+        // Clé de verrouillage IP+email (P70) : bloque le bruteforce ciblé sans
+        // pénaliser toute une IP partagée sur d'autres comptes.
+        const ip = extractClientIp(request);
+        const lockoutKey = `${ip}:${parsed.data.email}`;
+
+        const lockout = await checkLoginLockout(lockoutKey);
+        if (lockout.locked) throw new AccountLockedError();
+
         await connectDb();
         const user = await UserModel.findOne({ email: parsed.data.email });
-        if (!user) return null;
+        const valid = user ? await compare(parsed.data.password, user.passwordHash) : false;
 
-        const valid = await compare(parsed.data.password, user.passwordHash);
-        if (!valid) return null;
+        if (!user || !valid) {
+          await recordLoginFailure(lockoutKey);
+          return null;
+        }
 
+        await clearLoginLockout(lockoutKey);
         return {
           id: user._id.toString(),
           email: user.email,

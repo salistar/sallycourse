@@ -13,7 +13,10 @@ import {
 } from '../shared.js';
 import { getRedisConnection } from '../queues/connection.js';
 import { createQueue, logger } from '../queues/index.js';
+import { priorityForPlan } from '../queues/priority.js';
+import { planForCourse } from '../queues/plan-lookup.js';
 import { renderLessonVideo } from '../media/video-render.js';
+import { CourseCancelledError } from '../lib/cancellation.js';
 import { finalizeCourseIfComplete } from './content-generation.js';
 
 export interface VideoRenderResult {
@@ -59,10 +62,12 @@ export async function processVideoRender(job: Job<VideoRenderJobData>): Promise<
     );
 
     // Sous-titres de la leçon (jobId déterministe = déduplication).
+    // Priorité (P73) selon le plan du propriétaire du cours.
+    const subtitlePriority = priorityForPlan(await planForCourse(courseId));
     await createQueue(QUEUES.subtitle).add(
       QUEUES.subtitle,
       { courseId, lessonId },
-      { jobId: makeJobId(courseId, QUEUES.subtitle, lessonId) },
+      { jobId: makeJobId(courseId, QUEUES.subtitle, lessonId), priority: subtitlePriority },
     );
     await report(courseId, 90, 'Sous-titrage enfilé');
 
@@ -73,6 +78,12 @@ export async function processVideoRender(job: Job<VideoRenderJobData>): Promise<
     logger.info({ ...rendered }, 'video-render terminé, subtitle-generation enfilé');
     return rendered;
   } catch (err) {
+    // Annulation utilisateur (P73) : arrêt propre, PAS de retry BullMQ.
+    if (err instanceof CourseCancelledError) {
+      logger.info({ courseId, lessonId }, 'rendu vidéo interrompu (cours annulé)');
+      await report(courseId, 0, 'Génération annulée par l\'utilisateur.', 'warn').catch(() => undefined);
+      return { courseId, lessonId, videoKey: '', durationSec: 0, segments: 0 };
+    }
     const message = err instanceof Error ? err.message : String(err);
     logger.error({ courseId, lessonId, err }, 'échec du rendu vidéo');
     await report(courseId, 0, `Échec du rendu vidéo : ${message}`, 'error').catch(() => undefined);
