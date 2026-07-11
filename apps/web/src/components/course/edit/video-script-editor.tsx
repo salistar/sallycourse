@@ -6,6 +6,9 @@ import { ArrowDown, ArrowUp, Film, Plus, Save, Trash2, X } from 'lucide-react';
 import { Button, useToast } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { useDirtyState, confirmDiscardIfDirty } from './use-dirty-state';
+import { useAutosave, autosaveStatusLabel } from '@/hooks/use-autosave';
+import { clearLocalDraft, readLocalDraft, shouldOfferRecovery, writeLocalDraft } from '@/hooks/local-draft';
+import { VersionHistoryPanel } from './version-history-panel';
 import type { EditableSlide } from './types';
 
 /**
@@ -13,6 +16,7 @@ import type { EditableSlide } from './types';
  * éditables + réordonnancement). Sauvegarde le script via PATCH
  * /api/lessons/[id] puis « Régénérer cette vidéo » relance la production
  * (POST /api/lessons/[id]/regenerate, mode 'full' : script édité → re-TTS).
+ * Autosave débouncée (P131) + brouillon local de secours.
  */
 export interface VideoScriptEditorProps {
   lessonId: string;
@@ -33,16 +37,54 @@ function move<T>(items: T[], from: number, to: number): T[] {
 export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScriptEditorProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const [slides, setSlides] = React.useState<EditableSlide[]>(initialSlides);
+  const draftScope = `video-script:${lessonId}`;
+
+  const [slides, setSlides] = React.useState<EditableSlide[]>(() => {
+    const draft = readLocalDraft<EditableSlide[]>(draftScope);
+    if (draft && shouldOfferRecovery(draft, initialSlides)) return draft.value;
+    return initialSlides;
+  });
+  const [recovered] = React.useState(() => {
+    const draft = readLocalDraft<EditableSlide[]>(draftScope);
+    return Boolean(draft && shouldOfferRecovery(draft, initialSlides));
+  });
   const [baseline, setBaseline] = React.useState<EditableSlide[]>(initialSlides);
   const [saving, setSaving] = React.useState(false);
   const [regenerating, setRegenerating] = React.useState(false);
 
   const dirty = useDirtyState(slides, baseline);
 
+  React.useEffect(() => {
+    if (dirty) writeLocalDraft(draftScope, slides);
+    else clearLocalDraft(draftScope);
+  }, [dirty, slides, draftScope]);
+
   const exit = () => {
     if (confirmDiscardIfDirty(dirty)) onExit();
   };
+
+  /** Sauvegarde silencieuse (sans toast) — réutilisée par l'autosave. */
+  const persist = React.useCallback(
+    async (value: EditableSlide[]) => {
+      const cleaned = value.map((slide) => ({
+        ...slide,
+        bullets: slide.bullets.map((b) => b.trim()).filter(Boolean),
+      }));
+      const payloadSlides = cleaned.map(({ rest, ...edited }) => ({ ...rest, ...edited }));
+      const res = await fetch(`/api/lessons/${lessonId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ script: { slides: payloadSlides } }),
+      });
+      if (!res.ok) throw new Error('save-failed');
+      setSlides(cleaned);
+      setBaseline(cleaned);
+      clearLocalDraft(draftScope);
+    },
+    [lessonId, draftScope],
+  );
+
+  const autosave = useAutosave(slides, persist, { enabled: dirty });
 
   const patchSlide = (index: number, patch: Partial<EditableSlide>) => {
     setSlides((prev) => prev.map((slide, i) => (i === index ? { ...slide, ...patch } : slide)));
@@ -73,41 +115,22 @@ export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScri
   };
 
   const save = async (): Promise<boolean> => {
-    // Nettoyage : on retire les puces vides avant sauvegarde.
-    const cleaned = slides.map((slide) => ({
-      ...slide,
-      bullets: slide.bullets.map((b) => b.trim()).filter(Boolean),
-    }));
-    // Reconstruction du contrat Slide : on réinjecte les champs préservés
-    // (code, language, notes) autour des champs édités.
-    const payloadSlides = cleaned.map(({ rest, ...edited }) => ({ ...rest, ...edited }));
     setSaving(true);
     try {
-      const res = await fetch(`/api/lessons/${lessonId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ script: { slides: payloadSlides } }),
+      await persist(slides);
+      toast({
+        title: 'Script enregistré',
+        description: 'La vidéo actuelle est marquée obsolète — régénérez-la pour appliquer les changements.',
+        variant: 'success',
       });
-      if (res.ok) {
-        setSlides(cleaned);
-        setBaseline(cleaned);
-        toast({
-          title: 'Script enregistré',
-          description: 'La vidéo actuelle est marquée obsolète — régénérez-la pour appliquer les changements.',
-          variant: 'success',
-        });
-        router.refresh();
-        return true;
-      }
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      router.refresh();
+      return true;
+    } catch {
       toast({
         title: 'Enregistrement impossible',
-        description: data?.error ?? 'Une erreur est survenue, réessayez plus tard.',
+        description: 'Une erreur est survenue, réessayez plus tard. Votre brouillon reste sauvegardé localement.',
         variant: 'danger',
       });
-      return false;
-    } catch {
-      toast({ title: 'Erreur réseau', description: 'Impossible de joindre le serveur.', variant: 'danger' });
       return false;
     } finally {
       setSaving(false);
@@ -151,15 +174,27 @@ export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScri
     }
   };
 
+  const autosaveLabel = autosaveStatusLabel(autosave.status, autosave.lastSavedAt);
+
   return (
     <div className="flex flex-col gap-4">
+      {recovered && (
+        <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+          Un brouillon non synchronisé a été retrouvé sur cet appareil et rechargé — pensez à
+          l’enregistrer.
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wide text-muted">
           <Film className="size-3.5 text-primary" aria-hidden="true" />
           Édition du script vidéo · {slides.length} slide{slides.length > 1 ? 's' : ''}
           {dirty && <span className="ms-1 text-accent-500 normal-case tracking-normal">• non enregistré</span>}
+          {!dirty && autosaveLabel && (
+            <span className="ms-1 text-muted normal-case tracking-normal">• {autosaveLabel}</span>
+          )}
         </p>
         <div className="flex flex-wrap items-center gap-2">
+          <VersionHistoryPanel lessonId={lessonId} />
           <Button variant="ghost" size="sm" onClick={exit}>
             <X aria-hidden="true" />
             Fermer

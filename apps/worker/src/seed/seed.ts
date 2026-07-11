@@ -28,7 +28,6 @@ import {
   GOLDEN_TP,
   GOLDEN_VIDEO_SCRIPT,
   goldenQuizForSection,
-  isDemoEmail,
   type DemoUserFixture,
 } from './fixtures.js';
 // Le plan « generating » réutilise une fixture mock (déterministe).

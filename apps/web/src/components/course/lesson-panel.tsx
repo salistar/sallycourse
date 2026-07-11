@@ -19,6 +19,7 @@ import { ArticleView } from './article-view';
 import { QuizPreview } from './quiz-preview';
 import { ScreenshotGallery } from './screenshot-gallery';
 import { RegenerateButton } from './regenerate-button';
+import { ApprovePreviewButton } from './approve-preview-button';
 import { LESSON_STATUS_BADGE } from './lesson-tree';
 import { ArticleEditor, QuizEditor, VideoScriptEditor } from './edit';
 import type { LessonType, LessonView, Locale } from './types';
@@ -155,6 +156,9 @@ export function LessonPanel({ lesson, locale, className }: LessonPanelProps) {
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <Badge variant={badge.variant}>{badge.label}</Badge>
+            {lesson.type === 'video' && (
+              <ApprovePreviewButton lessonId={lesson.id} videoQualityStatus={lesson.videoQualityStatus} />
+            )}
             <RegenerateButton
               lessonId={lesson.id}
               lessonTitle={lesson.title}

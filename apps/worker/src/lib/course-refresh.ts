@@ -19,6 +19,7 @@ import { Course, Lesson, getConfig, notify, type ICourse, type ILesson } from '.
 import { getRedisConnection } from '../queues/connection.js';
 import { logger } from '../queues/index.js';
 import { callClaudeJson } from './claude.js';
+import { saveFieldWithRetry } from './concurrency.js';
 
 /* ------------------------------------------------------------------ */
 /* Seuil de fraîcheur — pas de détection sur un cours récent            */
@@ -242,8 +243,17 @@ export async function runCourseRefreshCheck(
     thresholdDays,
   });
 
-  course.refreshSuggestions = stored;
-  await course.save().catch((err) => logger.warn({ courseId, err }, 'course-refresh : sauvegarde échouée'));
+  // Verrou optimiste (P120) : un autre job (ex. feedback-loop) peut avoir
+  // sauvegardé ce même Course entre le findById ci-dessus et ce save() — on
+  // recharge et réapplique la mutation sur l'état frais en cas de conflit.
+  await saveFieldWithRetry(
+    course,
+    () => Course.findById(courseId) as Promise<(ICourse & { _id: unknown; save: () => Promise<unknown> }) | null>,
+    (doc) => {
+      doc.refreshSuggestions = stored;
+    },
+    { context: { courseId, step: 'course-refresh' } },
+  ).catch((err) => logger.warn({ courseId, err }, 'course-refresh : sauvegarde échouée'));
 
   if (detection.likelyOutdated) {
     await emitRefreshAvailable(course, detection).catch((err) =>

@@ -23,6 +23,7 @@ import { transitions } from '@/components/motion';
 import { LanguageSwitcher } from '@/components/i18n';
 import { cn } from '@/lib/cn';
 import { NotificationBell } from './notification-bell';
+import { GlobalSearch } from './global-search';
 import { MOCK_USER, userInitials, type DashboardUser } from './mock-data';
 
 /**
@@ -257,6 +258,8 @@ function SidebarContent({
         {/* Cloche de notifications — visible en tête de sidebar (desktop + tiroir). */}
         <NotificationBell />
       </div>
+      {/* Recherche globale (P132) — raccourci Cmd/Ctrl+K, accessible sur toute la sidebar */}
+      <GlobalSearch />
       <NavLinks onNavigate={onNavigate} isAdmin={isAdmin} />
       <div className="mt-auto space-y-2">
         {/* Sélecteur de langue de l'UI (cookie NEXT_LOCALE) — au-dessus du menu. */}
@@ -294,6 +297,8 @@ export function DashboardSidebar({ isAdmin = false, user = MOCK_USER }: Dashboar
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background/80 px-4 py-3 backdrop-blur-md lg:hidden">
         <Logo />
         <div className="flex items-center gap-1">
+          {/* Recherche globale — icône seule sur mobile (le raccourci clavier reste actif). */}
+          <GlobalSearch iconOnly />
           {/* Cloche de notifications — accessible aussi hors tiroir sur mobile. */}
           <NotificationBell />
           <button

@@ -135,6 +135,10 @@ describe('renderLessonVideo — intégration ffmpeg réelle (mini-leçon 2 slide
       expect(probe.hasAudio).toBe(true);
       expect(probe.durationSec).toBeGreaterThan(0);
     },
-    30_000,
+    // 90s (au lieu de 30s) : ce test spawn ffmpeg réellement (5 invocations) et
+    // devient sensible à la contention CPU/IO quand toute la suite worker
+    // (~70 fichiers) tourne en parallèle — passe en ~13s isolé, peut dépasser
+    // 30s sous charge complète sans que ce soit une régression du code.
+    90_000,
   );
 });

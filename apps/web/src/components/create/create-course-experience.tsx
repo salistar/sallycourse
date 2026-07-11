@@ -206,6 +206,7 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
       approxSections: options.approxSections,
       avatarEnabled: options.avatarEnabled,
       avatarId: options.avatarEnabled ? options.avatarId : undefined,
+      scheduleOffPeak: options.scheduleOffPeak,
     });
 
     if (!result.success) {
@@ -231,7 +232,7 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
         }),
       });
       const data = (await response.json().catch(() => null)) as
-        | { id?: string; error?: string; code?: string }
+        | { id?: string; error?: string; code?: string; scheduledFor?: string }
         | null;
 
       // Quota du plan atteint : toast avec CTA vers les offres.
@@ -281,6 +282,20 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
             variant: 'warning',
           });
         }
+      }
+
+      // Programmation en heures creuses (P134) : la génération démarrera plus
+      // tard — on informe l'utilisateur avant la redirection.
+      if (data.scheduledFor) {
+        const hhmm = new Date(data.scheduledFor).toLocaleTimeString('fr-FR', {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        toast({
+          title: 'Génération programmée',
+          description: `Votre cours démarrera en heures creuses, vers ${hhmm}.`,
+          variant: 'success',
+        });
       }
 
       // Acte 2 : transition cinématique existante, puis page du cours.

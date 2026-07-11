@@ -147,7 +147,9 @@ async function applyVariantToPlatform(
   let adapter;
   try {
     adapter = getAdapter(platform);
-  } catch {
+  } catch (err) {
+    // Cohérent avec la doc ci-dessus : erreur loguée, jamais propagée.
+    logger.warn({ courseId, platform, err }, 'ab-testing : adapter introuvable — variante non appliquée');
     return;
   }
   if (typeof adapter.setLandingPage !== 'function') return;

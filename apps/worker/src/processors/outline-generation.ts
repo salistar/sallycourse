@@ -29,6 +29,7 @@ import { createQueue, logger } from '../queues/index.js';
 import { priorityForPlan } from '../queues/priority.js';
 import { planForCourse } from '../queues/plan-lookup.js';
 import { callClaudeJson } from '../lib/claude.js';
+import { checkOutlineStructuralIntegrity } from '../lib/llm-output-checks.js';
 import { getActivePrompt } from '../lib/prompt-registry.js';
 import { outlineSystemPrompt, outlineUserPrompt } from '../prompts/outline.js';
 import { LESSON_CONTENT_JOB } from './content-generation.js';
@@ -95,6 +96,9 @@ export function validateOutlineBusiness(outline: Outline): string[] {
   if (outline.subtitle.length > UDEMY.SUBTITLE_MAX_CHARS) {
     problems.push(`Le sous-titre dépasse ${UDEMY.SUBTITLE_MAX_CHARS} caractères (${outline.subtitle.length}).`);
   }
+
+  // Détection d'hallucination structurelle (P121) : section vide / quiz en tête de section.
+  problems.push(...checkOutlineStructuralIntegrity(outline));
 
   return problems;
 }
@@ -351,8 +355,12 @@ export async function processOutlineGeneration(job: Job<OutlineJobData>): Promis
     const course = await Course.findById(courseId);
     if (!course) throw new Error(`cours introuvable : ${courseId}`);
 
+    // Mutation atomique (P120) plutôt que load→save : évite tout VersionError
+    // si un autre job touche ce Course entre-temps (ex. régénération concurrente
+    // via un double-clic UI, cf. protection côté API create-course.ts).
+    // `course` reste en mémoire pour les champs lus plus bas (locale, difficulty…).
+    await Course.updateOne({ _id: courseId }, { $set: { status: 'generating' } });
     course.status = 'generating';
-    await course.save();
 
     // ── Dérivation (P64) : réutilise/traduit l'outline source, saute la revue ──
     if (derive) {

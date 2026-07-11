@@ -89,10 +89,16 @@ export async function extractPdf(buffer: Buffer): Promise<ExtractResult> {
  */
 export async function extractPptx(buffer: Buffer): Promise<ExtractResult> {
   try {
+    // Forme minimale utilisée du zip chargé (lib optionnelle, pas de @types dispo).
+    interface MinimalZip {
+      files: Record<string, { async: (type: 'string') => Promise<string> }>;
+    }
     const mod: unknown = await import('jszip' as string).catch(() => null);
     const JSZip = (mod as { default?: unknown })?.default ?? mod;
     if (JSZip && typeof (JSZip as { loadAsync?: unknown }).loadAsync === 'function') {
-      const zip = await (JSZip as { loadAsync: (b: Buffer) => Promise<any> }).loadAsync(buffer);
+      const zip = await (
+        JSZip as { loadAsync: (b: Buffer) => Promise<MinimalZip> }
+      ).loadAsync(buffer);
       const slideFiles = Object.keys(zip.files)
         .filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name))
         .sort((a, b) => {
@@ -102,7 +108,9 @@ export async function extractPptx(buffer: Buffer): Promise<ExtractResult> {
         });
       const texts: string[] = [];
       for (const name of slideFiles) {
-        const xml: string = await zip.files[name].async('string');
+        const entry = zip.files[name];
+        if (!entry) continue;
+        const xml: string = await entry.async('string');
         texts.push(extractTextTagsFromXml(xml));
       }
       return { text: texts.join('\n\n'), mode: 'full' };

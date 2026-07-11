@@ -3,6 +3,7 @@
 // Best-effort : Redis indisponible → compteurs à zéro (le dashboard reste utilisable).
 import { Redis } from 'ioredis';
 import { getConfig } from '@sallycourse/shared';
+import { logger } from '@/lib/logger';
 import type { CacheNamespace, CacheNamespaceCounts } from './cache-stats';
 
 const STATS_PREFIX = 'cache:stats:';
@@ -32,7 +33,8 @@ export async function readCacheCounts(): Promise<CacheNamespaceCounts[]> {
         redis.get(`${STATS_PREFIX}${namespace}:miss`),
       ]);
       out.push({ namespace, hits: Number(hits ?? 0), misses: Number(misses ?? 0) });
-    } catch {
+    } catch (err) {
+      logger.warn({ err, namespace }, 'cache-stats admin : lecture Redis impossible');
       out.push({ namespace, hits: 0, misses: 0 });
     }
   }

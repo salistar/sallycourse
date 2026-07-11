@@ -17,11 +17,10 @@ import {
   type DeploymentMode,
   type ILesson,
 } from '../../shared.js';
-import { getSlideBrowser } from '../../media/slide-renderer.js';
 import { BaseDeploymentAdapter } from '../base-adapter.js';
 import { registerAdapter } from '../registry.js';
 import type { DeployContext, DeployStatus } from '../types.js';
-import { isVideoLesson, slugifyTitle } from './lesson-transforms.js';
+import { isVideoLesson, slugifyTitle, withBrowserPage } from './lesson-transforms.js';
 
 const PODIA_BASE = 'https://app.podia.com';
 
@@ -35,17 +34,11 @@ export class PodiaAdapter extends BaseDeploymentAdapter {
   }
 
   /**
-   * Exécute une action nécessitant le navigateur, hors mock. Ouvre une page
-   * chromium partagée, injecte le contexte d'auth Podia, puis la referme.
+   * Exécute une action nécessitant le navigateur, hors mock (helper partagé
+   * P112 — voir lesson-transforms.ts, même pattern que Skillshare).
    */
-  private async withBrowser<T>(ctx: DeployContext, fn: (page: import('playwright').Page) => Promise<T>): Promise<T> {
-    const browser = await getSlideBrowser();
-    const page = await browser.newPage();
-    try {
-      return await fn(page);
-    } finally {
-      await page.close().catch(() => undefined);
-    }
+  private withBrowser<T>(_ctx: DeployContext, fn: (page: import('playwright').Page) => Promise<T>): Promise<T> {
+    return withBrowserPage(fn);
   }
 
   async authenticate(ctx: DeployContext): Promise<void> {
@@ -59,6 +52,8 @@ export class PodiaAdapter extends BaseDeploymentAdapter {
               // Session applicative : le cookie/jeton porte l'auth Podia.
               await page.goto(`${PODIA_BASE}/login`, { waitUntil: 'domcontentloaded' });
               if (ctx.credentials.email && ctx.credentials.password) {
+                // Anti-phishing (P126) : le domaine AVANT saisie doit être podia.com.
+                this.assertExpectedDomain(page.url(), 'podia.com');
                 await page.fill('input[name="email"]', ctx.credentials.email);
                 await page.fill('input[name="password"]', ctx.credentials.password);
                 await page.click('button[type="submit"]');

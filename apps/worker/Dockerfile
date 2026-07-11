@@ -35,5 +35,9 @@ COPY --from=build /app/packages ./packages
 # Chromium pour Playwright (dépendances système incluses)
 RUN npx playwright install --with-deps chromium
 USER node
+# Sonde /metrics (serveur HTTP interne du worker, METRICS_PORT défaut 9090) —
+# preuve de vie du process (event loop non bloquée), pas une vérif Mongo/Redis.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD node -e "require('http').get('http://127.0.0.1:'+(process.env.METRICS_PORT||9090)+'/metrics',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "apps/worker/dist/index.js"]

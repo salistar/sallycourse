@@ -161,14 +161,12 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 
 const server = createServer((req, res) => {
   handle(req, res).catch((err) => {
-    // eslint-disable-next-line no-console
     console.error('[mock-server] erreur non gérée', err);
     if (!res.headersSent) sendJson(res, 500, { error: { type: 'internal', message: 'mock-server error' } });
   });
 });
 
 server.listen(PORT, () => {
-  // eslint-disable-next-line no-console
   console.log(
     `[mock-server] SallyCourse mock à l'écoute sur http://localhost:${PORT}\n` +
       `  Anthropic   : ANTHROPIC_BASE_URL=http://localhost:${PORT}\n` +

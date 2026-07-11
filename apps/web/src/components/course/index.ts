@@ -20,6 +20,8 @@ export { QualityScorePanel, type QualityScorePanelProps } from './quality-score-
 export { FeedbackPanel, type FeedbackPanelProps } from './feedback-panel';
 export { ResourcesPanel, type ResourcesPanelProps } from './resources-panel';
 export { TranslatePanel, type TranslatePanelProps } from './translate-panel';
+export { QuickPreviewPanel, type QuickPreviewPanelProps } from './quick-preview-panel';
+export { ApprovePreviewButton, type ApprovePreviewButtonProps } from './approve-preview-button';
 export {
   ArticleEditor,
   VideoScriptEditor,
@@ -47,4 +49,5 @@ export type {
   FurtherResourceView,
   CourseResourcesView,
   DubbedVersionView,
+  VideoQualityStatus,
 } from './types';

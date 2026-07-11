@@ -1,7 +1,7 @@
-import type { CourseStatus, Difficulty, LessonType, Locale } from '@sallycourse/shared';
+import type { CourseStatus, Difficulty, LessonType, Locale, VideoQualityStatus } from '@sallycourse/shared';
 
 // Réexports pratiques pour les composants du dossier.
-export type { CourseStatus, Difficulty, LessonType, Locale };
+export type { CourseStatus, Difficulty, LessonType, Locale, VideoQualityStatus };
 
 // DTO sérialisables (page serveur → composants clients) de la page détail.
 // Les URLs d'assets sont déjà PRÉSIGNÉES côté serveur.
@@ -49,6 +49,11 @@ export interface LessonView {
   quiz: QuizQuestionView[] | null;
   /** Slides du script vidéo (leçons 'video' avec script produit). */
   scriptSlides?: SlideView[];
+  /**
+   * Cycle brouillon→final de l'aperçu vidéo rapide (Prompt 133) — pertinent
+   * uniquement pour les leçons 'video'. Absent/'none' = jamais utilisé.
+   */
+  videoQualityStatus?: VideoQualityStatus;
 }
 
 export interface SectionView {

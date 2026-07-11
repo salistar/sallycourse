@@ -19,7 +19,7 @@
 // identifiants fictifs, URL simulée hotmart.com/... , logs « [mock] ».
 
 import type { DeploymentMode, ILesson } from '../../shared.js';
-import { presignedGetUrl } from '../../shared.js';
+import { presignedGetUrl, DEFAULT_MARKETPLACE_PRICE } from '../../shared.js';
 import { BaseDeploymentAdapter } from '../base-adapter.js';
 import { registerAdapter } from '../registry.js';
 import type { DeployContext, DeployStatus } from '../types.js';
@@ -31,8 +31,8 @@ export const HOTMART_PLATFORM = 'hotmart';
 
 const OAUTH_TOKEN_URL = 'https://api-sec-vlc.hotmart.com/security/oauth/token';
 const CLUB_API_BASE = 'https://developers.hotmart.com/club/api/v1';
-/** Prix par défaut (BRL, unité monétaire) si le cours n'en fournit pas. */
-const DEFAULT_PRICE_BRL = 197;
+/** Prix par défaut (BRL, unité monétaire) si le cours n'en fournit pas (constants.ts, P113). */
+const DEFAULT_PRICE_BRL = DEFAULT_MARKETPLACE_PRICE.hotmartBrl;
 
 /* ------------------------------------------------------------------ */
 /* Helpers PURS (mapping / requêtes) — testables sans réseau           */

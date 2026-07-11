@@ -3,6 +3,14 @@
 // d'origine en respectant l'ordre, et projette chaque leçon vers un contenu
 // neutre (video/text/quiz) que chaque adapter mappe ensuite sur son API REST.
 // Sans I/O ni réseau : testable en isolation.
+//
+// (P112) fetchJsonApi : seul helper NON pur du fichier — factorise le pattern
+// « fetch JSON + en-têtes fixes + erreur HTTP normalisée » identique entre
+// Teachable et Thinkific (API REST simples, JSON in/out, un seul en-tête
+// d'auth). Volontairement PAS étendu à Hotmart (OAuth2 + jeton mémoïsé),
+// Systeme.io (enveloppe d'erreur JSON dédiée) ni Moodle (form-urlencoded +
+// enveloppe d'exception spécifique) : ces adapters ont une auth/format de
+// réponse trop spécifique pour bénéficier d'une factorisation forcée.
 
 import type { ICourse, ILesson, ISection } from '../../shared.js';
 
@@ -125,4 +133,32 @@ export function locateLesson(
     }
   }
   return null;
+}
+
+/**
+ * Appel REST JSON générique (fetch), pour les adapters API-based simples dont
+ * l'auth tient en des en-têtes fixes et dont les erreurs sont de simples codes
+ * HTTP non-2xx (pas d'enveloppe d'erreur JSON dédiée à parser). `platform` sert
+ * uniquement au message d'erreur. Jette une Error explicite sur HTTP non-OK ;
+ * ne fait AUCUN retry (les adapters appelants restent responsables de leur
+ * propre politique de retry via `withRetry`, inchangée par ce helper).
+ */
+export async function fetchJsonApi<T>(
+  platform: string,
+  baseUrl: string,
+  method: string,
+  path: string,
+  headers: Record<string, string>,
+  body?: unknown,
+): Promise<T> {
+  const res = await fetch(`${baseUrl}${path}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`${platform} ${method} ${path} → HTTP ${res.status} ${text}`.trim());
+  }
+  return (await res.json()) as T;
 }

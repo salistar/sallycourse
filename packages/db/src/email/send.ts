@@ -64,14 +64,12 @@ export async function sendEmail(
       return await sendViaSmtp(config.SMTP_URL!, to, rendered);
     }
     // Mode mock : on journalise, aucun envoi.
-    // eslint-disable-next-line no-console
     console.info(
       `[email:mock] → ${to} · ${template} · sujet="${rendered.subject}"`,
     );
     return { channel: 'mock', ok: true };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
-    // eslint-disable-next-line no-console
     console.warn(`[email:${channel}] échec d'envoi vers ${to} : ${error}`);
     return { channel, ok: false, error };
   }

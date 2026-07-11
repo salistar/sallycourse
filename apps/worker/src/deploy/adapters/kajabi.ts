@@ -24,12 +24,13 @@ import {
   uploadObject,
   encryptSecret,
   decryptSecret,
-  type ICourse,
+  VIDEO_PROCESSING,
   type ILesson,
   type ISection,
 } from '../../shared.js';
 import { BaseDeploymentAdapter } from '../base-adapter.js';
 import { registerAdapter } from '../registry.js';
+import { guardBrowserSession, type BrowserSessionGuard } from '../browser-session-guard.js';
 import type { DeployContext, DeployStatus } from '../types.js';
 import type { DeploymentMode } from '../../shared.js';
 
@@ -80,8 +81,7 @@ export const SELECTORS = {
 /* ------------------------------------------------------------------ */
 
 const KAJABI_BASE = 'https://app.kajabi.com';
-const VIDEO_PROCESSING_TIMEOUT_MS = 20 * 60 * 1_000;
-const VIDEO_PROCESSING_POLL_MS = 10 * 1_000;
+// Timeout/intervalle de poll d'encodage vidéo : VIDEO_PROCESSING (constants.ts, P113).
 
 /* ------------------------------------------------------------------ */
 /* Logique PURE (testable sans navigateur)                             */
@@ -185,6 +185,8 @@ export class KajabiAdapter extends BaseDeploymentAdapter {
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
   private page: Page | null = null;
+  // Garde de durée de vie (P126) : ferme le contexte de force si la session dépasse le timeout.
+  private sessionGuard: BrowserSessionGuard | null = null;
 
   // ────────────────────────────────────────────────────────────────
   // authenticate
@@ -222,6 +224,8 @@ export class KajabiAdapter extends BaseDeploymentAdapter {
 
     await this.withRetry(async () => {
       await page.goto(`${KAJABI_BASE}/login`, { waitUntil: 'domcontentloaded' });
+      // Anti-phishing (P126) : le domaine de la page AVANT saisie doit être kajabi.com.
+      this.assertExpectedDomain(page.url(), 'kajabi.com');
       await page.fill(SELECTORS.login.email, email);
       await page.fill(SELECTORS.login.password, password);
       await page.click(SELECTORS.login.submit);
@@ -326,8 +330,7 @@ export class KajabiAdapter extends BaseDeploymentAdapter {
   /** Upload vidéo puis polling de l'encodage jusqu'à disponibilité (ou timeout). */
   private async uploadVideo(ctx: DeployContext, page: Page, videoKey: string): Promise<void> {
     await this.uploadFile(page, SELECTORS.curriculum.videoFileInput, videoKey, 'video.mp4');
-    const deadline = Date.now() + VIDEO_PROCESSING_TIMEOUT_MS;
-    // eslint-disable-next-line no-constant-condition
+    const deadline = Date.now() + VIDEO_PROCESSING.TIMEOUT_MS;
     while (true) {
       const done = await page.locator(SELECTORS.curriculum.processingDone).count();
       if (done > 0) return;
@@ -335,7 +338,7 @@ export class KajabiAdapter extends BaseDeploymentAdapter {
         throw new Error("encodage vidéo Kajabi non terminé dans le délai imparti");
       }
       await this.log(ctx, 'info', 'encodage vidéo Kajabi en cours…');
-      await page.waitForTimeout(VIDEO_PROCESSING_POLL_MS);
+      await page.waitForTimeout(VIDEO_PROCESSING.POLL_INTERVAL_MS);
     }
   }
 
@@ -451,6 +454,8 @@ export class KajabiAdapter extends BaseDeploymentAdapter {
     this.context = await this.browser.newContext(
       storageState ? { storageState: JSON.parse(storageState) } : {},
     );
+    // Timeout global de session (P126) : ferme le contexte de force au-delà du délai.
+    this.sessionGuard = guardBrowserSession(this.context, 'kajabi.deploy');
     this.page = await this.context.newPage();
     return this.page;
   }
@@ -531,6 +536,7 @@ export class KajabiAdapter extends BaseDeploymentAdapter {
   }
 
   private async closeBrowser(): Promise<void> {
+    this.sessionGuard?.dispose();
     try {
       await this.page?.close();
       await this.context?.close();
@@ -538,6 +544,7 @@ export class KajabiAdapter extends BaseDeploymentAdapter {
     } catch {
       /* best-effort */
     } finally {
+      this.sessionGuard = null;
       this.page = null;
       this.context = null;
       this.browser = null;

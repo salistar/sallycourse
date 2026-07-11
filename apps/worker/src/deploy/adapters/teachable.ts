@@ -14,6 +14,7 @@ import { registerAdapter } from '../registry.js';
 import type { DeployContext, DeployStatus } from '../types.js';
 import type { DeploymentMode, ILesson } from '../../shared.js';
 import {
+  fetchJsonApi,
   locateLesson,
   mapCourseStructure,
   type LmsContentType,
@@ -61,25 +62,20 @@ export class TeachableAdapter extends BaseDeploymentAdapter {
     };
   }
 
-  /** GET/POST JSON avec retry. Jette sur statut HTTP non 2xx. */
+  /**
+   * GET/POST JSON avec retry (helper partagé P112 — voir structure.ts, même
+   * pattern que Thinkific). Jette sur statut HTTP non 2xx.
+   */
   private async api<T>(
     ctx: DeployContext,
     method: string,
     path: string,
     body?: unknown,
   ): Promise<T> {
-    return this.withRetry(async () => {
-      const res = await fetch(`${TEACHABLE_API_BASE}${path}`, {
-        method,
-        headers: this.headers(ctx),
-        body: body === undefined ? undefined : JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(`Teachable ${method} ${path} → HTTP ${res.status} ${text}`.trim());
-      }
-      return (await res.json()) as T;
-    }, `teachable ${method} ${path}`);
+    return this.withRetry(
+      () => fetchJsonApi<T>('Teachable', TEACHABLE_API_BASE, method, path, this.headers(ctx), body),
+      `teachable ${method} ${path}`,
+    );
   }
 
   async authenticate(ctx: DeployContext): Promise<void> {

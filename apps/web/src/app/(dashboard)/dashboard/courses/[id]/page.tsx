@@ -339,6 +339,7 @@ export default async function CourseDetailPage({
                 }))
               : null,
             scriptSlides: extractSlides(lesson.script),
+            videoQualityStatus: lesson.videoQualityStatus,
           };
         }),
       );

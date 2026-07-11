@@ -16,6 +16,9 @@ import {
 import { Badge, Button, ToastProvider, Toaster, useToast } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { approveOutlinePayloadSchema, type ApproveOutlinePayload } from '@/lib/outline-payload';
+import { useAutosave, autosaveStatusLabel } from '@/hooks/use-autosave';
+import { clearLocalDraft, readLocalDraft, shouldOfferRecovery, writeLocalDraft } from '@/hooks/local-draft';
+import { useDirtyState } from '../course/edit/use-dirty-state';
 import { OutlineEditor } from './outline-editor';
 import { RegenerateDialog } from './regenerate-dialog';
 import { toEditorSections, type Difficulty, type EditorSection, type Locale, type OutlineReviewCourse } from './types';
@@ -59,10 +62,23 @@ export function OutlineReview({ course }: OutlineReviewProps) {
 function OutlineReviewInner({ course }: OutlineReviewProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const draftScope = `outline:${course.id}`;
 
-  const [sections, setSections] = React.useState<EditorSection[]>(() =>
-    toEditorSections(course.sections),
-  );
+  const initialSections = React.useMemo(() => toEditorSections(course.sections), [course.sections]);
+
+  const [sections, setSections] = React.useState<EditorSection[]>(() => {
+    // Récupération d'un brouillon local (P131) : le plan n'a pas de
+    // sauvegarde serveur incrémentale (seule « Valider » persiste), donc
+    // l'autosave et la protection contre la perte reposent entièrement sur
+    // localStorage ici.
+    const draft = readLocalDraft<EditorSection[]>(draftScope);
+    if (draft && shouldOfferRecovery(draft, initialSections)) return draft.value;
+    return initialSections;
+  });
+  const [recovered] = React.useState(() => {
+    const draft = readLocalDraft<EditorSection[]>(draftScope);
+    return Boolean(draft && shouldOfferRecovery(draft, initialSections));
+  });
   const [approving, setApproving] = React.useState(false);
   const [regenerateOpen, setRegenerateOpen] = React.useState(false);
   const [regenerating, setRegenerating] = React.useState(false);
@@ -71,6 +87,21 @@ function OutlineReviewInner({ course }: OutlineReviewProps) {
   // sans collision avec les _id Mongo utilisés pour les éléments existants.
   const keyCounter = React.useRef(0);
   const nextKey = React.useCallback(() => `new-${++keyCounter.current}`, []);
+
+  // Autosave locale uniquement : pas d'endpoint de sauvegarde partielle du
+  // plan côté serveur, on protège seulement contre une perte de saisie
+  // (fermeture d'onglet, crash) via un brouillon localStorage.
+  const persistLocally = React.useCallback(
+    (value: EditorSection[]) => {
+      writeLocalDraft(draftScope, value);
+    },
+    [draftScope],
+  );
+  const autosave = useAutosave(sections, persistLocally, { delayMs: 2000 });
+  // beforeunload : le plan n'est jamais persisté côté serveur avant
+  // « Valider » — dirty compare à la version chargée au montage (et non à
+  // la dernière écriture localStorage, qui elle-même n'est qu'un filet).
+  const dirty = useDirtyState(sections, initialSections);
 
   // ── Statistiques temps réel du plan ────────────────────────────
   const stats = React.useMemo(() => {
@@ -130,6 +161,7 @@ function OutlineReviewInner({ course }: OutlineReviewProps) {
         title: 'Plan validé',
         description: 'La génération du contenu de chaque leçon démarre.',
       });
+      clearLocalDraft(draftScope); // Plan persisté côté serveur : le brouillon local est obsolète.
       router.refresh();
     } catch {
       toast({ variant: 'danger', title: 'Erreur réseau', description: 'Impossible de joindre le serveur.' });
@@ -172,6 +204,7 @@ function OutlineReviewInner({ course }: OutlineReviewProps) {
 
   const createdAt = new Date(course.createdAt);
   const busy = approving || regenerating;
+  const autosaveLabel = autosaveStatusLabel(autosave.status, autosave.lastSavedAt);
 
   return (
     <div className="flex flex-col gap-8">
@@ -185,6 +218,12 @@ function OutlineReviewInner({ course }: OutlineReviewProps) {
           Retour au dashboard
         </Link>
 
+        {recovered && (
+          <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+            Un brouillon de plan non validé a été retrouvé sur cet appareil et rechargé.
+          </p>
+        )}
+
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-3">
@@ -192,6 +231,20 @@ function OutlineReviewInner({ course }: OutlineReviewProps) {
                 {course.title}
               </h1>
               <Badge variant="draft">Plan à valider</Badge>
+              {dirty && (
+                <span className="text-2xs font-semibold uppercase tracking-wide text-accent-500">
+                  • non validé
+                </span>
+              )}
+              {!dirty ? null : autosave.status === 'saving' ? (
+                <span className="text-2xs uppercase tracking-wide text-muted">Enregistrement…</span>
+              ) : (
+                autosaveLabel && (
+                  <span className="text-2xs uppercase tracking-wide text-muted">
+                    Brouillon local · {autosaveLabel}
+                  </span>
+                )
+              )}
             </div>
             <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
               <span className="inline-flex items-center gap-1.5">

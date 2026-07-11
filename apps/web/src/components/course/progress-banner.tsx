@@ -80,6 +80,13 @@ export function ProgressBanner({ courseId, className }: ProgressBannerProps) {
     };
   }, [courseId, step]);
 
+  // Estimation du pipeline complet + position en file + « prêt vers HH:mm »
+  // (P134) — chargée tant que la génération n'est pas terminée.
+  const [pipelineInfo, setPipelineInfo] = React.useState<{
+    queuePosition: number;
+    readyAtLabel: string;
+  } | null>(null);
+
   const hasError = logs.some((log) => log.level === 'error');
   const stepIndex = Math.max(
     0,
@@ -92,6 +99,37 @@ export function ProgressBanner({ courseId, className }: ProgressBannerProps) {
   const lastLog = logs[logs.length - 1];
 
   const finished = stepIndex === PIPELINE_STEPS.length - 1 && progress >= 100 && !hasError;
+
+  // Chargement de l'estimation du pipeline (P134) — arrêté une fois terminé
+  // ou en erreur (plus la peine d'estimer un « prêt vers » qui ne viendra pas).
+  React.useEffect(() => {
+    if (finished || hasError) return;
+    let cancelled = false;
+    const load = async (): Promise<void> => {
+      try {
+        const res = await fetch(`/api/courses/${encodeURIComponent(courseId)}/pipeline-estimate`);
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as {
+          queuePosition?: number;
+          readyAtLabel?: string;
+        };
+        if (!cancelled) {
+          setPipelineInfo({
+            queuePosition: data.queuePosition ?? 0,
+            readyAtLabel: data.readyAtLabel ?? '',
+          });
+        }
+      } catch {
+        // Best-effort : l'estimation est un bonus UX, pas un garde-fou.
+      }
+    };
+    void load();
+    const timer = setInterval(load, ESTIMATE_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [courseId, finished, hasError]);
 
   // Pipeline terminé : on rafraîchit le Server Component (statuts + assets frais).
   const refreshedRef = React.useRef(false);
@@ -126,6 +164,18 @@ export function ProgressBanner({ courseId, className }: ProgressBannerProps) {
         {!finished && !hasError && waitMs !== null && waitMs > 0 && (
           <p className="text-2xs text-muted">
             Temps d'attente estimé avant traitement : {formatWaitLabel(waitMs)}
+          </p>
+        )}
+        {/* File d'attente + estimation globale du pipeline (P134). */}
+        {!finished && !hasError && pipelineInfo && (
+          <p className="text-2xs text-muted">
+            {pipelineInfo.queuePosition > 0 && (
+              <>
+                {pipelineInfo.queuePosition} cours devant le vôtre dans la file
+                {pipelineInfo.readyAtLabel ? ' — ' : ''}
+              </>
+            )}
+            {pipelineInfo.readyAtLabel && `Votre cours sera prêt vers ${pipelineInfo.readyAtLabel}`}
           </p>
         )}
       </CardHeader>

@@ -192,6 +192,77 @@ describe('withCheckpoint — reprise granulaire après crash simulé', () => {
     expect(await store.load('lesson-final')).toEqual([]);
   });
 
+  it('cas complexe (Prompt 128) : crash au milieu d\'un rendu multi-leçons (2/5), reprend exactement à la leçon 3 sans retraiter les leçons 1 et 2 déjà rendues', async () => {
+    const { store } = createDurableStore<{ videoKey: string }>();
+    const lessons = ['lecon-1', 'lecon-2', 'lecon-3', 'lecon-4', 'lecon-5'];
+    const CRASH_AFTER_LESSON_INDEX = 1; // crash pendant le traitement de la 3ᵉ leçon (index 2)
+
+    // ── Tentative 1 : le worker "crashe" (process killé) pendant le rendu de
+    // la leçon 3, APRÈS avoir déjà rendu et checkpointé les leçons 1 et 2. ──
+    const attempt1Rendered: string[] = [];
+    await expect(
+      withCheckpoint({
+        jobId: 'course-multi-lecon',
+        steps: lessons,
+        store,
+        runStep: async (lessonId, index) => {
+          if (index === CRASH_AFTER_LESSON_INDEX + 1) {
+            // Simule un crash worker EN COURS de rendu de la leçon 3 : le
+            // segment ffmpeg est en train d'être encodé quand le process meurt
+            // (kill -9 simulé), donc runStep jette avant tout retour de résultat.
+            throw new Error(`worker tué (kill -9) pendant le rendu de ${lessonId}`);
+          }
+          attempt1Rendered.push(lessonId);
+          return { videoKey: `s3://videos/${lessonId}.mp4` };
+        },
+      }),
+    ).rejects.toThrow(/worker tué/);
+
+    // Seules les leçons 1 et 2 ont été réellement rendues et checkpointées ;
+    // la leçon 3 n'a jamais produit de résultat (crash avant tout retour).
+    expect(attempt1Rendered).toEqual(['lecon-1', 'lecon-2']);
+
+    // ── Tentative 2 (relance du worker, même courseId/jobId) : reprise ──
+    const attempt2Rendered: string[] = [];
+    const { results, resumedCount, processedCount } = await withCheckpoint({
+      jobId: 'course-multi-lecon',
+      steps: lessons,
+      store,
+      runStep: async (lessonId) => {
+        attempt2Rendered.push(lessonId);
+        return { videoKey: `s3://videos/${lessonId}.mp4` };
+      },
+    });
+
+    // Les leçons 1 et 2 (déjà checkpointées avant le crash) NE SONT PAS
+    // re-rendues (pas de double coût ffmpeg/S3) — la reprise repart pile à la
+    // leçon 3, puis enchaîne 4 et 5 normalement.
+    expect(attempt2Rendered).toEqual(['lecon-3', 'lecon-4', 'lecon-5']);
+    expect(resumedCount).toBe(2); // lecon-1, lecon-2 rejouées depuis le checkpoint
+    expect(processedCount).toBe(3); // lecon-3, lecon-4, lecon-5 réellement rendues cette fois
+
+    // Le résultat final couvre les 5 leçons, dans l'ordre, sans trou ni doublon.
+    expect(results).toEqual([
+      { videoKey: 's3://videos/lecon-1.mp4' },
+      { videoKey: 's3://videos/lecon-2.mp4' },
+      { videoKey: 's3://videos/lecon-3.mp4' },
+      { videoKey: 's3://videos/lecon-4.mp4' },
+      { videoKey: 's3://videos/lecon-5.mp4' },
+    ]);
+
+    // Chaque leçon n'a été RÉELLEMENT rendue qu'une seule fois au total (sauf
+    // lecon-3, qui a échoué sans checkpoint puis a été retraitée une fois).
+    const allRuns = [...attempt1Rendered, ...attempt2Rendered];
+    expect(allRuns.filter((x) => x === 'lecon-1')).toHaveLength(1);
+    expect(allRuns.filter((x) => x === 'lecon-2')).toHaveLength(1);
+    expect(allRuns.filter((x) => x === 'lecon-3')).toHaveLength(1);
+    expect(allRuns.filter((x) => x === 'lecon-4')).toHaveLength(1);
+    expect(allRuns.filter((x) => x === 'lecon-5')).toHaveLength(1);
+
+    // Le checkpoint est purgé après succès complet (repli propre P69).
+    expect(await store.load('course-multi-lecon')).toEqual([]);
+  });
+
   it('ne mélange pas les checkpoints de deux jobId distincts', async () => {
     const { store } = createDurableStore<number>();
 

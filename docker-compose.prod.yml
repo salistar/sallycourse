@@ -43,6 +43,63 @@ services:
           memory: 1g
     networks: [internal]
 
+  # ── Services IA (profil ai, cf. docker-compose.yml) ──────────────
+  # ollama peut charger des modèles volumineux en mémoire : plafond large
+  # mais borné pour éviter l'éviction OOM d'autres services si démarré en prod.
+  ollama:
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 6g
+          cpus: "2"
+    networks: [internal]
+
+  piper:
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1"
+    networks: [internal]
+
+  # ── Monitoring (profil monitoring) ───────────────────────────────
+  uptime-kuma:
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+    networks: [internal, edge]
+
+  # ── Outils de debug (profil debug — non destinés à la prod, limites
+  # posées par prudence si le profil est démarré par erreur) ────────
+  mongo-express:
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+    networks: [internal]
+
+  redis-commander:
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+    networks: [internal]
+
+  mailpit:
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+    networks: [internal]
+
 networks:
   internal:
     internal: true

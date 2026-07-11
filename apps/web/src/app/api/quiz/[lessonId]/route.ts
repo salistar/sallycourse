@@ -6,6 +6,7 @@ import {
   connectDb,
   Course as CourseModel,
   Lesson as LessonModel,
+  LessonVersion,
   Quiz as QuizModel,
 } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
@@ -54,6 +55,20 @@ export async function PATCH(
     .lean();
   if (!course) {
     return NextResponse.json({ error: 'Leçon introuvable.' }, { status: 404 });
+  }
+
+  // ── Historique des versions (P131) : instantané des questions précédentes
+  // avant remplacement, best-effort. Uniquement si un quiz existait déjà.
+  try {
+    const existing = await QuizModel.findOne({ lessonId: lesson._id }).select('questions').lean();
+    if (existing && existing.questions?.length) {
+      await LessonVersion.create({
+        lessonId: lesson._id,
+        snapshot: { questions: existing.questions },
+      });
+    }
+  } catch {
+    // Historique best-effort — on continue la sauvegarde des questions.
   }
 
   // Upsert : crée le quiz s'il n'existait pas, sinon remplace ses questions.

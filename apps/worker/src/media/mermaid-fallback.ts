@@ -17,15 +17,16 @@
 // des couleurs fixes (pas de var() : le gabarit n'injecte pas de <style>
 // scoped pour un SVG externe) alignées sur packages/design/src/tokens.json.
 
-import { parseMermaidFlowchart, type ParsedMermaidGraph, type MermaidNode } from '../shared.js';
+import { parseMermaidFlowchart, colors, type ParsedMermaidGraph, type MermaidNode } from '../shared.js';
 
-/** Couleurs figées (tokens.json) — le SVG de repli ne peut pas lire les CSS vars du gabarit hôte. */
+/** Couleurs figées depuis les tokens (P113 : plus de hex en dur) — le SVG de repli ne peut pas lire les CSS vars du gabarit hôte. */
 const FALLBACK_COLORS = {
-  nodeFill: '#231B2F', // neutral.900
-  nodeStroke: '#8E55BE', // violet.500
-  nodeText: '#F3F0F7', // neutral.100
-  edge: '#AB7DD3', // violet.400
-  edgeLabel: '#DEB232', // gold.400
+  nodeFill: colors.neutral[900],
+  nodeStroke: colors.violet[500],
+  nodeText: colors.neutral[100],
+  edge: colors.violet[400],
+  edgeLabel: colors.gold[400],
+  edgeLabelBg: colors.neutral[950],
 } as const;
 
 /** Échappe un texte pour insertion sûre dans un attribut/texte SVG. */
@@ -114,7 +115,7 @@ function edgeSvg(
   const endY = to.y;
   const midY = (startY + endY) / 2;
   const labelSvg = label
-    ? `<rect x="${startX - 60}" y="${midY - 16}" width="120" height="28" rx="6" fill="#0D0714"/>` +
+    ? `<rect x="${startX - 60}" y="${midY - 16}" width="120" height="28" rx="6" fill="${FALLBACK_COLORS.edgeLabelBg}"/>` +
       `<text x="${startX}" y="${midY + 4}" text-anchor="middle" font-family="Figtree, sans-serif" ` +
       `font-size="18" fill="${FALLBACK_COLORS.edgeLabel}">${escapeXml(label)}</text>`
     : '';

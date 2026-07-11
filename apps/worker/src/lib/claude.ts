@@ -41,6 +41,7 @@ export interface CallClaudeJsonParams<T> {
    * type d'entrée distinct du type de sortie `T`, ce qui rendrait `z.ZodType<T>`
    * (Input=T par défaut) incompatible avec ces schémas sans cette relaxation.
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Input volontairement libre : voir doc ci-dessus (schémas `.default()`).
   schema: z.ZodType<T, z.ZodTypeDef, any>;
   /** Prompt système (règles, format de sortie). */
   system: string;

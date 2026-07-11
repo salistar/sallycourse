@@ -10,7 +10,9 @@ import { BaseDeploymentAdapter } from '../base-adapter.js';
 import { registerAdapter } from '../registry.js';
 import type { DeployContext, DeployStatus } from '../types.js';
 import type { DeploymentMode, ILesson } from '../../shared.js';
+import { DEFAULT_MARKETPLACE_PRICE } from '../../shared.js';
 import {
+  fetchJsonApi,
   locateLesson,
   mapCourseStructure,
   type LmsContentType,
@@ -21,8 +23,8 @@ import { buildProductDescription, slugifyTitle } from './lesson-transforms.js';
 /** Base de l'API v1 Thinkific. */
 const THINKIFIC_API_BASE = 'https://api.thinkific.com/api/public/v1';
 
-/** Prix de vente par défaut (en unités, devise du compte) si non spécifié. */
-const DEFAULT_PRICE = 49;
+/** Prix de vente par défaut (en unités, devise du compte) si non spécifié (constants.ts, P113). */
+const DEFAULT_PRICE = DEFAULT_MARKETPLACE_PRICE.thinkific;
 
 interface ThinkificCourseResponse {
   id?: number | string;
@@ -66,24 +68,17 @@ export class ThinkificAdapter extends BaseDeploymentAdapter {
     };
   }
 
+  /** Appel REST JSON (helper partagé P112 — voir structure.ts, même pattern que Teachable). */
   private async api<T>(
     ctx: DeployContext,
     method: string,
     path: string,
     body?: unknown,
   ): Promise<T> {
-    return this.withRetry(async () => {
-      const res = await fetch(`${THINKIFIC_API_BASE}${path}`, {
-        method,
-        headers: this.headers(ctx),
-        body: body === undefined ? undefined : JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(`Thinkific ${method} ${path} → HTTP ${res.status} ${text}`.trim());
-      }
-      return (await res.json()) as T;
-    }, `thinkific ${method} ${path}`);
+    return this.withRetry(
+      () => fetchJsonApi<T>('Thinkific', THINKIFIC_API_BASE, method, path, this.headers(ctx), body),
+      `thinkific ${method} ${path}`,
+    );
   }
 
   async authenticate(ctx: DeployContext): Promise<void> {

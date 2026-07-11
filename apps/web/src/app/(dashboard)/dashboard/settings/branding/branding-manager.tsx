@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { ImageIcon, Lock, Palette, Trash2, UploadCloud } from 'lucide-react';
+import { colors } from '@sallycourse/design';
 import {
   Badge,
   Button,
@@ -22,8 +23,9 @@ import {
 const ENDPOINT = '/api/account/branding';
 const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
-const DEFAULT_PRIMARY = '#8E55BE';
-const DEFAULT_ACCENT = '#D4A017';
+// Défauts alignés sur les tokens de marque (P113 : plus de hex en dur ici).
+const DEFAULT_PRIMARY = colors.violet[500];
+const DEFAULT_ACCENT = colors.gold[500];
 
 interface BrandingState {
   schoolName: string;

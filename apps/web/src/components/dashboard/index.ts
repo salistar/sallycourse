@@ -11,6 +11,7 @@ export { GenerationPanel, type GenerationPanelProps } from './generation-panel';
 export { FirstCourseEmpty, type FirstCourseEmptyProps } from './first-course-empty';
 export { DashboardSidebar } from './sidebar';
 export { NotificationBell } from './notification-bell';
+export { GlobalSearch } from './global-search';
 export {
   MOCK_COURSES,
   MOCK_STATS,

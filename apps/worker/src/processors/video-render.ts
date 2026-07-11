@@ -6,8 +6,11 @@
 // finalizeCourseIfComplete du dispatcher de contenu. Enregistré concurrency 1 (CPU).
 import type { Job } from 'bullmq';
 import {
+  Lesson,
   QUEUES,
   makeJobId,
+  nextVideoQualityStatus,
+  presetForMode,
   publishProgress,
   type VideoRenderJobData,
 } from '../shared.js';
@@ -50,16 +53,40 @@ async function report(
 
 /** Processor de la queue video-render (un job = une leçon vidéo). */
 export async function processVideoRender(job: Job<VideoRenderJobData>): Promise<VideoRenderResult> {
-  const { courseId, lessonId } = job.data;
+  const { courseId, lessonId, mode } = job.data;
 
   try {
-    await report(courseId, 10, 'Assemblage de la vidéo (slides + audio → MP4)');
-    const rendered = await renderLessonVideo(courseId, lessonId);
+    // Aperçu rapide (P133) : mode 'quick-preview' → preset ffmpeg 'draft'
+    // (veryfast/CRF21, cf. PRESET_CONFIG) — 5x plus rapide, qualité brouillon.
+    // Mode absent/'final' → comportement historique (DEFAULT_PRESET 'final').
+    const preset = presetForMode(mode ?? 'final');
+    await report(
+      courseId,
+      10,
+      preset === 'draft'
+        ? 'Assemblage de l\'aperçu rapide (slides + audio → MP4 brouillon)'
+        : 'Assemblage de la vidéo (slides + audio → MP4)',
+    );
+    const rendered = await renderLessonVideo(courseId, lessonId, { preset });
     await report(
       courseId,
       80,
       `Vidéo assemblée : ${rendered.segments} segment(s), ${Math.round(rendered.durationSec)} s`,
     );
+
+    // Statut du cycle brouillon→final (P133) : posé UNIQUEMENT quand le job
+    // précise un mode explicite — un rendu historique (mode absent, hors flow
+    // aperçu) laisse videoQualityStatus inchangé ('none' par défaut). Calcul
+    // PUR (nextVideoQualityStatus) puis lecture-écriture simple (pas de volume
+    // suffisant pour justifier un pipeline d'agrégation atomique ici).
+    if (mode) {
+      const event = mode === 'quick-preview' ? 'draft-rendered' : 'final-rendered';
+      const current = await Lesson.findById(lessonId).select('videoQualityStatus').lean();
+      const next = nextVideoQualityStatus(current?.videoQualityStatus ?? 'none', event);
+      await Lesson.updateOne({ _id: lessonId }, { $set: { videoQualityStatus: next } }).catch((err) =>
+        logger.warn({ courseId, lessonId, err }, 'mise à jour videoQualityStatus échouée'),
+      );
+    }
 
     // Sous-titres de la leçon (jobId déterministe = déduplication).
     // Priorité (P73) selon le plan du propriétaire du cours.

@@ -16,6 +16,7 @@ import {
 } from '../shared.js';
 import { logger } from '../queues/index.js';
 import { callClaudeJson } from '../lib/claude.js';
+import { checkQuizNoDuplicateCorrectAnswer } from '../lib/llm-output-checks.js';
 import { quizSystemPrompt, quizUserPrompt, type QuizPromptInput } from '../prompts/quiz.js';
 import type { CostContext } from '../lib/cost.js';
 
@@ -75,6 +76,9 @@ export function validateQuizBusiness(questions: readonly QuizQuestion[]): string
     }
     seenQuestions.add(key);
   });
+
+  // Détection d'hallucination structurelle (P121) : bonne réponse dupliquée parmi les choix.
+  problems.push(...checkQuizNoDuplicateCorrectAnswer(questions));
 
   return problems;
 }

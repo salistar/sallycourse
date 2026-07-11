@@ -1,6 +1,8 @@
 import {
+  COURSE_CREATE_DEDUPE_WINDOW_SEC,
   PLANS,
   QUEUES,
+  computeNextOffPeakDelayMs,
   defaultJobOptions,
   makeJobId,
   priorityForPlan,
@@ -15,6 +17,7 @@ import {
 } from '@sallycourse/db';
 import { getOutlineQueue } from './queues';
 import { checkAndReserveCourseQuota, releaseQuota } from './quota';
+import { findMostSimilarTitle } from './title-similarity';
 
 /** Libellés de plan lisibles pour la notification de quota. */
 const PLAN_LABELS: Record<PlanId, string> = {
@@ -38,8 +41,35 @@ export type CreateCourseError =
   | { kind: 'enqueue_failed' };
 
 export type CreateCourseResult =
-  | { ok: true; id: string; title: string; status: string }
+  | {
+      ok: true;
+      id: string;
+      title: string;
+      status: string;
+      /**
+       * Avertissement de similarité (P115) : un cours existant de l'utilisateur
+       * a un titre très proche (Jaccard n-grams >= seuil). Informatif seulement
+       * — ne bloque jamais la création, laissé à l'appelant (UI) d'afficher.
+       */
+      similarityWarning?: { courseTitle: string; score: number };
+      /**
+       * Vrai si ce résultat est un cours DÉJÀ créé (double-clic détecté, P120) —
+       * aucun nouveau crédit de quota consommé, aucun nouveau job enfilé.
+       */
+      deduped?: boolean;
+      /**
+       * Programmation en heures creuses (P134) : instant ISO auquel le job
+       * outline démarrera réellement. Présent uniquement si scheduleOffPeak
+       * était coché ET que ce n'est pas déjà l'heure creuse (délai > 0).
+       */
+      scheduledFor?: string;
+    }
   | { ok: false; error: CreateCourseError };
+
+/** Normalise un titre pour la comparaison exacte anti-double-clic (trim + casse). */
+function normalizeExactTitle(title: string): string {
+  return title.trim().toLowerCase();
+}
 
 /**
  * Crée un cours pour un utilisateur et enfile la génération. Applique le quota
@@ -60,6 +90,30 @@ export async function createCourseForUser(
   },
 ): Promise<CreateCourseResult> {
   await connectDb();
+
+  // Anti-double-clic (P120) : un second POST avec le MÊME titre (exact, trim +
+  // casse insensible) pour cet utilisateur dans les COURSE_CREATE_DEDUPE_WINDOW_SEC
+  // dernières secondes est traité comme un doublon de soumission — on renvoie le
+  // cours déjà créé sans consommer de second crédit ni enfiler un second pipeline.
+  // Vérifié AVANT la réservation de quota pour ne jamais bloquer un crédit inutile.
+  const dedupeSince = new Date(Date.now() - COURSE_CREATE_DEDUPE_WINDOW_SEC * 1000);
+  const recentCandidates = await CourseModel.find({ userId, createdAt: { $gte: dedupeSince } })
+    .select('title status createdAt')
+    .sort({ createdAt: -1 })
+    .lean();
+  const normalizedInputTitle = normalizeExactTitle(input.title);
+  const duplicate = recentCandidates.find(
+    (c) => normalizeExactTitle(c.title) === normalizedInputTitle,
+  );
+  if (duplicate) {
+    return {
+      ok: true,
+      id: String(duplicate._id),
+      title: duplicate.title,
+      status: duplicate.status,
+      deduped: true,
+    };
+  }
 
   // Réservation atomique du crédit mensuel via le helper central (P53).
   const reservation = await checkAndReserveCourseQuota(userId);
@@ -90,6 +144,21 @@ export async function createCourseForUser(
   // Filigrane exigé selon le plan (free=true) — appliqué à la création (P53).
   const watermark = PLANS[plan].watermark;
 
+  // Déduplication (P115) : avertissement si un cours très similaire de cet
+  // utilisateur existe déjà (titre). Informatif seulement, best-effort — ne
+  // bloque jamais la création même si la vérification échoue.
+  let similarityWarning: { courseTitle: string; score: number } | undefined;
+  try {
+    const existing = await CourseModel.find({ userId }).select('title').lean();
+    const match = findMostSimilarTitle(
+      input.title,
+      existing.map((c) => c.title),
+    );
+    if (match) similarityWarning = { courseTitle: match.title, score: match.score };
+  } catch {
+    /* best-effort : une vérification ratée ne bloque jamais la création */
+  }
+
   let course;
   try {
     course = await CourseModel.create({
@@ -112,6 +181,13 @@ export async function createCourseForUser(
 
   const courseId = course._id.toString();
 
+  // Programmation en heures creuses (P134) : si l'utilisateur a coché
+  // l'option, le délai jusqu'à la prochaine fenêtre creuse (2h-6h) remplace
+  // le délai d'échelonnement (P63) plutôt que de s'y additionner — les deux
+  // sont des délais de démarrage exclusifs, on prend le plus contraignant.
+  const offPeakDelayMs = input.scheduleOffPeak ? computeNextOffPeakDelayMs(new Date()) : 0;
+  const enqueueDelayMs = Math.max(options?.enqueueDelayMs ?? 0, offPeakDelayMs);
+
   try {
     await GenerationJobModel.create({
       courseId: course._id,
@@ -126,8 +202,8 @@ export async function createCourseForUser(
         jobId: makeJobId(courseId, QUEUES.outline),
         // Priorité BullMQ selon le plan (P73) — business/pro passent devant free.
         priority: priorityForPlan(plan),
-        // Délai optionnel : échelonnement des lots (P63).
-        ...(options?.enqueueDelayMs ? { delay: options.enqueueDelayMs } : {}),
+        // Délai optionnel : échelonnement des lots (P63) ou programmation nocturne (P134).
+        ...(enqueueDelayMs ? { delay: enqueueDelayMs } : {}),
       },
     );
   } catch {
@@ -137,5 +213,14 @@ export async function createCourseForUser(
     return { ok: false, error: { kind: 'enqueue_failed' } };
   }
 
-  return { ok: true, id: courseId, title: course.title, status: course.status };
+  return {
+    ok: true,
+    id: courseId,
+    title: course.title,
+    status: course.status,
+    ...(similarityWarning ? { similarityWarning } : {}),
+    ...(offPeakDelayMs > 0
+      ? { scheduledFor: new Date(Date.now() + offPeakDelayMs).toISOString() }
+      : {}),
+  };
 }

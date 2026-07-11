@@ -15,6 +15,7 @@
 import { PassThrough, type Readable } from 'node:stream';
 import archiver from 'archiver';
 import type { ILesson } from '../shared.js';
+import { QUIZ } from '../shared.js';
 import { markdownToHtml, orderedName, slugify } from '../media/pack.js';
 
 /** Nom du fichier ZIP SCORM dans le bucket (sous exports/). */
@@ -138,6 +139,18 @@ export const SCORM_API_WRAPPER_JS = `// APIWrapper — pont SCORM 1.2 minimal (r
 })(window);`;
 
 /**
+ * CSS des pages de leçon/quiz exportées (SCORM ET Common Cartridge partagent
+ * ce même thème sobre) — centralisé ici pour éviter la duplication littérale
+ * (P113) entre scorm.ts et common-cartridge.ts.
+ */
+export const EXPORT_PAGE_CSS = [
+  'body{font-family:system-ui,Segoe UI,sans-serif;line-height:1.65;max-width:820px;margin:2rem auto;padding:0 1.25rem;color:#1a1523}',
+  'h1,h2,h3{line-height:1.25}video{width:100%;border-radius:.5rem;background:#000}',
+  'pre{background:#1a1523;color:#f4f1fa;padding:1rem;border-radius:.5rem;overflow-x:auto}',
+  'blockquote{border-left:3px solid #7c5cff;margin:1.25rem 0;padding:.25rem 1rem;background:#f6f3fb}',
+] as const;
+
+/**
  * Enrobe un corps HTML dans un document SCO autonome (initialise l'API SCORM au
  * chargement, la termine au déchargement). Utilisé pour les pages de leçon.
  */
@@ -157,10 +170,7 @@ export function scormPageDocument(
     `<title>${escapeXml(title)}</title>`,
     '<script src="APIWrapper.js"></script>',
     '<style>',
-    'body{font-family:system-ui,Segoe UI,sans-serif;line-height:1.65;max-width:820px;margin:2rem auto;padding:0 1.25rem;color:#1a1523}',
-    'h1,h2,h3{line-height:1.25}video{width:100%;border-radius:.5rem;background:#000}',
-    'pre{background:#1a1523;color:#f4f1fa;padding:1rem;border-radius:.5rem;overflow-x:auto}',
-    'blockquote{border-left:3px solid #7c5cff;margin:1.25rem 0;padding:.25rem 1rem;background:#f6f3fb}',
+    ...EXPORT_PAGE_CSS,
     '</style>',
     '</head>',
     '<body>',
@@ -245,7 +255,7 @@ export function quizPageHtml(
     '    if (picked && Number(picked.value) === ANSWERS[i]) correct++;',
     '  }',
     '  var score = ANSWERS.length ? Math.round((correct / ANSWERS.length) * 100) : 0;',
-    '  var passed = score >= 70;',
+    `  var passed = score >= ${QUIZ.PASSING_SCORE_PERCENT};`,
     '  document.getElementById("result").textContent =',
     '    "Score : " + score + "% (" + correct + "/" + ANSWERS.length + ")" + (passed ? " — réussi" : "");',
     '  if (window.SallyScorm) { window.SallyScorm.setScore(score, 0, 100); window.SallyScorm.complete(passed); }',

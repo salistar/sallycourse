@@ -43,8 +43,39 @@
 
 ---
 
-## Tests
+## Checklist qualité (Definition of Done)
+
+> Référence complète : `docs/DEFINITION-OF-DONE.md`. Ne cocher que ce qui s'applique
+> au changement — une PR purement design ne touche pas forcément aux points 4/5/9.
+
+### Types, duplication, hardcoding
+
+- [ ] **Types stricts** — pas de `any` implicite non justifié ; les schémas Zod de
+      `packages/shared/src/schemas/` restent la source de vérité (pas de type dupliqué)
+- [ ] **Zéro duplication** — `pnpm check:duplication` (jscpd) ne signale rien de neuf
+- [ ] **Zéro hardcoding** — constantes partagées importées depuis
+      `packages/shared/src/constants.ts`, pas de secret en dur (`pnpm check:secrets`)
+
+### Erreurs & sécurité
+
+- [ ] **Erreurs gérées** — nouvelle erreur applicative via `AppError`
+      (`packages/shared/src/errors.ts`) ; error boundary présent si nouvelle page
+- [ ] **Ownership / IDOR** — toute nouvelle route `api/**/[id]` filtre par
+      propriétaire (`{ _id, userId }` ou helper `requireOwnedCourse`) ; test IDOR
+      inclus (voir `SECURITY-AUDIT.md`, P116)
+- [ ] **Log structuré** — logs via `pino`, aucun `console.log` oublié
+
+### Tests
 
 - [ ] `pnpm typecheck` passe
 - [ ] `pnpm lint` passe (inclut la règle anti-couleurs arbitraires)
 - [ ] Tests unitaires ajoutés/mis à jour si pertinent
+- [ ] Test d'intégration ajouté si le changement traverse une frontière (DB, queue,
+      appel externe) — voir `*.integration.test.ts`
+
+### i18n & documentation
+
+- [ ] **AR/FR/EN à jour** — `apps/web/messages/{fr,en,ar}.json` synchronisés,
+      traduction arabe vérifiée (pas un placeholder)
+- [ ] **Documentation à jour** — doc concernée mise à jour si le comportement
+      documenté change (`docs/`, `SECURITY-AUDIT.md`, `DEPENDENCY-AUDIT.md`)

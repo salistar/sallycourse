@@ -6,6 +6,7 @@
 //   - slug de salon Discord (nom de section → nom de canal valide).
 
 import type { ILesson, ISection } from '../../shared.js';
+import { slugifyAscii } from '../base-adapter.js';
 
 /** Une leçon programmée dans le calendrier de diffusion (drip). */
 export interface DripScheduleItem {
@@ -38,15 +39,7 @@ export function buildDripSchedule(
 
 /** Slug ASCII simple, sûr comme nom de salon Discord (minuscules, tirets). */
 export function slugifyChannelName(title: string): string {
-  return (
-    title
-      .normalize('NFKD')
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 90) || 'section'
-  );
+  return slugifyAscii(title, 90, 'section');
 }
 
 /** Nom de salon Discord préfixé par sa position (traçabilité de l'ordre). */

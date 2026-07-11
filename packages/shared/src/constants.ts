@@ -44,6 +44,8 @@ export const QUIZ = {
   MIN_QUESTIONS_PER_SECTION: 8,
   MAX_QUESTIONS_PER_SECTION: 12,
   CHOICES_PER_QUESTION: 4,
+  /** Score minimum (%) pour marquer un quiz SCORM/Common Cartridge comme réussi. */
+  PASSING_SCORE_PERCENT: 70,
 } as const;
 
 /**
@@ -88,6 +90,47 @@ export function priorityForPlan(plan: PlanId | string | null | undefined): numbe
   return PLAN_QUEUE_PRIORITY.free;
 }
 
+/**
+ * Attente de fin de traitement vidéo côté plateforme après upload (Prompts
+ * 33-36 Udemy, 105 Kajabi) — même comportement observé sur les deux back-offices
+ * pilotés par Playwright : polling jusqu'à disparition du spinner de traitement.
+ */
+export const VIDEO_PROCESSING = {
+  TIMEOUT_MS: 20 * 60 * 1_000,
+  POLL_INTERVAL_MS: 10 * 1_000,
+} as const;
+
+/**
+ * Prix par défaut appliqués quand le cours n'a pas de prix explicite, un par
+ * plateforme (devise native propre à chaque marketplace — Prompt 113 :
+ * centralisés ici plutôt que dispersés dans chaque adapter).
+ */
+export const DEFAULT_MARKETPLACE_PRICE = {
+  gumroadCents: 4900,
+  hotmartBrl: 197,
+  thinkific: 49,
+} as const;
+
 export const LOCALES = ['fr', 'en', 'ar'] as const;
 export type Locale = (typeof LOCALES)[number];
+
+/**
+ * Déduplication de contenu généré (Prompt 115) : seuil de similarité (Jaccard
+ * sur n-grams de mots, 0-1) au-delà duquel deux leçons/cours sont considérés
+ * comme quasi-doublons. Alerte uniquement — ne bloque jamais la génération.
+ */
+export const CONTENT_SIMILARITY = {
+  WARNING_THRESHOLD: 0.92,
+  NGRAM_SIZE: 3,
+} as const;
 export const RTL_LOCALES: readonly Locale[] = ['ar'];
+
+/**
+ * Anti-double-clic création de cours (Prompt 120) : fenêtre pendant laquelle un
+ * second POST /api/courses du même utilisateur avec un titre IDENTIQUE (trim +
+ * casse insensible) est traité comme un doublon de soumission (renvoie le cours
+ * déjà créé au lieu d'en recréer un et de consommer un second crédit de quota).
+ * Distinct de CONTENT_SIMILARITY (fuzzy, informatif) : ici comparaison exacte,
+ * fenêtre courte, strictement anti-doublon de clic.
+ */
+export const COURSE_CREATE_DEDUPE_WINDOW_SEC = 10;

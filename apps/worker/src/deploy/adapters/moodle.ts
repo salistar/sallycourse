@@ -15,7 +15,7 @@
 
 import type { DeploymentMode, ILesson } from '../../shared.js';
 import { markdownToHtml } from '../../media/pack.js';
-import { BaseDeploymentAdapter } from '../base-adapter.js';
+import { BaseDeploymentAdapter, slugifyAscii } from '../base-adapter.js';
 import { registerAdapter } from '../registry.js';
 import type { DeployContext, DeployStatus } from '../types.js';
 
@@ -28,13 +28,7 @@ export const MOODLE_PLATFORM = 'moodle';
 
 /** Nom de champ Moodle : abrège/normalise le shortname (unique, sans espace). */
 export function moodleShortname(title: string, courseId: string): string {
-  const slug = title
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40);
+  const slug = slugifyAscii(title, 40, '');
   const suffix = String(courseId).slice(-6);
   return `${slug || 'course'}-${suffix}`;
 }
@@ -128,6 +122,9 @@ export class MoodleAdapter extends BaseDeploymentAdapter {
     params: Record<string, unknown>,
   ): Promise<unknown> {
     const url = moodleEndpoint(cfg.baseUrl, wsfunction, cfg.token);
+    // Garde SSRF (P116) : baseUrl vient des credentials utilisateur — jamais
+    // de fetch vers une IP privée/réservée (réseau interne, métadonnées cloud).
+    await this.assertHostAllowed(url);
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -222,7 +219,7 @@ export class MoodleAdapter extends BaseDeploymentAdapter {
           await this.log(
             ctx,
             'warn',
-            `ressource « ${lesson.title} » non créée (webservice indisponible) — importez le paquet SCORM`,
+            `ressource « ${lesson.title} » non créée (webservice indisponible) — importez le paquet SCORM — ${(err as Error).message}`,
           );
         }
         await this.log(ctx, 'info', `leçon ${index + 1} traitée : ${lesson.title}`);

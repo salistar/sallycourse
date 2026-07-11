@@ -1,0 +1,35 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    "apps/web": {
+      "entry": ["src/app/**/{page,layout,route,not-found,error,loading}.tsx", "src/app/**/route.ts", "next.config.*"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "apps/worker": {
+      "entry": ["src/index.ts", "src/**/*.processor.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "apps/mobile": {
+      "entry": ["index.ts", "App.tsx", "app/**/*.{ts,tsx}"],
+      "project": ["**/*.{ts,tsx}"]
+    },
+    "packages/shared": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/db": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/design": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "packages/cli": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    }
+  },
+  "ignore": ["**/*.test.ts", "**/*.test.tsx"],
+  "ignoreDependencies": ["typescript-eslint", "eslint-config-prettier"]
+}

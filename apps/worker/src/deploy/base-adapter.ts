@@ -11,6 +11,7 @@ import type {
   DeploymentAdapter,
 } from './types.js';
 import type { ILesson } from '../shared.js';
+import { assertHostAllowed } from '../lib/ssrf-guard.js';
 
 /** Options de retry : nombre de tentatives + délai de base (backoff linéaire). */
 export interface RetryOptions {
@@ -25,6 +26,66 @@ export interface RetryOptions {
 function delay(ms: number): Promise<void> {
   if (ms <= 0) return Promise.resolve();
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Levée quand la page courante n'appartient pas au domaine attendu de la
+ * plateforme, juste avant de saisir des identifiants (P126 — anti-phishing).
+ */
+export class UnexpectedDomainError extends Error {
+  constructor(currentUrl: string, expectedDomain: string) {
+    super(
+      `Domaine inattendu avant saisie des identifiants : « ${currentUrl} » ` +
+        `ne correspond pas au domaine attendu « ${expectedDomain} » — connexion refusée par prudence.`,
+    );
+    this.name = 'UnexpectedDomainError';
+  }
+}
+
+/**
+ * Détection basique de page de phishing (P126) : compare le domaine de la page
+ * COURANTE (page.url()) au domaine attendu de la plateforme, AVANT de remplir
+ * tout formulaire de login. Fonction PURE (aucune I/O) — à appeler par les
+ * adapters qui font un vrai login (ex. udemy.ts) juste avant les `page.fill`
+ * des champs email/mot de passe.
+ *
+ * Règles : hôte identique OU sous-domaine strict de expectedDomain (ex.
+ * "app.kajabi.com" est accepté pour expectedDomain="kajabi.com", mais
+ * "kajabi.com.evil.example" est refusé). Insensible à la casse. Jette
+ * `UnexpectedDomainError` si le domaine ne correspond pas (ou si l'URL est
+ * invalide).
+ */
+export function verifyExpectedDomain(currentUrl: string, expectedDomain: string): void {
+  let host: string;
+  try {
+    host = new URL(currentUrl).hostname.toLowerCase();
+  } catch {
+    throw new UnexpectedDomainError(currentUrl, expectedDomain);
+  }
+  const expected = expectedDomain.toLowerCase().replace(/^\.+/, '');
+  const matches = host === expected || host.endsWith(`.${expected}`);
+  if (!matches) {
+    throw new UnexpectedDomainError(currentUrl, expectedDomain);
+  }
+}
+
+/**
+ * Slug ASCII partagé (P111 anti-duplication) : normalise un titre en
+ * minuscules/tirets sans diacritiques. Factorisé depuis 3 copies quasi
+ * identiques (community-transforms.slugifyChannelName, lesson-transforms.
+ * slugifyTitle, moodle.moodleShortname) qui ne différaient que par la
+ * longueur de troncature et le libellé de repli.
+ */
+export function slugifyAscii(title: string, maxLength: number, fallback: string): string {
+  return (
+    title
+      .normalize('NFKD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, maxLength) || fallback
+  );
 }
 
 /**
@@ -170,5 +231,27 @@ export abstract class BaseDeploymentAdapter implements DeploymentAdapter {
     simulated: () => T | Promise<T>,
   ): Promise<T> {
     return ctx.mock ? simulated() : real();
+  }
+
+  /**
+   * Garde SSRF (Prompt 116 — audit OWASP) : à appeler AVANT tout premier fetch
+   * vers une URL issue des credentials de plateforme (self-hosted : Moodle
+   * baseUrl, WordPress siteUrl…). Jette une erreur explicite si l'hôte résout
+   * vers une IP privée/réservée — les adapters concrets doivent laisser
+   * remonter cette erreur (traitée comme un échec d'authentification standard,
+   * déjà géré par le flow retry/log existant).
+   */
+  protected async assertHostAllowed(url: string): Promise<void> {
+    await assertHostAllowed(url);
+  }
+
+  /**
+   * Garde anti-phishing (P126) : à appeler AVANT tout `page.fill` d'un champ
+   * email/mot de passe, avec l'URL courante de la page (page.url()) et le
+   * domaine attendu de la plateforme. Jette UnexpectedDomainError si la page
+   * affichée ne correspond pas (redirection suspecte, DNS empoisonné…).
+   */
+  protected assertExpectedDomain(currentUrl: string, expectedDomain: string): void {
+    verifyExpectedDomain(currentUrl, expectedDomain);
   }
 }

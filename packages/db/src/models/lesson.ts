@@ -8,7 +8,7 @@ import mongoose, {
   type Types,
 } from 'mongoose';
 // @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
-import { lessonTypeSchema, type LessonType } from '@sallycourse/shared';
+import { lessonTypeSchema, videoQualityStatusSchema, type LessonType, type VideoQualityStatus } from '@sallycourse/shared';
 
 export const LESSON_STATUSES = ['pending', 'generating', 'ready', 'failed'] as const;
 export type LessonStatus = (typeof LESSON_STATUSES)[number];
@@ -63,6 +63,20 @@ export interface ILessonVersion {
   note?: string;
 }
 
+/**
+ * Avertissement de similarité de contenu (P115) : posé quand cette leçon
+ * ressemble fortement (score Jaccard n-grams >= seuil) à une autre leçon du
+ * même cours déjà générée. Additif, alerte seulement — n'empêche jamais la
+ * génération ni le déploiement.
+ */
+export interface ILessonSimilarityWarning {
+  /** Leçon comparée (déjà générée) jugée quasi-identique. */
+  similarToLessonId: Types.ObjectId;
+  /** Score de similarité 0-1 (compareSimilarity, worker/lib/content-similarity). */
+  score: number;
+  detectedAt: Date;
+}
+
 export interface ILesson {
   sectionId: Types.ObjectId;
   courseId: Types.ObjectId;
@@ -86,6 +100,18 @@ export interface ILesson {
   contentHash?: string;
   /** Historique des versions de contenu (P46, ordre chronologique). */
   versions?: ILessonVersion[];
+  /** Avertissement de similarité de contenu (P115), additif — absent si RAS. */
+  similarityWarning?: ILessonSimilarityWarning;
+  /**
+   * Cycle brouillon→final de la prévisualisation vidéo rapide (Prompt 133) :
+   * 'none' (défaut) tant que jamais rendue via le flow aperçu ; 'draft-ready'
+   * après un rendu preset='draft' ; 'approved' quand l'utilisateur valide le
+   * brouillon ; 'final-ready' après le rendu HD. Uniquement pertinent pour les
+   * leçons de type 'video' — ignoré pour les autres types. Additif, ne change
+   * rien au flow de rendu vidéo historique (sans mode) qui laisse ce champ à
+   * 'none'.
+   */
+  videoQualityStatus?: VideoQualityStatus;
 }
 
 export type LessonDocument = HydratedDocument<ILesson>;
@@ -143,9 +169,29 @@ const lessonSchema = new Schema<ILesson>({
     ],
     default: [],
   },
+  similarityWarning: {
+    type: new Schema<ILessonSimilarityWarning>(
+      {
+        similarToLessonId: { type: Schema.Types.ObjectId, ref: 'Lesson', required: true },
+        score: { type: Number, required: true, min: 0, max: 1 },
+        detectedAt: { type: Date, default: Date.now },
+      },
+      { _id: false },
+    ),
+    default: undefined,
+  },
+  videoQualityStatus: {
+    type: String,
+    enum: [...videoQualityStatusSchema.options],
+    default: 'none',
+  },
 });
 
 lessonSchema.index({ sectionId: 1, order: 1 });
+
+// Recherche globale (P132) : index texte natif Mongo (titre + résumé) —
+// additif, ne remplace aucun index existant.
+lessonSchema.index({ title: 'text', summary: 'text' }, { name: 'lesson_text_search' });
 
 export const Lesson: Model<ILesson> =
   (mongoose.models.Lesson as Model<ILesson> | undefined) ?? model<ILesson>('Lesson', lessonSchema);

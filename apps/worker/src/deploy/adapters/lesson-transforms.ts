@@ -6,8 +6,16 @@
 //     plateformes vidéo-only (Skillshare) ;
 //   - sélection du TP principal (source du projet de classe Skillshare) ;
 //   - construction d'une description produit à partir du cours (Gumroad).
+//
+// (P112) withBrowserPage : seul helper NON pur du fichier — factorise le
+// pattern « ouvrir une page chromium partagée (getSlideBrowser), exécuter une
+// action, refermer la page en finally » identique dans podia.ts et
+// skillshare.ts (Playwright, sans session persistée contrairement à
+// udemy.ts/kajabi.ts qui gèrent un storageState chiffré par compte).
 
 import type { ICourse, ILesson } from '../../shared.js';
+import { slugifyAscii } from '../base-adapter.js';
+import { getSlideBrowser } from '../../media/slide-renderer.js';
 
 /** Une leçon est « vidéo » si son type l'est ET qu'un asset vidéo existe. */
 export function isVideoLesson(lesson: ILesson): boolean {
@@ -33,15 +41,7 @@ export interface LessonResource {
 
 /** Slug ASCII simple, sûr comme composant de nom de fichier. */
 export function slugifyTitle(title: string): string {
-  return (
-    title
-      .normalize('NFKD')
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 60) || 'lecon'
-  );
+  return slugifyAscii(title, 60, 'lecon');
 }
 
 /**
@@ -113,4 +113,24 @@ export function buildProductDescription(course: ICourse, lessonCount: number): s
     `Cours ${course.difficulty} — ${lessonCount} leçon(s).\n` +
     `Contenu complet (vidéos, articles, TP et quiz) prêt à suivre.`
   );
+}
+
+/**
+ * Exécute `fn` avec une page chromium éphémère issue du navigateur PARTAGÉ du
+ * worker (getSlideBrowser). La page est toujours refermée (finally), y compris
+ * en cas d'erreur — factorise le pattern identique de Podia et Skillshare
+ * (adapters sans session persistée, contrairement à Udemy/Kajabi qui
+ * gèrent leur propre storageState chiffré et leur propre cycle de vie
+ * browser/context).
+ */
+export async function withBrowserPage<T>(
+  fn: (page: import('playwright').Page) => Promise<T>,
+): Promise<T> {
+  const browser = await getSlideBrowser();
+  const page = await browser.newPage();
+  try {
+    return await fn(page);
+  } finally {
+    await page.close().catch(() => undefined);
+  }
 }

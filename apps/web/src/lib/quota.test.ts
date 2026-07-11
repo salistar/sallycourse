@@ -73,6 +73,47 @@ describe('getQuotaState', () => {
     expect(state.used).toBe(0);
     expect(state.remaining).toBe(10);
   });
+
+  it('tue le mutant even/même-mois : 31 décembre puis 1er janvier ne sont PAS le même mois', () => {
+    // isSameUtcMonth compare année ET mois : ce cas tue une mutation qui
+    // ignorerait l'année (ex. comparer seulement getUTCMonth()).
+    const state = getQuotaState(
+      {
+        plan: 'free',
+        quotaUsed: { coursesThisMonth: 1, periodStart: new Date(Date.UTC(2025, 11, 31)) },
+      },
+      new Date(Date.UTC(2026, 0, 1)),
+    );
+    expect(state.used).toBe(0);
+    expect(state.remaining).toBe(1);
+  });
+
+  it('même mois, dernier jour à dernier jour : usage non remis à zéro', () => {
+    const state = getQuotaState(
+      { plan: 'pro', quotaUsed: { coursesThisMonth: 9, periodStart: new Date(Date.UTC(2026, 6, 1)) } },
+      new Date(Date.UTC(2026, 6, 31, 23, 59, 59)),
+    );
+    expect(state.used).toBe(9);
+    expect(state.remaining).toBe(1);
+  });
+
+  it('exactement à la limite (used === limit) : remaining tombe à 0, jamais négatif', () => {
+    // Tue un mutant Math.max(0, limit-used) → (limit-used) qui laisserait
+    // passer une valeur négative si used dépassait limit.
+    const state = getQuotaState(
+      { plan: 'free', quotaUsed: { coursesThisMonth: 1, periodStart: now } },
+      now,
+    );
+    expect(state.remaining).toBe(0);
+  });
+
+  it('usage au-delà de la limite (incohérence de données) : remaining reste borné à 0', () => {
+    const state = getQuotaState(
+      { plan: 'free', quotaUsed: { coursesThisMonth: 5, periodStart: now } },
+      now,
+    );
+    expect(state.remaining).toBe(0);
+  });
 });
 
 describe('checkAndReserveCourseQuota', () => {
@@ -105,6 +146,16 @@ describe('checkAndReserveCourseQuota', () => {
     const res = await checkAndReserveCourseQuota('u1');
     expect(res).toEqual({ ok: false, reason: 'quota_exceeded', plan: 'free', limit: 1 });
     expect(updateOneMock).not.toHaveBeenCalled();
+  });
+
+  it('tue le mutant >= → > : dernier crédit dispo (used = limit-1) est réservable', async () => {
+    // Plan pro (limit=10) avec 9 déjà utilisés : le 10e cours doit encore passer.
+    mockUser({ plan: 'pro', quotaUsed: { coursesThisMonth: 9, periodStart: new Date() } });
+    updateOneMock.mockResolvedValue({ modifiedCount: 1 });
+    const res = await checkAndReserveCourseQuota('u1');
+    expect(res).toEqual({ ok: true });
+    const [filter] = updateOneMock.mock.calls[0]!;
+    expect(filter['quotaUsed.coursesThisMonth']).toEqual({ $lt: 10 });
   });
 
   it('mois différent → reset du compteur à 1 avec periodStart courant', async () => {

@@ -133,6 +133,14 @@ describe('titre — majuscules abusives', () => {
     // 4 sur 10 = 40 %
     expect(codes(baseInput({ title: 'AAAAbbbbbb' }))).toContain('TITLE_EXCESSIVE_CAPS');
   });
+
+  it('tue le mutant > → >= : 31/100 lettres (juste au-dessus de 30 %) échoue déjà', () => {
+    // 31 majuscules sur 100 lettres = 31 % > 30 % : doit échouer avec un ratio
+    // strictement supérieur, pas seulement "supérieur ou égal" à un autre seuil.
+    const title = 'A'.repeat(31) + 'b'.repeat(69);
+    const issue = issueOf(baseInput({ title }), 'TITLE_EXCESSIVE_CAPS');
+    expect(issue?.severity).toBe('error');
+  });
 });
 
 describe('titre — exclamations et superlatifs', () => {
@@ -186,6 +194,13 @@ describe('description, objectifs, vidéo, sections', () => {
     expect(issue?.severity).toBe('error');
   });
 
+  it('tue le mutant < → <= sur la description : 201 mots (juste au-dessus) reste accepté', () => {
+    const words = (n: number) => Array.from({ length: n }, (_, i) => `w${i}`).join(' ');
+    expect(codes(baseInput({ description: words(UDEMY.DESCRIPTION_MIN_WORDS + 1) }))).not.toContain(
+      'DESCRIPTION_TOO_SHORT',
+    );
+  });
+
   it('accepte 4 objectifs, rejette 3', () => {
     expect(codes(baseInput())).not.toContain('OBJECTIVES_TOO_FEW');
     const issue = issueOf(
@@ -193,6 +208,12 @@ describe('description, objectifs, vidéo, sections', () => {
       'OBJECTIVES_TOO_FEW',
     );
     expect(issue?.severity).toBe('error');
+  });
+
+  it('tue le mutant < → <= sur les objectifs : 5 objectifs (au-dessus du minimum) reste accepté', () => {
+    expect(
+      codes(baseInput({ learningObjectives: ['a', 'b', 'c', 'd', 'e'] })),
+    ).not.toContain('OBJECTIVES_TOO_FEW');
   });
 
   it('accepte 30 minutes de vidéo, rejette 29', () => {
@@ -203,10 +224,20 @@ describe('description, objectifs, vidéo, sections', () => {
     expect(issue?.severity).toBe('error');
   });
 
+  it('tue le mutant < → <= sur la vidéo : 31 minutes (au-dessus du minimum) reste accepté', () => {
+    expect(
+      codes(baseInput({ totalVideoMinutes: UDEMY.MIN_TOTAL_VIDEO_MINUTES + 1 })),
+    ).not.toContain('VIDEO_TOO_SHORT');
+  });
+
   it('accepte 5 sections, rejette 4', () => {
     expect(codes(baseInput({ sectionsCount: UDEMY.MIN_SECTIONS }))).not.toContain('SECTIONS_TOO_FEW');
     const issue = issueOf(baseInput({ sectionsCount: 4 }), 'SECTIONS_TOO_FEW');
     expect(issue?.severity).toBe('error');
+  });
+
+  it('tue le mutant < → <= sur les sections : 6 sections (au-dessus du minimum) reste accepté', () => {
+    expect(codes(baseInput({ sectionsCount: UDEMY.MIN_SECTIONS + 1 }))).not.toContain('SECTIONS_TOO_FEW');
   });
 });
 
@@ -289,6 +320,19 @@ describe('leçons vidéo', () => {
   it('ignore les leçons article/quiz/tp sans vidéo', () => {
     expect(codes(baseInput())).not.toContain('VIDEO_LESSON_WITHOUT_VIDEO');
   });
+
+  it('tue le mutant > 0 → >= 0 : liste de leçons vide ne déclenche aucune issue', () => {
+    // Un compteur à 0 mutant en ">= 0" pousserait l'issue à tort sur liste vide.
+    expect(codes(baseInput({ lessons: [] }))).not.toContain('VIDEO_LESSON_WITHOUT_VIDEO');
+  });
+
+  it('toutes les leçons vidéo ont leur vidéo : aucune issue (compteur exactement 0)', () => {
+    const lessons = [
+      { type: 'video' as const, durationMin: 8, hasVideo: true },
+      { type: 'video' as const, durationMin: 6, hasVideo: true },
+    ];
+    expect(codes(baseInput({ lessons }))).not.toContain('VIDEO_LESSON_WITHOUT_VIDEO');
+  });
 });
 
 describe('score et verdict', () => {
@@ -302,6 +346,16 @@ describe('score et verdict', () => {
     const report = checkUdemyCompliance(baseInput({ courseImage: undefined }));
     expect(report.score).toBe(95);
     expect(report.passed).toBe(true);
+  });
+
+  it('deux erreurs et un avertissement : score = 100 - 30 - 5 = 65 (pas de plancher)', () => {
+    // Tue une éventuelle mutation de l'ordre/poids des pénalités (15 vs 5) en
+    // vérifiant une combinaison arithmétique précise, loin du plancher 0.
+    const report = checkUdemyCompliance(
+      baseInput({ sectionsCount: 4, totalVideoMinutes: 29, courseImage: undefined }),
+    );
+    expect(report.score).toBe(65);
+    expect(report.passed).toBe(false);
   });
 
   it('le score plancher est 0 quand tout est cassé', () => {

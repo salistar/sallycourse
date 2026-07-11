@@ -203,7 +203,11 @@ export class WordPressLearnDashAdapter extends BaseDeploymentAdapter {
     path: string,
     body?: unknown,
   ): Promise<T> {
-    const res = await fetch(`${wpApiRoot(cfg.siteUrl)}${path}`, {
+    const url = `${wpApiRoot(cfg.siteUrl)}${path}`;
+    // Garde SSRF (P116) : siteUrl vient des credentials utilisateur — jamais
+    // de fetch vers une IP privée/réservée (réseau interne, métadonnées cloud).
+    await this.assertHostAllowed(url);
+    const res = await fetch(url, {
       method,
       headers: {
         'Content-Type': 'application/json',
@@ -220,7 +224,10 @@ export class WordPressLearnDashAdapter extends BaseDeploymentAdapter {
 
   /** Upload d'un média (vidéo) vers wp-json/wp/v2/media (multipart brut). */
   private async uploadMedia(cfg: WpConfig, filename: string, body: Buffer, mime: string): Promise<string> {
-    const res = await fetch(`${wpApiRoot(cfg.siteUrl)}/media`, {
+    const mediaUrl = `${wpApiRoot(cfg.siteUrl)}/media`;
+    // Garde SSRF (P116) : même raison que `api()` ci-dessus.
+    await this.assertHostAllowed(mediaUrl);
+    const res = await fetch(mediaUrl, {
       method: 'POST',
       headers: {
         Authorization: cfg.authHeader,

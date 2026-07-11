@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import {
+  getObjectStream,
   slideScriptSchema,
   storageKeys,
   uploadObject,
@@ -10,6 +11,7 @@ import {
   connectDb,
   Course as CourseModel,
   Lesson as LessonModel,
+  LessonVersion,
   Section as SectionModel,
 } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
@@ -33,6 +35,20 @@ const patchLessonSchema = z
   .refine((body) => body.articleMd !== undefined || body.script !== undefined, {
     message: 'Fournir « articleMd » ou « script ».',
   });
+
+/** Télécharge le Markdown d'un article depuis le stockage objet (best-effort). */
+async function readMarkdown(key: string): Promise<string | undefined> {
+  try {
+    const stream = await getObjectStream(key);
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks).toString('utf-8');
+  } catch {
+    return undefined;
+  }
+}
 
 export async function PATCH(
   request: Request,
@@ -70,6 +86,30 @@ export async function PATCH(
   }
 
   const { articleMd, script } = parsed.data;
+
+  // ── Historique des versions (P131) : un instantané du contenu ÉDITABLE
+  // précédent est versé avant toute édition significative (jamais à chaque
+  // frappe — ce PATCH n'est appelé qu'à la sauvegarde manuelle/autosave
+  // débouncée). Best-effort : une erreur d'écriture d'historique ne bloque
+  // jamais la sauvegarde du contenu lui-même.
+  try {
+    if (articleMd !== undefined && lesson.assets.articleMd) {
+      // Lesson.assets.articleMd est une CLÉ S3, pas le contenu : on
+      // télécharge le Markdown réel pour que le diff/la restauration aient
+      // un sens (sinon on figerait juste la clé, identique à chaque fois).
+      const previousMarkdown = await readMarkdown(lesson.assets.articleMd);
+      if (previousMarkdown !== undefined) {
+        await LessonVersion.create({
+          lessonId: lesson._id,
+          snapshot: { articleMd: previousMarkdown },
+        });
+      }
+    } else if (script !== undefined && lesson.script !== undefined && lesson.script !== null) {
+      await LessonVersion.create({ lessonId: lesson._id, snapshot: { script: lesson.script } });
+    }
+  } catch {
+    // Historique best-effort — on continue la sauvegarde du contenu.
+  }
 
   // ── Article : type attendu 'article', réupload S3 + statut 'pending' ──
   if (articleMd !== undefined) {

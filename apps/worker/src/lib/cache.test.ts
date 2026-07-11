@@ -161,3 +161,43 @@ describe('getOrCompute', () => {
     expect(compute).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('getOrCompute — Redis indisponible (chaos, Prompt 128)', () => {
+  it('bypass propre si la LECTURE du cache échoue : compute() est appelé, aucune exception ne remonte', async () => {
+    const getSpy = vi.spyOn(fakeRedis, 'get').mockRejectedValueOnce(new Error('ECONNREFUSED'));
+    const compute = vi.fn().mockResolvedValue({ value: 'depuis-compute' });
+
+    const result = await getOrCompute('k-redis-down-read', 60, compute, 'claude');
+
+    expect(result).toEqual({ value: 'depuis-compute' });
+    expect(compute).toHaveBeenCalledTimes(1);
+    getSpy.mockRestore();
+  });
+
+  it('bypass propre si la POSE DU VERROU échoue (miss puis SET NX en panne) : calcule sans verrou, ne plante pas', async () => {
+    const setSpy = vi.spyOn(fakeRedis, 'set').mockRejectedValueOnce(new Error('Redis indisponible'));
+    const compute = vi.fn().mockResolvedValue('resultat-sans-verrou');
+
+    const result = await getOrCompute('k-redis-down-lock', 60, compute);
+
+    expect(result).toBe('resultat-sans-verrou');
+    expect(compute).toHaveBeenCalledTimes(1);
+    setSpy.mockRestore();
+  });
+
+  it('Redis totalement down du début à la fin (get + set échouent) : ne jette jamais, retourne le résultat de compute()', async () => {
+    vi.spyOn(fakeRedis, 'get').mockRejectedValue(new Error('connexion refusée'));
+    vi.spyOn(fakeRedis, 'set').mockRejectedValue(new Error('connexion refusée'));
+    const compute = vi.fn().mockResolvedValue('valeur-de-repli');
+
+    await expect(getOrCompute('k-redis-down-total', 60, compute)).resolves.toBe('valeur-de-repli');
+    expect(compute).toHaveBeenCalledTimes(1);
+  });
+
+  it('un compute() qui échoue APRÈS un bypass de lecture propage bien son erreur (pas de faux succès)', async () => {
+    vi.spyOn(fakeRedis, 'get').mockRejectedValueOnce(new Error('ECONNREFUSED'));
+    const compute = vi.fn().mockRejectedValue(new Error('échec métier réel'));
+
+    await expect(getOrCompute('k-redis-down-compute-fails', 60, compute)).rejects.toThrow('échec métier réel');
+  });
+});

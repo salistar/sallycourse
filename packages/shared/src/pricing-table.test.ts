@@ -38,6 +38,14 @@ describe('coûts TTS / render / image', () => {
     expect(ttsCostUsd(-5)).toBe(0); // borne basse
   });
 
+  it('tue le mutant Math.max(0, x) → x : exactement 0 caractère/seconde/unité reste 0, pas négatif', () => {
+    // Un mutant qui supprimerait le clamp Math.max(0, …) ne serait détecté par
+    // aucun test négatif seul si l'entrée est déjà 0 : on fige explicitement 0.
+    expect(ttsCostUsd(0)).toBe(0);
+    expect(renderCostUsd(0)).toBe(0);
+    expect(imageCostUsd(0)).toBe(0);
+  });
+
   it('render : linéaire à la seconde', () => {
     expect(renderCostUsd(120)).toBeCloseTo(120 * RENDER_USD_PER_SECOND, 12);
     expect(renderCostUsd(-1)).toBe(0);
@@ -75,5 +83,19 @@ describe('planMargin', () => {
   it('activeUsers négatif borné à 0', () => {
     const m = planMargin('business', 0, -4);
     expect(m.revenueUsd).toBe(0);
+  });
+
+  it('activeUsers exactement 0 (pas seulement négatif) : revenu nul', () => {
+    // Tue un mutant Math.max(0, x) → x qui ne se révélerait qu'avec un input
+    // strictement négatif : ici l'entrée est déjà 0.
+    const m = planMargin('pro', 3, 0);
+    expect(m.revenueUsd).toBe(0);
+    expect(m.marginUsd).toBe(-3);
+  });
+
+  it('activeUsers = 1 (valeur par défaut) : revenu = tarif du plan × taux, sans multiplication implicite', () => {
+    const m = planMargin('business', 10);
+    const expectedRevenue = PLAN_REVENUE_EUR_PER_MONTH['business']! * EUR_TO_USD;
+    expect(m.revenueUsd).toBeCloseTo(expectedRevenue, 6);
   });
 });

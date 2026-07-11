@@ -95,7 +95,18 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json(
-    { id: result.id, title: result.title, status: result.status },
+    {
+      id: result.id,
+      title: result.title,
+      status: result.status,
+      // Avertissement de similarité (P115) — informatif, jamais bloquant.
+      ...(result.similarityWarning ? { similarityWarning: result.similarityWarning } : {}),
+      // Doublon de soumission détecté (P120, double-clic) — même cours renvoyé,
+      // aucun nouveau crédit/job créé. Informatif pour l'UI (pas une erreur).
+      ...(result.deduped ? { deduped: true } : {}),
+      // Programmation en heures creuses (P134) — heure réelle de démarrage.
+      ...(result.scheduledFor ? { scheduledFor: result.scheduledFor } : {}),
+    },
     { status: 201 },
   );
 }

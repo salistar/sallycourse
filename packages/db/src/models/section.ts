@@ -25,5 +25,8 @@ const sectionSchema = new Schema<ISection>({
 // Une seule section par position dans un cours.
 sectionSchema.index({ courseId: 1, order: 1 }, { unique: true });
 
+// Recherche globale (P132) : index texte natif Mongo sur le titre — additif.
+sectionSchema.index({ title: 'text' }, { name: 'section_text_search' });
+
 export const Section: Model<ISection> =
   (mongoose.models.Section as Model<ISection> | undefined) ?? model<ISection>('Section', sectionSchema);

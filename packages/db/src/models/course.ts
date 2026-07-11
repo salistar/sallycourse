@@ -121,6 +121,39 @@ export interface ICourse {
    * locale (une nouvelle génération remplace l'entrée existante de cette locale).
    */
   dubbedVersions?: IDubbedVersion[];
+  /**
+   * Musique de fond (Prompt 135, habillage sonore) : id d'une piste du
+   * catalogue MUSIC_CATALOG (@sallycourse/shared/music-catalog) ou du jingle
+   * SALISTAR (JINGLE_TRACK_ID). Additif, undefined par défaut : aucun
+   * changement pour les cours existants tant que non choisi explicitement.
+   * Le mixage (video-render.ts) SKIP proprement si le fichier MP3 correspondant
+   * n'est pas présent dans le stockage (cf. background-music.ts).
+   */
+  backgroundMusicId?: string;
+  /** Volume linéaire de la musique de fond (0-1) — défaut MUSIC_MIX.DEFAULT_VOLUME si absent. */
+  musicVolume?: number;
+  /**
+   * Jingle SALISTAR par défaut en tête/fin de vidéo (Prompt 135) — même
+   * mécanisme optionnel que backgroundMusicId (fichier absent → skip). Additif,
+   * défaut false.
+   */
+  jingleEnabled?: boolean;
+  /**
+   * Rattachement optionnel à un Workspace d'équipe (Prompt 138, plan Business).
+   * Additif : absent → cours resté lié à son seul userId (comportement
+   * inchangé, rétrocompatible avec tous les cours existants).
+   */
+  workspaceId?: Types.ObjectId | null;
+  /**
+   * Gate d'approbation d'équipe (P138) : si le Workspace du cours a au moins
+   * un reviewer, le déploiement exige qu'un reviewer ait approuvé CETTE
+   * version avant de pouvoir être lancé. approvedBy = membre reviewer/owner
+   * ayant validé ; null tant qu'aucune approbation. Une nouvelle génération
+   * de contenu significative devrait réinitialiser ces deux champs côté
+   * appelant (non automatique ici, pour rester additif et non intrusif).
+   */
+  approvedBy?: Types.ObjectId | null;
+  approvedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -179,6 +212,12 @@ const courseSchema = new Schema<ICourse>(
     sourceMaterial: { type: Boolean, default: false },
     sourceMaterialFiles: { type: Schema.Types.Mixed, default: null },
     refreshSuggestions: { type: Schema.Types.Mixed, default: null },
+    backgroundMusicId: { type: String },
+    musicVolume: { type: Number },
+    jingleEnabled: { type: Boolean, default: false },
+    workspaceId: { type: Schema.Types.ObjectId, ref: 'Workspace', default: null, index: true },
+    approvedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    approvedAt: { type: Date, default: null },
     dubbedVersions: {
       type: [
         new Schema<IDubbedVersion>(
@@ -200,11 +239,23 @@ const courseSchema = new Schema<ICourse>(
       default: [],
     },
   },
-  { timestamps: true },
+  // optimisticConcurrency (P120) : incrémente __v à chaque save() et rejette
+  // (VersionError) une sauvegarde basée sur une version déjà obsolète — protège
+  // contre deux jobs qui chargent puis ré-écrivent le même Course en parallèle
+  // (course-refresh, feedback-loop, translate-published, outline-generation).
+  // Les mutations atomiques (updateOne/findOneAndUpdate déjà utilisées ailleurs
+  // dans le pipeline) ne sont pas concernées : seul le couple load→save profite
+  // du verrou. Voir apps/worker/src/lib/concurrency.ts pour le retry associé.
+  { timestamps: true, optimisticConcurrency: true },
 );
 
 // Listing des cours d'un utilisateur, du plus récent au plus ancien.
 courseSchema.index({ userId: 1, createdAt: -1 });
+
+// Recherche globale (P132) : index texte natif Mongo sur le titre — pas
+// d'Elasticsearch/Meilisearch avant Phase 9 OSS. Additif, ne remplace aucun
+// index existant.
+courseSchema.index({ title: 'text' }, { name: 'course_text_search' });
 
 export const Course: Model<ICourse> =
   (mongoose.models.Course as Model<ICourse> | undefined) ?? model<ICourse>('Course', courseSchema);

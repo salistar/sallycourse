@@ -73,5 +73,12 @@ export const createCourseInputSchema = z.object({
   avatarEnabled: z.boolean().optional(),
   /** Avatar HeyGen choisi — ignoré si avatarEnabled=false. */
   avatarId: z.string().optional(),
+  /**
+   * Programmer la génération en heures creuses (P134) — si vrai, le premier
+   * job (outline) est enfilé avec un délai BullMQ jusqu'à la prochaine
+   * fenêtre creuse (2h-6h, voir off-peak-window.ts) au lieu de démarrer
+   * immédiatement. Optionnel, défaut false (comportement inchangé).
+   */
+  scheduleOffPeak: z.boolean().optional(),
 });
 export type CreateCourseInput = z.infer<typeof createCourseInputSchema>;

@@ -65,9 +65,10 @@ import {
   type SlideScript,
 } from '../shared.js';
 import { generateAvatarSegment } from './avatar.js';
+import { buildMusicMixArgs, resolveMusicTrack } from './background-music.js';
 import { logger } from '../queues/index.js';
 import { recordRenderCost } from '../lib/cost.js';
-import { CourseCancelledError, checkCancelled, killIfActive } from '../lib/cancellation.js';
+import { checkCancelled, killIfActive } from '../lib/cancellation.js';
 
 /** Cadence de sortie du MP4 (images/seconde) — alignée sur MOTION_FPS (D8). */
 export const VIDEO_FPS = 30;
@@ -452,12 +453,25 @@ async function downloadToFile(key: string, dest: string): Promise<boolean> {
 }
 
 /**
- * Lance ffmpeg avec les arguments donnés, tue le process encore actif si
- * l'invocation échoue (évite les processus fantômes), puis propage l'erreur.
+ * Timeout dur d'un appel ffmpeg SEGMENT (une slide). Filet de sécurité
+ * (Prompt 128 — chaos testing) : un asset corrompu (ex. PNG invalide en entrée
+ * de `-loop 1`) fait boucler ffmpeg INDÉFINIMENT sur des erreurs de décodage
+ * répétées au lieu d'échouer avec un code de sortie non-zéro — constaté en
+ * pratique (ffmpeg 6.0, `Invalid PNG signature` en boucle, jamais de sortie).
+ * Sans ce timeout, un tel asset bloquerait le job BullMQ indéfiniment (pire
+ * qu'un crash : un job zombie qui ne libère jamais son worker). 2 minutes est
+ * largement supérieur au temps d'encodage réel d'un segment d'une slide.
+ */
+export const FFMPEG_SEGMENT_TIMEOUT_MS = 2 * 60_000;
+
+/**
+ * Lance ffmpeg avec les arguments donnés, borné par un timeout dur (voir
+ * FFMPEG_SEGMENT_TIMEOUT_MS), tue le process encore actif si l'invocation
+ * échoue ou expire (évite les processus fantômes), puis propage l'erreur.
  * Factorisation du pattern répété par les étapes segment/2-pass/concat.
  */
 async function runFfmpeg(args: string[]): Promise<void> {
-  const child = execa('ffmpeg', args);
+  const child = execa('ffmpeg', args, { timeout: FFMPEG_SEGMENT_TIMEOUT_MS });
   try {
     await child;
   } catch (err) {
@@ -761,19 +775,50 @@ export async function renderLessonVideo(
       }
     }
 
-    // 4) Concaténation finale (concat demuxer, faststart).
+    // 4) Concaténation finale (concat demuxer, faststart). Passe par runFfmpeg
+    // pour bénéficier du même timeout dur que les segments (Prompt 128) —
+    // même si le risque de blocage y est moindre (copie vidéo sans décodage).
     const concatList = path.join(dir, 'concat.txt');
     await writeFile(concatList, buildConcatFile(segmentPaths), 'utf8');
     const finalPath = path.join(dir, 'lesson.mp4');
     try {
-      await execa('ffmpeg', buildConcatArgs(concatList, finalPath));
+      await runFfmpeg(buildConcatArgs(concatList, finalPath));
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       throw new VideoRenderError('concat', lessonId, detail);
     }
 
+    // 4bis) Musique de fond (Prompt 135, additif) : ne s'applique QUE si
+    // Course.backgroundMusicId (ou jingleEnabled, cf. plus bas) référence une
+    // piste dont le MP3 est RÉELLEMENT présent dans le stockage — sinon skip
+    // silencieux (comportement historique inchangé). Sidechaincompress : la
+    // narration reste le signal de contrôle, la musique « ducke » dessous.
+    let mixedPath = finalPath;
+    const resolvedMusic = await resolveMusicTrack(course.backgroundMusicId).catch(() => null);
+    if (resolvedMusic) {
+      const musicLocalPath = path.join(dir, 'music.mp3');
+      const okMusic = await downloadToFile(resolvedMusic.storageKey, musicLocalPath);
+      if (okMusic) {
+        const mixOut = path.join(dir, 'lesson-music.mp4');
+        try {
+          await runFfmpeg(
+            buildMusicMixArgs(mixedPath, musicLocalPath, mixOut, {
+              musicVolume: course.musicVolume,
+            }),
+          );
+          mixedPath = mixOut;
+        } catch (err) {
+          // Le mixage musical ne doit jamais bloquer le rendu vidéo existant :
+          // on log et on continue avec la vidéo SANS musique (repli historique).
+          logger.warn({ err, trackId: course.backgroundMusicId }, 'mixage musique de fond indisponible — rendu sans musique');
+        }
+      } else {
+        logger.warn({ trackId: course.backgroundMusicId }, 'MP3 introuvable après vérification — rendu sans musique');
+      }
+    }
+
     // 5) Vérification ffprobe (durée / résolution / audio).
-    const probe = await probeVideo(finalPath);
+    const probe = await probeVideo(mixedPath);
     const expected = expectedDurationSeconds(segments) + avatarExtraSeconds;
     const problems = verifyProbe(probe, expected);
     if (problems.length > 0) {

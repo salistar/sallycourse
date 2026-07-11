@@ -10,6 +10,8 @@ export * from '@sallycourse/shared/queues.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export * from '@sallycourse/shared/lesson-delta.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export * from '@sallycourse/shared/video-preview.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { getConfig, requireConfig, resetConfigCache, type AppConfig } from '@sallycourse/shared/config.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export * from '@sallycourse/shared/constants.js';
@@ -40,6 +42,8 @@ export { renderTemplate, SlideTemplate as SlideTemplateEnum, SLIDE_TEMPLATE_NAME
 export { renderPdfTemplate, PdfTemplate, type PdfTemplateName, type QuizSolutionsPdfInput, type DeploymentReportPdfInput, type ReportPlatform, type ReportChecklistItem, type ReportChecklistTone, type WorkbookPdfInput, type CheatsheetPdfInput, type CheatsheetSection, type LinkedinPitchPdfInput } from '@sallycourse/design/pdf-templates.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { connectDb } from '@sallycourse/db/connect.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { colors } from '@sallycourse/design/tokens.js';
 // prettier-ignore
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { Course, type CourseDocument, type ICourse, type IDubbedVersion } from '@sallycourse/db/models/course.js';
@@ -50,7 +54,7 @@ export { User, type IUser } from '@sallycourse/db/models/user.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 // prettier-ignore
 // @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
-export { Lesson, LESSON_STATUSES, type ILesson, type LessonStatus, type ILessonVersion, type ISandboxLinks, type ISandboxProjectLinks } from '@sallycourse/db/models/lesson.js';
+export { Lesson, LESSON_STATUSES, type ILesson, type LessonStatus, type ILessonVersion, type ILessonSimilarityWarning, type ISandboxLinks, type ISandboxProjectLinks } from '@sallycourse/db/models/lesson.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { GenerationJob, type IGenerationJob } from '@sallycourse/db/models/generation-job.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
@@ -94,3 +98,11 @@ export { PromptTemplate, type IPromptTemplate, type PromptTemplateDocument } fro
 // prettier-ignore
 // @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
 export { ShortClip, SHORT_CLIP_PLATFORMS, SHORT_CLIP_STATUSES, type IShortClip, type ShortClipDocument, type ShortClipPlatform, type ShortClipStatus } from '@sallycourse/db/models/short-clip.js';
+// prettier-ignore
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
+export { MUSIC_CATALOG, MUSIC_MIX, JINGLE_TRACK_ID, JINGLE_TRACK, musicStorageKey, findMusicTrack, selectTrackByMood, type MusicTrack, type MusicMood } from '@sallycourse/shared/music-catalog.js';
+// prettier-ignore
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
+export { EmailSequence, EmailSequenceEnrollment, EMAIL_SEQUENCE_KINDS, EMAIL_SEQUENCE_ENROLLMENT_STATUSES, type IEmailSequence, type IEmailSequenceStep, type EmailSequenceDocument, type EmailSequenceKind, type IEmailSequenceEnrollment, type EmailSequenceEnrollmentDocument, type EmailSequenceEnrollmentStatus } from '@sallycourse/db/models/email-sequence.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { sendEmail } from '@sallycourse/db/email/send.js';

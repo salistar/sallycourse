@@ -6,6 +6,7 @@
 import type { Job } from 'bullmq';
 import {
   Course,
+  GenerationJob,
   Lesson,
   QUEUES,
   Section,
@@ -30,6 +31,7 @@ import { generateCourseResources } from '../generators/resources.js';
 import { runCourseQa } from '../lib/qa.js';
 import { evaluateAndStoreCourseQuality } from '../lib/quality-score.js';
 import { buildContinuityContext, summarizeLesson } from '../lib/continuity.js';
+import { findMostSimilarLesson } from '../lib/content-similarity.js';
 import { lessonContentHash } from '../deploy/updates.js';
 
 /**
@@ -257,6 +259,57 @@ async function recordLessonVersion(lessonId: string, note: string): Promise<void
 }
 
 /**
+ * Déduplication de contenu généré (P115) : compare la leçon qui vient d'être
+ * générée aux autres leçons DÉJÀ PRÊTES du même cours (contenu réel — script,
+ * article — pas mock). Au-delà du seuil d'alerte (CONTENT_SIMILARITY.
+ * WARNING_THRESHOLD), pose Lesson.similarityWarning (additif) et journalise un
+ * avertissement dans GenerationJob.logs. N'invalide jamais la génération —
+ * alerte seulement, best-effort (ne jette jamais).
+ */
+async function checkLessonSimilarity(courseId: string, lessonId: string): Promise<void> {
+  try {
+    const lesson = await Lesson.findById(lessonId).select('type title summary script assets').lean();
+    if (!lesson) return;
+
+    const others = await Lesson.find({ courseId, _id: { $ne: lessonId }, status: 'ready' })
+      .select('type title summary script assets')
+      .lean();
+    if (others.length === 0) return;
+
+    const match = findMostSimilarLesson(
+      lesson,
+      others.map((o) => ({ id: String(o._id), lesson: o })),
+    );
+    if (!match) return;
+
+    await Lesson.updateOne(
+      { _id: lessonId },
+      {
+        $set: {
+          similarityWarning: {
+            similarToLessonId: match.lessonId,
+            score: match.score,
+            detectedAt: new Date(),
+          },
+        },
+      },
+    );
+
+    const message =
+      `Similarité élevée détectée (${(match.score * 100).toFixed(0)}%) entre « ${lesson.title} » ` +
+      `et une autre leçon déjà générée — à revoir avant publication.`;
+    logger.warn({ courseId, lessonId, similarToLessonId: match.lessonId, score: match.score }, message);
+    await GenerationJob.updateOne(
+      { courseId, step: QUEUES.content },
+      { $push: { logs: { ts: new Date(), level: 'warn', msg: message } } },
+      { upsert: true },
+    );
+  } catch (err) {
+    logger.warn({ courseId, lessonId, err }, 'vérification de similarité de contenu impossible');
+  }
+}
+
+/**
  * Fusionne le contexte de continuité (P19) et une éventuelle instruction
  * d'amélioration issue du feedback étudiant (P62). L'instruction est mise en
  * exergue pour que le générateur la prenne en compte prioritairement.
@@ -312,6 +365,9 @@ export async function processContentGeneration(job: Job<ContentJobData>): Promis
 
     // Résume la leçon générée pour alimenter la continuité des suivantes (P19).
     await summarizeLesson(lessonId);
+
+    // Déduplication de contenu (P115) : alerte si trop proche d'une leçon voisine.
+    await checkLessonSimilarity(courseId, lessonId);
     await report(courseId, 100, `Contenu prêt : « ${lesson.title} »`);
 
     // Chaînage séquentiel (P19) : la leçon enfile la suivante du cours, de sorte

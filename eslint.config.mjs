@@ -49,8 +49,22 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
       ],
+      // `any` explicite interdit : déjà recommandé par tseslint.configs.recommended
+      // (niveau 'warn' par défaut) — on le durcit en 'error'. Les rares cas
+      // légitimes (ex. apps/worker/src/lib/claude.ts, Input Zod volontairement
+      // libre) sont neutralisés par un eslint-disable-next-line ciblé et justifié.
+      '@typescript-eslint/no-explicit-any': 'error',
     },
   },
+
+  // NOTE dette technique / outillage non installé (Prompt 123) :
+  // - `import/no-cycle` (détection de cycles d'imports) nécessite eslint-plugin-import,
+  //   absent du lockfile. Signalé en depsNeeded — à ajouter puis activer ici une fois
+  //   installé (scope: '**/*.{ts,tsx}', rules: { 'import/no-cycle': 'error' }).
+  // - `react-hooks/exhaustive-deps` nécessite eslint-plugin-react-hooks, absent du
+  //   lockfile (apps/web et apps/mobile utilisent des hooks React — ~46 fichiers
+  //   concernés). Signalé en depsNeeded — à ajouter puis activer sur
+  //   apps/web/**/*.tsx et apps/mobile/**/*.tsx une fois installé.
 
   // Garde-fou design : tokens uniquement dans les composants React.
   // packages/design est exempté : c'est là que vivent les hex de référence.
@@ -77,6 +91,25 @@ export default tseslint.config(
           message: MESSAGE_TOKENS_ONLY,
         },
       ],
+    },
+  },
+
+  // Garde-fou fiabilité worker : les processors de queue (BullMQ) sont le
+  // point d'entrée de tout job — une promesse lancée sans await ni .catch()
+  // y fait disparaître silencieusement une erreur (job jamais marqué en échec,
+  // jamais retenté). Règle activée seulement ici (nécessite le type-checking,
+  // donc plus lente) pour ne pas ralentir le lint rapide du reste du monorepo.
+  {
+    name: 'salistar/worker-no-floating-promises',
+    files: ['apps/worker/src/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        project: './apps/worker/tsconfig.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
     },
   },
 

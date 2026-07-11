@@ -16,15 +16,15 @@ const currencyFmt = new Intl.NumberFormat('fr-FR', {
   maximumFractionDigits: 0,
 });
 
-/** Couleur (variable de thème) attribuée à une plateforme pour les barres. */
+/** Couleur (variable de thème --sc-*, cf. packages/design/src/css-variables.ts) attribuée à une plateforme pour les barres. */
 function platformColor(platform: string): string {
   switch (platform) {
     case 'udemy':
-      return 'var(--color-primary, #6366f1)';
+      return 'rgb(var(--sc-primary))';
     case 'youtube':
-      return 'var(--color-accent, #ef4444)';
+      return 'rgb(var(--sc-danger))';
     default:
-      return 'var(--color-muted, #94a3b8)';
+      return 'rgb(var(--sc-muted-foreground))';
   }
 }
 
@@ -49,13 +49,13 @@ function RatingGauge({ rating }: { rating: number }) {
 
   return (
     <svg viewBox="0 0 100 100" className="h-28 w-28" role="img" aria-label={`Note moyenne ${rating} sur 5`}>
-      <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--color-border, #e2e8f0)" strokeWidth="8" />
+      <circle cx="50" cy="50" r={radius} fill="none" stroke="rgb(var(--sc-border))" strokeWidth="8" />
       <circle
         cx="50"
         cy="50"
         r={radius}
         fill="none"
-        stroke="var(--color-primary, #6366f1)"
+        stroke="rgb(var(--sc-primary))"
         strokeWidth="8"
         strokeLinecap="round"
         strokeDasharray={`${dash} ${circumference}`}

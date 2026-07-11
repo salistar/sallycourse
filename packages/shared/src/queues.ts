@@ -59,6 +59,13 @@ export interface ContentJobData {
 export interface TtsJobData {
   courseId: string;
   lessonId: string;
+  /**
+   * Mode aperçu rapide (Prompt 133) : 'quick-preview' force la voix TTS
+   * standard par langue (aucun clonage, cf. ttsVoiceForMode) et propage le
+   * preset FFmpeg 'draft' au video-render qui suit. Absent → comportement
+   * historique (voix du cours, preset 'final').
+   */
+  mode?: 'quick-preview' | 'final';
 }
 
 export interface ScreenshotJobData {
@@ -69,6 +76,11 @@ export interface ScreenshotJobData {
 export interface VideoRenderJobData {
   courseId: string;
   lessonId: string;
+  /**
+   * Mode aperçu rapide (Prompt 133) : 'quick-preview' → preset ffmpeg 'draft'
+   * (presetForMode). Absent → comportement historique (DEFAULT_PRESET 'final').
+   */
+  mode?: 'quick-preview' | 'final';
 }
 
 export interface SubtitleJobData {

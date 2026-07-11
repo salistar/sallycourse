@@ -15,6 +15,7 @@ import {
   publishProgress,
   slideScriptSchema,
   storageKeys,
+  ttsVoiceForMode,
   uploadObject,
   type SlideScript,
   type TtsJobData,
@@ -73,7 +74,7 @@ async function copyCacheToLessonAudio(cacheKey: string, audioKey: string): Promi
  * d'échec (le worker BullMQ gère alors les retentatives + marquage GenerationJob).
  */
 export async function processTtsGeneration(job: Job<TtsJobData>): Promise<TtsResult> {
-  const { courseId, lessonId } = job.data;
+  const { courseId, lessonId, mode } = job.data;
 
   try {
     await report(courseId, 5, 'Chargement de la leçon pour la synthèse vocale');
@@ -96,12 +97,16 @@ export async function processTtsGeneration(job: Job<TtsJobData>): Promise<TtsRes
 
     const lessonKeys = storageKeys.course(courseId).lesson(section.order, lesson.order);
     const locale = course.locale;
-    const voice = course.ttsVoice;
+    // Aperçu rapide (P133) : voix standard par langue FORCÉE (jamais de voix
+    // clonée) — la voix la plus rapide/économique à générer, adaptée à un
+    // brouillon jetable. En mode 'final' (ou absent) : voix du cours inchangée.
+    const voice = ttsVoiceForMode(mode ?? 'final', course.ttsVoice);
 
     // Traçabilité voix clonée (P81) : si la voix utilisée est la voix clonée du
     // propriétaire du cours, on logue l'usage via une Notification interne
     // (watermark = log de conformité, pas de tatouage audio — voir voice-clone.ts).
-    // Best-effort, une seule fois par leçon (pas par slide).
+    // Best-effort, une seule fois par leçon (pas par slide). Ignoré en mode
+    // aperçu rapide : la voix clonée n'est jamais utilisée dans ce mode.
     if (voice) {
       const owner = await User.findById(course.userId).select('clonedVoiceId').lean();
       if (owner?.clonedVoiceId && owner.clonedVoiceId === voice) {
@@ -191,7 +196,7 @@ export async function processTtsGeneration(job: Job<TtsJobData>): Promise<TtsRes
     const videoPriority = priorityForPlan(await planForCourse(courseId));
     await createQueue(QUEUES.videoRender).add(
       QUEUES.videoRender,
-      { courseId, lessonId },
+      { courseId, lessonId, ...(mode ? { mode } : {}) },
       { jobId: makeJobId(courseId, QUEUES.videoRender, lessonId), priority: videoPriority },
     );
 

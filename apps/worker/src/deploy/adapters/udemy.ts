@@ -30,12 +30,14 @@ import {
   uploadObject,
   encryptSecret,
   decryptSecret,
+  VIDEO_PROCESSING,
   type ICourse,
   type ILesson,
   type ISection,
 } from '../../shared.js';
 import { BaseDeploymentAdapter } from '../base-adapter.js';
 import { registerAdapter } from '../registry.js';
+import { guardBrowserSession, type BrowserSessionGuard } from '../browser-session-guard.js';
 import { callClaudeJson } from '../../lib/claude.js';
 import {
   checkUdemyMaxCompliance,
@@ -108,9 +110,7 @@ export const SELECTORS = {
 /* ------------------------------------------------------------------ */
 
 const UDEMY_BASE = 'https://www.udemy.com';
-/** Timeout d'un poll d'encodage vidéo (ms) et intervalle entre deux checks. */
-const VIDEO_PROCESSING_TIMEOUT_MS = 20 * 60 * 1_000;
-const VIDEO_PROCESSING_POLL_MS = 10 * 1_000;
+// Timeout/intervalle de poll d'encodage vidéo : VIDEO_PROCESSING (constants.ts, P113).
 
 /** Catégories Udemy officielles (cible du mapping). */
 export const UDEMY_CATEGORIES = [
@@ -291,6 +291,8 @@ export class UdemyAdapter extends BaseDeploymentAdapter {
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
   private page: Page | null = null;
+  // Garde de durée de vie (P126) : ferme le contexte de force si la session dépasse le timeout.
+  private sessionGuard: BrowserSessionGuard | null = null;
 
   // ────────────────────────────────────────────────────────────────
   // (33) Authentification
@@ -436,6 +438,8 @@ export class UdemyAdapter extends BaseDeploymentAdapter {
 
     await this.withRetry(async () => {
       await page.goto(`${UDEMY_BASE}/join/login-popup/`, { waitUntil: 'domcontentloaded' });
+      // Anti-phishing (P126) : le domaine de la page AVANT saisie doit être udemy.com.
+      this.assertExpectedDomain(page.url(), 'udemy.com');
       await page.fill(SELECTORS.login.email, email);
       await page.fill(SELECTORS.login.password, password);
 
@@ -602,8 +606,7 @@ export class UdemyAdapter extends BaseDeploymentAdapter {
   /** Upload MP4 puis polling de l'encodage jusqu'à disponibilité (ou timeout). */
   private async uploadVideo(ctx: DeployContext, page: Page, videoKey: string): Promise<void> {
     await this.uploadFile(page, SELECTORS.curriculum.videoFileInput, videoKey, 'video.mp4');
-    const deadline = Date.now() + VIDEO_PROCESSING_TIMEOUT_MS;
-    // eslint-disable-next-line no-constant-condition
+    const deadline = Date.now() + VIDEO_PROCESSING.TIMEOUT_MS;
     while (true) {
       const done = await page.locator(SELECTORS.curriculum.processingDone).count();
       if (done > 0) return;
@@ -611,7 +614,7 @@ export class UdemyAdapter extends BaseDeploymentAdapter {
         throw new Error("encodage vidéo Udemy non terminé dans le délai imparti");
       }
       await this.log(ctx, 'info', 'encodage vidéo Udemy en cours…');
-      await page.waitForTimeout(VIDEO_PROCESSING_POLL_MS);
+      await page.waitForTimeout(VIDEO_PROCESSING.POLL_INTERVAL_MS);
     }
   }
 
@@ -792,6 +795,8 @@ export class UdemyAdapter extends BaseDeploymentAdapter {
     this.context = await this.browser.newContext(
       storageState ? { storageState: JSON.parse(storageState) } : {},
     );
+    // Timeout global de session (P126) : ferme le contexte de force au-delà du délai.
+    this.sessionGuard = guardBrowserSession(this.context, 'udemy.deploy');
     this.page = await this.context.newPage();
     return this.page;
   }
@@ -910,6 +915,7 @@ export class UdemyAdapter extends BaseDeploymentAdapter {
   }
 
   private async closeBrowser(): Promise<void> {
+    this.sessionGuard?.dispose();
     try {
       await this.page?.close();
       await this.context?.close();
@@ -917,6 +923,7 @@ export class UdemyAdapter extends BaseDeploymentAdapter {
     } catch {
       /* best-effort */
     } finally {
+      this.sessionGuard = null;
       this.page = null;
       this.context = null;
       this.browser = null;

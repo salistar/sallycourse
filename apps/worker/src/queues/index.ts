@@ -38,6 +38,11 @@ const REDACTED_PATHS = [
   'secret',
   '*.secret',
   '*.data.secret',
+  'clientSecret',
+  '*.clientSecret',
+  '*.data.clientSecret',
+  'webhookSecret',
+  '*.webhookSecret',
   'credentials',
   '*.credentials',
   '*.data.credentials',
@@ -45,6 +50,19 @@ const REDACTED_PATHS = [
   '*.authorization',
   'headers.authorization',
   'headers.cookie',
+  // Phase 6 (avatar HeyGen + voice cloning ElevenLabs) : identifiants de voix/config
+  // clonée liés à un compte utilisateur — traités comme sensibles par prudence.
+  'clonedVoiceId',
+  '*.clonedVoiceId',
+  'voiceId',
+  '*.voiceId',
+  '*.data.voiceId',
+  'HEYGEN_API_KEY',
+  '*.HEYGEN_API_KEY',
+  'ELEVENLABS_API_KEY',
+  '*.ELEVENLABS_API_KEY',
+  'CREDENTIALS_MASTER_KEY',
+  '*.CREDENTIALS_MASTER_KEY',
 ];
 
 export const logger = pino({

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "Europe/Paris",
+  "schedule": ["before 6am on monday"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 0,
+  "labels": ["dependencies"],
+  "rangeStrategy": "bump",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
+  "packageRules": [
+    {
+      "description": "Groupe les mises à jour d'un même workspace pour limiter le nombre de PRs",
+      "matchFileNames": ["apps/web/package.json"],
+      "groupName": "apps/web dependencies"
+    },
+    {
+      "description": "Groupe les mises à jour d'un même workspace pour limiter le nombre de PRs",
+      "matchFileNames": ["apps/worker/package.json"],
+      "groupName": "apps/worker dependencies"
+    },
+    {
+      "description": "Groupe les mises à jour d'un même workspace pour limiter le nombre de PRs",
+      "matchFileNames": ["apps/mobile/package.json"],
+      "groupName": "apps/mobile dependencies"
+    },
+    {
+      "description": "Groupe les mises à jour des packages partagés",
+      "matchFileNames": ["packages/**/package.json"],
+      "groupName": "packages/* dependencies"
+    },
+    {
+      "description": "Mises à jour mineures/patch : groupées et automergeables après CI verte",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "minor and patch updates",
+      "automerge": false
+    },
+    {
+      "description": "Majeures sur libs sensibles (auth, i18n) : jamais groupées, revue manuelle obligatoire",
+      "matchPackageNames": ["next-auth", "next-intl"],
+      "matchUpdateTypes": ["major"],
+      "groupName": null,
+      "labels": ["dependencies", "needs-manual-review"],
+      "automerge": false
+    },
+    {
+      "description": "Dépendances de dev/tooling : groupées séparément, moins prioritaires",
+      "matchDepTypes": ["devDependencies"],
+      "groupName": "dev tooling updates"
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"],
+    "schedule": ["at any time"],
+    "prPriority": 10
+  },
+  "osvVulnerabilityAlerts": true
+}

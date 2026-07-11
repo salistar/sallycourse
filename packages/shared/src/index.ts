@@ -32,3 +32,11 @@ export * from './school-branding';
 export * from './rag';
 // @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
 export * from './fx-rates';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+export * from './errors';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+export * from './music-catalog';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+export * from './video-preview';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+export * from './off-peak-window';

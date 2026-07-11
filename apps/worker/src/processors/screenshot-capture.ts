@@ -12,7 +12,6 @@ import type { Job } from 'bullmq';
 import sharp from 'sharp';
 import type { Readable } from 'node:stream';
 import {
-  Course,
   GenerationJob,
   Lesson,
   QUEUES,

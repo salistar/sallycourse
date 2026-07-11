@@ -27,6 +27,7 @@ import {
 import { getRedisConnection } from '../queues/connection.js';
 import { logger } from '../queues/index.js';
 import { callClaudeJson } from '../lib/claude.js';
+import { saveFieldWithRetry } from '../lib/concurrency.js';
 
 /* ------------------------------------------------------------------ */
 /* Modèle d'avis étudiant                                              */
@@ -380,8 +381,17 @@ export async function runReviewFeedbackForCourse(courseId: string): Promise<Revi
     generatedAt: new Date().toISOString(),
   });
 
-  course.improvementSuggestions = stored;
-  await course.save().catch((err) => logger.warn({ courseId, err }, 'feedback-loop : sauvegarde analyse échouée'));
+  // Verrou optimiste (P120) : un autre job (ex. course-refresh) peut avoir
+  // sauvegardé ce même Course entre-temps — on recharge et réapplique la
+  // mutation sur l'état frais en cas de conflit de version.
+  await saveFieldWithRetry(
+    course,
+    () => Course.findById(courseId) as Promise<(ICourse & { _id: unknown; save: () => Promise<unknown> }) | null>,
+    (doc) => {
+      doc.improvementSuggestions = stored;
+    },
+    { context: { courseId, step: 'feedback-loop' } },
+  ).catch((err) => logger.warn({ courseId, err }, 'feedback-loop : sauvegarde analyse échouée'));
 
   logger.info(
     { courseId, reviews: reviews.length, themes: analysis.themes.length, suggestions: analysis.suggestions.length },

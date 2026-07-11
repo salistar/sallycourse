@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, FileText, Minus, Plus, SlidersHorizontal, Upload, X } from 'lucide-react';
-import { detectSourceMaterialKind, type Locale } from '@sallycourse/shared';
+import { computeNextOffPeakStart, detectSourceMaterialKind, type Locale } from '@sallycourse/shared';
 import { cn } from '@/lib/cn';
 import { Button, Select } from '@/components/ui';
 import { transitions } from '@/components/motion/motion-config';
@@ -37,6 +37,12 @@ export interface AdvancedOptions {
    * createCourseInputSchema, ni persisté tel quel côté état.
    */
   sourceMaterialFile: File | null;
+  /**
+   * Programmer la génération en heures creuses (P134, 2h-6h) — le job
+   * outline est enfilé avec un délai BullMQ jusqu'à la prochaine fenêtre
+   * creuse au lieu de démarrer immédiatement.
+   */
+  scheduleOffPeak: boolean;
 }
 
 /** Avatars HeyGen proposés — maquette locale, remplacée plus tard par l'API HeyGen. */
@@ -72,6 +78,15 @@ const COURSE_LOCALES: ReadonlyArray<{ value: Locale; label: string }> = [
 const SECTIONS_MIN = 3;
 const SECTIONS_MAX = 30;
 
+/** Libellé court « demain 02:00 » / « aujourd'hui 02:00 » pour le hint du toggle (P134). */
+function formatOffPeakHint(now: Date): string {
+  const next = computeNextOffPeakStart(now);
+  const hh = String(next.getHours()).padStart(2, '0');
+  const mm = String(next.getMinutes()).padStart(2, '0');
+  const sameDay = next.toDateString() === now.toDateString();
+  return `${sameDay ? "aujourd'hui" : 'demain'} à ${hh}:${mm}`;
+}
+
 export const DEFAULT_ADVANCED_OPTIONS: AdvancedOptions = {
   locale: 'fr',
   ttsVoice: TTS_VOICES[0].id,
@@ -80,6 +95,7 @@ export const DEFAULT_ADVANCED_OPTIONS: AdvancedOptions = {
   avatarEnabled: false,
   avatarId: AVATAR_OPTIONS[0].id,
   sourceMaterialFile: null,
+  scheduleOffPeak: false,
 };
 
 /* ------------------------------------------------------------------ */
@@ -489,6 +505,13 @@ export function AdvancedOptionsPanel({ value, onChange, triggerClassName }: Adva
               <SourceMaterialField
                 file={value.sourceMaterialFile}
                 onChange={(sourceMaterialFile) => patch({ sourceMaterialFile })}
+              />
+
+              <ToggleSwitch
+                label="Programmer la génération cette nuit"
+                hint={`Démarre en heures creuses (2h-6h) — prochain créneau ${formatOffPeakHint(new Date())}.`}
+                checked={value.scheduleOffPeak}
+                onToggle={() => patch({ scheduleOffPeak: !value.scheduleOffPeak })}
               />
 
               <SectionsStepper value={value.approxSections} onChange={(approxSections) => patch({ approxSections })} />

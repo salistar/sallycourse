@@ -16,6 +16,7 @@ import { QualityScorePanel } from './quality-score-panel';
 import { FeedbackPanel } from './feedback-panel';
 import { ResourcesPanel } from './resources-panel';
 import { TranslatePanel } from './translate-panel';
+import { QuickPreviewPanel } from './quick-preview-panel';
 import type { CourseDetailView, CourseStatus, Difficulty, Locale } from './types';
 
 /**
@@ -204,6 +205,12 @@ export function CourseDetail({ course }: CourseDetailProps) {
 
         {/* ── Ressources téléchargeables (P65), une fois générées ─ */}
         <ResourcesPanel resources={course.resources} />
+
+        {/* ── Prévisualisation vidéo rapide (P133), leçons vidéo générées ─ */}
+        <QuickPreviewPanel
+          courseId={course.id}
+          videoLessons={allLessons.filter((lesson) => lesson.type === 'video' && lesson.assets.videoUrl)}
+        />
 
         {/* ── Traduction du cours publié (P92), cours déjà déployé ─ */}
         {course.status === 'published' && (

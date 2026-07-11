@@ -26,7 +26,7 @@ export function BarChart({
   points,
   formatValue = (v) => String(v),
   height = 160,
-  color = 'var(--color-primary, #6366f1)',
+  color = 'rgb(var(--sc-primary))',
   className,
 }: BarChartProps) {
   const max = Math.max(1, ...points.map((p) => p.value));
@@ -52,7 +52,7 @@ export function BarChart({
         aria-label="Graphique en barres"
       >
         {/* Ligne de base */}
-        <line x1={0} y1={height} x2={width} y2={height} stroke="var(--color-border, #e2e8f0)" strokeWidth={1} />
+        <line x1={0} y1={height} x2={width} y2={height} stroke="rgb(var(--sc-border))" strokeWidth={1} />
         {points.map((p, i) => {
           const barHeight = (p.value / max) * (height - 8);
           const x = i * (barWidth + gap) + gap / 2;

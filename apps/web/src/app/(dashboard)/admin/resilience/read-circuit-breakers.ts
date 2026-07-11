@@ -5,6 +5,7 @@
 // reste utilisable, ce n'est pas une erreur — signifie « aucun incident »).
 import { Redis } from 'ioredis';
 import { getConfig } from '@sallycourse/shared';
+import { logger } from '@/lib/logger';
 import type { CircuitBreakerSnapshot } from './breaker-view';
 
 const CIRCUIT_BREAKER_REDIS_PREFIX = 'circuit-breaker:';
@@ -34,12 +35,15 @@ export async function readCircuitBreakerSnapshots(): Promise<CircuitBreakerSnaps
       if (!raw) continue;
       try {
         out.push(JSON.parse(raw) as CircuitBreakerSnapshot);
-      } catch {
-        // instantané corrompu/partiel — ignoré, jamais bloquant.
+      } catch (err) {
+        logger.warn({ err }, 'circuit-breakers admin : instantané corrompu ignoré');
       }
     }
     return out;
-  } catch {
+  } catch (err) {
+    // Page justement dédiée à la résilience : un Redis injoignable doit être
+    // visible dans les logs serveur, même si l'UI retombe sur liste vide.
+    logger.warn({ err }, 'circuit-breakers admin : lecture Redis impossible');
     return [];
   }
 }

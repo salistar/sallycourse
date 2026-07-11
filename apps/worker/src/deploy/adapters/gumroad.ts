@@ -11,6 +11,7 @@
 import {
   presignedGetUrl,
   storageKeys,
+  DEFAULT_MARKETPLACE_PRICE,
   type DeploymentMode,
   type ILesson,
 } from '../../shared.js';
@@ -22,8 +23,8 @@ import { buildProductDescription, isVideoLesson } from './lesson-transforms.js';
 const GUMROAD_API = 'https://api.gumroad.com/v2';
 /** Nom du ZIP packagé (aligné sur le processor packaging). */
 const COURSE_PACK_FILENAME = 'course-pack.zip';
-/** Prix par défaut (centimes) si le cours n'en fournit pas. */
-const DEFAULT_PRICE_CENTS = 4900;
+/** Prix par défaut (centimes) si le cours n'en fournit pas (constants.ts, P113). */
+const DEFAULT_PRICE_CENTS = DEFAULT_MARKETPLACE_PRICE.gumroadCents;
 
 /** Réponse minimale d'un produit Gumroad. */
 interface GumroadProduct {

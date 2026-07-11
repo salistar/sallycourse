@@ -28,6 +28,7 @@ import {
   type ISection,
   type Locale,
 } from '../shared.js';
+import { saveFieldWithRetry } from './concurrency.js';
 import { callClaudeJson } from './claude.js';
 import { logger } from '../queues/index.js';
 import type { Cue } from '../media/subtitles.js';
@@ -398,9 +399,11 @@ export async function translatePublishedCourse(
     }
   }
 
-  // Persistance Course.dubbedVersions : une entrée par locale traitée (remplace l'existante).
-  const existing = Array.isArray(course.dubbedVersions) ? course.dubbedVersions : [];
-  const kept = existing.filter((v) => !targetLocales.includes(v.locale));
+  // Persistance Course.dubbedVersions : une entrée par locale traitée (remplace
+  // l'existante). `existing` est recalculé sur l'état FRAIS à chaque tentative
+  // (verrou optimiste P120) : si un autre job a modifié dubbedVersions entre
+  // temps (ex. une autre langue traduite en parallèle), on fusionne avec son
+  // résultat plutôt que de l'écraser.
   const now = new Date();
   const added = targetLocales.map((locale) => {
     const entry = dubAccumulator.get(locale)!;
@@ -415,8 +418,16 @@ export async function translatePublishedCourse(
       updatedAt: now,
     };
   });
-  course.dubbedVersions = [...kept, ...added];
-  await course.save();
+  await saveFieldWithRetry(
+    course,
+    () => Course.findById(courseId) as Promise<(ICourse & { _id: unknown; save: () => Promise<unknown> }) | null>,
+    (doc) => {
+      const existing = Array.isArray(doc.dubbedVersions) ? doc.dubbedVersions : [];
+      const kept = existing.filter((v) => !targetLocales.includes(v.locale));
+      doc.dubbedVersions = [...kept, ...added];
+    },
+    { context: { courseId, step: 'translate-published' } },
+  );
 
   return {
     courseId,

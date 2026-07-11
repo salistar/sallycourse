@@ -16,7 +16,7 @@
 import archiver from 'archiver';
 import type { ILesson } from '../shared.js';
 import { markdownToHtml, orderedName, slugify } from '../media/pack.js';
-import { escapeXml } from './scorm.js';
+import { escapeXml, EXPORT_PAGE_CSS } from './scorm.js';
 
 /** Nom du fichier .imscc dans le bucket (sous exports/). */
 export const COMMON_CARTRIDGE_FILENAME = 'common-cartridge.imscc';
@@ -91,10 +91,7 @@ export function cartridgePageDocument(title: string, bodyHtml: string, locale: s
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     `<title>${escapeXml(title)}</title>`,
     '<style>',
-    'body{font-family:system-ui,Segoe UI,sans-serif;line-height:1.65;max-width:820px;margin:2rem auto;padding:0 1.25rem;color:#1a1523}',
-    'h1,h2,h3{line-height:1.25}video{width:100%;border-radius:.5rem;background:#000}',
-    'pre{background:#1a1523;color:#f4f1fa;padding:1rem;border-radius:.5rem;overflow-x:auto}',
-    'blockquote{border-left:3px solid #7c5cff;margin:1.25rem 0;padding:.25rem 1rem;background:#f6f3fb}',
+    ...EXPORT_PAGE_CSS,
     '</style>',
     '</head>',
     '<body>',

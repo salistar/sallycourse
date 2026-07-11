@@ -1,0 +1,66 @@
+# Revue de code automatisée SALLYCOURSE — apps/worker & packages/*.
+#
+# Complémentaire à design-review.yml (qui couvre apps/web/src) : sur chaque PR
+# touchant apps/worker/src ou packages/*/src, Claude relit le diff et poste des
+# findings (duplication sémantique, hardcoding, gestion d'erreur, sécurité)
+# en commentaire de PR. Le lint/typecheck/tests restent gérés par ci.yml —
+# ce workflow ne les duplique pas, il vient en plus.
+#
+# Prompt de revue versionné séparément : .github/prompts/code-review-prompt.md
+# (éditable sans toucher ce fichier).
+#
+# Prérequis : secret ANTHROPIC_API_KEY configuré sur le repo (même secret que
+# design-review.yml).
+name: Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'apps/worker/src/**'
+      - 'packages/*/src/**'
+
+# Une seule revue à la fois par PR ; un nouveau push annule la précédente.
+concurrency:
+  group: code-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  code-review:
+    name: Revue de code Claude
+    # Pas de revue sur les brouillons : on attend que la PR soit prête.
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Historique complet : nécessaire pour un diff base...head fiable.
+          fetch-depth: 0
+
+      - name: Préparer le prompt (injecte PR/repo dans le gabarit versionné)
+        id: prompt
+        run: |
+          sed \
+            -e "s|{{PR_NUMBER}}|${{ github.event.pull_request.number }}|g" \
+            -e "s|{{REPO}}|${{ github.repository }}|g" \
+            .github/prompts/code-review-prompt.md > /tmp/code-review-prompt.rendered.md
+          {
+            echo 'content<<PROMPT_EOF'
+            cat /tmp/code-review-prompt.rendered.md
+            echo 'PROMPT_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Revue de code Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: '--max-turns 30'
+          prompt: ${{ steps.prompt.outputs.content }}

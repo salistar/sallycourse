@@ -6,13 +6,17 @@ import { HelpCircle, Plus, Save, Trash2, X } from 'lucide-react';
 import { Button, useToast } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { useDirtyState, confirmDiscardIfDirty } from './use-dirty-state';
+import { useAutosave, autosaveStatusLabel } from '@/hooks/use-autosave';
+import { clearLocalDraft, readLocalDraft, shouldOfferRecovery, writeLocalDraft } from '@/hooks/local-draft';
+import { VersionHistoryPanel } from './version-history-panel';
 import type { EditableQuizQuestion } from './types';
 
 /**
  * Éditeur de quiz — liste de questions (intitulé, 4 choix, bonne réponse via
  * radio, explication) avec ajout/suppression. Sauvegarde via
  * PATCH /api/quiz/[lessonId]. La leçon n'a pas d'asset média dérivé : seule
- * la donnée quiz est mise à jour.
+ * la donnée quiz est mise à jour. Autosave débouncée (P131) + brouillon
+ * local de secours.
  */
 
 /** Nombre de choix par question (aligné sur QUIZ.CHOICES_PER_QUESTION). */
@@ -37,13 +41,27 @@ function emptyQuestion(): EditableQuizQuestion {
 export function QuizEditor({ lessonId, initialQuestions, onExit }: QuizEditorProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const [questions, setQuestions] = React.useState<EditableQuizQuestion[]>(
-    initialQuestions.length > 0 ? initialQuestions : [emptyQuestion()],
-  );
+  const draftScope = `quiz:${lessonId}`;
+  const initialQuestionsOrEmpty = initialQuestions.length > 0 ? initialQuestions : [emptyQuestion()];
+
+  const [questions, setQuestions] = React.useState<EditableQuizQuestion[]>(() => {
+    const draft = readLocalDraft<EditableQuizQuestion[]>(draftScope);
+    if (draft && shouldOfferRecovery(draft, initialQuestionsOrEmpty)) return draft.value;
+    return initialQuestionsOrEmpty;
+  });
+  const [recovered] = React.useState(() => {
+    const draft = readLocalDraft<EditableQuizQuestion[]>(draftScope);
+    return Boolean(draft && shouldOfferRecovery(draft, initialQuestionsOrEmpty));
+  });
   const [baseline, setBaseline] = React.useState<EditableQuizQuestion[]>(questions);
   const [saving, setSaving] = React.useState(false);
 
   const dirty = useDirtyState(questions, baseline);
+
+  React.useEffect(() => {
+    if (dirty) writeLocalDraft(draftScope, questions);
+    else clearLocalDraft(draftScope);
+  }, [dirty, questions, draftScope]);
 
   const exit = () => {
     if (confirmDiscardIfDirty(dirty)) onExit();
@@ -75,6 +93,32 @@ export function QuizEditor({ lessonId, initialQuestions, onExit }: QuizEditorPro
     return null;
   };
 
+  /** Sauvegarde silencieuse (sans toast) — réutilisée par l'autosave. */
+  const persist = React.useCallback(
+    async (value: EditableQuizQuestion[]) => {
+      const res = await fetch(`/api/quiz/${lessonId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          questions: value.map((q) => ({
+            question: q.question.trim(),
+            choices: q.choices.map((c) => c.trim()),
+            correctIndex: q.correctIndex,
+            explanation: q.explanation.trim(),
+          })),
+        }),
+      });
+      if (!res.ok) throw new Error('save-failed');
+      setBaseline(value);
+      clearLocalDraft(draftScope);
+    },
+    [lessonId, draftScope],
+  );
+
+  // Autosave désactivée tant que le quiz est incomplet — évite un cycle
+  // d'échecs silencieux contre la validation serveur (miroir de `validate`).
+  const autosave = useAutosave(questions, persist, { enabled: dirty && validate() === null });
+
   const save = async () => {
     const error = validate();
     if (error) {
@@ -83,46 +127,41 @@ export function QuizEditor({ lessonId, initialQuestions, onExit }: QuizEditorPro
     }
     setSaving(true);
     try {
-      const res = await fetch(`/api/quiz/${lessonId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          questions: questions.map((q) => ({
-            question: q.question.trim(),
-            choices: q.choices.map((c) => c.trim()),
-            correctIndex: q.correctIndex,
-            explanation: q.explanation.trim(),
-          })),
-        }),
-      });
-      if (res.ok) {
-        setBaseline(questions);
-        toast({ title: 'Quiz enregistré', description: 'Les questions ont été mises à jour.', variant: 'success' });
-        router.refresh();
-      } else {
-        const data = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast({
-          title: 'Enregistrement impossible',
-          description: data?.error ?? 'Une erreur est survenue, réessayez plus tard.',
-          variant: 'danger',
-        });
-      }
+      await persist(questions);
+      toast({ title: 'Quiz enregistré', description: 'Les questions ont été mises à jour.', variant: 'success' });
+      router.refresh();
     } catch {
-      toast({ title: 'Erreur réseau', description: 'Impossible de joindre le serveur.', variant: 'danger' });
+      toast({
+        title: 'Enregistrement impossible',
+        description: 'Une erreur est survenue, réessayez plus tard. Votre brouillon reste sauvegardé localement.',
+        variant: 'danger',
+      });
     } finally {
       setSaving(false);
     }
   };
 
+  const autosaveLabel = autosaveStatusLabel(autosave.status, autosave.lastSavedAt);
+
   return (
     <div className="flex flex-col gap-4">
+      {recovered && (
+        <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+          Un brouillon non synchronisé a été retrouvé sur cet appareil et rechargé — pensez à
+          l’enregistrer.
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wide text-muted">
           <HelpCircle className="size-3.5 text-primary" aria-hidden="true" />
           Édition du quiz · {questions.length} question{questions.length > 1 ? 's' : ''}
           {dirty && <span className="ms-1 text-accent-500 normal-case tracking-normal">• non enregistré</span>}
+          {!dirty && autosaveLabel && (
+            <span className="ms-1 text-muted normal-case tracking-normal">• {autosaveLabel}</span>
+          )}
         </p>
         <div className="flex items-center gap-2">
+          <VersionHistoryPanel lessonId={lessonId} />
           <Button variant="ghost" size="sm" onClick={exit}>
             <X aria-hidden="true" />
             Fermer

@@ -20,12 +20,11 @@ import {
   type DeploymentMode,
   type ILesson,
 } from '../../shared.js';
-import { getSlideBrowser } from '../../media/slide-renderer.js';
 import { callClaudeJson } from '../../lib/claude.js';
 import { BaseDeploymentAdapter } from '../base-adapter.js';
 import { registerAdapter } from '../registry.js';
 import type { DeployContext, DeployStatus } from '../types.js';
-import { articleToResource, isVideoLesson, selectMainTp } from './lesson-transforms.js';
+import { articleToResource, isVideoLesson, selectMainTp, withBrowserPage } from './lesson-transforms.js';
 
 const SKILLSHARE_BASE = 'https://www.skillshare.com';
 
@@ -69,14 +68,9 @@ export class SkillshareAdapter extends BaseDeploymentAdapter {
     return Boolean(ctx.credentials.email && ctx.credentials.password);
   }
 
-  private async withBrowser<T>(ctx: DeployContext, fn: (page: import('playwright').Page) => Promise<T>): Promise<T> {
-    const browser = await getSlideBrowser();
-    const page = await browser.newPage();
-    try {
-      return await fn(page);
-    } finally {
-      await page.close().catch(() => undefined);
-    }
+  /** Helper partagé P112 (voir lesson-transforms.ts, même pattern que Podia). */
+  private withBrowser<T>(_ctx: DeployContext, fn: (page: import('playwright').Page) => Promise<T>): Promise<T> {
+    return withBrowserPage(fn);
   }
 
   async authenticate(ctx: DeployContext): Promise<void> {
@@ -88,6 +82,8 @@ export class SkillshareAdapter extends BaseDeploymentAdapter {
           () =>
             this.withBrowser(ctx, async (page) => {
               await page.goto(`${SKILLSHARE_BASE}/login`, { waitUntil: 'domcontentloaded' });
+              // Anti-phishing (P126) : le domaine AVANT saisie doit être skillshare.com.
+              this.assertExpectedDomain(page.url(), 'skillshare.com');
               await page.fill('input[name="email"]', ctx.credentials.email!);
               await page.fill('input[name="password"]', ctx.credentials.password!);
               await page.click('button[type="submit"]');

@@ -8,6 +8,7 @@ import { VIDEO } from '../shared.js';
 import {
   AUDIO_BITRATE,
   DEFAULT_PRESET,
+  FFMPEG_SEGMENT_TIMEOUT_MS,
   PRESET_CONFIG,
   PRESET_SPEED_FACTOR,
   VIDEO_FPS,
@@ -349,5 +350,15 @@ describe('estimateRenderDuration', () => {
     ];
     // Aucun échantillon exploitable → repère fixe (identique à un historique vide).
     expect(estimateRenderDuration(10, 'final', history)).toBe(estimateRenderDuration(10, 'final', []));
+  });
+});
+
+describe('FFMPEG_SEGMENT_TIMEOUT_MS (Prompt 128 — chaos testing)', () => {
+  it('est un délai fini et raisonnable (garde-fou contre un ffmpeg bloqué sur un asset corrompu)', () => {
+    // Constat de chaos reproduit avec ffmpeg réel (voir video-render.chaos.test.ts) :
+    // un PNG corrompu en entrée de `-loop 1` fait boucler ffmpeg indéfiniment
+    // (jamais de sortie) au lieu d'échouer. Ce timeout est l'unique garde-fou.
+    expect(FFMPEG_SEGMENT_TIMEOUT_MS).toBeGreaterThan(0);
+    expect(FFMPEG_SEGMENT_TIMEOUT_MS).toBeLessThanOrEqual(5 * 60_000); // pas absurdement long
   });
 });
