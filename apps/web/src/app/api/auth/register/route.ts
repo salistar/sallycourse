@@ -3,12 +3,21 @@ import { hash } from 'bcryptjs';
 import { z } from 'zod';
 import { connectDb, recordAudit, User as UserModel } from '@sallycourse/db';
 import { extractClientIp, rateLimit } from '@/lib/rate-limit';
+import { verifyAltchaSolution } from '@/lib/altcha';
 
 /** Payload d'inscription — messages en français pour affichage direct. */
 const registerSchema = z.object({
   name: z.string().trim().min(2, 'Le nom doit contenir au moins 2 caractères.'),
   email: z.string().trim().toLowerCase().email('Adresse email invalide.'),
   password: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caractères.'),
+  // Preuve de travail ALTCHA (P159) — anti-bot self-hosted, voir lib/altcha.ts.
+  altcha: z.object({
+    algorithm: z.string().optional(),
+    challenge: z.string(),
+    salt: z.string(),
+    number: z.number(),
+    signature: z.string(),
+  }),
 });
 
 /** Limite anti-abus (P70) : une IP ne peut créer que 5 comptes / 10 minutes. */
@@ -40,7 +49,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const { name, email, password } = parsed.data;
+  const { name, email, password, altcha } = parsed.data;
+
+  const altchaResult = verifyAltchaSolution(altcha);
+  if (!altchaResult.valid) {
+    return NextResponse.json(
+      { error: altchaResult.reason ?? 'Vérification anti-robot invalide.' },
+      { status: 400 },
+    );
+  }
 
   await connectDb();
 

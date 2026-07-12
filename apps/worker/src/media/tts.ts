@@ -1,7 +1,10 @@
-// Synthèse vocale multilingue (Prompt 23) : narration d'une slide → mp3.
-// Chaîne de repli : ElevenLabs (v1/text-to-speech) → OpenAI TTS (v1/audio/speech)
-// → silence réaliste (ffmpeg anullsrc) si MOCK_PROVIDERS ou aucune clé. Chaque
-// résultat est normalisé en loudness (-16 LUFS) puis mesuré (ffprobe). Un cache
+// Synthèse vocale multilingue (Prompt 23, OSS Prompt 153) : narration d'une
+// slide → mp3. Chaîne de repli : cache → Piper (OSS, défaut plan Free) →
+// ElevenLabs (PREMIUM, plans pro/business uniquement) → OpenAI TTS (repli
+// universel) → silence réaliste (ffmpeg anullsrc) si MOCK_PROVIDERS ou aucun
+// provider exploitable. Chaque résultat est normalisé en loudness (-16 LUFS)
+// puis mesuré (ffprobe) — Piper/Kokoro passent par la MÊME normalisation que
+// ElevenLabs/OpenAI (aucun chemin ne saute normalizeLoudness). Un cache
 // storage tts-cache/{sha256(texte+voix)}.mp3 évite de re-synthétiser un segment
 // déjà produit (HeadObject avant tout appel payant).
 import { createHash } from 'node:crypto';
@@ -20,6 +23,10 @@ import {
 import { logger } from '../queues/index.js';
 import { bumpCacheStat } from '../lib/cache.js';
 import { CircuitBreaker, CircuitOpenError } from '../lib/circuit-breaker.js';
+import { isElevenLabsAllowedForPlan, isKokoroConfigured, synthesizeKokoro } from '../providers/kokoro-provider.js';
+import { isPiperConfigured, synthesizePiper } from '../providers/piper-provider.js';
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext)
+import { type PlanId } from '@sallycourse/shared';
 
 /** Voix ElevenLabs par défaut selon la langue de la narration. */
 const ELEVENLABS_DEFAULT_VOICES: Record<string, string> = {
@@ -63,7 +70,7 @@ function baseUrl(envKey: string, fallback: string): string {
 const ELEVENLABS_BASE_URL = baseUrl('ELEVENLABS_BASE_URL', 'https://api.elevenlabs.io');
 const OPENAI_BASE_URL = baseUrl('OPENAI_BASE_URL', 'https://api.openai.com/v1');
 
-export type TtsProvider = 'elevenlabs' | 'openai' | 'mock' | 'cache';
+export type TtsProvider = 'piper' | 'kokoro' | 'elevenlabs' | 'openai' | 'mock' | 'cache';
 
 export interface SynthesizeSlideParams {
   /** Texte à synthétiser (narration de la slide). */
@@ -79,6 +86,14 @@ export interface SynthesizeSlideParams {
    * ajuste la durée estimée pour rester synchrone avec les sous-titres.
    */
   speed?: number;
+  /**
+   * Plan de l'utilisateur (P153) : ElevenLabs est une option PREMIUM (pro/
+   * business uniquement) — voir isElevenLabsAllowedForPlan. Absent → défaut
+   * rétrocompatible (ElevenLabs reste tenté comme avant P153) : c'est aux
+   * appelants qui CONNAISSENT le plan réel (ex. tts-generation.ts, via
+   * planForCourse) de le fournir explicitement pour activer la vérification.
+   */
+  plan?: PlanId | string;
 }
 
 /** Borne la vitesse de narration à la plage supportée (Course.narrationSpeed). */
@@ -254,8 +269,11 @@ async function streamToBuffer(key: string): Promise<Buffer> {
 
 /**
  * Synthétise la narration d'une slide en mp3 normalisé, met en cache le résultat
- * et renvoie sa clé S3 + durée. Ordre : cache → ElevenLabs → OpenAI → silence.
- * MOCK_PROVIDERS ou absence de clé → directement silence (zéro appel payant).
+ * et renvoie sa clé S3 + durée. Ordre (P153) : cache → Piper (OSS, gratuit,
+ * défaut plan Free si configuré) → ElevenLabs (PREMIUM, pro/business
+ * uniquement — voir isElevenLabsAllowedForPlan) → OpenAI (repli universel) →
+ * silence. MOCK_PROVIDERS ou aucun provider exploitable → directement silence
+ * (zéro appel payant/réseau).
  */
 export async function synthesizeSlide(params: SynthesizeSlideParams): Promise<SynthesizeSlideResult> {
   const { text, locale } = params;
@@ -280,7 +298,17 @@ export async function synthesizeSlide(params: SynthesizeSlideParams): Promise<Sy
   await bumpCacheStat('tts', 'miss');
 
   const cfg = getConfig();
-  const mock = cfg.MOCK_PROVIDERS || (!cfg.ELEVENLABS_API_KEY && !cfg.OPENAI_API_KEY);
+  const piperAvailable = isPiperConfigured();
+  const kokoroAvailable = isKokoroConfigured();
+  // Voix clonée Kokoro (P153, remplaçant OSS de XTTS pour P81) : reconnaissable
+  // à son préfixe (mockKokoroVoiceId ou id réel préfixé côté route API).
+  const isKokoroVoice = Boolean(params.voice?.startsWith('mock-kokoro-voice-') || params.voice?.startsWith('kokoro-'));
+  // ElevenLabs PREMIUM (P153) : gating explicite. `params.plan` absent →
+  // rétrocompatible (autorisé, comportement pré-P153) — voir doc du champ.
+  const elevenLabsAllowed = params.plan === undefined || isElevenLabsAllowedForPlan(params.plan);
+  const mock =
+    cfg.MOCK_PROVIDERS ||
+    (!piperAvailable && !(kokoroAvailable && isKokoroVoice) && !(elevenLabsAllowed && cfg.ELEVENLABS_API_KEY) && !cfg.OPENAI_API_KEY);
 
   const dir = await mkdtemp(path.join(tmpdir(), 'tts-'));
   const rawPath = path.join(dir, 'raw.mp3');
@@ -296,7 +324,32 @@ export async function synthesizeSlide(params: SynthesizeSlideParams): Promise<Sy
       let audio: Buffer | null = null;
       provider = 'mock';
 
-      if (cfg.ELEVENLABS_API_KEY) {
+      // 0) Kokoro (OSS, voix clonée P81) — prioritaire dès qu'une voix clonée
+      // Kokoro est explicitement forcée : Piper/ElevenLabs ne savent pas la
+      // reproduire (ce ne sont pas des voix clonées).
+      if (!audio && isKokoroVoice && kokoroAvailable) {
+        try {
+          audio = await synthesizeKokoro(text, locale, params.voice, speed);
+          provider = 'kokoro';
+        } catch (err) {
+          logger.warn({ err }, 'Kokoro indisponible — bascule vers le repli suivant');
+        }
+      }
+
+      // 1) Piper (OSS, gratuit, CPU) — tenté ensuite quand configuré et qu'aucune
+      // voix clonée n'est demandée : c'est le chemin par défaut du plan Free,
+      // aucun coût par caractère.
+      if (!audio && !isKokoroVoice && piperAvailable) {
+        try {
+          audio = await synthesizePiper(text, locale, params.voice, speed);
+          provider = 'piper';
+        } catch (err) {
+          logger.warn({ err }, 'Piper indisponible — bascule vers le repli suivant');
+        }
+      }
+
+      // 2) ElevenLabs (PREMIUM) — seulement si le plan l'autorise.
+      if (!audio && elevenLabsAllowed && cfg.ELEVENLABS_API_KEY) {
         try {
           audio = await elevenLabsBreaker.execute(() => synthesizeElevenLabs(text, voice, cfg.ELEVENLABS_API_KEY!, speed));
           provider = 'elevenlabs';
@@ -322,7 +375,7 @@ export async function synthesizeSlide(params: SynthesizeSlideParams): Promise<Sy
       }
 
       if (!audio) {
-        // Aucune clé exploitable en pratique (quota partout) → silence réaliste.
+        // Aucun provider exploitable en pratique (quota/pannes partout) → silence réaliste.
         await synthesizeSilence(estimateNarrationSeconds(text, speed), normPath);
         provider = 'mock';
       } else {

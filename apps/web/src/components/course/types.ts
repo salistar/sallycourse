@@ -190,4 +190,11 @@ export interface CourseDetailView {
   /** Approbation de la version courante (P138) — null tant que non approuvée. */
   approvedBy?: string | null;
   approvedAt?: string | null;
+  /**
+   * Mix de providers RÉELLEMENT utilisé pour générer ce cours (Prompt 160,
+   * comparateur de coût cloud vs OSS) — undefined tant qu'aucun générateur ne
+   * l'a renseigné (cours antérieurs au P160, affiché comme "OSS" par défaut
+   * côté composant puisque c'est le comportement par défaut du pipeline).
+   */
+  providerMix?: { llm: 'oss' | 'cloud'; tts: 'oss' | 'cloud'; image: 'oss' | 'cloud' };
 }

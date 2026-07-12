@@ -397,6 +397,7 @@ export default async function CourseDetailPage({
     workspace: workspaceView,
     approvedBy: course.approvedBy ? course.approvedBy.toString() : null,
     approvedAt: course.approvedAt ? course.approvedAt.toISOString() : null,
+    providerMix: course.providerMix,
   };
 
   return <CourseDetail course={courseView} />;

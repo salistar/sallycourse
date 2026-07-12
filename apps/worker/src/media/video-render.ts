@@ -68,8 +68,11 @@ import { generateAvatarSegment } from './avatar.js';
 import { buildMusicMixArgs, resolveMusicTrack } from './background-music.js';
 import { buildFfmetadataChapters, buildChapterMuxArgs, lessonChaptersFromScript } from './video-chapters.js';
 import { logger } from '../queues/index.js';
+import { planForCourse } from '../queues/plan-lookup.js';
 import { recordRenderCost } from '../lib/cost.js';
 import { checkCancelled, killIfActive } from '../lib/cancellation.js';
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext)
+import { type PlanId } from '@sallycourse/shared';
 
 /** Cadence de sortie du MP4 (images/seconde) — alignée sur MOTION_FPS (D8). */
 export const VIDEO_FPS = 30;
@@ -523,6 +526,7 @@ async function getOrGenerateAvatarSegment(
   avatarId: string,
   kind: 'intro' | 'outro',
   dest: string,
+  plan: PlanId,
 ): Promise<void> {
   const key = storageKeys.course(courseId).avatarSegment(sectionOrder, kind);
   const cached = await downloadToFile(key, dest);
@@ -532,7 +536,11 @@ async function getOrGenerateAvatarSegment(
     kind === 'intro'
       ? `Bienvenue dans la section ${sectionTitle}.`
       : `Nous arrivons à la fin de la section ${sectionTitle}. À bientôt pour la suite !`;
-  const result = await generateAvatarSegment(text, avatarId, { courseId, lessonId });
+  // Photo source/audio narré SadTalker non câblés ici (aucun upload dédié
+  // aujourd'hui, cf. avatar.ts en-tête) : generateAvatarSegment retombe donc
+  // sur HeyGen (si le plan l'autorise) ou le mock — `plan` reste transmis
+  // pour que le gate HeyGen premium soit correctement appliqué.
+  const result = await generateAvatarSegment(text, avatarId, { courseId, lessonId, plan });
   await uploadObject(key, await readFile(result.filePath), 'video/mp4');
   await rm(path.dirname(result.filePath), { recursive: true, force: true }).catch(() => undefined);
   // Copie locale pour l'assemblage de CETTE leçon (le fichier généré a déjà
@@ -671,11 +679,15 @@ export async function renderLessonVideo(
   const avatarEnabled = Boolean(course.avatarEnabled && course.avatarId);
   let isFirstLessonOfSection = false;
   let isLastLessonOfSection = false;
+  let avatarPlan: PlanId = 'free';
   if (avatarEnabled) {
     const siblingOrders = await Lesson.find({ sectionId: lesson.sectionId }).select('order').lean();
     const orders = siblingOrders.map((l) => l.order);
     isFirstLessonOfSection = orders.length === 0 || lesson.order === Math.min(...orders);
     isLastLessonOfSection = orders.length === 0 || lesson.order === Math.max(...orders);
+    // Plan de l'utilisateur propriétaire — gate HeyGen premium (P155, cf.
+    // isHeyGenAllowedForPlan) ; repli 'free' best-effort si résolution impossible.
+    avatarPlan = await planForCourse(courseId);
   }
 
   const dir = await mkdtemp(path.join(tmpdir(), `video-${lessonId}-`));
@@ -748,6 +760,7 @@ export async function renderLessonVideo(
           course.avatarId!,
           'intro',
           introPath,
+          avatarPlan,
         );
         segmentPaths.unshift(introPath);
         avatarExtraSeconds += AVATAR.SEGMENT_SECONDS;
@@ -770,6 +783,7 @@ export async function renderLessonVideo(
           course.avatarId!,
           'outro',
           outroPath,
+          avatarPlan,
         );
         segmentPaths.push(outroPath);
         avatarExtraSeconds += AVATAR.SEGMENT_SECONDS;

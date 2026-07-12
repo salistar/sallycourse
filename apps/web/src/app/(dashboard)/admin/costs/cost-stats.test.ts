@@ -5,6 +5,8 @@ import {
   totalCostUsd,
   marginByPlan,
   alertingCourses,
+  usageByCourse,
+  compareCourseCost,
   type CostRow,
 } from './cost-stats';
 import {
@@ -14,6 +16,9 @@ import {
   imageCostUsd,
   planMargin,
   EUR_TO_USD,
+  computeOssCost,
+  recommendProviderMix,
+  DEFAULT_PROVIDER_MIX,
 } from '@sallycourse/shared';
 
 describe('rowCostUsd', () => {
@@ -109,3 +114,86 @@ describe('marginByPlan', () => {
 function round4(v: number): number {
   return Math.round(v * 10000) / 10000;
 }
+
+// ── Comparateur cloud vs OSS (Prompt 160) ───────────────────────────────
+
+describe('usageByCourse', () => {
+  const rows: CostRow[] = [
+    { courseId: 'c1', userId: 'u1', kind: 'claude', model: 'claude-sonnet-5', tokensIn: 1000, tokensOut: 500 },
+    { courseId: 'c1', userId: 'u1', kind: 'claude', model: 'claude-sonnet-5', tokensIn: 200, tokensOut: 100 },
+    { courseId: 'c1', userId: 'u1', kind: 'tts', chars: 300 },
+    { courseId: 'c1', userId: 'u1', kind: 'render', seconds: 45 },
+    { courseId: 'c1', userId: 'u1', kind: 'image' },
+    { courseId: 'c1', userId: 'u1', kind: 'image' },
+    { courseId: 'c2', userId: 'u2', kind: 'tts', chars: 50 },
+  ];
+
+  it('additionne les métriques brutes par cours et par nature', () => {
+    const usage = usageByCourse(rows);
+    const c1 = usage.get('c1')!;
+    expect(c1.tokensIn).toBe(1200);
+    expect(c1.tokensOut).toBe(600);
+    expect(c1.chars).toBe(300);
+    expect(c1.renderSeconds).toBe(45);
+    expect(c1.images).toBe(2);
+  });
+
+  it('un cours sans certaines natures reste à 0 sur ces métriques', () => {
+    const usage = usageByCourse(rows);
+    const c2 = usage.get('c2')!;
+    expect(c2.tokensIn).toBe(0);
+    expect(c2.images).toBe(0);
+    expect(c2.chars).toBe(50);
+  });
+
+  it('aucune ligne → map vide', () => {
+    expect(usageByCourse([]).size).toBe(0);
+  });
+});
+
+describe('compareCourseCost', () => {
+  const usage = { tokensIn: 1000, tokensOut: 1000, chars: 500, renderSeconds: 60, images: 1 };
+
+  it('calcule cloud vs OSS pour le même usage, et recommande le mix (langue courante, plan free → full OSS)', () => {
+    const result = compareCourseCost({
+      courseId: 'c1',
+      cloudTotalUsd: 5,
+      usage,
+      locale: 'fr',
+      plan: 'free',
+    });
+    expect(result.cloudTotalUsd).toBe(5);
+    const expectedOss = computeOssCost(usage);
+    expect(result.ossTotalUsd).toBeCloseTo(round4(expectedOss.totalUsd), 4);
+    expect(result.recommendedMix).toEqual(DEFAULT_PROVIDER_MIX);
+  });
+
+  it('OSS moins cher que cloud sur un usage réaliste', () => {
+    const result = compareCourseCost({ courseId: 'c1', cloudTotalUsd: 10, usage, locale: 'fr', plan: 'pro' });
+    expect(result.ossTotalUsd).toBeLessThan(result.cloudTotalUsd);
+  });
+
+  it('recommande cloud (llm) pour une langue rare, même si actualMix absent (défaut OSS)', () => {
+    const result = compareCourseCost({ courseId: 'c1', cloudTotalUsd: 1, usage, locale: 'ar', plan: 'free' });
+    expect(result.recommendedMix).toEqual(recommendProviderMix({ locale: 'ar', plan: 'free' }));
+    expect(result.actualMix).toEqual(DEFAULT_PROVIDER_MIX);
+  });
+
+  it('reprend le mix réellement utilisé (actualMix) tel quel s’il est fourni', () => {
+    const actualMix = { llm: 'cloud' as const, tts: 'oss' as const, image: 'cloud' as const };
+    const result = compareCourseCost({ courseId: 'c1', cloudTotalUsd: 1, usage, locale: 'fr', plan: 'free', actualMix });
+    expect(result.actualMix).toEqual(actualMix);
+  });
+
+  it('ventile le détail OSS par nature (llm/tts/render/image)', () => {
+    const result = compareCourseCost({ courseId: 'c1', cloudTotalUsd: 1, usage, locale: 'fr', plan: 'free' });
+    expect(result.ossBreakdown.llmUsd).toBeGreaterThan(0);
+    expect(result.ossBreakdown.ttsUsd).toBeGreaterThan(0);
+    expect(result.ossBreakdown.renderUsd).toBeGreaterThan(0);
+    expect(result.ossBreakdown.imageUsd).toBeGreaterThan(0);
+    expect(result.ossBreakdown.totalUsd).toBeCloseTo(
+      result.ossBreakdown.llmUsd + result.ossBreakdown.ttsUsd + result.ossBreakdown.renderUsd + result.ossBreakdown.imageUsd,
+      4,
+    );
+  });
+});

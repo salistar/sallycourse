@@ -17,6 +17,7 @@ const TABS = [
   { href: '/admin/courses', label: 'Cours' },
   { href: '/admin/costs', label: 'Coûts' },
   { href: '/admin/revenue', label: 'Revenus' },
+  { href: '/admin/payments/manual', label: 'Paiements manuels' },
   { href: '/admin/jobs', label: 'Jobs' },
   { href: '/admin/resilience', label: 'Résilience' },
   { href: '/admin/prompts', label: 'Prompts' },

@@ -166,6 +166,14 @@ export const storageKeys = {
   invoice(userId: string, invoiceNumber: string): string {
     return `invoices/${userId}/${invoiceNumber}.pdf`;
   },
+  /**
+   * Preuve de virement d'une demande de paiement manuel (Prompt 158) : clé =
+   * manual-payments/{userId}/{requestId}.{ext}. Préfixe distinct de "courses/"
+   * (jamais purgé par deleteCoursePrefix).
+   */
+  manualPaymentProof(userId: string, requestId: string, ext: string): string {
+    return `manual-payments/${userId}/${requestId}.${ext}`;
+  },
   course(courseId: string): CourseKeys {
     const prefix = `courses/${courseId}`;
     return {

@@ -77,10 +77,11 @@ export async function notify(
 
   if (wantEmail && template) {
     try {
-      const user = await User.findById(userId).select('email name').lean();
+      const user = await User.findById(userId).select('email name plan').lean();
       if (user?.email) {
         const data: EmailTemplateData = { name: user.name, ...input.emailData };
-        const result = await sendEmail(user.email, template, data);
+        // `user.plan` pilote resolveEmailChannel en PROVIDER_MODE=auto (P156).
+        const result = await sendEmail(user.email, template, data, user.plan);
         emailed = result.ok;
       }
     } catch {

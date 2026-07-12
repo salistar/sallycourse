@@ -17,6 +17,8 @@ import {
 } from '@/components/ui';
 import { AuthDivider } from './auth-divider';
 import { GoogleButton } from './google-button';
+import { AltchaWidget } from './altcha-widget';
+import type { AltchaSolvedPayload } from '@/lib/altcha-client';
 
 interface RegisterFormProps {
   googleEnabled: boolean;
@@ -39,6 +41,7 @@ export function RegisterForm({ googleEnabled }: RegisterFormProps) {
   const [confirm, setConfirm] = React.useState('');
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [loading, setLoading] = React.useState(false);
+  const [altcha, setAltcha] = React.useState<AltchaSolvedPayload | null>(null);
 
   /** Validation locale rapide avant l'appel réseau. */
   function validate(): FieldErrors {
@@ -55,13 +58,21 @@ export function RegisterForm({ googleEnabled }: RegisterFormProps) {
     const fieldErrors = validate();
     setErrors(fieldErrors);
     if (Object.keys(fieldErrors).length > 0) return;
+    if (!altcha) {
+      toast({
+        title: 'Vérification anti-robot en cours',
+        description: 'Patientez quelques instants puis réessayez.',
+        variant: 'warning',
+      });
+      return;
+    }
 
     setLoading(true);
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), password, altcha }),
       });
 
       if (response.status === 409) {
@@ -155,7 +166,8 @@ export function RegisterForm({ googleEnabled }: RegisterFormProps) {
             onChange={(e) => setConfirm(e.target.value)}
             error={errors.confirm}
           />
-          <Button type="submit" className="w-full" loading={loading}>
+          <AltchaWidget onSolved={setAltcha} />
+          <Button type="submit" className="w-full" loading={loading} disabled={!altcha}>
             {!loading && <UserPlus aria-hidden="true" />}
             Créer mon compte
           </Button>

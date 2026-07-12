@@ -74,7 +74,15 @@ services:
   # (images, ports, volumes) pour figer l'infra sans impacter core.
   # Démarrage : docker compose --profile ai up -d  (ou --profile full).
   ollama:
-    image: ollama/ollama:latest # LLM OSS local (Llama, etc.) — Phase 9
+    # LLM OSS local (P152) — API REST /api/generate, /api/chat, /api/tags.
+    # Modèles à tirer manuellement après démarrage (non embarqués dans l'image) :
+    #   docker compose --profile ai exec ollama ollama pull llama3.3:70b   # plan/scripts critiques (GPU)
+    #   docker compose --profile ai exec ollama ollama pull qwen2.5:72b   # alternative qualité (GPU)
+    #   docker compose --profile ai exec ollama ollama pull qwen2.5:14b   # résumés/tags/alt-text (CPU/GPU léger)
+    #   docker compose --profile ai exec ollama ollama pull llama3.2:8b   # repli léger sans GPU
+    # ollama-provider.ts reste mock-friendly si le service n'est pas démarré ou
+    # si aucun modèle n'est tiré (fetch échoue → escalade cloud si clé, sinon mock-fixtures).
+    image: ollama/ollama:latest
     ports:
       - "11434:11434"
     volumes:
@@ -82,7 +90,12 @@ services:
     profiles: [ai, full]
 
   piper:
-    # TTS OSS (voix neuronales). Image placeholder — à figer en Phase 9.
+    # TTS OSS (P153, plan Free — voix rapides CPU). rhasspy/wyoming-piper expose
+    # le protocole Wyoming (TCP :10200), pas du HTTP brut : on garde ce service
+    # pour le protocole natif ET on ajoute piper-http (wrapper HTTP simple,
+    # image « lscr.io/linuxserver/piper » qui expose une API REST /api/text-to-speech
+    # sur le même moteur Piper) — c'est CE dernier que piper-provider.ts appelle
+    # (PIPER_BASE_URL), plus simple qu'implémenter le protocole Wyoming en JS.
     image: rhasspy/wyoming-piper:latest
     command: ["--voice", "fr_FR-siwis-medium"]
     ports:
@@ -90,6 +103,112 @@ services:
     volumes:
       - piper-data:/data
     profiles: [ai, full]
+
+  piper-http:
+    # Wrapper HTTP du même moteur Piper (voir commentaire ci-dessus) — c'est
+    # l'endpoint réellement appelé par PIPER_BASE_URL (défaut http://localhost:10201).
+    image: lscr.io/linuxserver/piper:latest
+    environment:
+      PIPER_VOICE: fr_FR-siwis-medium
+    ports:
+      - "10201:10200"
+    volumes:
+      - piper-http-data:/config
+    profiles: [ai, full]
+
+  kokoro:
+    # Clonage de voix OSS (P153, remplace XTTS pour P81 — licence Apache 2.0,
+    # contrairement à Coqui XTTS dont la licence non-commerciale est incompatible
+    # avec un SaaS payant). Image FastAPI officielle du projet (expose /v1/audio/speech
+    # compatible OpenAI TTS + endpoint clonage). Placeholder figé ici — démarrage réel
+    # à la Phase 9. GPU optionnel (fonctionne en CPU, plus lent).
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
+    ports:
+      - "8880:8880"
+    volumes:
+      - kokoro-data:/app/data
+    profiles: [ai, full]
+
+  comfyui:
+    # Illustrations de slides OSS (P154) — ComfyUI expose une API HTTP
+    # (POST /prompt, GET /history/{id}, GET /view) pour exécuter un workflow
+    # JSON (checkpoint FLUX.1-schnell ou Stable Diffusion) et récupérer le PNG
+    # généré. comfyui-provider.ts appelle cet endpoint via COMFYUI_BASE_URL
+    # (défaut http://localhost:8188). GPU requis pour un temps de génération
+    # raisonnable (fonctionne en CPU mais très lent — déconseillé en prod) ;
+    # reste une amélioration OPTIONNELLE : le repli SVG procédural du design
+    # system (packages/design/marketing-assets, P11/D11) est le comportement
+    # par défaut, zéro GPU. Checkpoints (ex. flux1-schnell-fp8.safetensors) à
+    # déposer manuellement dans le volume comfyui-models/checkpoints/ après
+    # démarrage (non embarqués dans l'image, plusieurs Go).
+    image: yanwk/comfyui-boot:cu124-slim
+    ports:
+      - "8188:8188"
+    volumes:
+      - comfyui-data:/root/ComfyUI/output
+      - comfyui-models:/root/ComfyUI/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    profiles: [ai, full]
+
+  sadtalker:
+    # Avatar vidéo OSS (P155) — anime une photo instructeur sur l'audio TTS
+    # déjà généré (lip-sync + micro-mouvements tête/yeux). Wrapper REST
+    # communautaire autour du dépôt OpenTalker/SadTalker exposant
+    # `POST /api/generate` (multipart : source_image_url + driven_audio → MP4).
+    # sadtalker-provider.ts appelle cet endpoint via SADTALKER_BASE_URL (défaut
+    # http://localhost:9500). GPU NVIDIA REQUIS (~1-2 min de calcul par seconde
+    # de vidéo en CPU, inexploitable en pipeline) : SADTALKER_HAS_GPU=true doit
+    # être déclaré explicitement une fois le GPU vérifié disponible, sinon le
+    # provider n'est jamais appelé (repli HeyGen si plan payant, sinon carte
+    # titre animée — jamais un point de blocage). Checkpoints du modèle
+    # (SadTalker + expression/audio2pose) à déposer manuellement dans le volume
+    # sadtalker-checkpoints/ après démarrage (non embarqués dans l'image,
+    # plusieurs Go), voir la doc du dépôt pour les URLs de téléchargement.
+    image: vinthony/sadtalker:latest
+    ports:
+      - "9500:9500"
+    volumes:
+      - sadtalker-checkpoints:/app/checkpoints
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    profiles: [ai, full]
+
+  # ── Recherche full-text avancée (profil search, P159) ────────────
+  # AMÉLIORATION FUTURE, non branchée au code applicatif : la recherche
+  # actuelle (P132, apps/web/src/lib/search.ts) reste 100% fonctionnelle via
+  # l'index $text MongoDB natif. Meilisearch est déclaré ici pour permettre
+  # une évaluation/migration ultérieure sans forcer quoi que ce soit
+  # maintenant — voir docs/SEARCH-UPGRADE.md pour le comparatif détaillé et
+  # le plan de bascule. Démarrage : docker compose --profile search up -d
+  #   meilisearch  http://localhost:7700  (API REST + dashboard intégré)
+  # Support arabe : Meilisearch segmente nativement le texte arabe (moteur
+  # de tokenisation Unicode-aware, pas besoin de plugin séparé) — voir
+  # docs/SEARCH-UPGRADE.md § "Support arabe" pour la configuration des
+  # `stopWords`/`synonyms` recommandée en production.
+  meilisearch:
+    image: getmeili/meilisearch:v1.11
+    ports:
+      - "7700:7700"
+    environment:
+      # Clé de développement par défaut — à surcharger en prod via .env
+      # (MEILI_MASTER_KEY, 16+ caractères) ; sans clé, l'instance reste en
+      # mode "sans authentification" (acceptable seulement en local/dev).
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-sallycourse-dev-only-key-change-me}
+      MEILI_ENV: ${MEILI_ENV:-development}
+    volumes:
+      - meilisearch-data:/meili_data
+    profiles: [search]
 
   # ── Outils de debug (profil debug) ───────────────────────────────
   # UIs d'inspection + catcher SMTP, jamais démarrés en core/full.
@@ -150,10 +269,82 @@ services:
         condition: service_started
     profiles: [monitoring]
 
+  # ── Analytics web OSS (P157 — Umami, self-host) ──────────────────
+  # Choisi plutôt que Plausible : self-host plus simple (une seule image +
+  # Postgres), pas de cookie tiers, respecte le RGPD par défaut (mesure
+  # d'audience anonymisée, pas de bannière de consentement requise).
+  # Base Postgres DÉDIÉE et interne (aucun port publié) — Umami ne supporte
+  # que Postgres/MySQL, jamais branché sur `mongo`.
+  # Démarrage : docker compose --profile monitoring up -d
+  #   umami   http://localhost:3002  (compte admin au 1er lancement :
+  #           login par défaut admin / umami — à changer immédiatement)
+  # apps/web n'appelle jamais l'API Umami directement : le composant
+  # UmamiScript (apps/web/src/components/umami/umami-script.tsx) injecte
+  # le script officiel via NEXT_PUBLIC_UMAMI_SRC, no-op tant que
+  # NEXT_PUBLIC_UMAMI_WEBSITE_ID n'est pas configuré (voir docs/OBSERVABILITY.md).
+  umami-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD:-umami-secret}
+      POSTGRES_DB: umami
+    volumes:
+      - umami-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umami"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Pas de port publié : réseau interne docker-compose uniquement.
+    profiles: [monitoring]
+
+  umami:
+    image: docker.umami.is/umami-software/umami:postgresql-latest
+    ports:
+      - "3002:3000"
+    environment:
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD:-umami-secret}@umami-db:5432/umami
+      DATABASE_TYPE: postgresql
+      APP_SECRET: ${UMAMI_APP_SECRET:-change-me-umami-app-secret}
+    depends_on:
+      umami-db:
+        condition: service_healthy
+    profiles: [monitoring]
+
+  # ── Erreurs applicatives OSS (P157 — GlitchTip, PLACEHOLDER) ─────
+  # GlitchTip : API compatible SDK Sentry (mêmes SDKs @sentry/*, même format
+  # de DSN) — alternative OSS self-hostable. Vérifié : AUCUN SDK Sentry n'est
+  # installé dans ce projet à ce jour (aucune dépendance @sentry/*, aucun
+  # Sentry.init dans apps/web ou apps/worker). Ce service reste donc un
+  # placeholder DOCUMENTÉ (non démarré, image commentée) : le jour où un SDK
+  # Sentry serait ajouté, il suffira de décommenter ce bloc + déclarer
+  # glitchtip-db/glitchtip-redis et pointer SENTRY_DSN dessus, sans changement
+  # de code applicatif (compatibilité API). Voir docs/OBSERVABILITY.md.
+  # glitchtip-web:
+  #   image: glitchtip/glitchtip:latest
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     DATABASE_URL: postgresql://glitchtip:glitchtip-secret@glitchtip-db:5432/glitchtip
+  #     SECRET_KEY: change-me-glitchtip-secret-key
+  #     PORT: 8000
+  #     EMAIL_URL: consolelocal://
+  #     GLITCHTIP_DOMAIN: http://localhost:8000
+  #     DEFAULT_FROM_EMAIL: noreply@sallycourse.com
+  #     CELERY_WORKER_AUTOSCALE: "1,1"
+  #   profiles: [monitoring]
+
 volumes:
   mongo-data:
   redis-data:
   minio-data:
   ollama-data:
   piper-data:
+  piper-http-data:
+  kokoro-data:
+  comfyui-data:
+  comfyui-models:
+  sadtalker-checkpoints:
   uptime-kuma-data:
+  umami-db-data:
+  meilisearch-data:

@@ -38,3 +38,5 @@ export * from './marketplace-purchase';
 export * from './invoice';
 export * from './agency-client';
 export * from './audit-log';
+export * from './manual-payment-request';
+export * from './push-subscription';

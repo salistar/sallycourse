@@ -54,6 +54,13 @@ const LOCALE_LABELS: Record<Locale, string> = {
   ar: 'العربية',
 };
 
+/** Libellés des familles de providers affichées sur la fiche du cours (P160). */
+const PROVIDER_MIX_FAMILY_LABELS = {
+  llm: 'Plan/scripts',
+  tts: 'Voix',
+  image: 'Images',
+} as const;
+
 export interface CourseDetailProps {
   course: CourseDetailView;
 }
@@ -119,6 +126,21 @@ export function CourseDetail({ course }: CourseDetailProps) {
                     {lessonCount} leçon{lessonCount > 1 ? 's' : ''}
                   </span>
                 )}
+              </p>
+              {/* Mix de providers réellement utilisé (P160) — défaut OSS si jamais enregistré. */}
+              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-muted">
+                <span>Génération :</span>
+                {(['llm', 'tts', 'image'] as const).map((family) => {
+                  const choice = course.providerMix?.[family] ?? 'oss';
+                  return (
+                    <span
+                      key={family}
+                      className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5"
+                    >
+                      {PROVIDER_MIX_FAMILY_LABELS[family]} : {choice === 'cloud' ? 'Cloud' : 'OSS'}
+                    </span>
+                  );
+                })}
               </p>
             </div>
 

@@ -84,7 +84,7 @@ export { CourseAnalytics, type ICourseAnalytics, type CourseAnalyticsDocument } 
 export { LandingVariant, type ILandingVariant, type LandingVariantDocument } from '@sallycourse/db/models/landing-variant.js';
 // prettier-ignore
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
-export { claudeCostUsd, ttsCostUsd, renderCostUsd, imageCostUsd, CLAUDE_PRICING_USD_PER_MTOK, TTS_USD_PER_CHAR, RENDER_USD_PER_SECOND, IMAGE_USD_PER_UNIT } from '@sallycourse/shared/pricing-table.js';
+export { claudeCostUsd, ttsCostUsd, renderCostUsd, imageCostUsd, CLAUDE_PRICING_USD_PER_MTOK, TTS_USD_PER_CHAR, RENDER_USD_PER_SECOND, IMAGE_USD_PER_UNIT, computeOssCost, recommendProviderMix, ossLlmCostUsd, ossTtsCostUsd, ossRenderCostUsd, ossImageCostUsd, DEFAULT_PROVIDER_MIX, HETZNER_USD_PER_HOUR, RARE_LOCALES, type ProviderMix, type OssCourseCost } from '@sallycourse/shared/pricing-table.js';
 // prettier-ignore
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { notify, type NotifyInput, type NotifyResult } from '@sallycourse/db/notification-service.js';

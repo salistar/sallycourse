@@ -5,8 +5,13 @@ import {
   imageCostUsd,
   planMargin,
   COURSE_COST_ALERT_USD,
+  computeOssCost,
+  recommendProviderMix,
+  DEFAULT_PROVIDER_MIX,
   type CostKind,
   type PlanMargin,
+  type ProviderMix,
+  type OssCourseCost,
 } from '@sallycourse/shared';
 
 /**
@@ -139,6 +144,100 @@ export function alertingCourses(
   courseCosts: readonly CourseCost[],
 ): CourseCost[] {
   return courseCosts.filter((c) => c.overThreshold);
+}
+
+// ── Comparateur cloud vs OSS (Prompt 160) ───────────────────────────────
+
+/** Usage brut agrégé d'un cours — mêmes métriques que CostRow, sommées par nature. */
+export interface CourseUsage {
+  tokensIn: number;
+  tokensOut: number;
+  chars: number;
+  renderSeconds: number;
+  images: number;
+}
+
+function emptyUsage(): CourseUsage {
+  return { tokensIn: 0, tokensOut: 0, chars: 0, renderSeconds: 0, images: 0 };
+}
+
+/**
+ * Agrège les métriques brutes (tokens/chars/seconds/nb images) par cours —
+ * base commune pour ré-estimer le coût en mode cloud (déjà fait par
+ * costByCourse/rowCostUsd) ET en mode OSS (computeOssCost), sans double
+ * instrumentation : les CostRecord existants (P55) suffisent aux deux calculs.
+ */
+export function usageByCourse(rows: readonly CostRow[]): Map<string, CourseUsage> {
+  const map = new Map<string, CourseUsage>();
+  for (const row of rows) {
+    let u = map.get(row.courseId);
+    if (!u) {
+      u = emptyUsage();
+      map.set(row.courseId, u);
+    }
+    switch (row.kind) {
+      case 'claude':
+        u.tokensIn += row.tokensIn ?? 0;
+        u.tokensOut += row.tokensOut ?? 0;
+        break;
+      case 'tts':
+        u.chars += row.chars ?? 0;
+        break;
+      case 'render':
+        u.renderSeconds += row.seconds ?? 0;
+        break;
+      case 'image':
+        u.images += 1;
+        break;
+      default:
+        break;
+    }
+  }
+  return map;
+}
+
+/** Comparaison cloud vs OSS pour un cours, + mix recommandé et mix réellement utilisé. */
+export interface CourseCostComparison {
+  courseId: string;
+  cloudTotalUsd: number;
+  ossTotalUsd: number;
+  ossBreakdown: OssCourseCost;
+  /** Recommandation automatique (règle simple : langue rare/plan business → llm cloud, sinon full OSS). */
+  recommendedMix: ProviderMix;
+  /** Mix effectivement utilisé pour générer ce cours (Course.providerMix) — défaut OSS si jamais enregistré. */
+  actualMix: ProviderMix;
+}
+
+/**
+ * Construit le comparateur "ce cours : X€ cloud vs Y€ OSS" pour un cours donné.
+ * `usage` = métriques brutes agrégées (usageByCourse) ; `cloudTotalUsd` = le
+ * total déjà calculé par costByCourse (ré-estimation identique, pas de calcul
+ * dupliqué) ; `locale`/`plan` alimentent la recommandation ; `actualMix` vient
+ * de Course.providerMix (undefined → mix par défaut OSS, cours antérieurs au P160).
+ */
+export function compareCourseCost(params: {
+  courseId: string;
+  cloudTotalUsd: number;
+  usage: CourseUsage;
+  locale: string;
+  plan: string;
+  actualMix?: ProviderMix | null;
+}): CourseCostComparison {
+  const ossBreakdown = computeOssCost(params.usage);
+  return {
+    courseId: params.courseId,
+    cloudTotalUsd: round(params.cloudTotalUsd),
+    ossTotalUsd: round(ossBreakdown.totalUsd),
+    ossBreakdown: {
+      llmUsd: round(ossBreakdown.llmUsd),
+      ttsUsd: round(ossBreakdown.ttsUsd),
+      renderUsd: round(ossBreakdown.renderUsd),
+      imageUsd: round(ossBreakdown.imageUsd),
+      totalUsd: round(ossBreakdown.totalUsd),
+    },
+    recommendedMix: recommendProviderMix({ locale: params.locale, plan: params.plan }),
+    actualMix: params.actualMix ?? DEFAULT_PROVIDER_MIX,
+  };
 }
 
 /** Arrondi USD à 4 décimales (les micro-coûts token restent lisibles). */

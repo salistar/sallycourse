@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import type { Types } from 'mongoose';
 import { Course, User, CostRecord, connectDb } from '@sallycourse/db';
-import { COURSE_COST_ALERT_USD, type PlanId } from '@sallycourse/shared';
+import { COURSE_COST_ALERT_USD, HETZNER_USD_PER_HOUR, type PlanId } from '@sallycourse/shared';
 import { AdminNav } from '@/components/admin';
 import { Badge, Card, CardContent, CardHeader, CardTitle, EmptyState } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { requireAdmin } from '../guard';
-import { costByCourse, marginByPlan, type CostRow } from './cost-stats';
+import { costByCourse, marginByPlan, usageByCourse, compareCourseCost, type CostRow } from './cost-stats';
 import { deriveCacheStats, overallHitRate, totalEstimatedSavingsUsd } from './cache-stats';
 import { readCacheCounts } from './read-cache-stats';
 
@@ -84,12 +84,36 @@ export default async function AdminCostsPage() {
   const shown = courseCosts.slice(0, COURSE_LIMIT);
   const courseIds = shown.map((c) => c.courseId);
   const courses = await Course.find({ _id: { $in: courseIds } })
-    .select('title')
+    .select('title locale providerMix')
     .lean();
   const titleById = new Map(courses.map((c) => [(c._id as Types.ObjectId).toString(), c.title]));
+  const localeById = new Map(courses.map((c) => [(c._id as Types.ObjectId).toString(), c.locale]));
+  const providerMixById = new Map(courses.map((c) => [(c._id as Types.ObjectId).toString(), c.providerMix]));
 
   const alerts = courseCosts.filter((c) => c.overThreshold);
   const grandTotal = courseCosts.reduce((acc, c) => acc + c.totalUsd, 0);
+
+  // ── Comparateur cloud vs OSS (P160) : coût OSS ré-estimé depuis les mêmes
+  // métriques brutes, mix recommandé (langue rare/plan business → cloud pour
+  // le llm) et mix réellement utilisé (Course.providerMix, défaut OSS si absent) ──
+  const usageMap = usageByCourse(rows);
+  const comparisons = shown.map((c) => {
+    const plan = planByUser.get(c.userId) ?? 'free';
+    const locale = localeById.get(c.courseId) ?? 'fr';
+    return compareCourseCost({
+      courseId: c.courseId,
+      cloudTotalUsd: c.totalUsd,
+      usage: usageMap.get(c.courseId) ?? { tokensIn: 0, tokensOut: 0, chars: 0, renderSeconds: 0, images: 0 },
+      locale,
+      plan,
+      actualMix: providerMixById.get(c.courseId) as
+        | { llm: 'oss' | 'cloud'; tts: 'oss' | 'cloud'; image: 'oss' | 'cloud' }
+        | undefined,
+    });
+  });
+  const comparisonByCourse = new Map(comparisons.map((c) => [c.courseId, c]));
+  const ossTotal = comparisons.reduce((acc, c) => acc + c.ossTotalUsd, 0);
+  const MIX_LABELS: Record<'oss' | 'cloud', string> = { oss: 'OSS', cloud: 'Cloud' };
 
   // ── Cache intelligent (P72) : taux de hit + économie estimée par namespace ──
   const cacheCounts = await readCacheCounts();
@@ -245,6 +269,96 @@ export default async function AdminCostsPage() {
         )}
         <p className="text-2xs text-muted">
           Ventilation par nature — {Object.values(KIND_LABELS).join(' · ')}. Montants en USD.
+        </p>
+      </section>
+
+      {/* Comparateur cloud vs OSS (P160) */}
+      <section className="flex flex-col gap-3">
+        <h2 className="font-display text-lg font-semibold text-foreground">Cloud vs OSS</h2>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm text-muted">Coût cloud (actuel)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="font-display text-2xl font-semibold tabular-nums text-foreground">{usd2.format(grandTotal)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm text-muted">Coût si full OSS</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="font-display text-2xl font-semibold tabular-nums text-foreground">{usd2.format(ossTotal)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm text-muted">Économie potentielle</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="font-display text-2xl font-semibold tabular-nums text-success">
+                {usd2.format(Math.max(0, grandTotal - ossTotal))}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+        {shown.length === 0 ? (
+          <EmptyState
+            title="Aucun cours à comparer"
+            description="Le comparateur apparaît dès qu'un cours a des coûts enregistrés."
+          />
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-border bg-surface/60">
+            <table className="w-full min-w-[56rem] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-border text-start text-2xs uppercase tracking-wide text-muted">
+                  <th className="px-4 py-3 text-start font-semibold">Cours</th>
+                  <th className="px-4 py-3 text-end font-semibold">Coût cloud</th>
+                  <th className="px-4 py-3 text-end font-semibold">Coût OSS</th>
+                  <th className="px-4 py-3 text-start font-semibold">Mix recommandé</th>
+                  <th className="px-4 py-3 text-start font-semibold">Mix réellement utilisé</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((c) => {
+                  const cmp = comparisonByCourse.get(c.courseId);
+                  if (!cmp) return null;
+                  return (
+                    <tr key={c.courseId} className="border-b border-border/60 last:border-b-0 hover:bg-primary-soft/30">
+                      <td className="max-w-72 px-4 py-3">
+                        <span className="block truncate font-medium text-foreground" title={titleById.get(c.courseId)}>
+                          {titleById.get(c.courseId) ?? 'Cours supprimé'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-end tabular-nums text-muted">{usd.format(cmp.cloudTotalUsd)}</td>
+                      <td className="px-4 py-3 text-end tabular-nums text-foreground">{usd.format(cmp.ossTotalUsd)}</td>
+                      <td className="px-4 py-3">
+                        <span className="flex flex-wrap gap-1 text-2xs text-muted">
+                          <span>llm:{MIX_LABELS[cmp.recommendedMix.llm]}</span>
+                          <span>· tts:{MIX_LABELS[cmp.recommendedMix.tts]}</span>
+                          <span>· img:{MIX_LABELS[cmp.recommendedMix.image]}</span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="flex flex-wrap gap-1 text-2xs text-muted">
+                          <span>llm:{MIX_LABELS[cmp.actualMix.llm]}</span>
+                          <span>· tts:{MIX_LABELS[cmp.actualMix.tts]}</span>
+                          <span>· img:{MIX_LABELS[cmp.actualMix.image]}</span>
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="text-2xs text-muted">
+          Coût OSS = compute Hetzner uniquement (CPU-heures ffmpeg/ollama/piper à {usd2.format(HETZNER_USD_PER_HOUR)}/h),
+          pas de facturation au token/caractère. Recommandation : langue rare ou plan business → cloud pour le
+          plan/scripts (llm), OSS pour le reste ; sinon full OSS. Le mix « réellement utilisé » reflète
+          Course.providerMix (défaut OSS si jamais enregistré — cours antérieurs à ce comparateur).
         </p>
       </section>
 

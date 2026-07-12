@@ -3,14 +3,26 @@ import { createConnection } from 'node:net';
 // rootDir=src) ne perde le typage de getConfig ré-exporté via @ts-ignore.
 // @ts-ignore TS6059 — source hors rootDir (worker), typage intact
 import { getConfig } from '@sallycourse/shared/config.js';
+// Réimplémentation locale minimale de la règle PROVIDER_MODE (P151) : packages/db
+// ne peut pas dépendre de apps/worker/src/providers/registry.ts (mauvais sens de
+// dépendance) — même règle que selectProvider()/planJustifiesCloud(), dupliquée
+// ici en pur pour rester indépendante du worker.
+// @ts-ignore TS6059 — source hors rootDir (worker), typage intact
+import { PLANS, type PlanId } from '@sallycourse/shared';
 // prettier-ignore
 // @ts-ignore TS6059 — source hors rootDir (worker), typage intact ; import sur une ligne (le pragma ne couvre que la ligne suivante)
 import { renderEmailTemplate, type EmailTemplateData, type EmailTemplateName, type RenderedEmail } from './templates.js';
 
-// Envoi d'email (Prompt 59) — sans SDK. Trois modes, choisis à l'exécution :
-//   1. RESEND_API_KEY présent  → API REST Resend (fetch).
-//   2. sinon SMTP_URL présent  → SMTP brut (Mailpit en dev, node:net).
-//   3. sinon (MOCK)            → journalisé, aucun envoi réseau.
+// Envoi d'email (Prompt 59, renforcé Prompt 156) — sans SDK. Le canal SMTP
+// (OSS auto-hébergé — Mailpit en dev, Stalwart/Postfix en prod, voir
+// docs/EMAIL-SELFHOSTED.md) est désormais le DÉFAUT OSS ; Resend reste une
+// option cloud, choisie selon PROVIDER_MODE (packages/shared/src/config.ts,
+// même règle que apps/worker/src/providers/registry.ts::selectProvider) :
+//   - PROVIDER_MODE=oss    → SMTP toujours (même si RESEND_API_KEY est présente).
+//   - PROVIDER_MODE=cloud  → Resend si RESEND_API_KEY présente, sinon repli SMTP.
+//   - PROVIDER_MODE=auto (défaut) → Resend SEULEMENT si (clé présente ET plan
+//     pro/business) ; sinon SMTP. `plan` absent traité comme 'free' (prudent).
+//   - Sans RESEND_API_KEY ni SMTP_URL → mock (journalisé, aucun envoi réseau).
 // Toujours best-effort : un échec d'envoi n'interrompt jamais l'appelant.
 
 /** Expéditeur par défaut (surchargable par EMAIL_FROM plus tard). */
@@ -27,23 +39,45 @@ export interface SendEmailResult {
   error?: string;
 }
 
-/** Détermine le canal d'envoi selon la configuration présente. */
+/** true si le plan donné justifie l'usage du cloud payant (pro/business uniquement). */
+function planJustifiesCloud(plan: PlanId | string | null | undefined): boolean {
+  const resolved: PlanId = plan && plan in PLANS ? (plan as PlanId) : 'free';
+  return resolved !== 'free';
+}
+
+/**
+ * Détermine le canal d'envoi selon PROVIDER_MODE + configuration présente.
+ * `plan` = plan de l'utilisateur destinataire (uniquement consulté en mode
+ * 'auto' — voir planJustifiesCloud). Absent → traité comme 'free'.
+ */
 export function resolveEmailChannel(
-  env: { RESEND_API_KEY?: string; SMTP_URL?: string } = getConfig(),
+  env: { RESEND_API_KEY?: string; SMTP_URL?: string; PROVIDER_MODE?: string } = getConfig(),
+  plan?: PlanId | string | null,
 ): EmailChannel {
-  if (env.RESEND_API_KEY) return 'resend';
+  const mode = env.PROVIDER_MODE ?? 'auto';
+
+  const wantsCloud =
+    mode === 'cloud' || (mode === 'auto' && planJustifiesCloud(plan));
+
+  if (mode !== 'oss' && wantsCloud && env.RESEND_API_KEY) return 'resend';
   if (env.SMTP_URL) return 'smtp';
+  // Repli : cloud demandé mais SMTP_URL absente aussi → tente resend si dispo,
+  // sinon mock (jamais bloquant).
+  if (env.RESEND_API_KEY) return 'resend';
   return 'mock';
 }
 
 /**
  * Envoie un email rendu depuis un gabarit. `to` = destinataire ; `template` =
- * nom du gabarit ; `data` = variables d'interpolation. Ne jette pas.
+ * nom du gabarit ; `data` = variables d'interpolation ; `plan` = plan du
+ * destinataire (pilote le choix cloud/OSS en mode PROVIDER_MODE=auto, voir
+ * resolveEmailChannel — absent traité comme 'free', reste sur SMTP). Ne jette pas.
  */
 export async function sendEmail(
   to: string,
   template: EmailTemplateName,
   data: EmailTemplateData = {},
+  plan?: PlanId | string | null,
 ): Promise<SendEmailResult> {
   let config;
   try {
@@ -54,7 +88,7 @@ export async function sendEmail(
   }
 
   const rendered = renderEmailTemplate(template, data);
-  const channel = resolveEmailChannel(config);
+  const channel = resolveEmailChannel(config, plan);
 
   try {
     if (channel === 'resend') {

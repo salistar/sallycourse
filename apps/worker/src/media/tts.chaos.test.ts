@@ -65,6 +65,12 @@ function okAudioResponse(): Response {
 beforeEach(() => {
   vi.useFakeTimers();
   resetCircuitBreakerRegistryForTests();
+  // elevenLabsBreaker est un singleton importé une seule fois par le module
+  // tts.ts : resetCircuitBreakerRegistryForTests() ne vide que le registre
+  // d'exposition (Map), pas l'état interne de CETTE instance déjà créée. Sans
+  // ce reset explicite, un test qui ouvre le circuit (5 échecs) laisse le
+  // breaker 'open' pour tous les tests suivants du même fichier.
+  elevenLabsBreaker.resetForTests();
   mockObjectExists.mockClear();
   mockUploadObject.mockClear();
   mockGetConfig.mockReturnValue({
@@ -140,5 +146,47 @@ describe('synthesizeSlide — ElevenLabs down en boucle : circuit breaker + fall
     expect(result.provider).toBe('openai');
     expect(result.seconds).toBeGreaterThan(0);
     expect(mockUploadObject).toHaveBeenCalled();
+  });
+});
+
+describe('synthesizeSlide — ElevenLabs devient PREMIUM (Prompt 153)', () => {
+  it('plan free : ElevenLabs jamais tenté, bascule directe vers OpenAI (repli universel)', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes('elevenlabs')) throw new Error('ElevenLabs ne doit jamais être appelé pour le plan free');
+      return okAudioResponse();
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await synthesizeSlide({
+      text: 'Slide de test plan free, texte suffisamment long',
+      locale: 'fr',
+      plan: 'free',
+    });
+
+    expect(result.provider).toBe('openai');
+    const elevenLabsCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('elevenlabs'));
+    expect(elevenLabsCalls).toHaveLength(0);
+  });
+
+  it('plan pro : ElevenLabs autorisé et tenté normalement', async () => {
+    const fetchMock = vi.fn(async () => okAudioResponse());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await synthesizeSlide({
+      text: 'Slide de test plan pro, texte suffisamment long',
+      locale: 'fr',
+      plan: 'pro',
+    });
+
+    expect(result.provider).toBe('elevenlabs');
+  });
+
+  it('plan absent (rétrocompatibilité) : ElevenLabs reste tenté comme avant P153', async () => {
+    const fetchMock = vi.fn(async () => okAudioResponse());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await synthesizeSlide({ text: 'Slide sans plan explicite, texte suffisant', locale: 'fr' });
+
+    expect(result.provider).toBe('elevenlabs');
   });
 });

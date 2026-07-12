@@ -10,6 +10,7 @@
     "start:browser": "tsx src/entrypoints/worker-browser.ts",
     "mock-server": "tsx src/mocks/mock-server.ts",
     "seed": "tsx src/seed/seed.ts",
+    "benchmark:tts": "tsx src/scripts/tts-benchmark.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",

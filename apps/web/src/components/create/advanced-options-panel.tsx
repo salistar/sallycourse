@@ -489,7 +489,7 @@ export function AdvancedOptionsPanel({ value, onChange, triggerClassName }: Adva
                 {value.avatarEnabled && (
                   <Select
                     label="Avatar"
-                    hint="Généré via HeyGen ; repli automatique en carte titre si indisponible."
+                    hint="Rendu OSS (SadTalker) par défaut — qualité correcte mais plus rigide qu'un rendu premium (lip-sync moins précis, mouvements limités). Rendu HeyGen premium réservé aux plans payants, qualité nettement supérieure. Repli automatique en carte titre si indisponible."
                     value={value.avatarId}
                     onChange={(event) => patch({ avatarId: event.target.value })}
                   >

@@ -3,6 +3,7 @@ import { Figtree, Fraunces, IBM_Plex_Sans_Arabic } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { MotionProvider } from '@/components/motion';
+import { UmamiScript } from '@/components/umami';
 import { localeDirection } from '@/i18n/routing';
 import './globals.css';
 
@@ -54,6 +55,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       suppressHydrationWarning
     >
       <body>
+        {/* Tracking d'audience OSS (P157) — no-op sans NEXT_PUBLIC_UMAMI_*, pas de cookie tiers. */}
+        <UmamiScript />
         {/* Provider next-intl : expose messages + locale aux composants client. */}
         <NextIntlClientProvider locale={locale} messages={messages}>
           {/* Provider global du motion : transition par défaut + prefers-reduced-motion. */}

@@ -12,6 +12,7 @@ import {
   renderCostUsd,
   imageCostUsd,
   type CostKind,
+  type ProviderMix,
 } from '../shared.js';
 import { logger } from '../queues/index.js';
 
@@ -109,4 +110,23 @@ export async function recordRenderCost(ctx: CostContext, seconds: number): Promi
 export async function recordImageCost(ctx: CostContext, units = 1): Promise<number> {
   const estimatedUsd = imageCostUsd(units);
   return persist({ ...ctx, kind: 'image', estimatedUsd });
+}
+
+/**
+ * Enregistre le mix de providers RÉELLEMENT utilisé pour une famille donnée
+ * (llm/tts/image) sur Course.providerMix (Prompt 160, comparateur de coût).
+ * Best-effort : merge additif sur le champ existant (ne réinitialise pas les
+ * autres familles déjà enregistrées) — un échec n'interrompt jamais la
+ * génération, seulement loggé.
+ */
+export async function recordProviderChoice(
+  courseId: string,
+  family: keyof ProviderMix,
+  choice: ProviderMix[keyof ProviderMix],
+): Promise<void> {
+  try {
+    await Course.updateOne({ _id: courseId }, { $set: { [`providerMix.${family}`]: choice } });
+  } catch (err) {
+    logger.warn({ courseId, family, choice, err }, 'recordProviderChoice : écriture échouée');
+  }
 }

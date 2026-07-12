@@ -104,6 +104,10 @@ export async function processTtsGeneration(job: Job<TtsJobData>): Promise<TtsRes
     // Vitesse de narration configurable (P137, accessibilité) — undefined → 1
     // (débit standard, comportement inchangé pour les cours existants).
     const narrationSpeed = course.narrationSpeed;
+    // Plan du propriétaire (P153) : ElevenLabs est une option PREMIUM — le plan
+    // réel est connu ici (via planForCourse), donc on l'indique explicitement
+    // à synthesizeSlide pour activer la vérification (free → Piper/Kokoro only).
+    const plan = await planForCourse(courseId);
 
     // Traçabilité voix clonée (P81) : si la voix utilisée est la voix clonée du
     // propriétaire du cours, on logue l'usage via une Notification interne
@@ -148,6 +152,7 @@ export async function processTtsGeneration(job: Job<TtsJobData>): Promise<TtsRes
           locale,
           voice,
           speed: narrationSpeed,
+          plan,
         });
 
         const audioKey = lessonKeys.audio(index);
@@ -196,8 +201,8 @@ export async function processTtsGeneration(job: Job<TtsJobData>): Promise<TtsRes
     await report(courseId, 95, `Audio complet (${script.slides.length} slides, ${Math.round(totalSeconds)} s) — passage au rendu vidéo`);
 
     // Enchaîne sur le rendu vidéo de la leçon (jobId déterministe = déduplication).
-    // Priorité (P73) selon le plan du propriétaire du cours.
-    const videoPriority = priorityForPlan(await planForCourse(courseId));
+    // Priorité (P73) selon le plan du propriétaire du cours (déjà résolu ci-dessus).
+    const videoPriority = priorityForPlan(plan);
     await createQueue(QUEUES.videoRender).add(
       QUEUES.videoRender,
       { courseId, lessonId, ...(mode ? { mode } : {}) },

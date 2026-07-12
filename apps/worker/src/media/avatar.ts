@@ -1,25 +1,47 @@
-// Avatar vidéo « talking head » optionnel (Prompt 82, bêta).
+// Avatar vidéo « talking head » optionnel (Prompt 82, bêta ; Prompt 155 —
+// ajout du provider OSS SadTalker comme option PAR DÉFAUT).
 //
-// Choix d'intégration (documenté) : HeyGen plutôt que D-ID.
-//   - API REST simple (v2/video/generate + v1/video_status.get), clé unique ;
-//   - statut de rendu pollable (processing/completed/failed), pas de webhook
+// Deux providers disponibles, sélection PURE dans providers/sadtalker-provider.ts
+// (selectAvatarProvider) :
+//   - SadTalker (OSS, PAR DÉFAUT) — anime une photo fixe de l'instructeur sur
+//     l'audio TTS déjà généré. GPU requis (cf. en-tête sadtalker-provider.ts) ;
+//     qualité correcte mais perceptiblement en retrait de HeyGen (mouvements
+//     de tête limités, lip-sync moins précis — voir le commentaire détaillé
+//     dans sadtalker-provider.ts et le hint UI d'advanced-options-panel.tsx).
+//   - HeyGen (PREMIUM, plans payants uniquement — isHeyGenAllowedForPlan) :
+//     API REST simple (v2/video/generate + v1/video_status.get), clé unique,
+//     statut de rendu pollable (processing/completed/failed), pas de webhook
 //     obligatoire — cohérent avec le reste du worker (BullMQ poll-driven,
-//     cf. review-poll.ts pour un pattern de polling similaire) ;
-//   - avatarId + voiceId réutilisables d'un cours à l'autre (Course.avatarId).
-// D-ID a été écarté ici uniquement pour rester à UN provider (mock-friendly
-// simple) ; le code est isolé dans ce fichier si un second provider devait
-// être ajouté plus tard (registry par provider, à l'image de src/deploy/).
+//     cf. review-poll.ts pour un pattern de polling similaire) ; avatarId +
+//     voiceId réutilisables d'un cours à l'autre (Course.avatarId).
+// D-ID et EchoMimic ont été écartés ici pour rester à deux providers maximum
+// (un OSS, un premium) — le code de chaque provider est isolé dans son propre
+// fichier (providers/sadtalker-provider.ts) si un troisième devait s'ajouter.
 //
-// MOCK : sans HEYGEN_API_KEY (ou MOCK_PROVIDERS=true), generateAvatarSegment
-// ne fait AUCUN appel réseau — elle délègue à la carte titre animée déjà
-// existante (renderIntroCard, D8) encodée en un clip silencieux de la durée
-// AVATAR.SEGMENT_SECONDS, avec un log explicite du repli.
+// LIMITE HONNÊTE ACTUELLE : il n'existe pas encore d'upload dédié de photo
+// instructeur (aucun champ Course.avatarPhotoUrl) — SadTalker n'active donc
+// RÉELLEMENT qu'avec un `photoUrl` fourni explicitement à generateAvatarSegment
+// (voir GenerateAvatarSegmentOptions.photoUrl). Sans photo, on retombe direct
+// sur HeyGen (si le plan l'autorise) puis sur le mock — jamais d'échec.
+//
+// MOCK : sans aucun provider utilisable (ni SadTalker+photo, ni HeyGen+plan),
+// generateAvatarSegment ne fait AUCUN appel réseau — elle délègue à la carte
+// titre animée déjà existante (renderIntroCard, D8) encodée en un clip
+// silencieux de la durée AVATAR.SEGMENT_SECONDS, avec un log explicite du repli.
 import { execa } from 'execa';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { AVATAR, VIDEO, getConfig, storageKeys, uploadObject } from '../shared.js';
 import { logger } from '../queues/index.js';
+import {
+  isHeyGenAllowedForPlan,
+  isSadTalkerConfigured,
+  renderSadTalkerAvatar,
+  selectAvatarProvider,
+} from '../providers/sadtalker-provider.js';
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext)
+import { type PlanId } from '@sallycourse/shared';
 
 /** Statuts renvoyés par l'API de rendu HeyGen (v1/video_status.get). */
 export type HeyGenRenderStatus = 'processing' | 'completed' | 'failed' | 'pending' | 'waiting';
@@ -45,13 +67,24 @@ export interface GenerateAvatarSegmentOptions {
   pollTimeoutMs?: number;
   /** Intervalle de polling (ms). Défaut AVATAR.POLL_INTERVAL_MS — surchargé en tests. */
   pollIntervalMs?: number;
+  /** Plan de l'utilisateur propriétaire du cours — gate HeyGen (isHeyGenAllowedForPlan). */
+  plan?: PlanId | string | null;
+  /**
+   * Photo source de l'instructeur (URL publique ou présignée), REQUISE pour
+   * activer SadTalker. Absente aujourd'hui faute d'upload dédié (cf. en-tête
+   * du fichier) — laisse la porte ouverte à une future Course.avatarPhotoUrl
+   * sans changer cette signature.
+   */
+  photoUrl?: string;
+  /** Audio narré déjà synthétisé (TTS), REQUIS par SadTalker (lip-sync sur cet audio). */
+  narratedAudioBuffer?: Buffer;
 }
 
 export interface GenerateAvatarSegmentResult {
   /** Chemin local du MP4 produit (segment prêt à être inséré dans le montage). */
   filePath: string;
   /** Provider ayant réellement produit le segment. */
-  provider: 'heygen' | 'mock';
+  provider: 'sadtalker' | 'heygen' | 'mock';
   /** Durée du segment, en secondes. */
   seconds: number;
 }
@@ -240,12 +273,18 @@ async function renderMockAvatarClip(
 }
 
 /**
- * Génère un segment vidéo « talking head » (intro ou conclusion de section) :
- * texte narré par l'avatar HeyGen choisi (Course.avatarId), poll jusqu'à
- * complétion, télécharge le MP4. MOCK_PROVIDERS ou HEYGEN_API_KEY absente →
- * repli carte titre animée (aucun appel réseau HeyGen), avec log explicite.
+ * Génère un segment vidéo « talking head » (intro ou conclusion de section).
+ * Sélection du provider (selectAvatarProvider, providers/sadtalker-provider.ts) :
+ *   1. SadTalker (OSS, PAR DÉFAUT) si configuré (SADTALKER_BASE_URL + GPU
+ *      déclaré, cf. isSadTalkerConfigured) ET qu'une photo source est fournie
+ *      (opts.photoUrl) — anime la photo sur l'audio déjà narré (opts.narratedAudioBuffer).
+ *   2. HeyGen (PREMIUM) si le plan de l'utilisateur l'autorise (isHeyGenAllowedForPlan,
+ *      plans payants uniquement) ET qu'un avatarId est choisi — poll jusqu'à
+ *      complétion, télécharge le MP4.
+ *   3. Repli carte titre animée (D8, aucun appel réseau) — toujours garanti,
+ *      jamais d'échec bloquant du pipeline vidéo.
  * `courseId`/`lessonId` ne servent qu'au repli mock (renderIntroCard a besoin
- * du contexte de rendu D7) — en mode HeyGen réel ils ne sont pas utilisés.
+ * du contexte de rendu D7).
  */
 export async function generateAvatarSegment(
   text: string,
@@ -256,16 +295,40 @@ export async function generateAvatarSegment(
   },
 ): Promise<GenerateAvatarSegmentResult> {
   const cfg = getConfig();
-  const mock = cfg.MOCK_PROVIDERS || !cfg.HEYGEN_API_KEY || !avatarId;
   const seconds = AVATAR.SEGMENT_SECONDS;
 
   const dir = await mkdtemp(path.join(tmpdir(), 'avatar-'));
   const outPath = path.join(dir, 'segment.mp4');
 
-  if (mock) {
+  const provider = selectAvatarProvider({
+    plan: opts.plan,
+    heygenConfigured: !cfg.MOCK_PROVIDERS && Boolean(cfg.HEYGEN_API_KEY),
+    sadTalkerConfigured: isSadTalkerConfigured(),
+    hasSourcePhoto: Boolean(opts.photoUrl && opts.narratedAudioBuffer),
+    avatarId,
+  });
+
+  if (provider === 'sadtalker') {
+    try {
+      const { videoBuffer } = await renderSadTalkerAvatar(opts.photoUrl!, opts.narratedAudioBuffer!);
+      await writeFile(outPath, videoBuffer);
+      logger.info({ avatarId }, 'avatar SadTalker (OSS) généré');
+      return { filePath: outPath, provider: 'sadtalker', seconds };
+    } catch (err) {
+      // Tout échec SadTalker retombe sur HeyGen (si le plan l'autorise) puis
+      // sur le mock, jamais sur un blocage du rendu vidéo de la section.
+      const detail = err instanceof Error ? err.message : String(err);
+      logger.warn({ avatarId, err: detail }, 'avatar SadTalker indisponible — tentative de repli');
+    }
+  }
+
+  const canUseHeygen =
+    !cfg.MOCK_PROVIDERS && Boolean(cfg.HEYGEN_API_KEY) && Boolean(avatarId) && isHeyGenAllowedForPlan(opts.plan);
+
+  if (!canUseHeygen) {
     logger.info(
       { avatarId, mock: true },
-      'avatar : HEYGEN_API_KEY absente ou MOCK_PROVIDERS actif — repli carte titre animée',
+      'avatar : aucun provider utilisable (SadTalker/HeyGen) — repli carte titre animée',
     );
     await renderMockAvatarClip(opts.courseId, opts.lessonId, outPath, seconds);
     return { filePath: outPath, provider: 'mock', seconds };

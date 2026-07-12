@@ -170,6 +170,14 @@ export interface ICourse {
    * Additif, absent = cours normal (comportement inchangé).
    */
   agencyClientId?: Types.ObjectId | null;
+  /**
+   * Mix de providers RÉELLEMENT utilisé pour générer ce cours (Prompt 160,
+   * comparateur de coût cloud vs OSS) : {llm, tts, image} chacun 'oss'|'cloud'.
+   * Additif, Mixed en base — undefined tant qu'aucun générateur n'a renseigné
+   * le mix explicitement (cours antérieurs au P160). Sert à l'affichage sur la
+   * fiche du cours ET au calcul du coût OSS comparé (packages/shared/pricing-table).
+   */
+  providerMix?: { llm: 'oss' | 'cloud'; tts: 'oss' | 'cloud'; image: 'oss' | 'cloud' };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -236,6 +244,7 @@ const courseSchema = new Schema<ICourse>(
     approvedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     approvedAt: { type: Date, default: null },
     agencyClientId: { type: Schema.Types.ObjectId, ref: 'AgencyClient', default: null, index: true },
+    providerMix: { type: Schema.Types.Mixed, default: undefined },
     dubbedVersions: {
       type: [
         new Schema<IDubbedVersion>(
