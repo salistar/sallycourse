@@ -33,6 +33,8 @@ import { startFeedbackWorker, stopFeedbackWorker } from './deploy/feedback-loop.
 import { startMetricsServer, stopMetricsServer } from './lib/metrics-server.js';
 import { startRetentionScheduler, stopRetentionScheduler } from './lib/retention.js';
 import { startCourseRefreshScheduler, stopCourseRefreshScheduler } from './lib/course-refresh.js';
+import { startEmailSequenceScheduler, stopEmailSequenceScheduler } from './lib/email-sequence.js';
+import { startAuditRetentionScheduler, stopAuditRetentionScheduler } from './lib/audit-retention.js';
 
 /** Reaper des conteneurs TP orphelins (P22) : au démarrage puis toutes les 15 min. */
 const TP_REAPER_INTERVAL_MS = 15 * 60 * 1_000;
@@ -101,6 +103,14 @@ async function main(): Promise<void> {
   // probablement obsolètes (raisonnement LLM, pas de recherche web réelle),
   // suggestions persistées + notification — jamais de régénération automatique.
   await startCourseRefreshScheduler();
+
+  // Cron séquences email marketing (P140) : envoi horaire des étapes dues
+  // (EmailSequenceEnrollment.nextSendAt <= now) via le service d'email existant.
+  await startEmailSequenceScheduler();
+
+  // Cron purge du journal d'audit (P149) : rétention 12 mois, purge quotidienne
+  // des entrées AuditLog expirées (seul point qui supprime des entrées d'audit).
+  await startAuditRetentionScheduler();
 }
 
 let shuttingDown = false;
@@ -118,6 +128,8 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
     await stopAbTestingScheduler();
     await stopRetentionScheduler();
     await stopCourseRefreshScheduler();
+    await stopEmailSequenceScheduler();
+    await stopAuditRetentionScheduler();
     await stopFeedbackWorker();
     await stopMetricsServer();
     await closeAll();

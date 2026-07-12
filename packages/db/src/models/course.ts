@@ -25,6 +25,13 @@ export interface ICourse {
   /** Filigrane discret exigé selon le plan à la création (free=true) — P53. */
   watermark: boolean;
   ttsVoice?: string;
+  /**
+   * Vitesse de narration configurable (Prompt 137, accessibilité) : 1 =
+   * débit standard (AUDIO.NARRATION_WORDS_PER_MINUTE), plage 0.75–1.25
+   * répercutée sur le TTS (media/tts.ts). Additif, undefined = défaut 1
+   * (comportement inchangé pour tous les cours existants).
+   */
+  narrationSpeed?: number;
   coverImageUrl?: string;
   /** Clé S3 de la vidéo d'intro webcam (~60 s) — mode compliance max Udemy (P48). */
   introVideoKey?: string;
@@ -154,6 +161,15 @@ export interface ICourse {
    */
   approvedBy?: Types.ObjectId | null;
   approvedAt?: Date | null;
+  /**
+   * Mode agence (Prompt 150) : cours généré/déployé au nom d'un client tiers
+   * (AgencyClient), par un utilisateur agence (User.isAgency=true). Le
+   * userId ci-dessus reste celui de l'AGENCE (compte facturé/quota) — seuls
+   * les déploiements basculent sur les PlatformCredential du CLIENT référencé
+   * par ce champ (voir resolveAgencyDeployCredentials, @sallycourse/shared).
+   * Additif, absent = cours normal (comportement inchangé).
+   */
+  agencyClientId?: Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -196,6 +212,7 @@ const courseSchema = new Schema<ICourse>(
     locale: { type: String, enum: [...LOCALES], default: 'fr' },
     watermark: { type: Boolean, default: true },
     ttsVoice: { type: String },
+    narrationSpeed: { type: Number, min: 0.75, max: 1.25 },
     coverImageUrl: { type: String },
     introVideoKey: { type: String },
     qaReport: { type: Schema.Types.Mixed, default: null },
@@ -218,6 +235,7 @@ const courseSchema = new Schema<ICourse>(
     workspaceId: { type: Schema.Types.ObjectId, ref: 'Workspace', default: null, index: true },
     approvedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     approvedAt: { type: Date, default: null },
+    agencyClientId: { type: Schema.Types.ObjectId, ref: 'AgencyClient', default: null, index: true },
     dubbedVersions: {
       type: [
         new Schema<IDubbedVersion>(

@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getConfig, encryptCredentials } from '@sallycourse/shared';
-import { connectDb, PlatformCredential } from '@sallycourse/db';
+import { connectDb, PlatformCredential, recordAudit } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
 import { getPlatformMeta, PLATFORM_IDS } from '@/lib/platforms';
+import { extractClientIp } from '@/lib/rate-limit';
 
 /**
  * /api/platforms — liste (GET, SANS secrets) et ajout (POST, chiffrement
@@ -107,6 +108,18 @@ export async function POST(request: Request) {
     },
     { upsert: true, new: true },
   );
+
+  // Journal d'audit (P149) : changement de credentials plateforme — jamais le
+  // secret lui-même, seulement la plateforme et le libellé de compte.
+  void recordAudit({
+    action: 'credentials.changed',
+    userId: user.id,
+    targetType: 'platform_credential',
+    targetId: String(doc._id),
+    ip: extractClientIp(request),
+    userAgent: request.headers.get('user-agent') ?? undefined,
+    metadata: { platform: doc.platform, accountLabel: doc.accountLabel },
+  });
 
   // Réponse volontairement sans le secret ni le blob.
   return NextResponse.json(

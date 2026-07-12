@@ -101,6 +101,9 @@ export async function processTtsGeneration(job: Job<TtsJobData>): Promise<TtsRes
     // clonée) — la voix la plus rapide/économique à générer, adaptée à un
     // brouillon jetable. En mode 'final' (ou absent) : voix du cours inchangée.
     const voice = ttsVoiceForMode(mode ?? 'final', course.ttsVoice);
+    // Vitesse de narration configurable (P137, accessibilité) — undefined → 1
+    // (débit standard, comportement inchangé pour les cours existants).
+    const narrationSpeed = course.narrationSpeed;
 
     // Traçabilité voix clonée (P81) : si la voix utilisée est la voix clonée du
     // propriétaire du cours, on logue l'usage via une Notification interne
@@ -144,6 +147,7 @@ export async function processTtsGeneration(job: Job<TtsJobData>): Promise<TtsRes
           text: slide.narration,
           locale,
           voice,
+          speed: narrationSpeed,
         });
 
         const audioKey = lessonKeys.audio(index);

@@ -2,7 +2,9 @@
 
 import * as React from 'react';
 import { ArrowLeftRight, RotateCcw } from 'lucide-react';
-import { durations, easings } from '@sallycourse/design';
+// Sous-module direct (pas le baril) : évite d'embarquer render-templates.ts
+// (Node-only, node:url) dans le bundle navigateur d'un composant client.
+import { durations, easings } from '@sallycourse/design/tokens';
 import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui';
 import { PreviewFrame } from './preview-frame';

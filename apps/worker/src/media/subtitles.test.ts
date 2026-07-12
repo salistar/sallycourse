@@ -9,6 +9,7 @@ import {
   formatVttTimestamp,
   normalizeWords,
   subtitlesFromScript,
+  toPlainText,
   toSrt,
   toVtt,
   type Cue,
@@ -63,6 +64,27 @@ describe('toVtt', () => {
     const vtt = toVtt([{ start: 0, end: 1, text: 'Salut' }]);
     expect(vtt.startsWith('WEBVTT\n\n')).toBe(true);
     expect(vtt).toContain('00:00:00.000 --> 00:00:01.000\nSalut');
+  });
+});
+
+describe('toPlainText', () => {
+  it('un paragraphe par cue, sans timestamp ni index (P137)', () => {
+    const txt = toPlainText([
+      { start: 0, end: 2.5, text: 'Bonjour' },
+      { start: 2.5, end: 5, text: 'et bienvenue' },
+    ]);
+    expect(txt).toBe('Bonjour\n\net bienvenue\n');
+    expect(txt).not.toMatch(/\d{2}:\d{2}:\d{2}/); // aucun timestamp
+    expect(txt).not.toMatch(/^\d+$/m); // aucun index de bloc
+  });
+
+  it('ignore les cues au texte vide et trie chronologiquement comme toSrt/toVtt', () => {
+    const txt = toPlainText([
+      { start: 5, end: 6, text: 'plus tard' },
+      { start: 0, end: 1, text: '  ' },
+      { start: 1, end: 2, text: 'plus tôt' },
+    ]);
+    expect(txt).toBe('plus tôt\n\nplus tard\n');
   });
 });
 

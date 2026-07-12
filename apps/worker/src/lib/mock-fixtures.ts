@@ -8,11 +8,13 @@ import {
   MARKETING_TITLE_IDEAS,
   QUIZ,
   UDEMY,
+  altTextResultSchema,
   courseResourcesContentSchema,
   marketingSchema,
   outlineSchema,
   quizQuestionSchema,
   slideScriptSchema,
+  type AltTextResult,
   type CourseResourcesContent,
   type MarketingContent,
   type Outline,
@@ -542,6 +544,19 @@ export function mockQuiz(title: string, count: number = QUIZ.MIN_QUESTIONS_PER_S
   return mockQuizSchema.parse(questions);
 }
 
+// ── Texte alternatif (Prompt 137, accessibilité) ─────────────────
+/**
+ * Texte alternatif mock conforme à altTextResultSchema — déterministe par
+ * le titre extrait du prompt (contient la légende + l'étape, cf.
+ * buildAltTextPrompt côté @sallycourse/design/annotations).
+ */
+export function mockAltText(title: string): AltTextResult {
+  const t = title.trim() || 'cette étape';
+  return altTextResultSchema.parse({
+    altText: `Capture d'écran illustrant ${t.toLowerCase()} dans l'interface du tutoriel.`,
+  });
+}
+
 // ── Dispatch générique ──────────────────────────────────────────
 /**
  * Retourne la fixture correspondant au schéma demandé : chaque candidat
@@ -560,6 +575,7 @@ export function mockFixtureFor<T>(schema: z.ZodType<T>, user: string): T {
     mockTp(title),
     mockMarketing(title),
     mockCourseResources(title),
+    mockAltText(title),
   ];
   for (const candidate of candidates) {
     const parsed = schema.safeParse(candidate);

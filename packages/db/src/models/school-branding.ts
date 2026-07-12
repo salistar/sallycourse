@@ -33,6 +33,14 @@ export interface ISchoolBranding {
   primaryColorHex: string;
   /** Couleur d'accent (remplace l'or de marque) — hex #RRGGBB. */
   accentColorHex: string;
+  /**
+   * Sous-domaine white-label (Prompt 143, plan Business) — ex. "academie-client"
+   * pour https://academie-client.sallycourse.com/. Résolu par le middleware
+   * (apps/web/src/middleware.ts) pour router vers /school/[subdomain], filtré
+   * par le userId propriétaire de ce document. Absent = pas de sous-domaine
+   * configuré (le certificat peut rester en marque blanche sans catalogue public).
+   */
+  customSubdomain?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -63,6 +71,16 @@ const schoolBrandingSchema = new Schema<ISchoolBranding>(
         validator: (v: string) => HEX_COLOR_RE.test(v),
         message: (props: { value: string }) => `« ${props.value} » n'est pas une couleur hexadécimale valide.`,
       },
+    },
+    // Additif (P143) : unique + sparse (plusieurs documents sans sous-domaine
+    // ne doivent PAS entrer en conflit d'unicité — sparse ignore les valeurs
+    // absentes de l'index).
+    customSubdomain: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      unique: true,
+      sparse: true,
     },
   },
   { timestamps: true },

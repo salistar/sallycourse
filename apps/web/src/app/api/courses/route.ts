@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
+import { isValidObjectId } from 'mongoose';
 import { createCourseInputSchema } from '@sallycourse/shared';
-import { connectDb, Course as CourseModel } from '@sallycourse/db';
+import { connectDb, AgencyClient, Course as CourseModel } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
 import { createCourseForUser } from '@/lib/create-course';
 import { extractClientIp, rateLimit } from '@/lib/rate-limit';
@@ -69,8 +70,31 @@ export async function POST(request: Request) {
   // un flag absent ou upload en retard dégrade simplement vers "sans contexte").
   const willImportMaterial = Boolean((body as { importsMaterial?: unknown })?.importsMaterial);
 
+  // Mode agence (P150) : contexte client optionnel — { agencyClientId } dans
+  // le corps. Vérifié appartenir à l'AGENCE connectée avant tout usage (jamais
+  // un cours rattaché au client d'une autre agence).
+  const requestedAgencyClientId = (body as { agencyClientId?: unknown })?.agencyClientId;
+  let agencyClientId: string | undefined;
+  if (typeof requestedAgencyClientId === 'string' && requestedAgencyClientId.length > 0) {
+    if (!isValidObjectId(requestedAgencyClientId)) {
+      return NextResponse.json({ error: 'Client d’agence invalide.' }, { status: 400 });
+    }
+    await connectDb();
+    const client = await AgencyClient.findOne({
+      _id: requestedAgencyClientId,
+      agencyUserId: user.id,
+    })
+      .select('_id')
+      .lean();
+    if (!client) {
+      return NextResponse.json({ error: 'Client d’agence introuvable.' }, { status: 404 });
+    }
+    agencyClientId = requestedAgencyClientId;
+  }
+
   const result = await createCourseForUser(user.id!, user.plan ?? 'free', parsed.data, {
     ...(willImportMaterial ? { enqueueDelayMs: 8000 } : {}),
+    ...(agencyClientId ? { agencyClientId } : {}),
   });
   if (!result.ok) {
     switch (result.error.kind) {

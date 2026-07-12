@@ -1,18 +1,29 @@
 import { NextResponse } from 'next/server';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
-import { QUALITY_SCORE, QUEUES, defaultJobOptions, makeJobId } from '@sallycourse/shared';
 import {
+  QUALITY_SCORE,
+  QUEUES,
+  checkApprovalGate,
+  defaultJobOptions,
+  makeJobId,
+  resolveAgencyDeployCredentials,
+} from '@sallycourse/shared';
+import {
+  AgencyClient,
   Course as CourseModel,
   Deployment,
   DEPLOYMENT_MODES,
   PlatformCredential,
+  Workspace,
   connectDb,
+  recordAudit,
 } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
 import { getDeploymentQueue } from '@/lib/queues';
 import { getCapabilities, isKnownPlatform } from '@/lib/deploy-catalog';
 import { checkDeployPlatformLimit } from '@/lib/quota';
+import { extractClientIp } from '@/lib/rate-limit';
 import type { PlanId } from '@sallycourse/shared';
 
 /**
@@ -97,10 +108,58 @@ export async function POST(
   await connectDb();
 
   const course = await CourseModel.findOne({ _id: id, userId: user.id })
-    .select('_id status aiDisclosureAccepted qualityScore')
+    .select('_id status aiDisclosureAccepted qualityScore workspaceId approvedBy agencyClientId')
     .lean();
   if (!course) {
     return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+  }
+
+  // Mode agence (P150) : les credentials autorisés pour ce cours sont ceux du
+  // CLIENT référencé, jamais ceux de l'agence — résolu une fois ici et
+  // réutilisé pour valider chaque credentialId demandé plus bas.
+  let agencyAllowedCredentialIds: string[] | null = null;
+  if (course.agencyClientId) {
+    const clientDoc = await AgencyClient.findById(course.agencyClientId).lean();
+    const agencyCtx = resolveAgencyDeployCredentials(
+      { userId: String(course.userId ?? user.id), agencyClientId: String(course.agencyClientId) },
+      clientDoc
+        ? {
+            id: String(clientDoc._id),
+            agencyUserId: String(clientDoc.agencyUserId),
+            clientName: clientDoc.clientName,
+            clientEmail: clientDoc.clientEmail,
+            platformCredentials: clientDoc.platformCredentials.map(String),
+          }
+        : null,
+    );
+    if (agencyCtx.reason) {
+      return NextResponse.json({ error: agencyCtx.reason, code: 'agency_context_invalid' }, { status: 403 });
+    }
+    agencyAllowedCredentialIds = agencyCtx.allowedCredentialIds;
+  }
+
+  // Gate d'approbation d'équipe (P138) : refus immédiat si le workspace du
+  // cours a des reviewers et qu'aucune approbation n'a été enregistrée.
+  if (course.workspaceId) {
+    const workspace = await Workspace.findById(course.workspaceId).lean();
+    const gate = checkApprovalGate(
+      {
+        workspaceId: String(course.workspaceId),
+        approvedBy: course.approvedBy ? String(course.approvedBy) : null,
+      },
+      workspace
+        ? {
+            ownerId: String(workspace.ownerId),
+            members: workspace.members.map((m) => ({ userId: String(m.userId), role: m.role })),
+          }
+        : null,
+    );
+    if (!gate.allowed) {
+      return NextResponse.json(
+        { error: gate.reason, code: 'approval_required' },
+        { status: 403 },
+      );
+    }
   }
 
   // Le cours doit être abouti pour être déployé.
@@ -147,7 +206,8 @@ export async function POST(
 
   // Multi-comptes (P49) : valide que chaque compte demandé appartient à
   // l'utilisateur ET à la bonne plateforme. Un id invalide/étranger est rejeté
-  // (on ne déploie jamais avec le mauvais compte).
+  // (on ne déploie jamais avec le mauvais compte). Mode agence (P150) : le
+  // compte doit appartenir à la liste autorisée du CLIENT, pas à l'agence.
   const selected = parsed.data.credentials ?? {};
   const selectedByPlatform: Record<string, string> = {};
   for (const platform of requested) {
@@ -159,18 +219,27 @@ export async function POST(
         { status: 400 },
       );
     }
-    const cred = await PlatformCredential.findOne({
-      _id: credentialId,
-      userId: user.id,
-      platform,
-    })
-      .select('_id')
-      .lean();
-    if (!cred) {
-      return NextResponse.json(
-        { error: `Compte introuvable pour ${platform}.` },
-        { status: 404 },
-      );
+    if (agencyAllowedCredentialIds !== null) {
+      if (!agencyAllowedCredentialIds.includes(credentialId)) {
+        return NextResponse.json(
+          { error: `Compte introuvable pour ${platform} (hors périmètre du client).` },
+          { status: 404 },
+        );
+      }
+    } else {
+      const cred = await PlatformCredential.findOne({
+        _id: credentialId,
+        userId: user.id,
+        platform,
+      })
+        .select('_id')
+        .lean();
+      if (!cred) {
+        return NextResponse.json(
+          { error: `Compte introuvable pour ${platform}.` },
+          { status: 404 },
+        );
+      }
     }
     selectedByPlatform[platform] = credentialId;
   }
@@ -226,6 +295,18 @@ export async function POST(
     );
     enqueued.push({ platform, mode });
   }
+
+  // Journal d'audit (P149) : un déploiement lancé = une entrée (toutes
+  // plateformes enfilées dans ce lot, best-effort).
+  void recordAudit({
+    action: 'deployment.created',
+    userId: user.id,
+    targetType: 'course',
+    targetId: id,
+    ip: extractClientIp(request),
+    userAgent: request.headers.get('user-agent') ?? undefined,
+    metadata: { platforms: requested, mode: parsed.data.mode },
+  });
 
   return NextResponse.json({ courseId: id, deployments: enqueued }, { status: 202 });
 }

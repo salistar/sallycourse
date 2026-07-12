@@ -12,6 +12,9 @@
        (source de vérité : packages/design/src/tokens.ts)
        ============================================================ */
     :root {
+      /* Gros texte (P137, accessibilité) : 1 par défaut, override injecté par
+         renderTemplate({ largeText: true }) — voir render-templates.ts. */
+      --text-scale: 1;
       --bg: #0D0714;              /* neutral.950 */
       --surface: #171021;         /* themes.dark.surface */
       --surface-subtle: #231B2F;  /* neutral.900 */
@@ -92,7 +95,7 @@
 
     .title {
       margin-top: 24px;
-      font-size: 58px;
+      font-size: calc(58px * var(--text-scale));
       line-height: 1.15;
       letter-spacing: -0.015em;
       max-width: 1440px;
@@ -146,7 +149,7 @@
     .col-b { border-block-start-color: var(--gold-500); }
 
     .col-title {
-      font-size: 40px;
+      font-size: calc(40px * var(--text-scale));
       line-height: 1.2;
       letter-spacing: -0.01em;
       text-wrap: balance;
@@ -177,7 +180,7 @@
     .col-a .col-diamond { background: linear-gradient(135deg, var(--violet-300), var(--violet-700)); }
     .col-b .col-diamond { background: linear-gradient(135deg, var(--gold-300), var(--gold-600)); }
     .col-item-text {
-      font-size: 31px;
+      font-size: calc(31px * var(--text-scale));
       line-height: 1.45;
       color: var(--fg);
       text-wrap: pretty;

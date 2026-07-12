@@ -113,6 +113,32 @@ export default tseslint.config(
     },
   },
 
+  // Autorise `@ts-ignore` (au lieu d'exiger `@ts-expect-error`) dans les
+  // fichiers du pont cross-package NodeNext : ces packages sont typecheckés
+  // à la fois SEULS (leur propre tsconfig, resolution bundler, aucune
+  // erreur) ET transitivement par apps/worker (tsconfig NodeNext, rootDir
+  // strict — l'import est alors hors rootDir, TS6059/TS2305 réels). Le même
+  // commentaire est donc « nécessaire » dans un programme et « inutile »
+  // dans l'autre : `@ts-expect-error` échoue avec "Unused directive" selon
+  // le contexte, alors que `@ts-ignore` tolère les deux sans erreur.
+  // Documenté au cas par cas dans chaque fichier concerné (voir apps/worker/
+  // src/shared.ts pour le détail du mécanisme).
+  {
+    name: 'salistar/nodenext-bridge-ts-ignore',
+    files: [
+      'apps/worker/src/**/*.{ts,tsx}',
+      'packages/db/src/**/*.{ts,tsx}',
+      'packages/shared/src/**/*.{ts,tsx}',
+      'packages/design/src/**/*.{ts,tsx}',
+    ],
+    rules: {
+      '@typescript-eslint/ban-ts-comment': [
+        'error',
+        { 'ts-ignore': false, 'ts-expect-error': 'allow-with-description' },
+      ],
+    },
+  },
+
   // Désactive les règles purement stylistiques : Prettier fait foi.
   prettier,
 );

@@ -229,6 +229,12 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
         body: JSON.stringify({
           ...result.data,
           importsMaterial: Boolean(options.sourceMaterialFile),
+          // Mode agence (P150) : contexte client actif choisi dans
+          // dashboard/agency (persisté localStorage), repris ici pour rattacher
+          // le cours au bon client. Absent pour tout utilisateur non-agence.
+          ...(typeof window !== 'undefined' && window.localStorage.getItem('sc_agency_active_client')
+            ? { agencyClientId: window.localStorage.getItem('sc_agency_active_client') }
+            : {}),
         }),
       });
       const data = (await response.json().catch(() => null)) as

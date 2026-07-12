@@ -214,6 +214,14 @@ export interface ReportContext {
   deployments: DeploymentLike[];
   /** Horodatage de génération (défaut : maintenant). Injectable pour les tests. */
   generatedAt?: Date;
+  /**
+   * Branding client (Prompt 150, mode agence) : si le cours est déployé au nom
+   * d'un client d'agence disposant d'un SchoolBranding, remplace la ligne
+   * d'édition « SallyCourse » par le nom de l'école du client — le rapport de
+   * livraison paraît alors émis par/pour le client, pas par l'agence. Additif,
+   * absent = comportement inchangé (édition SallyCourse par défaut).
+   */
+  clientBrandName?: string;
 }
 
 /**
@@ -239,8 +247,10 @@ export function buildDeploymentReportData(ctx: ReportContext): DeploymentReportP
     courseTitle: ctx.courseTitle,
     generatedLine: `Généré le ${formatFrDateTime(generatedAt)}`,
     durationLine: `${platforms.length} déploiement(s) analysé(s)`,
-    footerNote: 'SALISTAR · SallyCourse — génération et déploiement automatisés de cours',
-    editionLine: 'SallyCourse',
+    footerNote: ctx.clientBrandName
+      ? `Livré par SallyCourse pour ${ctx.clientBrandName}`
+      : 'SALISTAR · SallyCourse — génération et déploiement automatisés de cours',
+    editionLine: ctx.clientBrandName ?? 'SallyCourse',
     platforms,
     checklist,
   };
@@ -312,12 +322,15 @@ export async function generateDeploymentReport(
   course: ICourse & { _id: unknown },
   deployments: DeploymentLike[],
   mock = false,
+  /** Nom d'école du client (P150, mode agence) — voir ReportContext.clientBrandName. */
+  clientBrandName?: string,
 ): Promise<GenerateReportResult> {
   const courseId = String(course._id);
   const data = buildDeploymentReportData({
     courseTitle: course.title,
     locale: course.locale,
     deployments,
+    clientBrandName,
   });
   const pdf = await renderDeploymentReportPdf(data, mock);
   const keys = storageKeys.course(courseId);

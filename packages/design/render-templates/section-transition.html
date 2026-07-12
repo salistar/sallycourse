@@ -12,6 +12,9 @@
        (source de vérité : packages/design/src/tokens.ts)
        ============================================================ */
     :root {
+      /* Gros texte (P137, accessibilité) : 1 par défaut, override injecté par
+         renderTemplate({ largeText: true }) — voir render-templates.ts. */
+      --text-scale: 1;
       --bg: #0D0714;              /* neutral.950 */
       --fg: #F8F4FC;              /* violet.50 */
       --muted: #C8A9E4;           /* violet.300 */
@@ -142,7 +145,7 @@
     html[dir="rtl"] .section-label .num { font-family: var(--font-arabic); font-weight: 700; }
 
     .section-title {
-      font-size: 108px;
+      font-size: calc(108px * var(--text-scale));
       line-height: 1.08;
       letter-spacing: -0.02em;
       color: var(--fg);

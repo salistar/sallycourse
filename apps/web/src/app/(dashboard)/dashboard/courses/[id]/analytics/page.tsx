@@ -6,10 +6,14 @@ import {
   connectDb,
   Course as CourseModel,
   CourseAnalytics as CourseAnalyticsModel,
+  Enrollment as EnrollmentModel,
   LandingVariant as LandingVariantModel,
+  Lesson as LessonModel,
+  LessonProgress as LessonProgressModel,
+  Section as SectionModel,
 } from '@sallycourse/db';
 import { requireUser } from '@/lib/session';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import { Card, CardContent, CardHeader, CardTitle, buttonVariants } from '@/components/ui';
 import { EmptyState } from '@/components/ui';
 import {
   aggregateAnalytics,
@@ -17,7 +21,10 @@ import {
   type PlatformRow,
   type VariantRow,
 } from '@/components/analytics';
-import { AnalyticsDashboard, AbTestingPanel } from '@/components/analytics';
+import { AnalyticsDashboard, AbTestingPanel, DropoutHeatmapPanel } from '@/components/analytics';
+import { computeDropoutHeatmap, type HeatmapLessonRef, type HeatmapProgressRow } from '@/lib/dropout-heatmap';
+import { cn } from '@/lib/cn';
+import { Download } from 'lucide-react';
 
 /**
  * Dashboard analytics consolidé d'un cours (P61) — Server Component :
@@ -84,17 +91,50 @@ export default async function CourseAnalyticsPage({
     variantsByPlatform.set(v.platform, list);
   }
 
+  // Heatmap d'abandon par leçon (P144) : agrégation depuis LessonProgress,
+  // positionnée sur le plan de cours (sections/leçons triées par order).
+  const totalEnrolled = await EnrollmentModel.countDocuments({ courseId: course._id });
+  const [sections, lessons, progressRows] = await Promise.all([
+    SectionModel.find({ courseId: course._id }).select('_id order').lean(),
+    LessonModel.find({ courseId: course._id }).select('_id title sectionId order').lean(),
+    LessonProgressModel.find({ courseId: course._id }).select('studentId lessonId completedAt').lean(),
+  ]);
+  const sectionOrderById = new Map(sections.map((s) => [String(s._id), s.order]));
+  const heatmapLessons: HeatmapLessonRef[] = lessons.map((l) => ({
+    lessonId: String(l._id),
+    sectionOrder: sectionOrderById.get(String(l.sectionId)) ?? 0,
+    lessonOrder: l.order,
+    title: l.title,
+  }));
+  const heatmapProgress: HeatmapProgressRow[] = progressRows.map((p) => ({
+    studentId: String(p.studentId),
+    lessonId: String(p.lessonId),
+    completedAt: p.completedAt ?? null,
+  }));
+  const heatmap = computeDropoutHeatmap(heatmapLessons, heatmapProgress, totalEnrolled);
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <Link
-          href={`/dashboard/courses/${id}`}
-          className="text-sm text-muted hover:text-foreground"
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <Link
+            href={`/dashboard/courses/${id}`}
+            className="text-sm text-muted hover:text-foreground"
+          >
+            ← Retour au cours
+          </Link>
+          <h1 className="font-display text-3xl font-semibold text-foreground">Analytics</h1>
+          <p className="text-sm text-muted">{course.title}</p>
+        </div>
+        {/* Export xAPI basique (P144) — rapport de complétion par apprenant, pour clients entreprise. */}
+        <a
+          href={`/api/courses/${id}/xapi-export`}
+          download
+          className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'gap-2')}
         >
-          ← Retour au cours
-        </Link>
-        <h1 className="font-display text-3xl font-semibold text-foreground">Analytics</h1>
-        <p className="text-sm text-muted">{course.title}</p>
+          <Download className="size-4" aria-hidden="true" />
+          Exporter xAPI
+        </a>
       </div>
 
       {rows.length === 0 ? (
@@ -121,6 +161,8 @@ export default async function CourseAnalyticsPage({
           variants={variants}
         />
       ))}
+
+      <DropoutHeatmapPanel points={heatmap.points} suggestion={heatmap.suggestion} />
     </div>
   );
 }

@@ -33,7 +33,7 @@ export { encryptCredentials, decryptCredentials, redactCredentials, type Platfor
 export { generateCourseImage, marketingFormats, type CourseImageSpecInput } from '@sallycourse/design/marketing-assets.js';
 // prettier-ignore
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
-export { annotateScreenshot, zoomInsetMaskSvg, type AnnotationSpecInput, type AnnotatedScreenshot } from '@sallycourse/design/annotations.js';
+export { annotateScreenshot, zoomInsetMaskSvg, buildAltTextPrompt, altTextRequestSchema, altTextResultSchema, type AnnotationSpecInput, type AnnotatedScreenshot, type AltTextRequest, type AltTextResult } from '@sallycourse/design/annotations.js';
 // prettier-ignore
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { renderTemplate, SlideTemplate as SlideTemplateEnum, SLIDE_TEMPLATE_NAMES, escapeHtml, type SlideTemplateName, type SlideTemplateInput } from '@sallycourse/design/render-templates.js';
@@ -106,3 +106,38 @@ export { MUSIC_CATALOG, MUSIC_MIX, JINGLE_TRACK_ID, JINGLE_TRACK, musicStorageKe
 export { EmailSequence, EmailSequenceEnrollment, EMAIL_SEQUENCE_KINDS, EMAIL_SEQUENCE_ENROLLMENT_STATUSES, type IEmailSequence, type IEmailSequenceStep, type EmailSequenceDocument, type EmailSequenceKind, type IEmailSequenceEnrollment, type EmailSequenceEnrollmentDocument, type EmailSequenceEnrollmentStatus } from '@sallycourse/db/models/email-sequence.js';
 // @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
 export { sendEmail } from '@sallycourse/db/email/send.js';
+// prettier-ignore
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
+export { Workspace, WORKSPACE_ROLES, type IWorkspace, type IWorkspaceMember, type WorkspaceDocument, type WorkspaceRole } from '@sallycourse/db/models/workspace.js';
+// prettier-ignore
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
+export { LessonComment, type ILessonComment, type LessonCommentDocument } from '@sallycourse/db/models/lesson-comment.js';
+// prettier-ignore
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { checkApprovalGate, canPerform, roleInWorkspace, type WorkspaceAction, type WorkspaceLike, type WorkspaceMemberLike, type ApprovalGateCourseLike, type ApprovalGateResult } from '@sallycourse/shared/workspace-roles.js';
+// prettier-ignore
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { generateCouponCode, generateUniqueCouponCode, isValidCouponCodeShape, checkCouponValidity, applyDiscount, resolveGenericPromoPeriods, type PromoPeriodSuggestion, type CouponLike } from '@sallycourse/shared/coupon.js';
+// prettier-ignore
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
+export { Coupon, COUPON_PLATFORMS, type ICoupon, type CouponDocument, type CouponPlatform } from '@sallycourse/db/models/coupon.js';
+// prettier-ignore
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
+export { CourseMarketplaceListing, MARKETPLACE_LICENSE_TYPES, MARKETPLACE_LISTING_STATUSES, type ICourseMarketplaceListing, type CourseMarketplaceListingDocument, type MarketplaceLicenseType, type MarketplaceListingStatus } from '@sallycourse/db/models/course-marketplace-listing.js';
+// prettier-ignore
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
+export { CourseMarketplacePurchase, type ICourseMarketplacePurchase, type CourseMarketplacePurchaseDocument } from '@sallycourse/db/models/marketplace-purchase.js';
+// prettier-ignore
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
+export { computeRevenueShare, isValidListingShape, marketplacePriceLabel, DEFAULT_MARKETPLACE_FEE_RATE, type RevenueShareResult, type MarketplaceLicenseTypeLike } from '@sallycourse/shared/marketplace.js';
+// prettier-ignore
+// @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
+export { AgencyClient, type IAgencyClient, type AgencyClientDocument } from '@sallycourse/db/models/agency-client.js';
+// prettier-ignore
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { resolveAgencyDeployCredentials, isCredentialAllowedForAgencyCourse, aggregateAgencyBilling, type AgencyClientLike, type AgencyCourseLike, type AgencyContextResult, type AgencyCostRow, type AgencyClientBillingReport } from '@sallycourse/shared/agency.js';
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { AuditLog, type IAuditLog, type AuditAction } from '@sallycourse/db/models/audit-log.js';
+// prettier-ignore
+// @ts-ignore TS6059 — source hors rootDir (voir en-tête), typage intact
+export { AUDIT_RETENTION_DAYS, computeAuditRetentionCutoff, selectAuditLogsToPurge, type AuditLogRetentionEntry } from '@sallycourse/shared/audit.js';

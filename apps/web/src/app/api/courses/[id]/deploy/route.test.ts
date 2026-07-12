@@ -12,6 +12,7 @@ vi.mock('@/lib/session', () => ({
 
 const courseFindOneMock = vi.fn();
 const deploymentFindOneAndUpdateMock = vi.fn().mockResolvedValue({});
+const workspaceFindByIdMock = vi.fn();
 
 vi.mock('@sallycourse/db', () => ({
   connectDb: vi.fn().mockResolvedValue(undefined),
@@ -21,8 +22,14 @@ vi.mock('@sallycourse/db', () => ({
   Deployment: {
     findOneAndUpdate: (...args: unknown[]) => deploymentFindOneAndUpdateMock(...args),
   },
+  Workspace: {
+    findById: (...args: unknown[]) => ({ lean: () => workspaceFindByIdMock(...args) }),
+  },
   DEPLOYMENT_MODES: ['auto', 'assisted', 'manual'],
   PlatformCredential: { findOne: vi.fn() },
+  // P149 : journal d'audit — la route l'appelle (best-effort) à chaque
+  // tentative de déploiement ; absente du mock, l'appel réel jetterait.
+  recordAudit: vi.fn().mockResolvedValue(undefined),
 }));
 
 const queueAddMock = vi.fn().mockResolvedValue({});
@@ -162,6 +169,83 @@ describe('POST /api/courses/[id]/deploy — score de qualité (P94)', () => {
   it('autorise sans confirmation quand aucune évaluation n’a encore tourné', async () => {
     mockSessionUser();
     mockCourse({ _id: 'course-1', status: 'ready', aiDisclosureAccepted: true, qualityScore: null });
+
+    const res = await POST(request({ platforms: ['youtube'], mode: 'auto' }), { params });
+
+    expect(res.status).toBe(202);
+    expect(queueAddMock).toHaveBeenCalled();
+  });
+});
+
+// Test de la gate d'approbation d'équipe (P138) : un cours rattaché à un
+// Workspace avec reviewer(s) doit être approuvé (Course.approvedBy) avant
+// tout déploiement.
+describe('POST /api/courses/[id]/deploy — gate d’approbation d’équipe (P138)', () => {
+  it("bloque le déploiement si le workspace a un reviewer et aucune approbation", async () => {
+    mockSessionUser();
+    mockCourse({
+      _id: 'course-1',
+      status: 'ready',
+      aiDisclosureAccepted: true,
+      workspaceId: 'ws-1',
+      approvedBy: null,
+    });
+    workspaceFindByIdMock.mockResolvedValue({
+      ownerId: 'owner-1',
+      members: [{ userId: 'reviewer-1', role: 'reviewer' }],
+    });
+
+    const res = await POST(request({ platforms: ['youtube'], mode: 'auto' }), { params });
+
+    expect(res.status).toBe(403);
+    const data = (await res.json()) as { code?: string };
+    expect(data.code).toBe('approval_required');
+    expect(queueAddMock).not.toHaveBeenCalled();
+  });
+
+  it('autorise le déploiement une fois approvedBy renseigné', async () => {
+    mockSessionUser();
+    mockCourse({
+      _id: 'course-1',
+      status: 'ready',
+      aiDisclosureAccepted: true,
+      workspaceId: 'ws-1',
+      approvedBy: 'reviewer-1',
+    });
+    workspaceFindByIdMock.mockResolvedValue({
+      ownerId: 'owner-1',
+      members: [{ userId: 'reviewer-1', role: 'reviewer' }],
+    });
+
+    const res = await POST(request({ platforms: ['youtube'], mode: 'auto' }), { params });
+
+    expect(res.status).toBe(202);
+    expect(queueAddMock).toHaveBeenCalled();
+  });
+
+  it("n'applique aucune gate pour un cours sans workspace (solo)", async () => {
+    mockSessionUser();
+    mockCourse({ _id: 'course-1', status: 'ready', aiDisclosureAccepted: true });
+
+    const res = await POST(request({ platforms: ['youtube'], mode: 'auto' }), { params });
+
+    expect(res.status).toBe(202);
+    expect(workspaceFindByIdMock).not.toHaveBeenCalled();
+  });
+
+  it("n'applique aucune gate si le workspace n'a aucun reviewer", async () => {
+    mockSessionUser();
+    mockCourse({
+      _id: 'course-1',
+      status: 'ready',
+      aiDisclosureAccepted: true,
+      workspaceId: 'ws-1',
+      approvedBy: null,
+    });
+    workspaceFindByIdMock.mockResolvedValue({
+      ownerId: 'owner-1',
+      members: [{ userId: 'editor-1', role: 'editor' }],
+    });
 
     const res = await POST(request({ platforms: ['youtube'], mode: 'auto' }), { params });
 

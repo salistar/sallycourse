@@ -386,14 +386,44 @@ function buildPlaceholders(
 const PLACEHOLDER_RE = /\{\{([\w-]+)\}\}/g;
 
 /**
+ * Facteur d'agrandissement appliqué au texte de contenu (titre, puces, code,
+ * citation, checklist, frise…) quand `largeText` est demandé (Prompt 137,
+ * préférence User.preferLargeText). Modéré : lisibilité accrue sans casser
+ * la mise en page des gabarits 1920×1080 (wrap 2 lignes, hauteurs fixes).
+ */
+export const LARGE_TEXT_SCALE = 1.12;
+
+/** Options de rendu communes à tous les gabarits (Prompt 137). */
+export interface RenderTemplateOptions {
+  /**
+   * Si true, augmente la taille de police du texte de contenu (variable CSS
+   * `--text-scale`, consommée par les gabarits via `calc(Npx * var(--text-scale))`).
+   * Défaut false (comportement inchangé).
+   */
+  largeText?: boolean;
+}
+
+/** Injecte l'override `--text-scale` juste avant la fermeture du `<style>`. */
+function applyTextScale(html: string, largeText: boolean | undefined): string {
+  if (!largeText) return html;
+  const override = `<style>:root{--text-scale:${LARGE_TEXT_SCALE};}</style>`;
+  const closeHeadIndex = html.indexOf('</head>');
+  if (closeHeadIndex === -1) return html + override;
+  return `${html.slice(0, closeHeadIndex)}${override}${html.slice(closeHeadIndex)}`;
+}
+
+/**
  * Rend un gabarit de slide : valide `data` (zod), substitue les moustaches
  * et retourne le document HTML 1920×1080 prêt pour Playwright.
  * Lève une erreur explicite si les données sont invalides, si un placeholder
  * du gabarit n'a pas de valeur, ou si le fichier gabarit est introuvable.
+ * `options.largeText` (P137) augmente la taille du texte de contenu — additif,
+ * absent/false → rendu strictement identique à avant.
  */
 export function renderTemplate<N extends SlideTemplateName>(
   name: N,
   data: SlideTemplateInput[N],
+  options?: RenderTemplateOptions,
 ): string {
   const schema = slideTemplateSchemas[name];
   if (schema === undefined) {
@@ -425,5 +455,5 @@ export function renderTemplate<N extends SlideTemplateName>(
     return value;
   });
 
-  return html;
+  return applyTextScale(html, options?.largeText);
 }

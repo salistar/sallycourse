@@ -63,7 +63,6 @@ export function PromptPlayground() {
     void loadVersions(selectedKey);
     setCurrentResult(null);
     setPreviousResult(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedKey]);
 
   async function handleSave() {

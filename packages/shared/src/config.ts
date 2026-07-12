@@ -48,6 +48,10 @@ export const envSchema = z.object({
   // pollable, coût prévisible /min). Absente → mode mock (carte titre animée).
   HEYGEN_API_KEY: z.string().min(1).optional(),
   MOCK_PROVIDERS: envBoolean.default(false),
+  // Recherche web basique pour la détection de plagiat sortant (P141, ex.
+  // Brave Search). Absente → mode mock honnête (vérification skip, cf.
+  // worker/lib/plagiarism-check.ts) — jamais d'appel réseau bloquant.
+  WEB_SEARCH_API_KEY: z.string().min(1).optional(),
 
   // ── Chiffrement des credentials plateformes ───────────────────
   CREDENTIALS_MASTER_KEY: masterKeySchema,

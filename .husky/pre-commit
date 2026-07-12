@@ -1,1 +1,5 @@
 npx lint-staged
+# Typecheck monorepo unique (une seule invocation par commit — voir
+# .lintstagedrc.mjs pour l'explication du chunking qui rendait ceci instable
+# quand la commande vivait dans lint-staged).
+pnpm -r typecheck

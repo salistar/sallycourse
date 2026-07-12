@@ -20,7 +20,8 @@ export type EmailTemplateName =
   | 'deployment_complete'
   | 'review_approved'
   | 'review_rejected'
-  | 'quota_reached';
+  | 'quota_reached'
+  | 'sequence_step';
 
 /** Données passées au gabarit (toutes optionnelles selon le type). */
 export interface EmailTemplateData {
@@ -38,6 +39,10 @@ export interface EmailTemplateData {
   actionUrl?: string;
   /** Libellé du bouton d'action. */
   actionLabel?: string;
+  /** Sujet déjà interpolé d'une étape de séquence email (Prompt 140). */
+  sequenceSubject?: string;
+  /** Corps HTML déjà interpolé d'une étape de séquence email (Prompt 140). */
+  sequenceHtml?: string;
 }
 
 /** Résultat rendu d'un gabarit. */
@@ -206,6 +211,19 @@ const quotaReached: Renderer = (d) => {
   return { subject, html, text };
 };
 
+const sequenceStep: Renderer = (d) => {
+  // Contenu déjà rédigé et interpolé en amont (générateur de séquence, P140) —
+  // ce gabarit ne fait qu'appliquer l'enveloppe de marque commune (layout()).
+  // Repli générique si sequenceSubject/sequenceHtml sont absents (ne devrait
+  // pas arriver en usage réel — le worker les fournit toujours).
+  const subject = d.sequenceSubject?.trim() || `Des nouvelles de ${d.courseTitle ?? 'votre cours'}`;
+  const bodyHtml = d.sequenceHtml?.trim() || `Bonjour${d.name ? ' ' + escapeHtml(d.name) : ''}, une nouvelle étape de votre parcours vous attend.`;
+  const html = layout(subject, `<tr><td>${bodyHtml}</td></tr>`);
+  // Repli texte brut minimal (balises HTML simples retirées).
+  const text = bodyHtml.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+  return { subject, html, text };
+};
+
 /** Registre des gabarits par nom. */
 export const EMAIL_TEMPLATES: Record<EmailTemplateName, Renderer> = {
   generation_complete: generationComplete,
@@ -213,6 +231,7 @@ export const EMAIL_TEMPLATES: Record<EmailTemplateName, Renderer> = {
   review_approved: reviewApproved,
   review_rejected: reviewRejected,
   quota_reached: quotaReached,
+  sequence_step: sequenceStep,
 };
 
 /** Rend un gabarit par nom — sujet + HTML + texte brut de repli. */

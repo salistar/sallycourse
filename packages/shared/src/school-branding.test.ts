@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hexColorSchema, schoolBrandingInputSchema } from './school-branding';
+import { hexColorSchema, schoolBrandingInputSchema, subdomainSchema } from './school-branding';
 
 // Validation zod du branding (Prompt 88) : couleurs hex + défauts.
 
@@ -33,5 +33,43 @@ describe('schoolBrandingInputSchema', () => {
       primaryColorHex: 'not-a-color',
     });
     expect(result.success).toBe(false);
+  });
+
+  it('accepte customSubdomain valide (P143)', () => {
+    const parsed = schoolBrandingInputSchema.safeParse({
+      schoolName: 'École Atlas',
+      customSubdomain: 'academie-client',
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.customSubdomain).toBe('academie-client');
+  });
+
+  it('accepte customSubdomain omis ou vide (retrait)', () => {
+    expect(schoolBrandingInputSchema.safeParse({ schoolName: 'École Atlas' }).success).toBe(true);
+    expect(
+      schoolBrandingInputSchema.safeParse({ schoolName: 'École Atlas', customSubdomain: '' }).success,
+    ).toBe(true);
+  });
+});
+
+describe('subdomainSchema (P143)', () => {
+  it('accepte un sous-domaine valide et le met en minuscules', () => {
+    const parsed = subdomainSchema.safeParse('Academie-Client');
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data).toBe('academie-client');
+  });
+
+  it('rejette trop court, tiret en tête/fin, caractères invalides', () => {
+    expect(subdomainSchema.safeParse('ab').success).toBe(false);
+    expect(subdomainSchema.safeParse('-abc').success).toBe(false);
+    expect(subdomainSchema.safeParse('abc-').success).toBe(false);
+    expect(subdomainSchema.safeParse('abc_def').success).toBe(false);
+    expect(subdomainSchema.safeParse('abc.def').success).toBe(false);
+  });
+
+  it('rejette les sous-domaines réservés', () => {
+    expect(subdomainSchema.safeParse('www').success).toBe(false);
+    expect(subdomainSchema.safeParse('api').success).toBe(false);
+    expect(subdomainSchema.safeParse('admin').success).toBe(false);
   });
 });

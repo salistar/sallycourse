@@ -11,16 +11,20 @@
 
 import type { Job } from 'bullmq';
 import {
+  AgencyClient,
   Course,
   Deployment,
   Lesson,
   PlatformCredential,
   Section,
   QUEUES,
+  Workspace,
+  checkApprovalGate,
   decryptCredentials,
   getConfig,
   notify,
   publishProgress,
+  resolveAgencyDeployCredentials,
   type DeploymentDocument,
   type DeploymentJobData,
   type DeploymentMode,
@@ -74,13 +78,18 @@ interface ResolvedCredential {
 /**
  * Résout le compte plateforme à utiliser (multi-comptes, P49) puis déchiffre ses
  * secrets. Sélection : le PlatformCredential désigné par `credentialId`, sinon le
- * plus récemment mis à jour pour (userId, platform). En MOCK_PROVIDERS, aucun
- * compte demandé, aucun compte connecté, ou déchiffrement impossible → objet vide
- * (l'adapter bascule alors en mode simulé). Le credentialId retenu est renvoyé
+ * plus récemment mis à jour pour (credentialUserId, platform). En MOCK_PROVIDERS,
+ * aucun compte demandé, aucun compte connecté, ou déchiffrement impossible → objet
+ * vide (l'adapter bascule alors en mode simulé). Le credentialId retenu est renvoyé
  * pour isoler la session Playwright par compte.
+ *
+ * Mode agence (P150) : `credentialUserId` est le propriétaire RÉEL des comptes à
+ * utiliser — celui du client si le cours est déployé en son nom (voir
+ * resolveAgencyCredentialContext), sinon le propriétaire du cours (comportement
+ * standard inchangé).
  */
 async function loadCredentials(
-  userId: unknown,
+  credentialUserId: unknown,
   platform: string,
   credentialId: string | undefined,
   mock: boolean,
@@ -88,8 +97,9 @@ async function loadCredentials(
   if (mock) return { credentials: {} };
   const config = getConfig();
 
-  // Comptes connectés de l'utilisateur pour cette plateforme (récents d'abord).
-  const docs = await PlatformCredential.find({ userId, platform })
+  // Comptes connectés du propriétaire réel des credentials pour cette plateforme
+  // (récents d'abord) — jamais ceux de l'agence en contexte client (P150).
+  const docs = await PlatformCredential.find({ userId: credentialUserId, platform })
     .sort({ updatedAt: -1 })
     .lean();
   const candidates: Array<CredentialCandidate & { data: string }> = docs.map((d) => ({
@@ -173,7 +183,14 @@ export async function processDeployment(
       const deployments = await Deployment.find({ courseId })
         .sort({ updatedAt: -1 })
         .lean<DeploymentLike[]>();
-      const result = await generateDeploymentReport(course, deployments, mock);
+      // Rapport brandé par client (P150, mode agence) : le nom du client
+      // remplace la mention SallyCourse si ce cours a été généré en son nom.
+      const reportAgencyClientId = (course as { agencyClientId?: unknown }).agencyClientId;
+      const clientBrandName = reportAgencyClientId
+        ? ((await AgencyClient.findById(reportAgencyClientId).select('clientName').lean())
+            ?.clientName ?? undefined)
+        : undefined;
+      const result = await generateDeploymentReport(course, deployments, mock, clientBrandName);
       await report(100, `Rapport prêt : ${result.platforms} plateforme(s)`);
       logger.info({ courseId, reportKey: result.reportKey }, 'rapport de déploiement archivé');
       return {
@@ -219,6 +236,35 @@ export async function processDeployment(
     }
   }
 
+  // ── Gate d'approbation d'équipe (P138) : un cours rattaché à un Workspace
+  // avec au moins un reviewer ne peut être publié qu'après approbation
+  // (Course.approvedBy). Vérifiée aussi côté API web (retour rapide) — ici en
+  // seconde ligne car ce processor peut être atteint par un job déjà enfilé
+  // avant l'approbation (course d'équipe, sécurité défense en profondeur).
+  const workspaceId = (course as { workspaceId?: unknown }).workspaceId;
+  if (workspaceId) {
+    const workspaceDoc = await Workspace.findById(workspaceId).lean();
+    const gate = checkApprovalGate(
+      {
+        workspaceId: String(workspaceId),
+        approvedBy: (course as { approvedBy?: unknown }).approvedBy
+          ? String((course as { approvedBy?: unknown }).approvedBy)
+          : null,
+      },
+      workspaceDoc
+        ? {
+            ownerId: String(workspaceDoc.ownerId),
+            members: workspaceDoc.members.map((m) => ({ userId: String(m.userId), role: m.role })),
+          }
+        : null,
+    );
+    if (!gate.allowed) {
+      logger.warn({ courseId, workspaceId: String(workspaceId) }, 'déploiement bloqué : approbation reviewer requise');
+      await report(0, gate.reason ?? 'Approbation requise avant déploiement.', 'error').catch(() => undefined);
+      throw new Error(gate.reason ?? 'Approbation requise avant déploiement.');
+    }
+  }
+
   const adapter = getAdapter(platform);
 
   // Mode non supporté par l'adapter → on retombe sur son premier mode déclaré.
@@ -228,10 +274,49 @@ export async function processDeployment(
 
   const deployment = await loadOrCreateDeployment(courseId, userId, platform, effectiveMode);
 
+  // ── Mode agence (P150) : un cours généré au nom d'un client utilise TOUJOURS
+  // les comptes de publication DU CLIENT, jamais ceux de l'agence propriétaire
+  // du cours. Résolu ici (fail-closed : contexte agence invalide → aucun
+  // credential autorisé, l'adapter bascule alors en mode simulé plutôt que
+  // d'utiliser un compte non autorisé).
+  const agencyClientId = (course as { agencyClientId?: unknown }).agencyClientId;
+  let credentialUserId: unknown = userId;
+  if (agencyClientId) {
+    const clientDoc = await AgencyClient.findById(agencyClientId).lean();
+    const agencyCtx = resolveAgencyDeployCredentials(
+      { userId: String(userId), agencyClientId: String(agencyClientId) },
+      clientDoc
+        ? {
+            id: String(clientDoc._id),
+            agencyUserId: String(clientDoc.agencyUserId),
+            clientName: clientDoc.clientName,
+            clientEmail: clientDoc.clientEmail,
+            platformCredentials: clientDoc.platformCredentials.map(String),
+          }
+        : null,
+    );
+    if (agencyCtx.reason) {
+      logger.warn({ courseId, agencyClientId: String(agencyClientId), reason: agencyCtx.reason }, 'contexte agence invalide — mode simulé');
+    }
+    // Le PlatformCredential (s'il existe) appartient au client — on résout via
+    // son propre userId pour que loadCredentials filtre sur le bon propriétaire.
+    if (agencyCtx.allowedCredentialIds.length > 0) {
+      const firstCred = await PlatformCredential.findOne({
+        _id: { $in: agencyCtx.allowedCredentialIds },
+        platform,
+      })
+        .select('userId')
+        .lean();
+      credentialUserId = firstCred ? firstCred.userId : agencyClientId; // introuvable → mode simulé (userId sans compte)
+    } else {
+      credentialUserId = agencyClientId; // aucun credential autorisé → mode simulé garanti
+    }
+  }
+
   const [sections, lessons, resolved] = await Promise.all([
     Section.find({ courseId: course._id }).sort({ order: 1 }).lean<ISection[]>(),
     Lesson.find({ courseId: course._id }).sort({ order: 1 }).lean<ILesson[]>(),
-    loadCredentials(userId, platform, job.data.credentialId, mock),
+    loadCredentials(credentialUserId, platform, job.data.credentialId, mock),
   ]);
   const { credentials, credentialId } = resolved;
 

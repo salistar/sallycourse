@@ -1,9 +1,0 @@
-{
-  "*.{ts,tsx,mts,cts}": [
-    "eslint --fix",
-    "bash -c 'pnpm -r typecheck'"
-  ],
-  "*.{js,jsx,mjs,cjs,json,md}": [
-    "eslint --fix"
-  ]
-}

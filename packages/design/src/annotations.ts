@@ -20,8 +20,9 @@
  */
 
 import { z } from 'zod';
-// @ts-ignore TS1543 — JSON importé sans attribut `type: "json"` : requis seulement
-// quand ce fichier est consommé en source par le worker (NodeNext) ; inoffensif ici (Bundler).
+// @ts-ignore TS1543 — import JSON sans attribut `type: "json"` : requis par
+// le worker (NodeNext) qui consomme ce fichier en source ; sans effet pour
+// packages/design lui-même (resolution bundler, resolveJsonModule).
 import tokens from './tokens.json';
 
 /* ------------------------------------------------------------------ */
@@ -545,6 +546,69 @@ function renderZoomChrome(geometry: ZoomGeometry, theme: SemanticThemeJson): str
     `<circle cx="${fmt(cx)}" cy="${fmt(cy)}" r="${fmt(R)}" fill="none" stroke="${theme.primary}" stroke-width="3"/>`,
     `<circle cx="${fmt(cx)}" cy="${fmt(cy)}" r="${fmt(R + 3.5)}" fill="none" stroke="${theme.accent}" stroke-opacity="0.7" stroke-width="1.5"/>`,
   ].join('');
+}
+
+/* ------------------------------------------------------------------ */
+/* Texte alternatif descriptif (Prompt 137, accessibilité)             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Contexte source pour générer un texte alternatif descriptif d'une capture
+ * annotée : la légende courte de la spec TP + le contexte de l'étape (action
+ * effectuée, éventuelle description). Vision non nécessaire — le texte de
+ * contexte suffit à décrire ce que montre la capture.
+ */
+export const altTextRequestSchema = z
+  .object({
+    /** Légende courte de la capture (ex. « Cliquez sur Enregistrer »). */
+    caption: z.string().min(1).max(600),
+    /** Numéro de l'étape dans le TP (1-based), pour situer la capture. */
+    stepNumber: z.number().int().min(1),
+    /** Titre du TP/de la leçon — contexte général. */
+    lessonTitle: z.string().min(1).max(200),
+    /** Action effectuée à cette étape (optionnelle, plus riche que la légende seule). */
+    action: z.string().max(400).optional(),
+  })
+  .strict();
+
+export type AltTextRequest = z.infer<typeof altTextRequestSchema>;
+
+/** Schéma de la réponse attendue de Claude — un texte alternatif descriptif. */
+export const altTextResultSchema = z
+  .object({
+    /** Texte alternatif WCAG : décrit ce qui est visible, sobre, sans « image de ». */
+    altText: z.string().min(1).max(300),
+  })
+  .strict();
+
+export type AltTextResult = z.infer<typeof altTextResultSchema>;
+
+/**
+ * Construit le prompt (système + utilisateur) pour générer un texte
+ * alternatif descriptif via callClaudeJson (worker uniquement — cette
+ * fonction est PURE, aucun appel réseau ici). Le texte généré doit décrire
+ * la capture pour un lecteur d'écran : ce qui est visible + l'action en
+ * cours, sans redondance avec la légende affichée à l'écran.
+ */
+export function buildAltTextPrompt(request: AltTextRequest): { system: string; user: string } {
+  const req = altTextRequestSchema.parse(request);
+  const system =
+    'Tu rédiges des textes alternatifs (attribut alt) WCAG pour des captures ' +
+    "d'écran de tutoriel technique. Réponds en JSON strict {\"altText\": string}. " +
+    "Règle : décris ce que montre l'image (interface, élément ciblé, état) en une " +
+    'phrase concise (max ~25 mots), sans commencer par « image de » ou « capture ' +
+    'de », sans répéter mot pour mot la légende fournie — enrichis avec le contexte ' +
+    "visuel probable de l'étape.";
+  const user = [
+    `Leçon : ${req.lessonTitle}`,
+    `Étape ${req.stepNumber}`,
+    `Légende affichée : ${req.caption}`,
+    req.action ? `Action effectuée : ${req.action}` : undefined,
+    'Génère le texte alternatif descriptif de cette capture.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+  return { system, user };
 }
 
 /**

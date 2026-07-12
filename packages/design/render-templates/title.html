@@ -10,6 +10,9 @@
        (source de vérité : packages/design/src/tokens.ts)
        ============================================================ */
     :root {
+      /* Gros texte (P137, accessibilité) : 1 par défaut, override injecté par
+         renderTemplate({ largeText: true }) — voir render-templates.ts. */
+      --text-scale: 1;
       /* Thème sombre — themes.dark */
       --bg: #0D0714;              /* neutral.950 */
       --surface: #171021;         /* themes.dark.surface */
@@ -150,7 +153,7 @@
     html[dir="rtl"] .kicker .lesson-number { font-family: var(--font-arabic); font-weight: 700; }
 
     .title {
-      font-size: 116px;
+      font-size: calc(116px * var(--text-scale));
       line-height: 1.06;
       letter-spacing: -0.02em;
       background: linear-gradient(135deg, var(--fg) 30%, var(--violet-300) 100%);
@@ -162,7 +165,7 @@
     }
 
     .subtitle {
-      font-size: 34px;
+      font-size: calc(34px * var(--text-scale));
       line-height: 1.5;
       color: var(--muted);
       max-width: 1060px;

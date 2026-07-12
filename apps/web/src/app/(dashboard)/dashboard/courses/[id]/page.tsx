@@ -7,9 +7,11 @@ import {
   Lesson as LessonModel,
   Quiz as QuizModel,
   Section as SectionModel,
+  Workspace as WorkspaceModel,
 } from '@sallycourse/db';
 import { getObjectStream, presignedGetUrl } from '@sallycourse/shared';
 import { requireUser } from '@/lib/session';
+import { loadCourseAccess } from '@/lib/workspace-access';
 import { CourseDetail } from '@/components/course';
 import type {
   CourseDetailView,
@@ -251,8 +253,11 @@ export default async function CourseDetailPage({
 
   await connectDb();
 
-  // Ownership : 404 (et non 403) pour ne pas révéler les cours des autres.
-  const course = await CourseModel.findOne({ _id: id, userId: user.id }).lean();
+  // Ownership : owner solo OU membre du Workspace du cours (P138) — 404 (et
+  // non 403) pour ne pas révéler les cours des autres.
+  const access = await loadCourseAccess(id, user.id);
+  if (!access) notFound();
+  const course = await CourseModel.findById(id).lean();
   if (!course) notFound();
 
   // Plan en attente de validation : éditeur drag-and-drop à la place de
@@ -352,6 +357,21 @@ export default async function CourseDetailPage({
   // résoudre les `lessonRef` de l'analyse de feedback (P62) vers un lessonId.
   const lessonTitleToId = new Map(lessons.map((lesson) => [lesson.title, lesson._id.toString()]));
 
+  // Contexte Workspace (P138) : résolu une seule fois pour piloter le bandeau
+  // d'approbation et l'affichage des commentaires d'équipe. Absent = cours solo.
+  let workspaceView: CourseDetailView['workspace'] = null;
+  if (course.workspaceId) {
+    const workspaceDoc = await WorkspaceModel.findById(course.workspaceId).lean();
+    if (workspaceDoc) {
+      const hasReviewer = workspaceDoc.members.some((m) => m.role === 'reviewer');
+      workspaceView = {
+        id: workspaceDoc._id.toString(),
+        role: access.role,
+        hasReviewer,
+      };
+    }
+  }
+
   const resourcesView = await toResourcesView(course.resources);
   const dubbedVersionsView = (course.dubbedVersions ?? []).map((v) => ({
     locale: v.locale,
@@ -374,6 +394,9 @@ export default async function CourseDetailPage({
     feedback: toFeedbackView(course.improvementSuggestions, lessonTitleToId),
     resources: resourcesView,
     dubbedVersions: dubbedVersionsView,
+    workspace: workspaceView,
+    approvedBy: course.approvedBy ? course.approvedBy.toString() : null,
+    approvedAt: course.approvedAt ? course.approvedAt.toISOString() : null,
   };
 
   return <CourseDetail course={courseView} />;

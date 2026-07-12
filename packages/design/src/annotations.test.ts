@@ -6,8 +6,11 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  altTextRequestSchema,
+  altTextResultSchema,
   annotateScreenshot,
   annotationSpecSchema,
+  buildAltTextPrompt,
   escapeXml,
   parseCssShadow,
   svgFontFamily,
@@ -380,5 +383,49 @@ describe('helpers', () => {
     expect(svg).toContain('width="160"');
     expect(svg).toContain('r="80"');
     expect(svg).toContain('fill="white"');
+  });
+});
+
+describe('buildAltTextPrompt (P137, accessibilité)', () => {
+  const request = {
+    caption: 'Cliquez sur le bouton Enregistrer.',
+    stepNumber: 3,
+    lessonTitle: 'Créer un formulaire React',
+  };
+
+  it('rejette une requête invalide (schéma strict)', () => {
+    expect(() => altTextRequestSchema.parse({ ...request, stepNumber: 0 })).toThrow();
+    expect(() => altTextRequestSchema.parse({ ...request, extra: 'nope' })).toThrow();
+  });
+
+  it('construit un system + user déterministe incluant légende, étape et titre', () => {
+    const { system, user } = buildAltTextPrompt(request);
+    expect(system).toContain('JSON strict');
+    expect(system.toLowerCase()).toContain('alt');
+    expect(user).toContain('Cliquez sur le bouton Enregistrer.');
+    expect(user).toContain('Étape 3');
+    expect(user).toContain('Créer un formulaire React');
+  });
+
+  it('inclut le champ action optionnel seulement s’il est fourni', () => {
+    const withoutAction = buildAltTextPrompt(request);
+    expect(withoutAction.user).not.toContain('Action effectuée');
+
+    const withAction = buildAltTextPrompt({ ...request, action: 'Saisie du nom dans le champ texte' });
+    expect(withAction.user).toContain('Action effectuée : Saisie du nom dans le champ texte');
+  });
+
+  it('est pur : deux appels avec les mêmes entrées produisent le même résultat', () => {
+    expect(buildAltTextPrompt(request)).toEqual(buildAltTextPrompt({ ...request }));
+  });
+
+  it('altTextResultSchema valide un texte alternatif sobre', () => {
+    const parsed = altTextResultSchema.safeParse({ altText: 'Formulaire de contact avec bouton Enregistrer actif.' });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('altTextResultSchema rejette un texte vide ou un champ inconnu', () => {
+    expect(altTextResultSchema.safeParse({ altText: '' }).success).toBe(false);
+    expect(altTextResultSchema.safeParse({ altText: 'ok', extra: 1 }).success).toBe(false);
   });
 });

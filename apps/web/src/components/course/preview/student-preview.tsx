@@ -8,6 +8,7 @@ import {
   ChevronRight,
   CheckCircle2,
   Circle,
+  Download,
   Eye,
   FileText,
   FlaskConical,
@@ -313,6 +314,18 @@ function LessonStage({
               <p className="text-sm text-muted">La vidéo de cette leçon n’est pas encore disponible.</p>
             </div>
           ))}
+
+        {/* Transcription texte (P137, accessibilité) : à côté des sous-titres, sans timestamps. */}
+        {lesson.type === 'video' && lesson.transcriptUrl && (
+          <a
+            href={lesson.transcriptUrl}
+            download
+            className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-muted underline underline-offset-2 hover:text-foreground"
+          >
+            <Download className="size-3.5" aria-hidden="true" />
+            Télécharger la transcription (.txt)
+          </a>
+        )}
 
         {/* Article */}
         {lesson.type === 'article' &&

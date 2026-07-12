@@ -22,6 +22,7 @@ import {
   type ComplianceIssue,
   type ComplianceSeverity,
 } from '../shared.js';
+import { toComplianceNote, type OriginalityReport } from '../lib/plagiarism-check.js';
 
 /* ------------------------------------------------------------------ */
 /* Types publics                                                       */
@@ -36,7 +37,8 @@ export type MaxComplianceCode =
   | 'MAX_LESSON_CONTAINS_PROMO'
   | 'MAX_WATERMARK_DISABLED'
   | 'MAX_AUDIO_NOT_NORMALIZED'
-  | 'MAX_SLIDE_TEXT_ONLY_TOO_LONG';
+  | 'MAX_SLIDE_TEXT_ONLY_TOO_LONG'
+  | 'MAX_ORIGINALITY_LOW';
 
 /** Une remarque du contrôle renforcé (même forme que ComplianceIssue, code étendu). */
 export interface MaxComplianceIssue {
@@ -81,6 +83,13 @@ export interface MaxComplianceInput {
   watermarkEnabled: boolean;
   /** Audio déclaré normalisé -16 LUFS (fait au TTS/rendu). */
   audioNormalized: boolean;
+  /**
+   * Rapports d'originalité (P141, worker/lib/plagiarism-check.ts) déjà calculés
+   * pour les leçons du cours, associés à leur titre. Optionnel et additif —
+   * absent → aucune remarque MAX_ORIGINALITY_LOW (comportement historique
+   * inchangé). Vérification best-effort, jamais bloquante (toujours 'warning').
+   */
+  originalityReports?: Array<{ lessonTitle: string; report: OriginalityReport }>;
 }
 
 /** Rapport renforcé : rapport de base + remarques MAX + score/verdict combinés. */
@@ -270,6 +279,15 @@ export function checkUdemyMaxCompliance(input: MaxComplianceInput): MaxComplianc
 
   maxIssues.push(...scanSlideDurations(input.slides));
   maxIssues.push(...checkRenderFlags(input));
+
+  // Détection de plagiat sortant (P141) — vérification supplémentaire OPTIONNELLE :
+  // n'ajoute une remarque que si l'appelant a fourni des rapports déjà calculés
+  // (aucun appel réseau ici, ce module reste pur). Toujours 'warning', jamais
+  // bloquant — cohérent avec la nature best-effort documentée dans le rapport.
+  for (const { lessonTitle, report } of input.originalityReports ?? []) {
+    const note = toComplianceNote(report, lessonTitle);
+    if (note) maxIssues.push(note as MaxComplianceIssue);
+  }
 
   const maxPenalty = maxIssues.reduce((sum, issue) => sum + SCORE_PENALTY[issue.severity], 0);
   const score = Math.max(0, base.score - maxPenalty);

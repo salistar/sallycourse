@@ -136,6 +136,18 @@ export async function activatePlan(input: ActivatePlanInput): Promise<ActivatePl
     await UserModel.updateOne({ _id: userId }, { $set: { pendingReferralCode: null } });
   }
 
+  // Facture conforme (P148) : émise à chaque paiement réussi, idempotente par
+  // (provider, providerRef) — best-effort, n'échoue jamais l'activation du plan.
+  // Import dynamique : invoice-service importe PLAN_PRICING/PaidPlanId d'ici,
+  // un import statique créerait un cycle de module.
+  const currency: Currency = provider === 'cmi' ? 'MAD' : 'EUR';
+  try {
+    const { issueInvoiceForPayment } = await import('@/lib/payments/invoice-service');
+    await issueInvoiceForPayment({ userId, plan, provider, providerRef, currency });
+  } catch (err) {
+    logger.warn({ err, userId, provider, providerRef }, 'Émission de facture échouée (best-effort)');
+  }
+
   return { ok: true, reason: 'Plan activé.', applied: true };
 }
 

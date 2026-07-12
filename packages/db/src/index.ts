@@ -5,3 +5,5 @@ export * from './models/index';
 export * from './notification-service';
 export * from './email/templates';
 export * from './email/send';
+// Service de journal d'audit transversal — Prompt 149.
+export * from './audit-service';

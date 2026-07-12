@@ -10,6 +10,9 @@
        (source de vérité : packages/design/src/tokens.ts)
        ============================================================ */
     :root {
+      /* Gros texte (P137, accessibilité) : 1 par défaut, override injecté par
+         renderTemplate({ largeText: true }) — voir render-templates.ts. */
+      --text-scale: 1;
       --bg: #0D0714;              /* neutral.950 */
       --surface: #171021;         /* themes.dark.surface */
       --surface-subtle: #231B2F;  /* neutral.900 */
@@ -101,7 +104,7 @@
 
     .title {
       margin-top: 28px;
-      font-size: 64px;
+      font-size: calc(64px * var(--text-scale));
       line-height: 1.15;
       letter-spacing: -0.015em;
       max-width: 1440px;
@@ -133,7 +136,7 @@
       box-shadow: 0 0 18px rgba(212, 160, 23, 0.35); /* gold.500 */
     }
     .bullet-text {
-      font-size: 37px;
+      font-size: calc(37px * var(--text-scale));
       line-height: 1.45;
       color: var(--fg);
       text-wrap: pretty;

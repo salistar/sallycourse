@@ -18,6 +18,7 @@ import {
   Course,
   Lesson,
   Section,
+  User,
   RTL_LOCALES,
   VIDEO,
   storageKeys,
@@ -427,6 +428,12 @@ export async function renderLessonSlides(
   const course = await Course.findById(courseId);
   if (!course) throw new Error(`cours introuvable : ${courseId}`);
 
+  // Préférence d'accessibilité (P137) : gros texte sur les slides si activée
+  // par l'auteur du cours. Best-effort — un utilisateur introuvable retombe
+  // silencieusement sur le rendu par défaut (comportement inchangé).
+  const owner = await User.findById(course.userId).select('preferLargeText').lean();
+  const largeText = owner?.preferLargeText === true;
+
   const parsed = slideScriptSchema.safeParse(lesson.script);
   if (!parsed.success) {
     throw new Error(
@@ -469,7 +476,7 @@ export async function renderLessonSlides(
         progress: Math.round(((i + 1) / total) * 100),
       });
 
-      const html = renderTemplate(built.name, built.data as never);
+      const html = renderTemplate(built.name, built.data as never, { largeText });
       await page.setContent(html, { waitUntil: 'networkidle' });
       const png = await page.screenshot({
         type: 'png',
@@ -506,6 +513,10 @@ export async function renderIntroCard(courseId: string, lessonId: string): Promi
   const course = await Course.findById(courseId);
   if (!course) throw new Error(`cours introuvable : ${courseId}`);
 
+  // Préférence d'accessibilité (P137) : voir renderLessonSlides pour le détail.
+  const owner = await User.findById(course.userId).select('preferLargeText').lean();
+  const largeText = owner?.preferLargeText === true;
+
   const section = await Section.findById(lesson.sectionId);
   const locale: Locale = course.locale;
   const labels = labelsFor(locale);
@@ -527,7 +538,7 @@ export async function renderIntroCard(courseId: string, lessonId: string): Promi
     narration: lesson.title,
   };
   const built = buildSlideTemplate(introSlide, ctx);
-  const html = renderTemplate(built.name, built.data as never);
+  const html = renderTemplate(built.name, built.data as never, { largeText });
 
   const browser = await getBrowser();
   const page = await browser.newPage({

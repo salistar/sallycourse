@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { isValidObjectId } from 'mongoose';
 import {
   connectDb,
+  Coupon as CouponModel,
   Course as CourseModel,
   Enrollment as EnrollmentModel,
   Lesson as LessonModel,
@@ -10,7 +11,7 @@ import {
   Quiz as QuizModel,
   Section as SectionModel,
 } from '@sallycourse/db';
-import { getObjectStream, presignedGetUrl } from '@sallycourse/shared';
+import { applyDiscount, checkCouponValidity, getObjectStream, presignedGetUrl } from '@sallycourse/shared';
 import { auth } from '@/lib/auth';
 import { LearnCourseExperience } from '@/components/learn';
 import type { LearnCourseView, LearnLessonView } from '@/components/learn';
@@ -69,10 +70,13 @@ async function safeReadMarkdown(key: string | undefined): Promise<string | undef
 
 export default async function LearnCoursePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ courseId: string }>;
+  searchParams: Promise<{ promo?: string }>;
 }) {
   const { courseId } = await params;
+  const { promo } = await searchParams;
   if (!isValidObjectId(courseId)) notFound();
 
   await connectDb();
@@ -105,6 +109,7 @@ export default async function LearnCoursePage({
         durationMin: l.durationMin ?? 0,
         videoUrl: await safePresign(l.assets?.videoUrl),
         captionsUrl: await safePresign(l.assets?.vttUrl),
+        transcriptUrl: await safePresign(l.assets?.txtUrl),
         articleMd: l.type === 'article' ? await safeReadMarkdown(l.assets?.articleMd) : undefined,
         quiz: questions.map((q) => ({
           question: q.question,
@@ -140,6 +145,23 @@ export default async function LearnCoursePage({
     }
   }
 
+  // Prix réduit affiché si un code promo valide accompagne l'URL (?promo=CODE,
+  // posé par /promo/[code]) — affichage seul : le décrément atomique réel a
+  // lieu au moment de l'inscription (voir /api/learn/[courseId]/enroll).
+  const priceCents = listing.priceCents ?? 0;
+  let promoPriceCents: number | undefined;
+  let promoCode: string | undefined;
+  if (promo) {
+    const coupon = await CouponModel.findOne({ code: promo.trim().toUpperCase() }).lean();
+    if (coupon && (!coupon.courseId || String(coupon.courseId) === courseId)) {
+      const validity = checkCouponValidity(coupon, new Date());
+      if (validity.valid) {
+        promoCode = coupon.code;
+        promoPriceCents = applyDiscount(priceCents, coupon);
+      }
+    }
+  }
+
   const view: LearnCourseView = {
     id: courseId,
     title: course.title,
@@ -152,7 +174,7 @@ export default async function LearnCoursePage({
       const sb = sectionOrderById.get(b.sectionId) ?? 0;
       return sa - sb;
     }),
-    priceCents: listing.priceCents ?? 0,
+    priceCents,
     currency: listing.currency ?? 'MAD',
   };
 
@@ -163,6 +185,8 @@ export default async function LearnCoursePage({
       enrolled={enrolled}
       completedLessons={completedLessons}
       completedAt={completedAt}
+      promoCode={promoCode}
+      promoPriceCents={promoPriceCents}
     />
   );
 }

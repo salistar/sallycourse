@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description: 'Règles d’utilisation de la plateforme SallyCourse : compte, contenu généré par IA, obligations des parties.',
 };
 
-const UPDATED_AT = '7 juillet 2026';
+const UPDATED_AT = '12 juillet 2026';
 
 export default function CguPage() {
   return (
@@ -94,7 +94,43 @@ export default function CguPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="7. Résiliation">
+      <LegalSection title="7. Marketplace de cours entre utilisateurs">
+        <p>
+          Le Service permet à un utilisateur créateur (« le Vendeur ») de proposer à la vente,
+          sur le catalogue public /marketplace, une copie intégrale d’un cours qu’il a généré
+          (« licence copie de cours ») ou uniquement son plan/template réutilisable (« licence
+          template seul »), à destination d’un autre utilisateur (« l’Acheteur »). Vous reconnaissez
+          et acceptez que :
+        </p>
+        <ul className="list-disc pl-5">
+          <li>
+            le Vendeur doit être propriétaire du cours listé et garantit disposer des droits
+            nécessaires sur son contenu (y compris les sources utilisées et le contenu généré par
+            IA, voir Section 3) ;
+          </li>
+          <li>
+            l’achat déclenche une DUPLICATION du cours (ou de son plan) au profit de l’Acheteur,
+            qui devient propriétaire de sa propre copie indépendante — le Vendeur conserve l’original
+            et n’a plus aucun droit de regard sur la copie vendue ;
+          </li>
+          <li>
+            la plateforme prélève une commission sur chaque vente confirmée (taux affiché sur la
+            fiche du listing au moment de l’achat, par défaut 20 %) ; le solde net est crédité au
+            Vendeur ;
+          </li>
+          <li>
+            le paiement de l’Acheteur suit le même circuit sécurisé que les abonnements du Service
+            (CMI au Maroc, Paddle à l’international) ;
+          </li>
+          <li>
+            un cours acheté ne peut pas être revendu sans modification substantielle : la revente
+            à l’identique d’un cours dupliqué est interdite et peut entraîner le retrait du listing
+            et la suspension du compte concerné.
+          </li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="8. Résiliation">
         <p>
           Vous pouvez supprimer votre compte à tout moment depuis les réglages du Service. La
           suppression entraîne l’effacement définitif de vos cours, de vos contenus stockés et de
@@ -102,7 +138,7 @@ export default function CguPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="8. Limitation de responsabilité">
+      <LegalSection title="9. Limitation de responsabilité">
         <p>
           Le Service est fourni « en l’état ». L’éditeur ne garantit pas l’absence d’erreurs dans
           le contenu généré par IA, ni le succès de la publication sur une plateforme tierce
@@ -111,7 +147,7 @@ export default function CguPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="9. Modification des CGU">
+      <LegalSection title="10. Modification des CGU">
         <p>
           Les présentes CGU peuvent être mises à jour à tout moment. La date de dernière mise à
           jour figure en haut de cette page ; toute modification substantielle vous sera notifiée.

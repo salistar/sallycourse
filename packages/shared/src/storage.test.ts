@@ -24,6 +24,8 @@ describe('storageKeys', () => {
     expect(lesson.screenshot(12)).toBe('courses/abc123/sections/1/lessons/1/screenshots/12.png');
     expect(lesson.captionsSrt()).toBe('courses/abc123/sections/1/lessons/1/captions.srt');
     expect(lesson.captionsVtt()).toBe('courses/abc123/sections/1/lessons/1/captions.vtt');
+    // Transcription texte brut (P137, accessibilité) — à côté du .srt/.vtt.
+    expect(lesson.captionsTxt()).toBe('courses/abc123/sections/1/lessons/1/captions.txt');
   });
 
   it('génère les clés audio par slide', () => {

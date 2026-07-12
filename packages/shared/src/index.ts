@@ -40,3 +40,13 @@ export * from './music-catalog';
 export * from './video-preview';
 // @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
 export * from './off-peak-window';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+export * from './coupon';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+export * from './workspace-roles';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+export * from './marketplace';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+export * from './agency';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+export * from './audit';

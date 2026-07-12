@@ -1,3 +1,13 @@
 packages:
   - "apps/*"
+  # apps/mobile (Expo/React Native, react@18) exclu du workspace pnpm : sa
+  # coexistence avec apps/web (react@19) dans le même graphe de résolution
+  # de dépendances pnpm crée une ambiguïté de types pour les packages tiers
+  # à peerDependency souple (ex. framer-motion "react": "^18||^19"), qui se
+  # traduit par des erreurs tsc "cannot be used as a JSX component" dans
+  # apps/web (confirmé par bisection : 0 erreur sans mobile, 89+ avec).
+  # apps/mobile n'importe aucun package @sallycourse/* (HTTP API uniquement)
+  # — l'exclure ne retire aucune fonctionnalité. Installer ses dépendances
+  # séparément : cd apps/mobile && pnpm install (store pnpm indépendant).
+  - "!apps/mobile"
   - "packages/*"

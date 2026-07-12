@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { requireUser } from '@/lib/session';
 import { AccountManager } from './account-manager';
 
@@ -26,6 +27,12 @@ export default async function AccountSettingsPage() {
           Gérez vos données personnelles conformément au RGPD : téléchargez une copie complète de
           vos données, ou supprimez définitivement votre compte SallyCourse.
         </p>
+        <Link
+          href="/dashboard/settings/activity"
+          className="text-sm font-medium text-primary-400 underline-offset-2 hover:underline"
+        >
+          Voir mon activité (connexions, déploiements, suppressions...)
+        </Link>
       </header>
 
       <AccountManager email={user.email ?? ''} />

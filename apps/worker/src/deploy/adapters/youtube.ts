@@ -14,6 +14,7 @@ import {
   getObjectStream,
   storageKeys,
   generateCourseImage,
+  slideScriptSchema,
 } from '../../shared.js';
 import {
   buildLessonTitle,
@@ -24,7 +25,10 @@ import {
   lessonsPerQuotaWindow,
   splitByQuota,
   type YouTubePrivacy,
+  type Chapter,
 } from './youtube-helpers.js';
+import { lessonChaptersFromScript } from '../../media/video-chapters.js';
+import { VIDEO } from '../../shared.js';
 
 const API = 'https://www.googleapis.com/youtube/v3';
 const UPLOAD_API = 'https://www.googleapis.com/upload/youtube/v3';
@@ -147,12 +151,14 @@ export class YouTubeAdapter extends BaseDeploymentAdapter {
     const session = this.requireSession(ctx);
     const total = ctx.lessons.length;
     const title = buildLessonTitle(index, lesson.title);
+    const chapters = lessonChaptersForDescription(lesson);
     const description = buildLessonDescription({
       courseTitle: ctx.course.title,
       lessonTitle: lesson.title,
       index,
       total,
       summary: lesson.generatedSummary ?? lesson.summary,
+      ...(chapters.length > 1 ? { chapters } : {}),
       brandLine: 'Cours généré par SALISTAR — SallyCourse.',
     });
     const tags = sanitizeTags([ctx.course.title, lesson.title, 'formation', 'tutoriel']);
@@ -441,6 +447,21 @@ function docId(doc: unknown): string {
 /** Retrouve la section d'une leçon (pour dériver la clé de stockage). */
 function sectionOf(ctx: DeployContext, lesson: ILesson): ISection | undefined {
   return ctx.sections.find((s) => docId(s) === String(lesson.sectionId));
+}
+
+/**
+ * Chapitres YouTube d'UNE leçon (Prompt 136), dérivés de son script vidéo
+ * (slides "title"/"section-transition"). Best-effort : script absent/invalide
+ * (leçon de type article/tp, ou script pas encore généré) → [] (pas de bloc
+ * chapitres dans la description, comportement historique inchangé).
+ */
+function lessonChaptersForDescription(lesson: ILesson): Chapter[] {
+  const parsed = slideScriptSchema.safeParse(lesson.script);
+  if (!parsed.success) return [];
+  return lessonChaptersFromScript(parsed.data.slides, VIDEO.INTRO_SECONDS).map((c) => ({
+    offsetSec: c.offsetSec,
+    label: c.title,
+  }));
 }
 
 function normalizePrivacy(raw?: string): YouTubePrivacy {

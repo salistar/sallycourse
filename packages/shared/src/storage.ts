@@ -75,6 +75,12 @@ export interface LessonKeys {
   screencast(index: number): string;
   captionsSrt(): string;
   captionsVtt(): string;
+  /**
+   * Transcription texte brut (P137, accessibilité) : mêmes cues que le
+   * .srt/.vtt mais sans timestamps ni index — un paragraphe par cue,
+   * téléchargeable directement par un lecteur d'écran ou pour relecture.
+   */
+  captionsTxt(): string;
   audio(slide: number): string;
   quiz(): string;
   /**
@@ -152,6 +158,14 @@ export const storageKeys = {
   schoolBrandingLogo(userId: string, ext: string): string {
     return `branding/${userId}/logo.${ext}`;
   },
+  /**
+   * Facture PDF archivée (Prompt 148, conformité fiscale Maroc) : clé =
+   * invoices/{userId}/{invoiceNumber}.pdf. Préfixe distinct de "courses/"
+   * (jamais purgé par deleteCoursePrefix) — une facture par paiement réussi.
+   */
+  invoice(userId: string, invoiceNumber: string): string {
+    return `invoices/${userId}/${invoiceNumber}.pdf`;
+  },
   course(courseId: string): CourseKeys {
     const prefix = `courses/${courseId}`;
     return {
@@ -167,6 +181,7 @@ export const storageKeys = {
           screencast: (index: number) => `${base}/screencasts/${index}.mp4`,
           captionsSrt: () => `${base}/captions.srt`,
           captionsVtt: () => `${base}/captions.vtt`,
+          captionsTxt: () => `${base}/captions.txt`,
           audio: (slide: number) => `${base}/audio/${slide}.mp3`,
           quiz: () => `${base}/quiz.json`,
           captionsSrtLocalized: (locale: string) => `${base}/captions-${locale}.srt`,

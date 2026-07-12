@@ -35,6 +35,8 @@ export interface LearnLessonView {
   videoUrl?: string;
   /** URL présignée de la piste VTT (sous-titres), sinon undefined. */
   captionsUrl?: string;
+  /** URL présignée de la transcription texte brut (P137, accessibilité), sinon undefined. */
+  transcriptUrl?: string;
   /** Markdown résolu (leçon 'article'), sinon undefined. */
   articleMd?: string;
   /** Questions du quiz (leçon 'quiz'), sinon tableau vide. */

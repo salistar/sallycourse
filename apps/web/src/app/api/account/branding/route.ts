@@ -51,6 +51,7 @@ export async function GET() {
           logoUrl: await resolveLogoUrl(doc.logoUrl),
           primaryColorHex: doc.primaryColorHex,
           accentColorHex: doc.accentColorHex,
+          customSubdomain: doc.customSubdomain ?? null,
         }
       : null,
   });
@@ -81,14 +82,34 @@ export async function PUT(request: Request) {
   }
 
   await connectDb();
+
+  // customSubdomain : chaîne vide = retirer le sous-domaine (unset, sinon
+  // l'index unique+sparse verrait plusieurs documents "" en conflit).
+  const wantsSubdomain = parsed.data.customSubdomain && parsed.data.customSubdomain.length > 0;
+  if (wantsSubdomain) {
+    const conflict = await SchoolBranding.findOne({
+      customSubdomain: parsed.data.customSubdomain,
+      userId: { $ne: user.id },
+    }).lean();
+    if (conflict) {
+      return NextResponse.json({ error: 'Ce sous-domaine est déjà utilisé.' }, { status: 409 });
+    }
+  }
+
+  const setFields: Record<string, string> = {
+    schoolName: parsed.data.schoolName,
+    primaryColorHex: parsed.data.primaryColorHex,
+    accentColorHex: parsed.data.accentColorHex,
+  };
+  if (wantsSubdomain && parsed.data.customSubdomain) {
+    setFields.customSubdomain = parsed.data.customSubdomain;
+  }
+
   const doc = await SchoolBranding.findOneAndUpdate(
     { userId: user.id },
     {
-      $set: {
-        schoolName: parsed.data.schoolName,
-        primaryColorHex: parsed.data.primaryColorHex,
-        accentColorHex: parsed.data.accentColorHex,
-      },
+      $set: setFields,
+      ...(wantsSubdomain ? {} : { $unset: { customSubdomain: '' as const } }),
     },
     { upsert: true, new: true, runValidators: true },
   );
@@ -100,6 +121,7 @@ export async function PUT(request: Request) {
       logoUrl: await resolveLogoUrl(doc.logoUrl),
       primaryColorHex: doc.primaryColorHex,
       accentColorHex: doc.accentColorHex,
+      customSubdomain: doc.customSubdomain ?? null,
     },
   });
 }
@@ -161,6 +183,7 @@ export async function POST(request: Request) {
       logoUrl: await resolveLogoUrl(doc.logoUrl),
       primaryColorHex: doc.primaryColorHex,
       accentColorHex: doc.accentColorHex,
+      customSubdomain: doc.customSubdomain ?? null,
     },
   });
 }

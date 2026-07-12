@@ -41,6 +41,7 @@ import { purgeCourseIntermediateAssets } from '../lib/retention.js';
 import {
   alignToReference,
   subtitlesFromScript,
+  toPlainText,
   toSrt,
   toVtt,
   type Cue,
@@ -61,6 +62,8 @@ export interface SubtitleResult {
   srtKey: string;
   /** Clé S3 du .vtt. */
   vttKey: string;
+  /** Clé S3 de la transcription texte brut (P137, accessibilité). */
+  txtKey: string;
   /** true si les sous-titres proviennent du repli script (Whisper non utilisé). */
   degraded: boolean;
 }
@@ -234,18 +237,23 @@ export async function processSubtitleGeneration(job: Job<SubtitleJobData>): Prom
       degraded = true;
     }
 
-    await report(courseId, 85, `Génération des fichiers .srt / .vtt (${cues.length} sous-titres)`);
+    await report(courseId, 85, `Génération des fichiers .srt / .vtt / .txt (${cues.length} sous-titres)`);
     const srtKey = keys.captionsSrt();
     const vttKey = keys.captionsVtt();
+    const txtKey = keys.captionsTxt();
     await uploadObject(srtKey, toSrt(cues), 'application/x-subrip; charset=utf-8');
     await uploadObject(vttKey, toVtt(cues), 'text/vtt; charset=utf-8');
+    // Transcription texte brut (P137, accessibilité) : téléchargeable à côté
+    // des sous-titres, sans timestamps — utile lecteur d'écran / relecture.
+    await uploadObject(txtKey, toPlainText(cues), 'text/plain; charset=utf-8');
 
     lesson.assets.srtUrl = srtKey;
     lesson.assets.vttUrl = vttKey;
+    lesson.assets.txtUrl = txtKey;
     await lesson.save();
 
     await report(courseId, 100, `Sous-titres prêts : ${cues.length} lignes${degraded ? ' (mode dégradé)' : ''}`);
-    logger.info({ courseId, lessonId, cues: cues.length, srtKey, vttKey, degraded }, 'sous-titres générés');
+    logger.info({ courseId, lessonId, cues: cues.length, srtKey, vttKey, txtKey, degraded }, 'sous-titres générés');
 
     // Rétention (P79) : la vidéo est assemblée ET les sous-titres finaux sont
     // écrits — les slides PNG et l'audio par slide de cette leçon deviennent
@@ -256,7 +264,7 @@ export async function processSubtitleGeneration(job: Job<SubtitleJobData>): Prom
       logger.warn({ courseId, lessonId, err }, 'retention : purge des assets intermédiaires ignorée'),
     );
 
-    return { courseId, lessonId, cues: cues.length, srtKey, vttKey, degraded };
+    return { courseId, lessonId, cues: cues.length, srtKey, vttKey, txtKey, degraded };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error({ courseId, lessonId, err }, 'échec de la génération des sous-titres');

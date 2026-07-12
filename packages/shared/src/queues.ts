@@ -90,6 +90,13 @@ export interface SubtitleJobData {
 
 export interface PackagingJobData {
   courseId: string;
+  /**
+   * Mode de packaging (Prompt 142) : 'zip' (défaut) = pack Udemy historique
+   * (vidéos/articles/quiz CSV/PDF solutions/marketing). 'portable' = mini-site
+   * HTML/CSS/JS autonome utilisable en file:// (clé USB, hors ligne) — mêmes
+   * assets copiés localement, quiz en JS pur, progression en localStorage.
+   */
+  mode?: 'zip' | 'portable';
 }
 
 export interface DeploymentJobData {

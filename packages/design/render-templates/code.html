@@ -14,6 +14,9 @@
        (source de vérité : packages/design/src/tokens.ts)
        ============================================================ */
     :root {
+      /* Gros texte (P137, accessibilité) : 1 par défaut, override injecté par
+         renderTemplate({ largeText: true }) — voir render-templates.ts. */
+      --text-scale: 1;
       --bg: #0D0714;              /* neutral.950 */
       --surface: #171021;         /* themes.dark.surface */
       --surface-subtle: #231B2F;  /* neutral.900 */
@@ -113,7 +116,7 @@
 
     .title {
       margin-top: 24px;
-      font-size: 54px;
+      font-size: calc(54px * var(--text-scale));
       line-height: 1.15;
       letter-spacing: -0.015em;
       max-width: 1500px;
@@ -196,7 +199,7 @@
     }
     pre.code {
       font-family: var(--font-mono);
-      font-size: 30px;
+      font-size: calc(30px * var(--text-scale));
       line-height: 1.7;
       tab-size: 2;
       counter-reset: line;
@@ -277,7 +280,9 @@
     .tok-num   { color: var(--gold-400); }                     /* nombres */
     .tok-fn    { color: var(--info-400); }                     /* fonctions */
     .tok-type  { color: var(--success-300); }                  /* types / classes */
-    .tok-com   { color: var(--muted-deep); font-style: italic; } /* commentaires */
+    /* WCAG AA (P137) : neutral.500 sur --surface ne passait pas 4.5:1 (3.79) ;
+       neutral.400 (--muted, déjà 7.24:1) réutilisé pour rester lisible. */
+    .tok-com   { color: var(--muted); font-style: italic; } /* commentaires */
     .tok-punct { color: var(--muted); }                        /* ponctuation */
     .tok-var   { color: var(--fg); }                           /* identifiants */
 

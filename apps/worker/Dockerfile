@@ -21,7 +21,7 @@ FROM node:22-bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg \
       python3 python3-pip python3-venv \
-      fonts-liberation fonts-noto-core fonts-noto-naskh-arabic \
+      fonts-liberation fonts-noto-core fonts-noto-unhinted \
       ca-certificates dumb-init \
     && rm -rf /var/lib/apt/lists/*
 # faster-whisper dans un venv isolé

@@ -20,6 +20,7 @@ import { QuizPreview } from './quiz-preview';
 import { ScreenshotGallery } from './screenshot-gallery';
 import { RegenerateButton } from './regenerate-button';
 import { ApprovePreviewButton } from './approve-preview-button';
+import { LessonComments } from './lesson-comments';
 import { LESSON_STATUS_BADGE } from './lesson-tree';
 import { ArticleEditor, QuizEditor, VideoScriptEditor } from './edit';
 import type { LessonType, LessonView, Locale } from './types';
@@ -49,6 +50,8 @@ export interface LessonPanelProps {
   lesson: LessonView | null;
   /** Locale du cours — langue de la piste de sous-titres. */
   locale: Locale;
+  /** Affiche les commentaires d'équipe (Prompt 138) — uniquement en contexte Workspace. */
+  showComments?: boolean;
   className?: string;
 }
 
@@ -97,7 +100,7 @@ function EditToggle({ label, onEdit }: { label: string; onEdit: () => void }) {
   );
 }
 
-export function LessonPanel({ lesson, locale, className }: LessonPanelProps) {
+export function LessonPanel({ lesson, locale, showComments, className }: LessonPanelProps) {
   // Onglet actuellement en mode édition (null = prévisualisation).
   const [editing, setEditing] = React.useState<PanelTab | null>(null);
   const stopEditing = React.useCallback(() => setEditing(null), []);
@@ -264,6 +267,7 @@ export function LessonPanel({ lesson, locale, className }: LessonPanelProps) {
             )}
           </Tabs>
         )}
+        {showComments && <LessonComments lessonId={lesson.id} />}
       </CardContent>
     </Card>
   );

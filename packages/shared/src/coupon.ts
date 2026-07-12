@@ -149,40 +149,51 @@ export interface PromoPeriodSuggestion {
   rationale: string;
 }
 
+/** Gabarit d'une période générique : dates au format MM-DD (année complétée par resolveGenericPromoPeriods). */
+interface GenericPromoPeriodTemplate {
+  name: string;
+  /** Mois-jour de début, format MM-DD (sans année). */
+  startMonthDay: string;
+  /** Mois-jour de fin, format MM-DD (sans année). */
+  endMonthDay: string;
+  discountPercent: number;
+  rationale: string;
+}
+
 /** Périodes promotionnelles génériques (repli déterministe hors LLM — mode mock/dégradé). */
-export const GENERIC_PROMO_PERIODS: ReadonlyArray<Omit<PromoPeriodSuggestion, 'rationale'> & { rationale: string }> = [
+export const GENERIC_PROMO_PERIODS: readonly GenericPromoPeriodTemplate[] = [
   {
     name: 'Rentrée',
-    startDate: '--09-01',
-    endDate: '--09-15',
+    startMonthDay: '09-01',
+    endMonthDay: '09-15',
     discountPercent: 30,
     rationale: 'Pic de reprise des formations en septembre — forte intention d’achat.',
   },
   {
     name: 'Black Friday',
-    startDate: '--11-24',
-    endDate: '--11-30',
+    startMonthDay: '11-24',
+    endMonthDay: '11-30',
     discountPercent: 50,
     rationale: 'Semaine à plus fort volume de ventes de l’année sur les plateformes de cours en ligne.',
   },
   {
     name: 'Nouvel An',
-    startDate: '--01-01',
-    endDate: '--01-15',
+    startMonthDay: '01-01',
+    endMonthDay: '01-15',
     discountPercent: 40,
     rationale: 'Résolutions de début d’année — forte demande en formation personnelle/professionnelle.',
   },
 ];
 
 /**
- * Complète les dates génériques (--MM-DD) en dates ISO complètes pour une
- * année cible donnée. Utilisé pour transformer GENERIC_PROMO_PERIODS (repli
- * mock) en suggestions concrètes exploitables telles quelles.
+ * Complète les dates génériques (MM-DD) en dates ISO complètes (YYYY-MM-DD)
+ * pour une année cible donnée. Utilisé pour transformer GENERIC_PROMO_PERIODS
+ * (repli mock) en suggestions concrètes exploitables telles quelles.
  */
 export function resolveGenericPromoPeriods(year: number): PromoPeriodSuggestion[] {
-  return GENERIC_PROMO_PERIODS.map((p) => ({
-    ...p,
-    startDate: `${year}${p.startDate}`,
-    endDate: `${year}${p.endDate}`,
+  return GENERIC_PROMO_PERIODS.map(({ startMonthDay, endMonthDay, ...rest }) => ({
+    ...rest,
+    startDate: `${year}-${startMonthDay}`,
+    endDate: `${year}-${endMonthDay}`,
   }));
 }

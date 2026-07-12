@@ -16,7 +16,9 @@ import {
   Lesson,
   QUEUES,
   Section,
+  altTextResultSchema,
   annotateScreenshot,
+  buildAltTextPrompt,
   extractScreenshotPlaceholders,
   getObjectStream,
   objectExists,
@@ -32,6 +34,7 @@ import {
 } from '../shared.js';
 import { getRedisConnection } from '../queues/connection.js';
 import { logger } from '../queues/index.js';
+import { callClaudeJson } from '../lib/claude.js';
 import {
   captureFromSpec,
   hashScreenshotSpec,
@@ -176,11 +179,49 @@ export async function composeAnnotated(
     .toBuffer();
 }
 
+/** Étape TP portant une screenshotSpec + l'instruction associée (contexte alt text P137). */
+interface StepWithSpec {
+  spec: TpScreenshotSpec;
+  instruction: string;
+}
+
 /** Étapes du TP portant une screenshotSpec, dans l'ordre du script. */
-function stepsWithSpec(tp: TpContent): TpScreenshotSpec[] {
+function stepsWithSpec(tp: TpContent): StepWithSpec[] {
   return tp.steps
-    .map((step) => step.screenshotSpec)
-    .filter((spec): spec is TpScreenshotSpec => Boolean(spec));
+    .filter((step): step is typeof step & { screenshotSpec: TpScreenshotSpec } => Boolean(step.screenshotSpec))
+    .map((step) => ({ spec: step.screenshotSpec, instruction: step.instruction }));
+}
+
+/**
+ * Génère un texte alternatif descriptif (Prompt 137, accessibilité) via
+ * callClaudeJson à partir de la légende + l'instruction de l'étape (vision
+ * non nécessaire — le contexte texte suffit). Best-effort : une erreur
+ * (LLM en échec, quota…) retombe silencieusement sur la légende brute, JAMAIS
+ * bloquant pour le pipeline de capture.
+ */
+export async function generateScreenshotAltText(
+  lessonTitle: string,
+  stepNumber: number,
+  caption: string,
+  instruction: string,
+): Promise<string> {
+  try {
+    // La construction du prompt (validation zod stricte) est englobée dans le
+    // même try : un titre de leçon vide ou une instruction trop longue ne doit
+    // JAMAIS faire échouer le pipeline de capture, seulement dégrader vers la
+    // légende brute (comportement identique à un échec de l'appel LLM).
+    const { system, user } = buildAltTextPrompt({
+      caption,
+      stepNumber,
+      lessonTitle: lessonTitle.trim() || 'Étape du tutoriel',
+      action: instruction,
+    });
+    const result = await callClaudeJson({ schema: altTextResultSchema, system, user });
+    return result.altText;
+  } catch (err) {
+    logger.warn({ lessonTitle, stepNumber, err }, 'génération du texte alternatif échouée — repli sur la légende');
+    return caption;
+  }
 }
 
 /**
@@ -195,6 +236,7 @@ async function replaceArticlePlaceholders(
   sectionId: unknown,
   captions: string[],
   screenshotKeys: string[],
+  altTexts: string[] = [],
 ): Promise<number> {
   if (screenshotKeys.length === 0) return 0;
 
@@ -221,7 +263,8 @@ async function replaceArticlePlaceholders(
   const next = markdown.replace(/\{\{screenshot:([^}]+)\}\}/g, (match, desc: string) => {
     const key = screenshotKeys[index];
     if (!key) return match; // plus de capture disponible : on garde le placeholder.
-    const alt = (captions[index] ?? desc.trim()).replace(/[[\]()]/g, '');
+    // Texte alternatif descriptif (P137) prioritaire sur la légende brute.
+    const alt = (altTexts[index] || captions[index] || desc.trim()).replace(/[[\]()]/g, '');
     // Chemin relatif d'asset dans le paquet exporté (résolu au packaging P24+).
     const rel = key.startsWith(`${storageKeys.course(courseId).prefix}/`)
       ? key.slice(storageKeys.course(courseId).prefix.length + 1)
@@ -270,12 +313,15 @@ export async function processScreenshotCapture(
   const browser = await launchCaptureBrowser();
   const uploadedKeys: string[] = [];
   const captions: string[] = [];
+  const altTexts: string[] = [];
 
   /** Résultat checkpointé d'une étape : capture réussie (clé+légende) ou échec toléré. */
   interface StepCheckpoint {
     ok: boolean;
     key?: string;
     caption?: string;
+    /** Texte alternatif descriptif généré (P137), replié sur la légende si le LLM échoue. */
+    altText?: string;
     /** Clé S3 du screencast (Prompt 85), présente uniquement si spec.recordVideo. */
     screencastKey?: string;
   }
@@ -288,14 +334,19 @@ export async function processScreenshotCapture(
     // une erreur de capture, déjà tolérée ci-dessous) au milieu de la boucle
     // ne fait donc perdre que l'étape en cours — la relance rejoue les étapes
     // déjà traitées sans rouvrir Playwright dessus ni sauter d'étape.
-    const { results } = await withCheckpoint<TpScreenshotSpec, StepCheckpoint>({
+    const { results } = await withCheckpoint<StepWithSpec, StepCheckpoint>({
       jobId: lessonId,
       steps: specs,
       store: mongoCheckpointStore(courseId, QUEUES.screenshot),
-      runStep: async (spec, i) => {
+      runStep: async ({ spec, instruction }, i) => {
         const stepNumber = i + 1;
         try {
           const key = keys.screenshot(i);
+          // Texte alternatif descriptif (P137) — indépendant du cache image
+          // par contenu (deux cours différents peuvent vouloir un alt propre
+          // à LEUR titre de leçon même si la capture brute est identique).
+          const altText = await generateScreenshotAltText(lesson.title, stepNumber, spec.caption, instruction);
+
           // Cache par CONTENU (Prompt 72) : deux TP — même cours ou cours
           // différents — qui rejouent la même spec (url/actions/focus/légende)
           // réutilisent la capture déjà annotée sans relancer Playwright/sharp.
@@ -304,7 +355,7 @@ export async function processScreenshotCapture(
             const cached = await streamToBuffer(await getObjectStream(contentKey));
             await uploadObject(key, cached, 'image/png');
             await bumpCacheStat('screenshot', 'hit');
-            return { ok: true, key, caption: spec.caption };
+            return { ok: true, key, caption: spec.caption, altText };
           }
           await bumpCacheStat('screenshot', 'miss');
 
@@ -333,7 +384,7 @@ export async function processScreenshotCapture(
             }
           }
 
-          return { ok: true, key, caption: spec.caption, screencastKey };
+          return { ok: true, key, caption: spec.caption, altText, screencastKey };
         } catch (err) {
           logger.warn({ courseId, lessonId, step: stepNumber, err }, 'capture en échec (non bloquante)');
           return { ok: false };
@@ -362,6 +413,7 @@ export async function processScreenshotCapture(
     for (const r of results) {
       if (r.ok && r.key) uploadedKeys.push(r.key);
       if (r.ok && r.caption) captions.push(r.caption);
+      if (r.ok && r.altText) altTexts.push(r.altText);
       if (r.ok && r.screencastKey) screencastKeys.push(r.screencastKey);
     }
   } finally {
@@ -380,7 +432,7 @@ export async function processScreenshotCapture(
   // Reporte les captures dans l'article de la leçon liée (même section).
   let placeholdersReplaced = 0;
   try {
-    placeholdersReplaced = await replaceArticlePlaceholders(courseId, lesson.sectionId, captions, uploadedKeys);
+    placeholdersReplaced = await replaceArticlePlaceholders(courseId, lesson.sectionId, captions, uploadedKeys, altTexts);
   } catch (err) {
     logger.warn({ courseId, lessonId, err }, 'substitution des placeholders article impossible');
   }

@@ -120,7 +120,6 @@ export function useAutosave<T>(
     }
     if (!enabled) return;
     schedulerRef.current?.schedule(value);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, delayMs, enabled]);
 
   React.useEffect(() => () => schedulerRef.current?.cancel(), []);

@@ -86,6 +86,13 @@ const workbookSchema = pdfDocSchema.extend({
    */
   introHtml: z.string().default(''),
   /**
+   * Table des matières HTML, injectée BRUTE (Prompt 136). Optionnelle et
+   * additive : '' (défaut) → le bloc <nav class="wb-toc"> ne s'affiche pas
+   * (:empty), workbook.html rendu identique aux documents déjà générés.
+   * Contrat de classes : voir buildWorkbookTocHtml (apps/worker/src/generators/resources.ts).
+   */
+  tocHtml: z.string().default(''),
+  /**
    * Sections TP HTML, injectées BRUTES. Contrat de classes attendu
    * documenté en tête de workbook.html (.wb-section, .wb-steps,
    * .wb-answer, .wb-lines.lines-N, .wb-tip…).
@@ -258,6 +265,12 @@ const invoiceSchema = pdfBaseSchema.extend({
   toLabel: z.string().default('Facturé à'),
   customerName: z.string().min(1),
   customerEmail: z.string().default(''),
+  /**
+   * Ligne ICE/IF du client (Prompt 148, conformité fiscale Maroc) — affichée
+   * sous l'email quand le client est une société marocaine ayant renseigné ces
+   * identifiants. Vide par défaut : aucun changement pour les factures existantes.
+   */
+  taxIdLine: z.string().default(''),
   // Ligne d'article unique (abonnement mensuel).
   descriptionLabel: z.string().default('Description'),
   amountLabel: z.string().default('Montant'),
@@ -572,6 +585,7 @@ function buildPlaceholders(
         ...docPlaceholders(d),
         docKicker: escapeHtml(d.docKicker),
         introHtml: d.introHtml, // injecté brut (HTML de confiance)
+        tocHtml: d.tocHtml, // injecté brut (HTML de confiance) — '' par défaut
         sectionsHtml: d.sectionsHtml, // injecté brut (HTML de confiance)
       };
     }
@@ -672,6 +686,7 @@ function buildPlaceholders(
         toLabel: escapeHtml(d.toLabel),
         customerName: escapeHtml(d.customerName),
         customerEmail: escapeHtml(d.customerEmail),
+        taxIdLine: escapeHtml(d.taxIdLine),
         descriptionLabel: escapeHtml(d.descriptionLabel),
         amountLabel: escapeHtml(d.amountLabel),
         itemTitle: escapeHtml(d.itemTitle),

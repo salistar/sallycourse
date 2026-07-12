@@ -79,7 +79,6 @@ export default async function LearnCataloguePage() {
                 <Card interactive className="flex h-full flex-col">
                   <div className="relative aspect-video w-full overflow-hidden rounded-t-[calc(1rem-1px)] bg-surface-subtle">
                     {c.cover ? (
-                      // eslint-disable-next-line @next/next/no-img-element
                       <img src={c.cover} alt="" className="size-full object-cover" />
                     ) : (
                       <div className="flex size-full items-center justify-center text-muted">

@@ -191,6 +191,23 @@ export function tpToWorkbookSectionHtml(index: number, lessonTitle: string, tp: 
   ].join('\n');
 }
 
+/**
+ * Construit le fragment `tocHtml` du workbook (Prompt 136) : table des
+ * matières listant les TP inclus, dans l'ordre — contrat de classes
+ * `.wb-toc`/`.wb-toc-list` documenté en tête de workbook.html. Retourne ''
+ * (rien à afficher, bloc masqué via :empty) si aucun TP.
+ */
+export function buildWorkbookTocHtml(tpLessons: readonly { title: string }[]): string {
+  if (tpLessons.length === 0) return '';
+  const items = tpLessons
+    .map((lesson, i) => {
+      const num = String(i + 1).padStart(2, '0');
+      return `    <li><span class="wb-toc-index">${num}</span><span class="wb-toc-title">${escapeHtml(lesson.title)}</span></li>`;
+    })
+    .join('\n');
+  return ['<h2>Sommaire</h2>', '<ol class="wb-toc-list">', items, '</ol>'].join('\n');
+}
+
 /** Construit le fragment `sectionsHtml` complet à partir des leçons TP prêtes. */
 export function buildWorkbookSectionsHtml(
   tpLessons: readonly { title: string; script: unknown }[],
@@ -297,6 +314,7 @@ export async function generateCourseResources(params: { courseId: string }): Pro
       courseTitle: course.title,
       docTitle: 'Workbook des travaux pratiques',
       introHtml: `<p>Ce workbook rassemble les travaux pratiques de « ${escapeHtml(course.title)} ». Notez vos réponses au fil des exercices : il vous servira de mémo après le cours.</p>`,
+      tocHtml: buildWorkbookTocHtml(tpLessons),
       sectionsHtml: buildWorkbookSectionsHtml(tpLessons),
     },
     mock,

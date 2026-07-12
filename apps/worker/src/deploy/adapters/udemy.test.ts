@@ -13,6 +13,7 @@ import {
   markdownToBasicHtml,
   udemyCategorySchema,
   UDEMY_CATEGORIES,
+  buildUdemyCouponInstructions,
 } from './udemy.js';
 import type { ICourse, ISection } from '../../shared.js';
 
@@ -140,5 +141,20 @@ describe('markdownToBasicHtml', () => {
 
   it('échappe le HTML brut', () => {
     expect(markdownToBasicHtml('a <script>x</script> b')).toContain('&lt;script&gt;');
+  });
+});
+
+describe('buildUdemyCouponInstructions', () => {
+  it('mentionne le code et une saisie manuelle (aucune automation fiable)', () => {
+    const msg = buildUdemyCouponInstructions('123456', 'PROMO2026');
+    expect(msg).toContain('PROMO2026');
+    expect(msg).toContain('123456');
+    expect(msg.toLowerCase()).toContain('manuellement');
+  });
+
+  it('reste utilisable sans externalId (cours pas encore créé)', () => {
+    const msg = buildUdemyCouponInstructions(undefined, 'PROMO2026');
+    expect(msg).toContain('PROMO2026');
+    expect(msg).toContain('votre cours');
   });
 });

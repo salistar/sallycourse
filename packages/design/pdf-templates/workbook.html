@@ -172,6 +172,54 @@
     .doc-intro:empty { display: none; }
     .doc-intro p + p { margin-block-start: 2.5mm; }
 
+    /* ------------------- Table des matières (Prompt 136) ------------------
+       Bloc optionnel — absent (chaîne vide) : masqué via :empty, aucun
+       changement pour les workbooks déjà générés. Contrat de classes attendu
+       du fragment {{{tocHtml}}} :
+         <nav class="wb-toc">
+           <h2>Sommaire</h2>
+           <ol class="wb-toc-list">
+             <li><span class="wb-toc-index">01</span><span class="wb-toc-title">Titre de section</span></li>
+           </ol>
+         </nav>
+    */
+    .wb-toc {
+      margin-block-end: 10mm;
+      padding-block-end: 6mm;
+      border-block-end: 0.5pt solid var(--line);
+      break-after: avoid;
+    }
+    .wb-toc:empty { display: none; }
+    .wb-toc h2 {
+      font-family: var(--font-display);
+      font-size: 13pt;
+      font-weight: 600;
+      color: var(--violet-900);
+      margin-block-end: 4mm;
+    }
+    .wb-toc-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 2.5mm;
+    }
+    .wb-toc-list li {
+      display: flex;
+      align-items: baseline;
+      gap: 4mm;
+    }
+    .wb-toc-index {
+      font-family: var(--font-display);
+      font-size: 10.5pt;
+      font-weight: 600;
+      color: var(--gold-500);
+      font-variant-numeric: tabular-nums;
+      flex: none;
+      width: 8mm;
+    }
+    html[dir="rtl"] .wb-toc-index { font-family: var(--font-arabic); font-weight: 700; }
+    .wb-toc-title { color: var(--ink-soft); }
+
     /* ------------------------ Sections TP ------------------------ */
     .wb-section { margin-block-end: 10mm; }
     .wb-section-header {
@@ -341,6 +389,8 @@
     <div class="doc-course">{{courseTitle}}</div>
     <div class="doc-intro">{{{introHtml}}}</div>
   </header>
+
+  <nav class="wb-toc">{{{tocHtml}}}</nav>
 
   <main class="wb-body">
     {{{sectionsHtml}}}

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { hash } from 'bcryptjs';
 import { z } from 'zod';
-import { connectDb, User as UserModel } from '@sallycourse/db';
+import { connectDb, recordAudit, User as UserModel } from '@sallycourse/db';
 import { extractClientIp, rateLimit } from '@/lib/rate-limit';
 
 /** Payload d'inscription — messages en français pour affichage direct. */
@@ -53,6 +53,14 @@ export async function POST(request: Request) {
 
   try {
     const user = await UserModel.create({ email, name, passwordHash, plan: 'free' });
+    void recordAudit({
+      action: 'register',
+      userId: user._id.toString(),
+      targetType: 'user',
+      targetId: user._id.toString(),
+      ip,
+      userAgent: request.headers.get('user-agent') ?? undefined,
+    });
     return NextResponse.json(
       { id: user._id.toString(), email: user.email, name: user.name, plan: user.plan },
       { status: 201 },

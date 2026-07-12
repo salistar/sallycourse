@@ -8,6 +8,7 @@ import { LessonTree } from './lesson-tree';
 import { LessonPanel } from './lesson-panel';
 import { ProgressBanner } from './progress-banner';
 import { DownloadPackButton } from './download-pack-button';
+import { DownloadPortableButton } from './download-portable-button';
 import { DeriveButton } from './derive-button';
 import { IntroVideoUpload } from './intro-video-upload';
 import { DeployPanel } from './deploy-panel';
@@ -17,6 +18,7 @@ import { FeedbackPanel } from './feedback-panel';
 import { ResourcesPanel } from './resources-panel';
 import { TranslatePanel } from './translate-panel';
 import { QuickPreviewPanel } from './quick-preview-panel';
+import { TeamApprovalBanner } from './team-approval-banner';
 import type { CourseDetailView, CourseStatus, Difficulty, Locale } from './types';
 
 /**
@@ -148,14 +150,25 @@ export function CourseDetail({ course }: CourseDetailProps) {
                 />
               )}
               {course.status === 'ready' || course.status === 'published' ? (
-                <DownloadPackButton courseId={course.id} />
+                <>
+                  <DownloadPackButton courseId={course.id} />
+                  <DownloadPortableButton courseId={course.id} />
+                </>
               ) : (
-                <span title="Disponible une fois le cours généré" className="inline-flex">
-                  <Button variant="secondary" size="sm" disabled aria-disabled="true">
-                    <Download aria-hidden="true" />
-                    Télécharger le pack
-                  </Button>
-                </span>
+                <>
+                  <span title="Disponible une fois le cours généré" className="inline-flex">
+                    <Button variant="secondary" size="sm" disabled aria-disabled="true">
+                      <Download aria-hidden="true" />
+                      Télécharger le pack
+                    </Button>
+                  </span>
+                  <span title="Disponible une fois le cours généré" className="inline-flex">
+                    <Button variant="secondary" size="sm" disabled aria-disabled="true">
+                      <Download aria-hidden="true" />
+                      Exporter en mode portable
+                    </Button>
+                  </span>
+                </>
               )}
               {deployable ? (
                 <Button
@@ -178,6 +191,16 @@ export function CourseDetail({ course }: CourseDetailProps) {
             </div>
           </div>
         </header>
+
+        {/* ── Validation d'équipe (P138), workspace avec reviewer(s) ─── */}
+        {course.workspace && course.workspace.hasReviewer && (
+          <TeamApprovalBanner
+            courseId={course.id}
+            role={course.workspace.role}
+            approvedBy={course.approvedBy}
+            approvedAt={course.approvedAt}
+          />
+        )}
 
         {/* ── Timeline de génération (cours en production) ─────── */}
         {course.status === 'generating' && <ProgressBanner courseId={course.id} />}
@@ -246,7 +269,7 @@ export function CourseDetail({ course }: CourseDetailProps) {
                 onSelect={setSelectedId}
               />
             </div>
-            <LessonPanel lesson={selected} locale={course.locale} />
+            <LessonPanel lesson={selected} locale={course.locale} showComments={Boolean(course.workspace)} />
           </div>
         )}
       </div>

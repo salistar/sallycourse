@@ -4,7 +4,7 @@
 // ici (dépendances externes) mais les invariants déterministes le sont.
 import { describe, expect, it } from 'vitest';
 import { AUDIO } from '../shared.js';
-import { estimateNarrationSeconds, resolveVoice, ttsCacheKey } from './tts.js';
+import { clampNarrationSpeed, estimateNarrationSeconds, resolveVoice, ttsCacheKey } from './tts.js';
 
 describe('resolveVoice', () => {
   it('privilégie la voix forcée (Course.ttsVoice) quand elle est fournie', () => {
@@ -36,6 +36,28 @@ describe('ttsCacheKey', () => {
     expect(ttsCacheKey('Salut', 'v1', 'fr')).not.toBe(ttsCacheKey('Salut', 'v2', 'fr'));
     expect(ttsCacheKey('Salut', 'v', 'fr')).not.toBe(ttsCacheKey('Salut', 'v', 'en'));
   });
+
+  it('P137 — la vitesse par défaut (1 ou absente) ne change pas la clé historique', () => {
+    expect(ttsCacheKey('Salut', 'v', 'fr')).toBe(ttsCacheKey('Salut', 'v', 'fr', 1));
+  });
+
+  it('P137 — une vitesse différente produit une clé de cache différente', () => {
+    expect(ttsCacheKey('Salut', 'v', 'fr', 1.15)).not.toBe(ttsCacheKey('Salut', 'v', 'fr', 1));
+    expect(ttsCacheKey('Salut', 'v', 'fr', 0.85)).not.toBe(ttsCacheKey('Salut', 'v', 'fr', 1.15));
+  });
+});
+
+describe('clampNarrationSpeed (P137)', () => {
+  it('retombe sur 1 si absente ou non finie', () => {
+    expect(clampNarrationSpeed(undefined)).toBe(1);
+    expect(clampNarrationSpeed(Number.NaN)).toBe(1);
+  });
+
+  it('borne à [0.75, 1.25]', () => {
+    expect(clampNarrationSpeed(0.5)).toBe(0.75);
+    expect(clampNarrationSpeed(2)).toBe(1.25);
+    expect(clampNarrationSpeed(1.1)).toBe(1.1);
+  });
 });
 
 describe('estimateNarrationSeconds', () => {
@@ -48,5 +70,13 @@ describe('estimateNarrationSeconds', () => {
     const text = Array.from({ length: words }, () => 'mot').join(' ');
     const expected = (words / AUDIO.NARRATION_WORDS_PER_MINUTE) * 60;
     expect(estimateNarrationSeconds(text)).toBeCloseTo(expected, 5);
+  });
+
+  it('P137 — une vitesse > 1 raccourcit la durée estimée, < 1 l’allonge', () => {
+    const words = 280;
+    const text = Array.from({ length: words }, () => 'mot').join(' ');
+    const base = estimateNarrationSeconds(text);
+    expect(estimateNarrationSeconds(text, 1.25)).toBeCloseTo(base / 1.25, 5);
+    expect(estimateNarrationSeconds(text, 0.75)).toBeCloseTo(base / 0.75, 5);
   });
 });

@@ -93,9 +93,10 @@ export default async function CoursePreviewPage({
   const lessonViews: PreviewLesson[] = await Promise.all(
     lessons.map(async (l) => {
       const questions = quizByLesson.get(String(l._id)) ?? [];
-      const [videoUrl, captionsUrl, articleMd] = await Promise.all([
+      const [videoUrl, captionsUrl, transcriptUrl, articleMd] = await Promise.all([
         safePresign(l.assets?.videoUrl),
         safePresign(l.assets?.vttUrl),
+        safePresign(l.assets?.txtUrl),
         l.type === 'article' ? safeReadMarkdown(l.assets?.articleMd) : Promise.resolve(undefined),
       ]);
       return {
@@ -106,6 +107,7 @@ export default async function CoursePreviewPage({
         durationMin: l.durationMin ?? 0,
         videoUrl,
         captionsUrl,
+        transcriptUrl,
         articleMd,
         quiz: questions.map((q) => ({
           question: q.question,

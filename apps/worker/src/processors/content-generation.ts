@@ -32,6 +32,7 @@ import { runCourseQa } from '../lib/qa.js';
 import { evaluateAndStoreCourseQuality } from '../lib/quality-score.js';
 import { buildContinuityContext, summarizeLesson } from '../lib/continuity.js';
 import { findMostSimilarLesson } from '../lib/content-similarity.js';
+import { checkLessonOriginality } from '../lib/plagiarism-check.js';
 import { lessonContentHash } from '../deploy/updates.js';
 
 /**
@@ -310,6 +311,29 @@ async function checkLessonSimilarity(courseId: string, lessonId: string): Promis
 }
 
 /**
+ * Détection de plagiat sortant (P141) : vérifie l'originalité du contenu
+ * réellement généré (best-effort, cf. worker/lib/plagiarism-check.ts — pas
+ * une garantie légale) et persiste Lesson.originalityScore (additif). Best-
+ * effort côté appelant aussi : ne bloque jamais la leçon en cas d'échec.
+ */
+async function checkLessonOriginalityAndStore(lessonId: string): Promise<void> {
+  try {
+    const lesson = await Lesson.findById(lessonId).select('type title summary script assets').lean();
+    if (!lesson) return;
+    const report = await checkLessonOriginality(lesson);
+    await Lesson.updateOne({ _id: lessonId }, { $set: { originalityScore: report.score } });
+    if (report.suggestRegeneration) {
+      logger.warn(
+        { lessonId, score: report.score, method: report.method },
+        `Originalité faible détectée pour « ${lesson.title} » — régénération recommandée.`,
+      );
+    }
+  } catch (err) {
+    logger.warn({ lessonId, err }, 'vérification de plagiat sortant impossible');
+  }
+}
+
+/**
  * Fusionne le contexte de continuité (P19) et une éventuelle instruction
  * d'amélioration issue du feedback étudiant (P62). L'instruction est mise en
  * exergue pour que le générateur la prenne en compte prioritairement.
@@ -368,6 +392,9 @@ export async function processContentGeneration(job: Job<ContentJobData>): Promis
 
     // Déduplication de contenu (P115) : alerte si trop proche d'une leçon voisine.
     await checkLessonSimilarity(courseId, lessonId);
+
+    // Détection de plagiat sortant (P141) : score d'originalité best-effort.
+    await checkLessonOriginalityAndStore(lessonId);
     await report(courseId, 100, `Contenu prêt : « ${lesson.title} »`);
 
     // Chaînage séquentiel (P19) : la leçon enfile la suivante du cours, de sorte

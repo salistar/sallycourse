@@ -95,6 +95,16 @@ export function toVtt(cues: readonly Cue[]): string {
   return `WEBVTT\n\n${blocks.join('\n\n')}\n`;
 }
 
+/**
+ * Transcription texte brut (Prompt 137, accessibilité) : un paragraphe par
+ * cue, SANS timestamps ni index — lisible directement (lecteur d'écran,
+ * relecture, recherche plein texte). Même ordre chronologique que .srt/.vtt.
+ */
+export function toPlainText(cues: readonly Cue[]): string {
+  const clean = normalizeCues(cues);
+  return `${clean.map((cue) => cue.text).join('\n\n')}\n`;
+}
+
 // ---------------------------------------------------------------------------
 // Alignement transcription ↔ script de référence
 // ---------------------------------------------------------------------------

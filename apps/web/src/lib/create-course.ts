@@ -87,6 +87,14 @@ export async function createCourseForUser(
      * déjà la concurrence, mais espacer les démarrages lisse la charge vidéo.
      */
     enqueueDelayMs?: number;
+    /**
+     * Mode agence (P150) : rattache le cours créé à ce client d'agence — le
+     * userId reste celui de l'agence (quota/facturation), seuls les
+     * déploiements basculeront sur les credentials du client (voir
+     * resolveAgencyDeployCredentials côté worker). Additif, absent = cours
+     * normal.
+     */
+    agencyClientId?: string;
   },
 ): Promise<CreateCourseResult> {
   await connectDb();
@@ -172,6 +180,7 @@ export async function createCourseForUser(
       status: 'generating',
       avatarEnabled: input.avatarEnabled,
       avatarId: input.avatarId,
+      ...(options?.agencyClientId ? { agencyClientId: options.agencyClientId } : {}),
     });
   } catch {
     // La création a échoué après réservation : on rend le crédit.

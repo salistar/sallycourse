@@ -12,6 +12,7 @@ export { RegenerateButton, type RegenerateButtonProps } from './regenerate-butto
 export { DeriveButton, type DeriveButtonProps } from './derive-button';
 export { ProgressBanner, type ProgressBannerProps } from './progress-banner';
 export { DownloadPackButton, type DownloadPackButtonProps } from './download-pack-button';
+export { DownloadPortableButton, type DownloadPortableButtonProps } from './download-portable-button';
 export { DownloadReportButton, type DownloadReportButtonProps } from './download-report-button';
 export { IntroVideoUpload, type IntroVideoUploadProps } from './intro-video-upload';
 export { DeployPanel, type DeployPanelProps } from './deploy-panel';

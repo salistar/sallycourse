@@ -54,6 +54,8 @@
     .party-label { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); margin-bottom: 1.5mm; }
     .party-name { font-weight: 600; }
     .party-line { color: var(--muted); font-size: 9.5pt; }
+    .party-taxid { color: var(--muted); font-size: 9pt; margin-top: 0.5mm; }
+    .party-taxid:empty { display: none; }
 
     table.items { width: 100%; border-collapse: collapse; margin-top: 9mm; }
     table.items thead th {
@@ -109,6 +111,7 @@
       <div class="party-label">{{toLabel}}</div>
       <div class="party-name">{{customerName}}</div>
       <div class="party-line">{{customerEmail}}</div>
+      <div class="party-taxid">{{taxIdLine}}</div>
     </div>
   </section>
 

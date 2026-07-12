@@ -2,7 +2,10 @@
 
 import * as React from 'react';
 import { ImageIcon, Lock, Palette, Trash2, UploadCloud } from 'lucide-react';
-import { colors } from '@sallycourse/design';
+// Import du sous-module direct (pas le baril '@sallycourse/design') : le
+// baril réexporte aussi render-templates.ts (Node-only, node:url) qui ne
+// doit jamais atteindre le bundle navigateur d'un composant client.
+import { colors } from '@sallycourse/design/tokens';
 import {
   Badge,
   Button,
@@ -22,6 +25,11 @@ import {
 
 const ENDPOINT = '/api/account/branding';
 const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+// Additif (P143) : validation légère côté client (le serveur revalide via
+// subdomainSchema — @sallycourse/shared). Domaine racine affiché en aperçu
+// uniquement, pas de logique métier ici.
+const SUBDOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+const ROOT_DOMAIN_DISPLAY = 'sallycourse.com';
 
 // Défauts alignés sur les tokens de marque (P113 : plus de hex en dur ici).
 const DEFAULT_PRIMARY = colors.violet[500];
@@ -32,6 +40,8 @@ interface BrandingState {
   logoUrl: string | null;
   primaryColorHex: string;
   accentColorHex: string;
+  /** Additif (P143) : sous-domaine white-label — null si non configuré. */
+  customSubdomain?: string | null;
 }
 
 type Phase = 'loading' | 'idle' | 'saving' | 'uploading';
@@ -45,7 +55,13 @@ export function BrandingManager({ userPlan }: { userPlan: string }) {
     logoUrl: null,
     primaryColorHex: DEFAULT_PRIMARY,
     accentColorHex: DEFAULT_ACCENT,
+    customSubdomain: null,
   });
+  const [subdomainInput, setSubdomainInput] = React.useState('');
+
+  React.useEffect(() => {
+    setSubdomainInput(branding.customSubdomain ?? '');
+  }, [branding.customSubdomain]);
   const [hasBranding, setHasBranding] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -83,6 +99,15 @@ export function BrandingManager({ userPlan }: { userPlan: string }) {
       toast({ title: 'Couleur invalide', description: 'Utilisez le format #RRGGBB.', variant: 'danger' });
       return;
     }
+    const subdomain = subdomainInput.trim().toLowerCase();
+    if (subdomain && (subdomain.length < 3 || !SUBDOMAIN_RE.test(subdomain))) {
+      toast({
+        title: 'Sous-domaine invalide',
+        description: 'Minuscules, chiffres et tirets, 3 caractères minimum.',
+        variant: 'danger',
+      });
+      return;
+    }
 
     setPhase('saving');
     try {
@@ -93,6 +118,7 @@ export function BrandingManager({ userPlan }: { userPlan: string }) {
           schoolName: branding.schoolName.trim(),
           primaryColorHex: branding.primaryColorHex,
           accentColorHex: branding.accentColorHex,
+          customSubdomain: subdomain,
         }),
       });
       const data = (await res.json().catch(() => null)) as
@@ -241,12 +267,30 @@ export function BrandingManager({ userPlan }: { userPlan: string }) {
             </div>
           </div>
 
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <Input
+                label="Sous-domaine white-label"
+                value={subdomainInput}
+                onChange={(e) => setSubdomainInput(e.target.value.toLowerCase())}
+                placeholder="academie-client"
+                wrapperClassName="flex-1"
+              />
+              <span className="whitespace-nowrap text-sm text-muted">.{ROOT_DOMAIN_DISPLAY}</span>
+            </div>
+            <p className="px-1 text-xs text-muted">
+              Votre catalogue de cours publiés sera accessible à cette adresse, avec votre nom et
+              vos couleurs. Laissez vide pour désactiver. Configuration DNS requise en prod (voir
+              docs/WHITE-LABEL-DNS.md).
+            </p>
+          </div>
+
           <div className="flex flex-col gap-3">
             <span className="px-1 text-xs font-semibold text-muted">Logo</span>
             <div className="flex items-center gap-4">
               <div className="flex size-16 items-center justify-center overflow-hidden rounded-sm border border-input bg-surface">
                 {branding.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- logo utilisateur externe (URL présignée S3)
+                  // Logo utilisateur externe (URL présignée S3) : <img> natif nécessaire.
                   <img src={branding.logoUrl} alt="Logo de l’école" className="size-full object-contain" />
                 ) : (
                   <ImageIcon className="size-6 text-muted" aria-hidden="true" />

@@ -4,7 +4,7 @@ import Credentials from 'next-auth/providers/credentials';
 import { compare, hash } from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
-import { connectDb, User as UserModel } from '@sallycourse/db';
+import { connectDb, recordAudit, User as UserModel } from '@sallycourse/db';
 import { authConfig, type AppJwtClaims } from './auth.config';
 import { checkLoginLockout, clearLoginLockout, extractClientIp, recordLoginFailure } from './rate-limit';
 
@@ -51,12 +51,33 @@ const nextAuth = NextAuth({
         const user = await UserModel.findOne({ email: parsed.data.email });
         const valid = user ? await compare(parsed.data.password, user.passwordHash) : false;
 
+        // Journal d'audit (P149) : capturé ici (best-effort, ne bloque jamais la
+        // connexion) plutôt que dans le callback jwt, pour distinguer un échec
+        // (mauvais mot de passe / email inconnu) d'une réussite.
+        const userAgent = request.headers.get('user-agent') ?? undefined;
+
         if (!user || !valid) {
           await recordLoginFailure(lockoutKey);
+          void recordAudit({
+            action: 'login.failed',
+            targetType: 'user',
+            targetId: user ? String(user._id) : undefined,
+            ip,
+            userAgent,
+            metadata: { email: parsed.data.email },
+          });
           return null;
         }
 
         await clearLoginLockout(lockoutKey);
+        void recordAudit({
+          action: 'login',
+          userId: String(user._id),
+          targetType: 'user',
+          targetId: String(user._id),
+          ip,
+          userAgent,
+        });
         return {
           id: user._id.toString(),
           email: user.email,

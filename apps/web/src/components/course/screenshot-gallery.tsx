@@ -44,7 +44,7 @@ export function ScreenshotGallery({ screenshots, lessonTitle, className }: Scree
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/80',
             )}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element -- URLs S3 présignées, hors optimiseur Next */}
+            {/* URLs S3 présignées, hors optimiseur Next : <img> natif nécessaire. */}
             <img
               src={url}
               alt={`Capture ${index + 1} — ${lessonTitle}`}

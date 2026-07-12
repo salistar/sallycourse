@@ -276,6 +276,37 @@ export class UdemySessionExpiredError extends Error {
 }
 
 /* ------------------------------------------------------------------ */
+/* Coupons (Prompt 139)                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Résultat de la génération d'un coupon Udemy : `automated` indique si le
+ * code a réellement été saisi dans le dashboard Udemy (false ici — voir
+ * doc de la classe) ; `instructions` guide l'utilisateur pour la saisie
+ * manuelle du code affiché dans son propre dashboard Udemy.
+ */
+export interface UdemyCouponResult {
+  code: string;
+  automated: boolean;
+  instructions: string;
+}
+
+/**
+ * Construit le code + les instructions de saisie manuelle pour un coupon
+ * Udemy. Logique PURE (aucun navigateur) — utilisée par
+ * UdemyAdapter.createCoupon ci-dessous.
+ */
+export function buildUdemyCouponInstructions(externalId: string | undefined, code: string): string {
+  const courseRef = externalId ? `le cours (id ${externalId})` : 'votre cours';
+  return (
+    `Udemy n'expose aucune API/automation fiable pour créer des coupons de promotion ` +
+    `(le formulaire de coupon est protégé par une revue anti-fraude côté Udemy). ` +
+    `Code généré : ${code}. Pour l'activer, ouvrez le dashboard Instructeur Udemy → ${courseRef} → ` +
+    `Marketing → Coupons → « Créer un coupon », et saisissez ce code manuellement avec la remise et la période souhaitées.`
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Adapter                                                             */
 /* ------------------------------------------------------------------ */
 
@@ -778,6 +809,24 @@ export class UdemyAdapter extends BaseDeploymentAdapter {
         reviewState,
       };
     }, 'udemy.getStatus');
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // Coupons (Prompt 139) — MANUEL documenté (voir buildUdemyCouponInstructions)
+  // ────────────────────────────────────────────────────────────────
+
+  /**
+   * Génère un code de coupon Udemy et retourne les instructions de saisie
+   * MANUELLE (Udemy ne fournit aucun formulaire de coupon automatisable de
+   * façon fiable — le générateur intégré est protégé anti-bot/anti-fraude).
+   * `automated` est TOUJOURS false ici : cette méthode ne lance aucun
+   * navigateur, elle se contente de produire le code affiché à
+   * l'utilisateur pour saisie manuelle dans son dashboard Udemy.
+   */
+  async createCoupon(ctx: DeployContext, code: string): Promise<UdemyCouponResult> {
+    const instructions = buildUdemyCouponInstructions(ctx.externalId, code);
+    await this.log(ctx, 'info', `coupon Udemy « ${code} » à saisir manuellement — ${instructions}`);
+    return { code, automated: false, instructions };
   }
 
   // ────────────────────────────────────────────────────────────────

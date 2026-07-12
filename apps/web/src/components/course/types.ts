@@ -174,4 +174,20 @@ export interface CourseDetailView {
   resources?: CourseResourcesView | null;
   /** Versions doublées existantes (P92) — tableau vide tant qu'aucune traduction n'a tourné. */
   dubbedVersions?: DubbedVersionView[];
+  /**
+   * Rattachement à un Workspace d'équipe (Prompt 138). Présent uniquement si
+   * le cours appartient à une équipe — pilote l'affichage des commentaires de
+   * leçon et du bandeau d'approbation (absent = cours solo, comportement
+   * historique inchangé).
+   */
+  workspace?: {
+    id: string;
+    /** Rôle effectif de l'utilisateur courant dans ce workspace. */
+    role: 'owner' | 'editor' | 'reviewer';
+    /** true si ce workspace a au moins un reviewer (gate d'approbation active). */
+    hasReviewer: boolean;
+  } | null;
+  /** Approbation de la version courante (P138) — null tant que non approuvée. */
+  approvedBy?: string | null;
+  approvedAt?: string | null;
 }

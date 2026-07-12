@@ -38,6 +38,35 @@ export interface IUser {
    * première conversion. Additif, absent par défaut.
    */
   pendingReferralCode?: string | null;
+  /**
+   * Préférence d'accessibilité (Prompt 137) : si activée, augmente légèrement
+   * la taille de police dans les gabarits de slides au rendu vidéo (paramètre
+   * `largeText` optionnel de renderTemplate — @sallycourse/design). Additif,
+   * défaut false : aucun changement pour les utilisateurs existants.
+   */
+  preferLargeText?: boolean;
+  /**
+   * Réglages de facturation Maroc (Prompt 148, conformité fiscale) — renseignés
+   * dans settings/billing, repris tels quels (snapshot) sur chaque Invoice émise.
+   * Tous optionnels : un utilisateur hors Maroc ou n'ayant pas encore complété
+   * ses réglages continue de payer normalement (facture sans ICE/IF).
+   */
+  billingTaxStatus?: 'auto_entrepreneur' | 'company' | 'unspecified';
+  /** Identifiant Commun de l'Entreprise — obligatoire côté société marocaine. */
+  billingIce?: string;
+  /** Identifiant Fiscal — obligatoire côté société marocaine. */
+  billingIf?: string;
+  /** Raison sociale / nom facturé (défaut : User.name si vide). */
+  billingCompanyName?: string;
+  /** Adresse de facturation (ligne libre, affichée sur la facture). */
+  billingAddress?: string;
+  /**
+   * Profil agence (Prompt 150, mode agence) : true si ce compte génère et
+   * déploie des cours au nom de clients tiers (voir AgencyClient,
+   * Course.agencyClientId). Additif, défaut false — aucun changement pour
+   * les utilisateurs existants.
+   */
+  isAgency?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -62,6 +91,17 @@ const userSchema = new Schema<IUser>(
     voiceCloneConsent: { type: Boolean, default: false },
     voiceCloneSampleSeconds: { type: Number, min: 0 },
     pendingReferralCode: { type: String, default: null },
+    preferLargeText: { type: Boolean, default: false },
+    billingTaxStatus: {
+      type: String,
+      enum: ['auto_entrepreneur', 'company', 'unspecified'],
+      default: 'unspecified',
+    },
+    billingIce: { type: String, trim: true },
+    billingIf: { type: String, trim: true },
+    billingCompanyName: { type: String, trim: true },
+    billingAddress: { type: String, trim: true },
+    isAgency: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

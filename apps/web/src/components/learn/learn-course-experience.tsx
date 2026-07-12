@@ -5,6 +5,7 @@ import {
   Award,
   CheckCircle2,
   Circle,
+  Download,
   ExternalLink,
   FileText,
   FlaskConical,
@@ -14,8 +15,9 @@ import {
 } from 'lucide-react';
 import { Badge, Button, Card, CardContent, Progress, useToast } from '@/components/ui';
 import { ArticleView } from '@/components/course/article-view';
-import { QuizPreview } from '@/components/course/quiz-preview';
 import { cn } from '@/lib/cn';
+import { LearnQuizPlayer } from './learn-quiz-player';
+import { CourseChatbotWidget } from './course-chatbot-widget';
 import type { LearnCourseView, LearnLessonView } from './types';
 
 /**
@@ -24,6 +26,13 @@ import type { LearnCourseView, LearnLessonView } from './types';
  * quiz) et barre de progression. Gère l'inscription, le marquage de leçon
  * terminée et l'accès au certificat une fois le cours complété.
  */
+
+/** Formate un prix en centimes vers une devise Intl — 'Gratuit' si nul. */
+function formatPrice(cents: number, currency: string): string {
+  return cents > 0
+    ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(cents / 100)
+    : 'Gratuit';
+}
 
 const TYPE_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   video: Video,
@@ -38,6 +47,10 @@ export interface LearnCourseExperienceProps {
   enrolled: boolean;
   completedLessons: string[];
   completedAt: string | null;
+  /** Code promo actif résolu côté serveur (P139) — absent si aucun/invalide. */
+  promoCode?: string;
+  /** Prix déjà remisé (centimes) correspondant à promoCode, si applicable. */
+  promoPriceCents?: number;
 }
 
 export function LearnCourseExperience({
@@ -46,6 +59,8 @@ export function LearnCourseExperience({
   enrolled: initialEnrolled,
   completedLessons: initialCompleted,
   completedAt: initialCompletedAt,
+  promoCode,
+  promoPriceCents,
 }: LearnCourseExperienceProps) {
   const { toast } = useToast();
   const [enrolled, setEnrolled] = React.useState(initialEnrolled);
@@ -70,12 +85,37 @@ export function LearnCourseExperience({
     return map;
   }, [course.lessons]);
 
-  const priceLabel =
-    course.priceCents > 0
-      ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: course.currency }).format(
-          course.priceCents / 100,
-        )
-      : 'Gratuit';
+  const priceLabel = formatPrice(course.priceCents, course.currency);
+  const hasPromo = typeof promoPriceCents === 'number' && promoPriceCents < course.priceCents;
+  const promoPriceLabel = hasPromo ? formatPrice(promoPriceCents!, course.currency) : undefined;
+
+  // Tracking granulaire (P144) : timestamp d'entrée sur la leçon active, sert
+  // à approximer le temps passé transmis à /track lors du "completed".
+  const lessonStartRef = React.useRef<number>(Date.now());
+
+  /** Envoi best-effort d'un événement au tracker — n'affecte jamais la lecture en cas d'échec. */
+  function trackEvent(
+    lessonId: string,
+    event: 'started' | 'completed' | 'heartbeat',
+    extra?: { deltaSeconds?: number; quizScore?: number },
+  ) {
+    if (!enrolled) return;
+    fetch(`/api/learn/${course.id}/track`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ lessonId, event, ...extra }),
+    }).catch(() => {
+      /* best-effort : le player continue sans blocage */
+    });
+  }
+
+  // Marque la leçon active comme "commencée" et réinitialise le chrono
+  // d'approximation du temps passé à chaque changement de leçon.
+  React.useEffect(() => {
+    if (!active || !enrolled) return;
+    lessonStartRef.current = Date.now();
+    trackEvent(active.id, 'started');
+  }, [active?.id, enrolled]);
 
   async function handleEnroll() {
     if (!isAuthenticated) {
@@ -84,7 +124,11 @@ export function LearnCourseExperience({
     }
     setBusy(true);
     try {
-      const res = await fetch(`/api/learn/${course.id}/enroll`, { method: 'POST' });
+      const res = await fetch(`/api/learn/${course.id}/enroll`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(promoCode ? { couponCode: promoCode } : {}),
+      });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         toast({ title: 'Inscription impossible', description: data.error, variant: 'danger' });
@@ -114,6 +158,11 @@ export function LearnCourseExperience({
       if (!res.ok) throw new Error('progress');
       const data = (await res.json()) as { completed: boolean; completedAt: string | null };
       setCompletedAt(data.completedAt);
+      if (willComplete) {
+        // Temps passé approximatif depuis l'affichage de la leçon (P144).
+        const deltaSeconds = Math.round((Date.now() - lessonStartRef.current) / 1000);
+        trackEvent(lesson.id, 'completed', { deltaSeconds });
+      }
       if (data.completed && willComplete) {
         toast({
           title: 'Cours terminé !',
@@ -135,7 +184,15 @@ export function LearnCourseExperience({
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-display text-3xl font-semibold text-foreground">{course.title}</h1>
-          <Badge variant={course.priceCents > 0 ? 'ready' : 'published'}>{priceLabel}</Badge>
+          {hasPromo ? (
+            <>
+              <Badge variant="published">{promoPriceLabel}</Badge>
+              <span className="text-sm text-muted line-through">{priceLabel}</span>
+              <Badge variant="ready">Code {promoCode}</Badge>
+            </>
+          ) : (
+            <Badge variant={course.priceCents > 0 ? 'ready' : 'published'}>{priceLabel}</Badge>
+          )}
         </div>
         {course.summary && <p className="max-w-2xl text-muted">{course.summary}</p>}
       </header>
@@ -232,6 +289,7 @@ export function LearnCourseExperience({
         <section aria-live="polite" className="min-w-0">
           {active ? (
             <LessonPlayer
+              courseId={course.id}
               lesson={active}
               enrolled={enrolled}
               done={completed.has(active.id)}
@@ -242,17 +300,27 @@ export function LearnCourseExperience({
           )}
         </section>
       </div>
+
+      {/* Assistant de cours (P146) — accessible uniquement à l'apprenant inscrit. */}
+      {enrolled && (
+        <CourseChatbotWidget
+          courseId={course.id}
+          lessonTitleById={Object.fromEntries(course.lessons.map((l) => [l.id, l.title]))}
+        />
+      )}
     </div>
   );
 }
 
 /** Rendu d'une leçon selon son type : vidéo, article ou quiz interactif. */
 function LessonPlayer({
+  courseId,
   lesson,
   enrolled,
   done,
   onToggleComplete,
 }: {
+  courseId: string;
   lesson: LearnLessonView;
   enrolled: boolean;
   done: boolean;
@@ -293,6 +361,18 @@ function LessonPlayer({
             <p className="text-sm text-muted">La vidéo de cette leçon n’est pas encore disponible.</p>
           ))}
 
+        {/* Transcription texte (P137, accessibilité) : à côté des sous-titres, sans timestamps. */}
+        {lesson.type === 'video' && lesson.transcriptUrl && (
+          <a
+            href={lesson.transcriptUrl}
+            download
+            className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-muted underline underline-offset-2 hover:text-foreground"
+          >
+            <Download className="size-3.5" aria-hidden="true" />
+            Télécharger la transcription (.txt)
+          </a>
+        )}
+
         {/* Article */}
         {lesson.type === 'article' &&
           (lesson.articleMd ? (
@@ -301,10 +381,15 @@ function LessonPlayer({
             <p className="text-sm text-muted">L’article de cette leçon n’est pas encore disponible.</p>
           ))}
 
-        {/* Quiz interactif */}
+        {/* Quiz interactif — soumission détaillée + « Plus d'exercices » (P145) */}
         {lesson.type === 'quiz' &&
           (lesson.quiz.length > 0 ? (
-            <QuizPreview questions={lesson.quiz} />
+            <LearnQuizPlayer
+              courseId={courseId}
+              lessonId={lesson.id}
+              lessonTitle={lesson.title}
+              questions={lesson.quiz}
+            />
           ) : (
             <p className="text-sm text-muted">Ce quiz ne contient pas encore de questions.</p>
           ))}

@@ -66,6 +66,7 @@ import {
 } from '../shared.js';
 import { generateAvatarSegment } from './avatar.js';
 import { buildMusicMixArgs, resolveMusicTrack } from './background-music.js';
+import { buildFfmetadataChapters, buildChapterMuxArgs, lessonChaptersFromScript } from './video-chapters.js';
 import { logger } from '../queues/index.js';
 import { recordRenderCost } from '../lib/cost.js';
 import { checkCancelled, killIfActive } from '../lib/cancellation.js';
@@ -616,6 +617,8 @@ export interface RenderLessonVideoResult {
   durationSec: number;
   /** Nombre de segments assemblés (intro incluse). */
   segments: number;
+  /** Chapitres dérivés du script (Prompt 136) — [] si aucune slide ne qualifie. */
+  chapters: { offsetSec: number; title: string }[];
 }
 
 /** Options de rendu (Prompt 78) — toutes optionnelles, défauts = comportement historique. */
@@ -817,17 +820,47 @@ export async function renderLessonVideo(
       }
     }
 
+    // 4ter) Chapitres (Prompt 136, additif) : dérivés des slides "title"/
+    // "section-transition" du script (offsets décalés de l'intro carte titre
+    // + éventuels segments avatar en tête). Skip silencieux si aucune slide
+    // ne qualifie (comportement historique inchangé — pas de fichier
+    // FFMETADATA1, pas de remux). Le mux est un -c copy : coût négligeable,
+    // aucune perte de qualité, aucun changement de durée.
+    const introOffsetSec = VIDEO.INTRO_SECONDS + (avatarEnabled && isFirstLessonOfSection ? AVATAR.SEGMENT_SECONDS : 0);
+    const chapters = lessonChaptersFromScript(script.slides, introOffsetSec);
+    let chapteredPath = mixedPath;
+    if (chapters.length > 0) {
+      const metadataContent = buildFfmetadataChapters(chapters, expectedDurationSeconds(segments) + avatarExtraSeconds);
+      if (metadataContent) {
+        const metadataPath = path.join(dir, 'chapters.ffmetadata');
+        await writeFile(metadataPath, metadataContent, 'utf8');
+        const chapteredOut = path.join(dir, 'lesson-chapters.mp4');
+        try {
+          await runFfmpeg(buildChapterMuxArgs(mixedPath, metadataPath, chapteredOut));
+          chapteredPath = chapteredOut;
+        } catch (err) {
+          // Le mux de chapitres ne doit jamais bloquer le rendu vidéo existant :
+          // on log et on continue SANS chapitres (repli sur la vidéo mixée).
+          logger.warn({ err, lessonId }, 'mux des chapitres indisponible — rendu sans chapitres');
+        }
+      }
+    }
+
     // 5) Vérification ffprobe (durée / résolution / audio).
-    const probe = await probeVideo(mixedPath);
+    const probe = await probeVideo(chapteredPath);
     const expected = expectedDurationSeconds(segments) + avatarExtraSeconds;
     const problems = verifyProbe(probe, expected);
     if (problems.length > 0) {
       throw new VideoRenderError('verify', lessonId, problems.join(' ; '));
     }
 
-    // 6) Upload + persistance.
+    // 6) Upload + persistance. NB : on uploade chapteredPath (retombe sur
+    // mixedPath si le mux de chapitres a été sauté/a échoué, lui-même retombant
+    // sur finalPath si le mixage musical a été sauté/a échoué) — PAS finalPath
+    // en dur, sinon la musique de fond (P135) et les chapitres (P136) déjà
+    // encodés ne seraient jamais uploadés.
     const videoKey = keys.video();
-    await uploadObject(videoKey, await readFile(finalPath), 'video/mp4');
+    await uploadObject(videoKey, await readFile(chapteredPath), 'video/mp4');
     lesson.assets.videoUrl = videoKey;
     lesson.durationMin = Math.max(1, Math.round((probe.durationSec / 60) * 10) / 10);
     lesson.status = 'ready';
@@ -849,6 +882,7 @@ export async function renderLessonVideo(
       videoKey,
       durationSec: probe.durationSec,
       segments: segments.length,
+      chapters,
     };
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => undefined);

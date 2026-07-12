@@ -39,6 +39,8 @@ export interface ILessonAssets {
   slides: string[];
   srtUrl?: string;
   vttUrl?: string;
+  /** Transcription texte brut (P137, accessibilité) — sans timestamps. */
+  txtUrl?: string;
   audioUrl?: string;
   /** Liens StackBlitz/CodeSandbox pour les TP de code (P84). */
   sandboxLinks?: ISandboxLinks;
@@ -103,6 +105,12 @@ export interface ILesson {
   /** Avertissement de similarité de contenu (P115), additif — absent si RAS. */
   similarityWarning?: ILessonSimilarityWarning;
   /**
+   * Score d'originalité 0-1 (P141, worker/lib/plagiarism-check.ts) — vérification
+   * best-effort par recherche web de phrases distinctives, PAS une garantie
+   * légale. Additif, absent tant qu'aucune vérification n'a encore tourné.
+   */
+  originalityScore?: number;
+  /**
    * Cycle brouillon→final de la prévisualisation vidéo rapide (Prompt 133) :
    * 'none' (défaut) tant que jamais rendue via le flow aperçu ; 'draft-ready'
    * après un rendu preset='draft' ; 'approved' quand l'utilisateur valide le
@@ -134,6 +142,7 @@ const lessonSchema = new Schema<ILesson>({
     slides: { type: [String], default: [] },
     srtUrl: { type: String },
     vttUrl: { type: String },
+    txtUrl: { type: String },
     audioUrl: { type: String },
     sandboxLinks: {
       type: new Schema<ISandboxLinks>(
@@ -180,6 +189,7 @@ const lessonSchema = new Schema<ILesson>({
     ),
     default: undefined,
   },
+  originalityScore: { type: Number, min: 0, max: 1 },
   videoQualityStatus: {
     type: String,
     enum: [...videoQualityStatusSchema.options],
