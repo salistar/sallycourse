@@ -219,12 +219,32 @@ export async function uploadObject(
   contentType: string,
 ): Promise<void> {
   try {
+    // PutObject exige une longueur connue : un stream sans ContentLength fait
+    // échouer la requête côté SDK (« Invalid value "undefined" for header
+    // x-amz-decoded-content-length ») — constaté avec le ZIP du packaging
+    // (archiver), où l'erreur non rattrapée TUAIT le process worker. On
+    // matérialise donc les streams en Buffer avant l'envoi. Pour des exports
+    // très volumineux en production, migrer vers @aws-sdk/lib-storage
+    // (Upload multipart en flux) — dépendance non installée à ce jour.
+    const resolved =
+      typeof body === 'object' && body !== null && typeof (body as Readable).pipe === 'function'
+        ? await streamToBufferForUpload(body as Readable)
+        : (body as Buffer | Uint8Array | string);
     await getS3Client().send(
-      new PutObjectCommand({ Bucket: bucket(), Key: key, Body: body, ContentType: contentType }),
+      new PutObjectCommand({ Bucket: bucket(), Key: key, Body: resolved, ContentType: contentType }),
     );
   } catch (err) {
     throw new StorageError('uploadObject', key, err);
   }
+}
+
+/** Agrège un stream lisible en Buffer (voir note ContentLength dans uploadObject). */
+async function streamToBufferForUpload(stream: Readable): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
 }
 
 /** Récupère un objet sous forme de stream Node lisible. */
