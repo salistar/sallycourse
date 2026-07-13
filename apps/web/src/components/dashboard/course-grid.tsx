@@ -10,7 +10,7 @@ import { Plus } from 'lucide-react';
 import { CourseCard } from './course-card';
 import { FirstCourseEmpty } from './first-course-empty';
 import type { DashboardCourse } from './mock-data';
-import type { CourseStatus } from '@sallycourse/shared';
+import { FILTERS, parseCourseFilter, type CourseFilterId } from './course-filter';
 
 /**
  * Grille de cours — cartes riches en apparition orchestrée, filtres par
@@ -18,20 +18,7 @@ import type { CourseStatus } from '@sallycourse/shared';
  * Sans aucun cours : grand empty state « premier cours ».
  */
 
-export type CourseFilterId = 'all' | 'active' | 'ready' | 'published' | 'draft';
-
-const FILTERS: { id: CourseFilterId; label: string; statuses?: CourseStatus[] }[] = [
-  { id: 'all', label: 'Tous' },
-  { id: 'active', label: 'En production', statuses: ['generating', 'outline-review', 'failed'] },
-  { id: 'ready', label: 'Prêts', statuses: ['ready'] },
-  { id: 'published', label: 'Publiés', statuses: ['published'] },
-  { id: 'draft', label: 'Brouillons', statuses: ['draft'] },
-];
-
-/** Assainit la valeur `?status=` de l'URL (valeur inconnue → 'all'). */
-export function parseCourseFilter(value: string | undefined | null): CourseFilterId {
-  return FILTERS.some((f) => f.id === value) ? (value as CourseFilterId) : 'all';
-}
+export type { CourseFilterId } from './course-filter';
 
 export interface CourseGridProps {
   courses: DashboardCourse[];

@@ -3,7 +3,8 @@
  * Câblés au réel (P9) ; les mocks de ./mock-data restent pour les vitrines design.
  */
 export { GreetingHeader, type GreetingHeaderProps } from './greeting-header';
-export { CourseGrid, parseCourseFilter, type CourseGridProps, type CourseFilterId } from './course-grid';
+export { CourseGrid, type CourseGridProps } from './course-grid';
+export { parseCourseFilter, type CourseFilterId } from './course-filter';
 export { CourseCard, type CourseCardProps } from './course-card';
 export { CourseThumbnail, type CourseThumbnailProps } from './course-thumbnail';
 export { ProgressRing, type ProgressRingProps } from './progress-ring';

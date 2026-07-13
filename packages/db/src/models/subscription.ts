@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
@@ -57,5 +58,5 @@ subscriptionSchema.index({ userId: 1 });
 
 // Pattern hot-reload safe (Next) : réutilise le modèle déjà compilé.
 export const Subscription: Model<ISubscription> =
-  (models.Subscription as Model<ISubscription> | undefined) ??
+  (mongoose.models.Subscription as Model<ISubscription> | undefined) ??
   model<ISubscription>('Subscription', subscriptionSchema);

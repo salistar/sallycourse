@@ -19,6 +19,7 @@ import {
   altTextResultSchema,
   annotateScreenshot,
   buildAltTextPrompt,
+  colors,
   extractScreenshotPlaceholders,
   getObjectStream,
   objectExists,
@@ -46,6 +47,7 @@ import {
 import { readFile } from 'node:fs/promises';
 import { mongoCheckpointStore, withCheckpoint } from '../lib/idempotency.js';
 import { bumpCacheStat } from '../lib/cache.js';
+import { finalizeCourseIfComplete } from './content-generation.js';
 
 export interface ScreenshotCaptureResult {
   courseId: string;
@@ -91,6 +93,29 @@ async function report(
   } catch (err) {
     logger.warn({ courseId, err }, 'mise à jour GenerationJob impossible');
   }
+}
+
+/**
+ * Capture de repli (mode dégradé) : PNG 1920×1080 déterministe aux couleurs du
+ * design system, produit quand la capture réelle est impossible — URL locale
+ * de l'apprenant (refusée par la garde SSRF), environnement injoignable,
+ * Playwright en échec. Même philosophie que les autres providers (TTS →
+ * silence, image → SVG) : le pipeline ne laisse JAMAIS un placeholder
+ * {{screenshot:…}} brut dans l'article publié.
+ */
+export async function fallbackScreenshotPng(caption: string, stepNumber: number): Promise<Buffer> {
+  const esc = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const shortCaption = caption.length > 90 ? `${caption.slice(0, 87)}…` : caption;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080">
+  <rect width="1920" height="1080" fill="${colors.violet[950]}"/>
+  <rect x="60" y="60" width="1800" height="960" rx="24" fill="${colors.violet[900]}" stroke="${colors.violet[700]}" stroke-width="2"/>
+  <circle cx="960" cy="420" r="88" fill="none" stroke="${colors.gold[500]}" stroke-width="6"/>
+  <text x="960" y="448" text-anchor="middle" font-family="Georgia, serif" font-size="72" fill="${colors.gold[500]}">${stepNumber}</text>
+  <text x="960" y="600" text-anchor="middle" font-family="Arial, sans-serif" font-size="44" fill="${colors.white}">Étape ${stepNumber} — illustration à réaliser dans votre environnement</text>
+  <text x="960" y="672" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" fill="${colors.violet[300]}">${esc(shortCaption)}</text>
+</svg>`;
+  return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
 /** Agrège un stream lisible en un Buffer. */
@@ -324,6 +349,8 @@ export async function processScreenshotCapture(
     altText?: string;
     /** Clé S3 du screencast (Prompt 85), présente uniquement si spec.recordVideo. */
     screencastKey?: string;
+    /** true si l'image est une illustration de repli (capture réelle impossible). */
+    degraded?: boolean;
   }
 
   let failed = 0;
@@ -386,8 +413,18 @@ export async function processScreenshotCapture(
 
           return { ok: true, key, caption: spec.caption, altText, screencastKey };
         } catch (err) {
-          logger.warn({ courseId, lessonId, step: stepNumber, err }, 'capture en échec (non bloquante)');
-          return { ok: false };
+          logger.warn({ courseId, lessonId, step: stepNumber, err }, 'capture en échec — repli sur une illustration dégradée');
+          // Mode dégradé : illustration de repli plutôt qu'un placeholder brut
+          // dans l'article (cf. fallbackScreenshotPng). Si même le repli échoue,
+          // l'étape est réellement abandonnée (comportement historique).
+          try {
+            const key = keys.screenshot(i);
+            await uploadObject(key, await fallbackScreenshotPng(spec.caption, stepNumber), 'image/png');
+            return { ok: true, key, caption: spec.caption, altText: spec.caption, degraded: true };
+          } catch (fallbackErr) {
+            logger.warn({ courseId, lessonId, step: stepNumber, err: fallbackErr }, 'illustration de repli impossible');
+            return { ok: false };
+          }
         }
       },
       onStep: async ({ index, total, result }) => {
@@ -443,6 +480,10 @@ export async function processScreenshotCapture(
     `Captures terminées : ${uploadedKeys.length} produite(s), ${screencastKeys.length} screencast(s), ${failed} en échec, ${placeholdersReplaced} placeholder(s) d'article remplacé(s)`,
     failed > 0 ? 'warn' : 'info',
   );
+
+  // Si les captures finissent APRÈS le dernier rendu vidéo, plus aucun autre
+  // job ne rappellerait la finalisation : on re-vérifie ici (ne jette jamais).
+  await finalizeCourseIfComplete(courseId);
 
   return {
     courseId,

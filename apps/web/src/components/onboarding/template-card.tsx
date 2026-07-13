@@ -3,12 +3,14 @@
 import * as React from 'react';
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
+// Sous-module direct (et non le barrel @sallycourse/shared) : le barrel
+// réexporte crypto.ts (node:crypto), incompatible avec le bundle client.
 import {
   COURSE_TONE_LABELS,
   TEMPLATE_CATEGORY_LABELS,
   lessonMixPercentages,
   type CourseTemplate,
-} from '@sallycourse/shared';
+} from '@sallycourse/shared/course-templates';
 import { cn } from '@/lib/cn';
 import { Badge } from '@/components/ui';
 import { transitions } from '@/components/motion';

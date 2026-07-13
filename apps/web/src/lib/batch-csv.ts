@@ -1,10 +1,13 @@
 import { z } from 'zod';
+// Sous-module direct (et non le barrel @sallycourse/shared) : le barrel
+// réexporte crypto.ts (node:crypto), incompatible avec le bundle client —
+// ce fichier est importé par components/batch/batch-experience.tsx (client).
 import {
   difficultySchema,
   localeSchema,
   type CreateCourseInput,
   type Difficulty,
-} from '@sallycourse/shared';
+} from '@sallycourse/shared/schemas/course';
 
 /**
  * Import CSV pour la génération en batch (P63). Parse maison (aucune dépendance) :

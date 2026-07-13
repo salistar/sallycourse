@@ -4,7 +4,13 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Gauge, Sparkles } from 'lucide-react';
 import { Button, useToast } from '@/components/ui';
-import { QUICK_PREVIEW_SPEEDUP_LABEL, isEligibleForFinal, type VideoQualityStatus } from '@sallycourse/shared';
+// Sous-module direct (et non le barrel @sallycourse/shared) : le barrel
+// réexporte crypto.ts (node:crypto), incompatible avec le bundle client.
+import {
+  QUICK_PREVIEW_SPEEDUP_LABEL,
+  isEligibleForFinal,
+  type VideoQualityStatus,
+} from '@sallycourse/shared/video-preview';
 import type { LessonView } from './types';
 
 /**

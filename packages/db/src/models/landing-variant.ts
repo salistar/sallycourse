@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
@@ -62,5 +63,5 @@ const landingVariantSchema = new Schema<ILandingVariant>(
 landingVariantSchema.index({ courseId: 1, platform: 1, variantIndex: 1 }, { unique: true });
 
 export const LandingVariant: Model<ILandingVariant> =
-  (models.LandingVariant as Model<ILandingVariant> | undefined) ??
+  (mongoose.models.LandingVariant as Model<ILandingVariant> | undefined) ??
   model<ILandingVariant>('LandingVariant', landingVariantSchema);

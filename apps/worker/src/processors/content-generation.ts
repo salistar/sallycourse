@@ -95,6 +95,39 @@ export async function enqueueNextLesson(courseId: string, currentLessonId: strin
   }
 }
 
+/**
+ * Enfile la suite MÉDIA d'une leçon dont le contenu texte vient d'être généré :
+ * vidéo → tts-generation (qui chaîne video-render puis subtitle-generation),
+ * TP → screenshot-capture (qui remplit aussi les placeholders {{screenshot:…}}
+ * de l'article de la même section). Sans cet enfilage, le QA final (vidéos
+ * jouables + placeholders remplacés, cf. lib/qa.ts) est structurellement
+ * inatteignable. Best-effort : une chaîne rompue est rattrapable manuellement.
+ */
+export async function enqueueLessonMedia(
+  courseId: string,
+  lesson: { _id: unknown; type: string },
+): Promise<void> {
+  const lessonId = String(lesson._id);
+  try {
+    if (lesson.type === 'video') {
+      const queue = createQueue(QUEUES.tts);
+      const jobId = makeJobId(courseId, QUEUES.tts, lessonId);
+      await queue.remove(jobId).catch(() => undefined);
+      const priority = priorityForPlan(await planForCourse(courseId));
+      await queue.add(QUEUES.tts, { courseId, lessonId }, { ...defaultJobOptions, jobId, priority });
+      logger.info({ courseId, lessonId }, 'tts-generation enfilée (pipeline média vidéo)');
+    } else if (lesson.type === 'tp') {
+      const queue = createQueue(QUEUES.screenshot);
+      const jobId = makeJobId(courseId, QUEUES.screenshot, lessonId);
+      await queue.remove(jobId).catch(() => undefined);
+      await queue.add(QUEUES.screenshot, { courseId, lessonId }, { ...defaultJobOptions, jobId });
+      logger.info({ courseId, lessonId }, 'screenshot-capture enfilée (pipeline média TP)');
+    }
+  } catch (err) {
+    logger.warn({ courseId, lessonId, err }, 'enfilage du pipeline média impossible');
+  }
+}
+
 /** Publie la progression du step content-generation (best-effort). */
 async function report(
   courseId: string,
@@ -171,6 +204,18 @@ async function emitGenerationComplete(course: {
 export async function finalizeCourseIfComplete(courseId: string): Promise<void> {
   const remaining = await Lesson.countDocuments({ courseId, status: { $ne: 'ready' } });
   if (remaining > 0) return;
+
+  // Pipeline média encore en cours : une leçon vidéo texte-prête n'a pas
+  // forcément son MP4 rendu (TTS → video-render tournent après le contenu).
+  // Lancer le QA maintenant échouerait à coup sûr (videoUrl manquant) et
+  // marquerait le cours 'failed' à tort — on attend le dernier rendu, qui
+  // rappelle finalizeCourseIfComplete (processors/video-render.ts).
+  const videosPending = await Lesson.countDocuments({
+    courseId,
+    type: 'video',
+    $or: [{ 'assets.videoUrl': { $exists: false } }, { 'assets.videoUrl': { $in: [null, ''] } }],
+  });
+  if (videosPending > 0) return;
 
   // Claim atomique : { marketing: null } matche aussi le champ absent.
   const claimed = await Course.findOneAndUpdate(
@@ -347,10 +392,24 @@ function mergeInstruction(context: string | undefined, instruction: string | und
 }
 
 export async function processContentGeneration(job: Job<ContentJobData>): Promise<ContentGenerationResult> {
-  const { courseId, lessonId, instruction } = job.data;
+  const { courseId, lessonId, instruction, mode } = job.data;
 
   const lesson = await Lesson.findById(lessonId);
   if (!lesson) throw new Error(`leçon introuvable : ${lessonId}`);
+
+  // Régénération 'render-only' (P46) : le contenu édité est déjà en base — on
+  // ne rappelle PAS le générateur LLM, on relance uniquement le pipeline média
+  // (TTS + rendu pour une vidéo, captures pour un TP). Article/quiz édités
+  // n'ont pas de rendu à rejouer : repasse simplement la leçon en 'ready'.
+  if (mode === 'render-only') {
+    await report(courseId, 10, `Relance du rendu de « ${lesson.title} » (contenu conservé)`);
+    await enqueueLessonMedia(courseId, lesson);
+    if (lesson.type !== 'video' && lesson.type !== 'tp') {
+      await Lesson.updateOne({ _id: lessonId }, { $set: { status: 'ready' } });
+    }
+    await report(courseId, 100, `Rendu relancé pour « ${lesson.title} »`);
+    return { courseId, lessonId, type: lesson.type };
+  }
 
   try {
     // Annulation (P73) : vérifiée avant de démarrer CETTE leçon — le chaînage
@@ -396,6 +455,11 @@ export async function processContentGeneration(job: Job<ContentJobData>): Promis
     // Détection de plagiat sortant (P141) : score d'originalité best-effort.
     await checkLessonOriginalityAndStore(lessonId);
     await report(courseId, 100, `Contenu prêt : « ${lesson.title} »`);
+
+    // Pipeline média : le texte seul ne suffit pas au QA final — une leçon
+    // vidéo doit encore passer par TTS → rendu → sous-titres, un TP par la
+    // capture d'écran (qui remplit aussi les placeholders de l'article voisin).
+    await enqueueLessonMedia(courseId, lesson);
 
     // Chaînage séquentiel (P19) : la leçon enfile la suivante du cours, de sorte
     // que chaque génération dispose du contexte des précédentes. Réservé au flux

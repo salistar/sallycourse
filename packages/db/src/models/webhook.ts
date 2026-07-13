@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
@@ -56,5 +57,5 @@ webhookSchema.index({ userId: 1, createdAt: -1 });
 
 // Pattern hot-reload safe (Next) : réutilise le modèle déjà compilé.
 export const Webhook: Model<IWebhook> =
-  (models.Webhook as Model<IWebhook> | undefined) ??
+  (mongoose.models.Webhook as Model<IWebhook> | undefined) ??
   model<IWebhook>('Webhook', webhookSchema);

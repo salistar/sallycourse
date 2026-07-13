@@ -39,13 +39,13 @@ describe('QUEUES', () => {
 describe('makeJobId', () => {
   it('est déterministe pour un même couple (courseId, step)', () => {
     expect(makeJobId('c1', QUEUES.outline)).toBe(makeJobId('c1', QUEUES.outline));
-    expect(makeJobId('c1', QUEUES.outline)).toBe('outline-generation:c1');
+    expect(makeJobId('c1', QUEUES.outline)).toBe('outline-generation_c1');
   });
 
   it('distingue cours, steps et suffixes', () => {
     expect(makeJobId('c1', QUEUES.outline)).not.toBe(makeJobId('c2', QUEUES.outline));
     expect(makeJobId('c1', QUEUES.outline)).not.toBe(makeJobId('c1', QUEUES.packaging));
-    expect(makeJobId('c1', QUEUES.content, 'lesson-9')).toBe('content-generation:c1:lesson-9');
+    expect(makeJobId('c1', QUEUES.content, 'lesson-9')).toBe('content-generation_c1_lesson-9');
   });
 });
 

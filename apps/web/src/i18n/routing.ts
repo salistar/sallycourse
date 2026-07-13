@@ -2,7 +2,10 @@
 // Approche SANS routing préfixé : la locale de l'UI est portée par le cookie
 // NEXT_LOCALE (lu dans request.ts). Les pages ne vivent pas sous /[locale].
 // Le CONTENU des cours suit Course.locale, indépendant de cette locale d'UI.
-import { LOCALES, RTL_LOCALES, type Locale } from '@sallycourse/shared';
+// Sous-module direct (et non le barrel @sallycourse/shared) : le barrel
+// réexporte crypto.ts (node:crypto), incompatible avec le bundle client
+// (ce fichier est importé depuis des composants client via components/i18n).
+import { LOCALES, RTL_LOCALES, type Locale } from '@sallycourse/shared/constants';
 
 /** Locales de l'interface (réexport depuis @sallycourse/shared, source unique). */
 export const locales = LOCALES;

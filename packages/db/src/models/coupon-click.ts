@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
@@ -34,5 +35,5 @@ const couponClickSchema = new Schema<ICouponClick>(
 couponClickSchema.index({ code: 1, createdAt: -1 });
 
 export const CouponClick: Model<ICouponClick> =
-  (models.CouponClick as Model<ICouponClick> | undefined) ??
+  (mongoose.models.CouponClick as Model<ICouponClick> | undefined) ??
   model<ICouponClick>('CouponClick', couponClickSchema);

@@ -463,10 +463,13 @@ async function downloadToFile(key: string, dest: string): Promise<boolean> {
  * répétées au lieu d'échouer avec un code de sortie non-zéro — constaté en
  * pratique (ffmpeg 6.0, `Invalid PNG signature` en boucle, jamais de sortie).
  * Sans ce timeout, un tel asset bloquerait le job BullMQ indéfiniment (pire
- * qu'un crash : un job zombie qui ne libère jamais son worker). 2 minutes est
- * largement supérieur au temps d'encodage réel d'un segment d'une slide.
+ * qu'un crash : un job zombie qui ne libère jamais son worker). 5 minutes :
+ * un segment d'une slide longue (2-4 min de narration) encodé en 1080p sur une
+ * machine chargée dépasse largement 2 min (constaté : timeout systématique du
+ * preset 'final' sous charge) — la borne ne vise que les VRAIES boucles
+ * infinies, pas les encodages légitimement lents.
  */
-export const FFMPEG_SEGMENT_TIMEOUT_MS = 2 * 60_000;
+export const FFMPEG_SEGMENT_TIMEOUT_MS = 5 * 60_000;
 
 /**
  * Lance ffmpeg avec les arguments donnés, borné par un timeout dur (voir

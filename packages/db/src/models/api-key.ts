@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
@@ -44,5 +45,5 @@ apiKeySchema.index({ userId: 1, createdAt: -1 });
 
 // Pattern hot-reload safe (Next) : réutilise le modèle déjà compilé.
 export const ApiKey: Model<IApiKey> =
-  (models.ApiKey as Model<IApiKey> | undefined) ??
+  (mongoose.models.ApiKey as Model<IApiKey> | undefined) ??
   model<IApiKey>('ApiKey', apiKeySchema);

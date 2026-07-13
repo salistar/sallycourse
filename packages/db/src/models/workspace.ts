@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
@@ -61,5 +62,5 @@ workspaceSchema.index({ ownerId: 1, createdAt: -1 });
 workspaceSchema.index({ 'members.userId': 1 });
 
 export const Workspace: Model<IWorkspace> =
-  (models.Workspace as Model<IWorkspace> | undefined) ??
+  (mongoose.models.Workspace as Model<IWorkspace> | undefined) ??
   model<IWorkspace>('Workspace', workspaceSchema);

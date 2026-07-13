@@ -19,6 +19,7 @@ import { createQueue, logger } from '../queues/index.js';
 import { priorityForPlan } from '../queues/priority.js';
 import { planForCourse } from '../queues/plan-lookup.js';
 import { renderLessonVideo } from '../media/video-render.js';
+import { renderLessonSlides } from '../media/slide-renderer.js';
 import { CourseCancelledError } from '../lib/cancellation.js';
 import { finalizeCourseIfComplete } from './content-generation.js';
 
@@ -60,6 +61,14 @@ export async function processVideoRender(job: Job<VideoRenderJobData>): Promise<
     // (veryfast/CRF21, cf. PRESET_CONFIG) — 5x plus rapide, qualité brouillon.
     // Mode absent/'final' → comportement historique (DEFAULT_PRESET 'final').
     const preset = presetForMode(mode ?? 'final');
+
+    // Slides PNG (P20) : rendues ICI, juste avant l'assemblage — le script de la
+    // leçon est figé à ce stade (TTS déjà passé) et le rendu ffmpeg exige les
+    // PNG dans le storage. Toujours re-rendues (idempotent, écrase les clés) :
+    // un script édité entre deux rendus produit ainsi des slides à jour.
+    await report(courseId, 5, 'Rendu des slides de la leçon (HTML → PNG 1920×1080)');
+    await renderLessonSlides(courseId, lessonId);
+
     await report(
       courseId,
       10,

@@ -180,6 +180,20 @@ export async function generateArticle(params: {
     cost: { courseId, userId: String(course.userId) },
   });
 
+  // Placeholders {{screenshot:…}} : ils ne sont remplacés par de vraies
+  // captures QUE si la même section contient une leçon TP (le processor
+  // screenshot-capture réinjecte ses captures dans l'article voisin). Dans une
+  // section SANS TP, aucun mécanisme ne les remplira jamais — on les retire
+  // donc à la source, sinon le QA final (article-placeholders) est
+  // structurellement inatteignable et l'export contiendrait du balisage brut.
+  const sectionHasTp =
+    (await Lesson.countDocuments({ sectionId: lesson.sectionId, type: 'tp' })) > 0;
+  if (!sectionHasTp) {
+    article.markdown = article.markdown
+      .replace(/^[ \t]*\{\{screenshot:[^}]+\}\}[ \t]*\r?\n?/gm, '')
+      .replace(/\{\{screenshot:[^}]+\}\}/g, '');
+  }
+
   // Clé déterministe par position (section, leçon) : un retry écrase l'ancien objet.
   const storageKey = storageKeys.course(courseId).lesson(section.order, lesson.order).article();
   await uploadObject(storageKey, article.markdown, 'text/markdown; charset=utf-8');

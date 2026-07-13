@@ -215,7 +215,11 @@ export async function createCourseForUser(
         ...(enqueueDelayMs ? { delay: enqueueDelayMs } : {}),
       },
     );
-  } catch {
+  } catch (err) {
+    console.error('[create-course] enqueue failed:', err);
+    // Le crédit a été réservé plus haut : une génération qui échoue avant même
+    // de démarrer ne doit pas coûter le quota mensuel de l'utilisateur.
+    await releaseQuota(userId);
     await CourseModel.updateOne({ _id: course._id }, { $set: { status: 'failed' } }).catch(
       () => undefined,
     );

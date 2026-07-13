@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
@@ -67,7 +68,7 @@ const emailSequenceSchema = new Schema<IEmailSequence>(
 emailSequenceSchema.index({ userId: 1, courseId: 1 });
 
 export const EmailSequence: Model<IEmailSequence> =
-  (models.EmailSequence as Model<IEmailSequence> | undefined) ??
+  (mongoose.models.EmailSequence as Model<IEmailSequence> | undefined) ??
   model<IEmailSequence>('EmailSequence', emailSequenceSchema);
 
 /* ------------------------------------------------------------------ */
@@ -129,5 +130,5 @@ emailSequenceEnrollmentSchema.index({ sequenceId: 1, email: 1 }, { unique: true 
 emailSequenceEnrollmentSchema.index({ status: 1, nextSendAt: 1 });
 
 export const EmailSequenceEnrollment: Model<IEmailSequenceEnrollment> =
-  (models.EmailSequenceEnrollment as Model<IEmailSequenceEnrollment> | undefined) ??
+  (mongoose.models.EmailSequenceEnrollment as Model<IEmailSequenceEnrollment> | undefined) ??
   model<IEmailSequenceEnrollment>('EmailSequenceEnrollment', emailSequenceEnrollmentSchema);

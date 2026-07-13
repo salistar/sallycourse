@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
 } from 'mongoose';
@@ -47,5 +48,5 @@ promptTemplateSchema.index({ key: 1, isActive: 1 });
 promptTemplateSchema.index({ key: 1, version: -1 });
 
 export const PromptTemplate: Model<IPromptTemplate> =
-  (models.PromptTemplate as Model<IPromptTemplate> | undefined) ??
+  (mongoose.models.PromptTemplate as Model<IPromptTemplate> | undefined) ??
   model<IPromptTemplate>('PromptTemplate', promptTemplateSchema);

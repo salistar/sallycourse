@@ -4,12 +4,10 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Wand2 } from 'lucide-react';
-import {
-  createCourseInputSchema,
-  getCourseTemplate,
-  type CourseTemplate,
-  type Difficulty,
-} from '@sallycourse/shared';
+// Sous-modules directs (et non le barrel @sallycourse/shared) : le barrel
+// réexporte crypto.ts (node:crypto), incompatible avec le bundle client.
+import { createCourseInputSchema, type Difficulty } from '@sallycourse/shared/schemas/course';
+import { getCourseTemplate, type CourseTemplate } from '@sallycourse/shared/course-templates';
 import { Button, useToast } from '@/components/ui';
 import { transitions } from '@/components/motion/motion-config';
 import { TitleField } from './title-field';

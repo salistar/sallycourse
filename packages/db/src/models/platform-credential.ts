@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
@@ -72,5 +73,5 @@ platformCredentialSchema.index(
 
 // Pattern hot-reload safe (Next) : réutilise le modèle déjà compilé.
 export const PlatformCredential: Model<IPlatformCredential> =
-  (models.PlatformCredential as Model<IPlatformCredential> | undefined) ??
+  (mongoose.models.PlatformCredential as Model<IPlatformCredential> | undefined) ??
   model<IPlatformCredential>('PlatformCredential', platformCredentialSchema);

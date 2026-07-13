@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
@@ -66,5 +67,5 @@ notificationSchema.index({ userId: 1, read: 1 });
 
 // Pattern hot-reload safe (Next) : réutilise le modèle déjà compilé.
 export const Notification: Model<INotification> =
-  (models.Notification as Model<INotification> | undefined) ??
+  (mongoose.models.Notification as Model<INotification> | undefined) ??
   model<INotification>('Notification', notificationSchema);

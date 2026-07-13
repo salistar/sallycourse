@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
@@ -72,5 +73,5 @@ const shortClipSchema = new Schema<IShortClip>(
 shortClipSchema.index({ courseId: 1, platform: 1, order: 1 });
 
 export const ShortClip: Model<IShortClip> =
-  (models.ShortClip as Model<IShortClip> | undefined) ??
+  (mongoose.models.ShortClip as Model<IShortClip> | undefined) ??
   model<IShortClip>('ShortClip', shortClipSchema);

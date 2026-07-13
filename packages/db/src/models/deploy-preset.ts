@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
@@ -84,5 +85,5 @@ deployPresetSchema.index({ userId: 1, updatedAt: -1 });
 deployPresetSchema.index({ isPublic: 1, updatedAt: -1 });
 
 export const DeployPreset: Model<IDeployPreset> =
-  (models.DeployPreset as Model<IDeployPreset> | undefined) ??
+  (mongoose.models.DeployPreset as Model<IDeployPreset> | undefined) ??
   model<IDeployPreset>('DeployPreset', deployPresetSchema);

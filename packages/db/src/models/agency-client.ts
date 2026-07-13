@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
@@ -54,5 +55,5 @@ agencyClientSchema.index({ agencyUserId: 1, createdAt: -1 });
 
 // Pattern hot-reload safe (Next) : réutilise le modèle déjà compilé.
 export const AgencyClient: Model<IAgencyClient> =
-  (models.AgencyClient as Model<IAgencyClient> | undefined) ??
+  (mongoose.models.AgencyClient as Model<IAgencyClient> | undefined) ??
   model<IAgencyClient>('AgencyClient', agencyClientSchema);

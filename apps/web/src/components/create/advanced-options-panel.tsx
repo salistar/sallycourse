@@ -3,7 +3,11 @@
 import * as React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, FileText, Minus, Plus, SlidersHorizontal, Upload, X } from 'lucide-react';
-import { computeNextOffPeakStart, detectSourceMaterialKind, type Locale } from '@sallycourse/shared';
+// Sous-modules directs (et non le barrel @sallycourse/shared) : le barrel
+// réexporte crypto.ts (node:crypto), incompatible avec le bundle client.
+import { computeNextOffPeakStart } from '@sallycourse/shared/off-peak-window';
+import { detectSourceMaterialKind } from '@sallycourse/shared/rag';
+import type { Locale } from '@sallycourse/shared/constants';
 import { cn } from '@/lib/cn';
 import { Button, Select } from '@/components/ui';
 import { transitions } from '@/components/motion/motion-config';

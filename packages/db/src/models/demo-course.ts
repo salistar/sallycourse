@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
 } from 'mongoose';
@@ -87,5 +88,5 @@ const demoCourseSchema = new Schema<IDemoCourse>(
 demoCourseSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export const DemoCourse: Model<IDemoCourse> =
-  (models.DemoCourse as Model<IDemoCourse> | undefined) ??
+  (mongoose.models.DemoCourse as Model<IDemoCourse> | undefined) ??
   model<IDemoCourse>('DemoCourse', demoCourseSchema);

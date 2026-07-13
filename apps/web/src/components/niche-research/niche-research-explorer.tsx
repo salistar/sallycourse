@@ -4,11 +4,13 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Compass, Flame, Sparkles, Wand2 } from 'lucide-react';
+// Sous-module direct (et non le barrel @sallycourse/shared) : le barrel
+// réexporte crypto.ts (node:crypto), incompatible avec le bundle client.
 import {
   TEMPLATE_CATEGORY_LABELS,
   templateCategorySchema,
   type TemplateCategory,
-} from '@sallycourse/shared';
+} from '@sallycourse/shared/course-templates';
 import { cn } from '@/lib/cn';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Select, Skeleton, useToast } from '@/components/ui';
 import { transitions } from '@/components/motion';

@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
@@ -88,5 +89,5 @@ const schoolBrandingSchema = new Schema<ISchoolBranding>(
 
 // Pattern hot-reload safe (Next) : réutilise le modèle déjà compilé.
 export const SchoolBranding: Model<ISchoolBranding> =
-  (models.SchoolBranding as Model<ISchoolBranding> | undefined) ??
+  (mongoose.models.SchoolBranding as Model<ISchoolBranding> | undefined) ??
   model<ISchoolBranding>('SchoolBranding', schoolBrandingSchema);

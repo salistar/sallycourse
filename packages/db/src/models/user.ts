@@ -1,4 +1,6 @@
-import { Schema, model, models, type HydratedDocument, type Model } from 'mongoose';
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, { Schema, model, type HydratedDocument, type Model } from 'mongoose';
 // prettier-ignore
 // @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext) ; typage intact ici (Bundler)
 import { LOCALES, PLANS, type Locale, type PlanId } from '@sallycourse/shared';
@@ -108,4 +110,4 @@ const userSchema = new Schema<IUser>(
 
 // Pattern hot-reload safe (Next) : réutilise le modèle déjà compilé.
 export const User: Model<IUser> =
-  (models.User as Model<IUser> | undefined) ?? model<IUser>('User', userSchema);
+  (mongoose.models.User as Model<IUser> | undefined) ?? model<IUser>('User', userSchema);

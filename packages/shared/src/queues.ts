@@ -161,15 +161,17 @@ export const defaultJobOptions = {
 
 // ── jobId déterministe ──────────────────────────────────────────
 /**
- * jobId déterministe `step:courseId[:extra…]` — permet la déduplication BullMQ
- * (re-poster le même step pour un cours ne crée pas de doublon).
+ * jobId déterministe `step_courseId[_extra…]` — permet la déduplication BullMQ
+ * (re-poster le même step pour un cours ne crée pas de doublon). Séparateur
+ * `_` et non `:` : BullMQ rejette (« Custom Id cannot contain : ») tout jobId
+ * contenant un deux-points, réservé en interne comme séparateur de clé Redis.
  */
 export function makeJobId(
   courseId: string,
   step: QueueName,
   ...extra: readonly (string | number)[]
 ): string {
-  return [step, courseId, ...extra].join(':');
+  return [step, courseId, ...extra].join('_');
 }
 
 // ── Progression : canal Redis pub/sub typé ──────────────────────

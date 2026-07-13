@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Sparkles, Wand2 } from 'lucide-react';
-import { COURSE_TEMPLATES, type CourseTemplate } from '@sallycourse/shared';
+// Sous-module direct (et non le barrel @sallycourse/shared) : le barrel
+// réexporte crypto.ts (node:crypto), incompatible avec le bundle client.
+import { COURSE_TEMPLATES, type CourseTemplate } from '@sallycourse/shared/course-templates';
 import { cn } from '@/lib/cn';
 import { Button, buttonVariants } from '@/components/ui';
 import { transitions } from '@/components/motion';

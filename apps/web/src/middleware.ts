@@ -21,7 +21,7 @@ import { extractSubdomain } from '@/lib/white-label';
  */
 const { auth } = NextAuth(authConfig);
 
-const PUBLIC_API_PREFIXES = ['/api/auth', '/api/health'];
+const PUBLIC_API_PREFIXES = ['/api/auth', '/api/health', '/api/altcha'];
 
 function isPublicApi(pathname: string): boolean {
   return PUBLIC_API_PREFIXES.some(

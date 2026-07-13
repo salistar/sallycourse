@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
@@ -72,5 +73,5 @@ manualPaymentRequestSchema.index({ userId: 1, createdAt: -1 });
 
 // Pattern hot-reload safe (Next) : réutilise le modèle déjà compilé.
 export const ManualPaymentRequest: Model<IManualPaymentRequest> =
-  (models.ManualPaymentRequest as Model<IManualPaymentRequest> | undefined) ??
+  (mongoose.models.ManualPaymentRequest as Model<IManualPaymentRequest> | undefined) ??
   model<IManualPaymentRequest>('ManualPaymentRequest', manualPaymentRequestSchema);

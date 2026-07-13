@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
@@ -51,5 +52,5 @@ const affiliateLinkSchema = new Schema<IAffiliateLink>(
 affiliateLinkSchema.index({ userId: 1, createdAt: -1 });
 
 export const AffiliateLink: Model<IAffiliateLink> =
-  (models.AffiliateLink as Model<IAffiliateLink> | undefined) ??
+  (mongoose.models.AffiliateLink as Model<IAffiliateLink> | undefined) ??
   model<IAffiliateLink>('AffiliateLink', affiliateLinkSchema);

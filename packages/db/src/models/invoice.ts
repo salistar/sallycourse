@@ -1,7 +1,8 @@
-import {
+// Défaut + destructuration : l'export nommé `models` de mongoose (CJS) n'est
+// pas détecté par le lexer de Node ESM (worker exécuté via tsx).
+import mongoose, {
   Schema,
   model,
-  models,
   type HydratedDocument,
   type Model,
   type Types,
@@ -111,4 +112,4 @@ invoiceSchema.index({ provider: 1, providerRef: 1 });
 
 // Pattern hot-reload safe (Next) : réutilise le modèle déjà compilé.
 export const Invoice: Model<IInvoice> =
-  (models.Invoice as Model<IInvoice> | undefined) ?? model<IInvoice>('Invoice', invoiceSchema);
+  (mongoose.models.Invoice as Model<IInvoice> | undefined) ?? model<IInvoice>('Invoice', invoiceSchema);
