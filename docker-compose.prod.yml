@@ -20,7 +20,7 @@ services:
       resources:
         limits:
           memory: 4g
-    networks: [internal]
+    networks: [internal, edge]
 
   mongo:
     restart: unless-stopped
