@@ -32,7 +32,7 @@ import { execa } from 'execa';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { AVATAR, VIDEO, getConfig, storageKeys, uploadObject } from '../shared.js';
+import { AUDIO, AVATAR, VIDEO, getConfig, storageKeys, uploadObject } from '../shared.js';
 import { logger } from '../queues/index.js';
 import {
   isHeyGenAllowedForPlan,
@@ -40,6 +40,7 @@ import {
   renderSadTalkerAvatar,
   selectAvatarProvider,
 } from '../providers/sadtalker-provider.js';
+import { isModalAvatarConfigured, synthesizeAvatarClip } from '../providers/modal-avatar-provider.js';
 // @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext)
 import { type PlanId } from '@sallycourse/shared';
 
@@ -84,9 +85,35 @@ export interface GenerateAvatarSegmentResult {
   /** Chemin local du MP4 produit (segment prêt à être inséré dans le montage). */
   filePath: string;
   /** Provider ayant réellement produit le segment. */
-  provider: 'sadtalker' | 'heygen' | 'mock';
+  provider: 'ditto' | 'sadtalker' | 'heygen' | 'mock';
   /** Durée du segment, en secondes. */
   seconds: number;
+}
+
+/** Récupère une ressource distante (photo présignée) en Buffer. */
+async function fetchToBuffer(url: string): Promise<Buffer> {
+  const res = await fetch(url);
+  if (!res.ok) throw new AvatarGenerationError('download', `téléchargement ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+/** Durée (s) d'un MP4 via ffprobe — pour refléter la vraie longueur du clip Ditto. */
+async function probeMp4Seconds(filePath: string, fallback: number): Promise<number> {
+  try {
+    const { stdout } = await execa('ffprobe', [
+      '-v',
+      'error',
+      '-show_entries',
+      'format=duration',
+      '-of',
+      'default=noprint_wrappers=1:nokey=1',
+      filePath,
+    ]);
+    const parsed = Number.parseFloat(stdout.trim());
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 const HEYGEN_BASE_URL = 'https://api.heygen.com';
@@ -247,7 +274,7 @@ async function renderMockAvatarClip(
       '-f',
       'lavfi',
       '-i',
-      'anullsrc=channel_layout=stereo:sample_rate=44100',
+      `anullsrc=channel_layout=stereo:sample_rate=${AUDIO.SAMPLE_RATE}`,
       '-t',
       seconds.toFixed(3),
       '-vf',
@@ -299,6 +326,25 @@ export async function generateAvatarSegment(
 
   const dir = await mkdtemp(path.join(tmpdir(), 'avatar-'));
   const outPath = path.join(dir, 'segment.mp4');
+
+  // 0) Ditto sur Modal (OSS Apache-2.0, GPU serverless) — PRIORITAIRE quand
+  // activé (MODAL_AVATAR=true) et qu'on dispose d'une photo + de l'audio narré :
+  // anime la photo sur la narration réelle (mouvements de tête, clignements,
+  // lip-sync). Meilleur que SadTalker et sans self-hosting GPU. Repli en cas
+  // d'échec sur la cascade existante (SadTalker/HeyGen/mock).
+  if (isModalAvatarConfigured() && opts.photoUrl && opts.narratedAudioBuffer) {
+    try {
+      const photo = await fetchToBuffer(opts.photoUrl);
+      const mp4 = await synthesizeAvatarClip(photo.toString('base64'), opts.narratedAudioBuffer.toString('base64'));
+      await writeFile(outPath, mp4);
+      const realSeconds = await probeMp4Seconds(outPath, seconds);
+      logger.info({ avatarId, provider: 'ditto', seconds: realSeconds }, 'avatar Ditto (Modal) généré');
+      return { filePath: outPath, provider: 'ditto', seconds: realSeconds };
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      logger.warn({ avatarId, err: detail }, 'avatar Ditto (Modal) indisponible — repli cascade');
+    }
+  }
 
   const provider = selectAvatarProvider({
     plan: opts.plan,

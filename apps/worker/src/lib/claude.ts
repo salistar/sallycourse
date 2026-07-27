@@ -64,6 +64,13 @@ export interface CallClaudeJsonParams<T> {
    * (toujours la même réponse invalide servie depuis le cache).
    */
   skipCache?: boolean;
+  /**
+   * Provider LLM choisi pour CE cours (course.llmProvider) : id du catalogue
+   * cloud (voir providers/cloud-llm.ts — 'gemini', 'deepseek'…), ou 'anthropic'
+   * / 'ollama' pour forcer ces chemins. Absent → cascade coût par défaut
+   * (cloud gratuit → Anthropic → Ollama → mock).
+   */
+  llmProviderId?: string | null;
 }
 
 /** Erreur enrichie : tentatives effectuées, dernière sortie brute, issues Zod. */
@@ -102,23 +109,76 @@ export function resetClaudeClientForTests(): void {
 /**
  * Extrait la charge JSON d'une réponse LLM : gère les fences ```json … ```,
  * le texte d'accompagnement, et retombe sur le premier bloc {…} ou […].
+ *
+ * PIÈGE (corrigé) : un article contient son PROPRE Markdown avec des blocs de
+ * code ```bash…```. Certains providers (Gemini, Zhipu, Qwen…) emballent leur
+ * JSON dans un fence ```json (Claude, lui, renvoie du JSON nu). Une regex de
+ * fence NON-GREEDY tronquait alors le JSON au PREMIER ``` interne → JSON invalide
+ * → échec systématique de génération d'articles. On retire donc le fence
+ * ENGLOBANT (ligne d'ouverture + DERNIER ```), jamais un fence interne.
  */
 export function extractJsonPayload(raw: string): string {
-  const trimmed = raw.trim();
-  // Fence Markdown (```json ... ``` ou ``` ... ```)
-  const fence = /```(?:json)?\s*([\s\S]*?)```/i.exec(trimmed);
-  if (fence?.[1]) return fence[1].trim();
-  // Déjà du JSON nu
-  if (trimmed.startsWith('{') || trimmed.startsWith('[')) return trimmed;
-  // Premier objet/tableau au milieu de prose
-  const firstBrace = trimmed.search(/[[{]/);
-  if (firstBrace >= 0) {
-    const open = trimmed[firstBrace];
-    const close = open === '{' ? '}' : ']';
-    const lastClose = trimmed.lastIndexOf(close);
-    if (lastClose > firstBrace) return trimmed.slice(firstBrace, lastClose + 1);
+  let s = raw.trim();
+
+  // Fence englobant en TÊTE de réponse : retire la ligne d'ouverture (```json /
+  // ```) et le DERNIER ``` (clôture) — les ```…``` internes au JSON sont préservés.
+  if (s.startsWith('```')) {
+    s = s.replace(/^```[^\n]*\r?\n?/, '');
+    const lastFence = s.lastIndexOf('```');
+    if (lastFence >= 0) s = s.slice(0, lastFence);
+    s = s.trim();
   }
-  return trimmed;
+
+  // Première ouverture {…} ou […] — JSON nu OU noyé dans du texte.
+  const firstBrace = s.search(/[[{]/);
+  if (firstBrace < 0) return s;
+
+  // Extraction ÉQUILIBRÉE de la 1re valeur complète : ignore tout ce qui SUIT
+  // (2e objet, prose de fin, ``` de clôture) qui faisait échouer JSON.parse
+  // (« Unexpected non-whitespace character after JSON »). Respecte les chaînes
+  // et les échappements → les ```…``` internes au JSON restent intacts.
+  const balanced = sliceFirstBalancedJson(s, firstBrace);
+  if (balanced !== null) return balanced;
+
+  // Repli (réponse vraisemblablement tronquée : valeur jamais refermée) :
+  // première ouverture → dernière fermeture, meilleur-effort.
+  const open = s[firstBrace]!;
+  const close = open === '{' ? '}' : ']';
+  const lastClose = s.lastIndexOf(close);
+  return lastClose > firstBrace ? s.slice(firstBrace, lastClose + 1) : s.slice(firstBrace);
+}
+
+/**
+ * Extrait la PREMIÈRE valeur JSON équilibrée ({…} ou […]) à partir de `startIdx`,
+ * en respectant chaînes et échappements — ignore donc tout texte APRÈS la valeur
+ * (2e objet, explication de fin, ``` de clôture) qui faisait échouer JSON.parse.
+ * Ne compte qu'un seul type de délimiteur (celui d'ouverture) : suffisant pour
+ * du JSON bien formé (un `]` ne peut pas fermer prématurément un objet, ni
+ * inversement). Retourne null si la valeur ne se referme jamais (tronquée).
+ */
+export function sliceFirstBalancedJson(s: string, startIdx: number): string | null {
+  const open = s[startIdx];
+  if (open !== '{' && open !== '[') return null;
+  const close = open === '{' ? '}' : ']';
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = startIdx; i < s.length; i += 1) {
+    const ch = s[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === open) depth += 1;
+    else if (ch === close) {
+      depth -= 1;
+      if (depth === 0) return s.slice(startIdx, i + 1);
+    }
+  }
+  return null;
 }
 
 /** Vrai si l'erreur SDK est un 429 (rate limit) — détection structurelle (pas d'instanceof, évite un couplage dur au SDK dans les tests). */
@@ -178,18 +238,59 @@ function textOfResponse(response: Anthropic.Message): string {
  * - stop_reason === 'max_tokens' → ClaudeJsonError explicite (troncature).
  */
 export async function callClaudeJson<T>(params: CallClaudeJsonParams<T>): Promise<T> {
-  const { schema, system, user, model = DEFAULT_CLAUDE_MODEL, skipCache = false } = params;
+  const { schema, system, user, model = DEFAULT_CLAUDE_MODEL, skipCache = false, temperature, llmProviderId } = params;
   const config = getConfig();
 
-  if (config.MOCK_PROVIDERS || !config.ANTHROPIC_API_KEY) {
+  if (config.MOCK_PROVIDERS) {
     logger.debug({ model, mock: true }, 'callClaudeJson : mode mock (fixture déterministe)');
     return mockFixtureFor(schema, user);
   }
 
-  if (skipCache) return callClaudeJsonUncached(params);
+  const wantsOllama = llmProviderId === 'ollama' || llmProviderId === 'oss';
+  const wantsAnthropic = llmProviderId === 'anthropic' || llmProviderId === 'claude';
 
-  const key = claudeCacheKey(system, user, model);
-  return getOrCompute<T>(key, CLAUDE_CACHE_TTL_SEC, () => callClaudeJsonUncached(params), 'claude');
+  // 1) Providers CLOUD OpenAI-compatibles (Gemini gratuit par défaut, DeepSeek,
+  // Grok, Qwen…). Choix explicite du cours (llmProviderId) prioritaire, sinon
+  // DEFAULT_CLOUD_LLM, sinon le moins cher disponible — voir cloud-llm.ts.
+  // Import dynamique : cloud-llm importe extractJsonPayload d'ici (cycle sinon).
+  if (!wantsOllama && !wantsAnthropic) {
+    try {
+      const { resolveCloudLlm, callCloudLlmJson } = await import('../providers/cloud-llm.js');
+      const provider = resolveCloudLlm(llmProviderId);
+      if (provider) {
+        return await callCloudLlmJson({
+          provider,
+          schema,
+          system,
+          user,
+          temperature,
+          maxTokens: params.maxTokens,
+          cost: params.cost,
+        });
+      }
+    } catch (err) {
+      logger.warn({ err, llmProviderId }, 'callClaudeJson : provider cloud indisponible/insuffisant — repli');
+    }
+  }
+
+  // 2) Anthropic (SDK) — choix explicite, ou disponible et cloud OpenAI-compat absent.
+  if (config.ANTHROPIC_API_KEY && !wantsOllama) {
+    if (skipCache) return callClaudeJsonUncached(params);
+    const key = claudeCacheKey(system, user, model);
+    return getOrCompute<T>(key, CLAUDE_CACHE_TTL_SEC, () => callClaudeJsonUncached(params), 'claude');
+  }
+
+  // 3) Ollama LOCAL (P152) — dernier recours réel avant le mock déterministe.
+  if (config.OLLAMA_BASE_URL?.trim()) {
+    try {
+      const { generateOllamaJsonDirect } = await import('../providers/ollama-provider.js');
+      return await generateOllamaJsonDirect({ schema, system, user, temperature, critical: true });
+    } catch (err) {
+      logger.warn({ err }, 'callClaudeJson : Ollama indisponible/insuffisant — repli mock-fixtures');
+    }
+  }
+  logger.debug({ model, mock: true }, 'callClaudeJson : aucun provider disponible — mode mock');
+  return mockFixtureFor(schema, user);
 }
 
 /** Appel Claude réel, sans passage par le cache (utilisé en interne par callClaudeJson). */

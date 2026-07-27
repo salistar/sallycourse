@@ -404,13 +404,6 @@ export async function startEmailSequenceScheduler(
 
   logger.info({ cron }, 'scheduler email-sequence démarré');
 }
-
-/** Déclenche un passage immédiat hors cadence (diagnostic / bouton admin). */
-export async function triggerEmailSequenceNow(): Promise<void> {
-  if (!sequenceQueue) sequenceQueue = new Queue<EmailSequenceJobData>(EMAIL_SEQUENCE_QUEUE, { connection: bullConnection() });
-  await sequenceQueue.add(EMAIL_SEQUENCE_JOB + ':manual', { reason: 'manual' }, { removeOnComplete: true });
-}
-
 /** Arrête proprement le scheduler (worker + queue). */
 export async function stopEmailSequenceScheduler(): Promise<void> {
   await sequenceWorker?.close().catch(() => undefined);

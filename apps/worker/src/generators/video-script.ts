@@ -6,9 +6,11 @@ import {
   AUDIO,
   Course,
   Lesson,
+  renderGenerationDirectives,
   slideScriptSchema,
   type SlideScript,
 } from '../shared.js';
+import { z } from 'zod';
 import { callClaudeJson } from '../lib/claude.js';
 import { logger } from '../queues/index.js';
 import { videoScriptSystemPrompt, videoScriptUserPrompt } from '../prompts/video-script.js';
@@ -16,7 +18,7 @@ import { videoScriptSystemPrompt, videoScriptUserPrompt } from '../prompts/video
 /** Tentatives quand les validations MÉTIER échouent (le schéma est garanti par callClaudeJson). */
 const MAX_BUSINESS_ATTEMPTS = 3;
 /** Script complet d'une vidéo : budget de sortie large. */
-const SCRIPT_MAX_TOKENS = 8192;
+const SCRIPT_MAX_TOKENS = 16384;
 /** Durée par défaut si l'outline n'a pas fixé de durationMin. */
 const DEFAULT_DURATION_MIN = 5;
 /** Tolérance sur le volume de narration vs durée cible × débit. */
@@ -62,7 +64,28 @@ export function validateVideoScriptBusiness(script: SlideScript, durationMin: nu
         `La narration de la slide ${index + 1} contient une formule creuse du type « dans cette vidéo nous allons » — entre directement dans le sujet.`,
       );
     }
+    // Densité visuelle : une slide de contenu avec 0-1 puce laisse un écran
+    // quasi vide pendant que la voix parle (constaté en rendu réel — le
+    // spectateur croit qu'il « manque » du contenu). Titre/recap/code exemptés
+    // (leur substance est ailleurs : accroche, synthèse, extrait de code).
+    if (slide.template !== 'title' && slide.template !== 'recap' && slide.template !== 'code') {
+      const bullets = (slide.bullets ?? []).filter((b) => b.trim().length > 0);
+      if (bullets.length < 2) {
+        problems.push(
+          `La slide ${index + 1} ("${slide.title}") n'affiche que ${bullets.length} puce(s) — il en faut 2 à 5 reprenant les points clés de sa narration.`,
+        );
+      }
+    }
   });
+
+  // Rythme : ~45-75 s de narration par slide. Trop de slides = écran haché
+  // (10 s/slide constaté), trop peu = tunnel monotone.
+  const idealSlides = Math.max(4, Math.round((durationMin * 60) / 55));
+  if (script.slides.length > idealSlides * 2) {
+    problems.push(
+      `${script.slides.length} slides pour ${durationMin} min : beaucoup trop haché — vise ${Math.max(4, idealSlides - 2)} à ${idealSlides + 2} slides plus riches (~1 minute de narration chacune).`,
+    );
+  }
 
   const targetWords = durationMin * AUDIO.NARRATION_WORDS_PER_MINUTE;
   const words = countNarrationWords(script);
@@ -89,8 +112,10 @@ export async function generateVideoScript(params: {
   lessonId: string;
   /** Contexte de continuité (résumés des leçons précédentes, P19). */
   context?: string;
+  /** Override de provider LLM pour cette régénération (« éditer avec l'IA »). */
+  llmProviderId?: string;
 }): Promise<VideoScriptResult> {
-  const { courseId, lessonId, context } = params;
+  const { courseId, lessonId, context, llmProviderId } = params;
 
   const lesson = await Lesson.findById(lessonId);
   if (!lesson) throw new Error(`leçon introuvable : ${lessonId}`);
@@ -102,15 +127,30 @@ export async function generateVideoScript(params: {
 
   const durationMin = lesson.durationMin && lesson.durationMin > 0 ? lesson.durationMin : DEFAULT_DURATION_MIN;
   const system = videoScriptSystemPrompt();
-  const baseUser = videoScriptUserPrompt({
-    lessonTitle: lesson.title,
-    summary: lesson.summary,
-    durationMin,
-    courseTitle: course.title,
-    difficulty: course.difficulty,
-    locale: course.locale,
-    context,
-  });
+  // Phase 10 (P167) — langue des slides ≠ langue de narration : le TEXTE des
+  // slides (titres/puces) est rédigé dans slideLanguage, la NARRATION reste dans
+  // la langue du cours. Vide si non demandé ou identique à la locale.
+  const slideLang = course.advancedParams?.slideLanguage;
+  const LANG_LABEL: Record<string, string> = { fr: 'français', en: 'anglais', ar: 'arabe' };
+  const slideLangDirective =
+    slideLang && slideLang !== course.locale
+      ? `\n\nLANGUE DES SLIDES : rédige les TITRES et les PUCES des slides en ${LANG_LABEL[slideLang] ?? slideLang}, ` +
+        `mais garde le champ "narration" de chaque slide en ${LANG_LABEL[course.locale] ?? course.locale}.`
+      : '';
+
+  const baseUser =
+    videoScriptUserPrompt({
+      lessonTitle: lesson.title,
+      summary: lesson.summary,
+      durationMin,
+      courseTitle: course.title,
+      difficulty: course.difficulty,
+      locale: course.locale,
+      context,
+    }) +
+    // Phase 10 — consignes avancées (pédagogie + domaine + OS/commentaires).
+    renderGenerationDirectives(course.advancedParams, 'script') +
+    slideLangDirective;
 
   // Boucle métier : schéma garanti par callClaudeJson, mais les règles du brief
   // (title/recap, volume, formules interdites) peuvent nécessiter un retry avec feedback.
@@ -125,7 +165,28 @@ export async function generateVideoScript(params: {
             .join('\n')}`;
 
     const candidate = await callClaudeJson({
-      schema: slideScriptSchema,
+      // Réparation structurelle AVANT validation (garde-fou OSS, même esprit
+      // que normalizeOutlineQuizzes) : les modèles locaux (qwen 3b/7b) laissent
+      // souvent le `title` des slides de continuation VIDE — purement mécanique
+      // à réparer (titre de leçon + n° de partie), et chaque retry LLM coûte
+      // plusieurs minutes de CPU pour rien. Le contenu (narration/bullets)
+      // reste celui du modèle, seule la structure est complétée.
+      schema: z.preprocess((raw) => {
+        const value = raw as { slides?: { title?: unknown; bullets?: unknown }[] } | null;
+        if (value && Array.isArray(value.slides)) {
+          value.slides.forEach((slide, i) => {
+            if (typeof slide === 'object' && slide !== null && (!slide.title || String(slide.title).trim() === '')) {
+              // Titre dérivé de la PREMIÈRE puce (sujet réel de la slide) plutôt
+              // qu'un « — partie N » monotone ; repli sur le titre de leçon.
+              const firstBullet = Array.isArray(slide.bullets)
+                ? String(slide.bullets.find((b) => typeof b === 'string' && b.trim()) ?? '').trim()
+                : '';
+              slide.title = firstBullet || (i === 0 ? lesson.title : `${lesson.title} — partie ${i + 1}`);
+            }
+          });
+        }
+        return raw;
+      }, slideScriptSchema),
       system,
       user,
       maxTokens: SCRIPT_MAX_TOKENS,
@@ -133,6 +194,7 @@ export async function generateVideoScript(params: {
       // à l'autre — désactive le cache pour ne pas rejouer la même réponse.
       skipCache: attempt > 1,
       cost: { courseId, userId: String(course.userId) },
+      llmProviderId: llmProviderId ?? course.llmProvider,
     });
 
     feedback = validateVideoScriptBusiness(candidate, durationMin);

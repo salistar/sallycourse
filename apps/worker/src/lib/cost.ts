@@ -7,10 +7,12 @@ import { Types } from 'mongoose';
 import {
   Course,
   CostRecord,
+  avatarCostUsd,
   claudeCostUsd,
-  ttsCostUsd,
+  ttsCostUsdForProvider,
   renderCostUsd,
   imageCostUsd,
+  transcribeCostUsd,
   type CostKind,
   type ProviderMix,
 } from '../shared.js';
@@ -90,14 +92,32 @@ export async function recordClaudeCost(
   return persist({ ...ctx, kind: 'claude', model, tokensIn, tokensOut, estimatedUsd });
 }
 
-/** Enregistre le coût d'une synthèse vocale (caractères). */
+/** Enregistre le coût d'une synthèse vocale (caractères), selon le provider réel. */
 export async function recordTtsCost(
   ctx: CostContext,
   chars: number,
   model = 'elevenlabs',
 ): Promise<number> {
-  const estimatedUsd = ttsCostUsd(chars);
+  const estimatedUsd = ttsCostUsdForProvider(model, chars);
   return persist({ ...ctx, kind: 'tts', model, chars, estimatedUsd });
+}
+
+/**
+ * Enregistre le coût d'un appel LLM CLOUD OpenAI-compatible (Gemini, DeepSeek,
+ * Qwen, Kimi, Grok, GLM, MiniMax, Cloudflare). Comme les appels Claude, mais le
+ * `model` porte l'identifiant du modèle cloud (→ pricing-table le connaît, les
+ * modèles gratuits reviennent à 0). Rangé sous kind='claude' pour rester dans la
+ * même famille « génération de texte » du dashboard, avec le modèle comme clé
+ * de ventilation par provider.
+ */
+export async function recordCloudLlmCost(
+  ctx: CostContext,
+  model: string,
+  tokensIn: number,
+  tokensOut: number,
+): Promise<number> {
+  const estimatedUsd = claudeCostUsd(model, tokensIn, tokensOut);
+  return persist({ ...ctx, kind: 'claude', model, tokensIn, tokensOut, estimatedUsd });
 }
 
 /** Enregistre le coût d'un rendu vidéo (secondes produites). */
@@ -106,10 +126,35 @@ export async function recordRenderCost(ctx: CostContext, seconds: number): Promi
   return persist({ ...ctx, kind: 'render', model: 'ffmpeg', seconds, estimatedUsd });
 }
 
-/** Enregistre le coût d'une génération d'image (nb d'images, défaut 1). */
-export async function recordImageCost(ctx: CostContext, units = 1): Promise<number> {
+/**
+ * Enregistre le coût d'une génération d'image (nb d'images, défaut 1).
+ * `model` (audit coûts 2026-07-26, additif) : moteur réellement utilisé
+ * ('sdxl' | 'zimage') — sans lui, le dashboard ne pouvait pas ventiler les
+ * images par app Modal. Absent → comportement historique (ligne sans modèle).
+ */
+export async function recordImageCost(ctx: CostContext, units = 1, model?: string): Promise<number> {
   const estimatedUsd = imageCostUsd(units);
-  return persist({ ...ctx, kind: 'image', estimatedUsd });
+  return persist({ ...ctx, kind: 'image', ...(model ? { model } : {}), estimatedUsd });
+}
+
+/**
+ * Enregistre le coût d'une transcription Whisper (audit coûts 2026-07-26 —
+ * jusqu'ici, l'usage Whisper n'était PAS instrumenté). `seconds` = durée de
+ * l'audio transcrit.
+ */
+export async function recordTranscribeCost(ctx: CostContext, audioSeconds: number): Promise<number> {
+  const estimatedUsd = transcribeCostUsd(audioSeconds);
+  return persist({ ...ctx, kind: 'transcribe', model: 'whisper', seconds: audioSeconds, estimatedUsd });
+}
+
+/**
+ * Enregistre le coût d'un segment avatar Ditto (audit coûts 2026-07-26 —
+ * jusqu'ici, l'usage avatar n'était PAS instrumenté). `videoSeconds` = durée
+ * du segment produit ; `model` = provider réel ('ditto' | 'sadtalker' | 'heygen').
+ */
+export async function recordAvatarCost(ctx: CostContext, videoSeconds: number, model = 'ditto'): Promise<number> {
+  const estimatedUsd = avatarCostUsd(videoSeconds);
+  return persist({ ...ctx, kind: 'avatar', model, seconds: videoSeconds, estimatedUsd });
 }
 
 /**

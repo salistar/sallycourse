@@ -51,6 +51,10 @@ export async function refreshCourseAnalytics(courseId: string): Promise<Platform
             rating: metrics.rating,
             revenue: metrics.revenue,
             views: metrics.views,
+            // Intégrité (audit 2026-07-17) : des métriques SIMULÉES (aucun
+            // token API) sont marquées comme telles et badgées dans l'UI —
+            // jamais affichées comme des chiffres réels.
+            simulated: metrics.simulated === true,
             fetchedAt: new Date(),
           },
         },
@@ -138,13 +142,6 @@ export async function startAnalyticsScheduler(
 
   logger.info({ cron }, 'scheduler analytics démarré');
 }
-
-/** Déclenche un rafraîchissement immédiat hors cadence (diagnostic / bouton). */
-export async function triggerAnalyticsRefreshNow(): Promise<void> {
-  if (!analyticsQueue) analyticsQueue = new Queue<AnalyticsJobData>(ANALYTICS_QUEUE, { connection: bullConnection() });
-  await analyticsQueue.add(ANALYTICS_JOB + ':manual', { reason: 'manual' }, { removeOnComplete: true });
-}
-
 /** Arrête proprement le scheduler (worker + queue). */
 export async function stopAnalyticsScheduler(): Promise<void> {
   await analyticsWorker?.close().catch(() => undefined);

@@ -2,7 +2,7 @@
 // Les processors métier (outline, contenu, TTS, …) seront enregistrés ici
 // via registerWorker(QUEUES.xxx, processor) au fil des prompts suivants.
 import mongoose from 'mongoose';
-import { connectDb, getConfig } from './shared.js';
+import { connectDb, ensureBucket, getConfig } from './shared.js';
 import { closeAll, getRegisteredQueues, logger, startHeartbeat } from './queues/index.js';
 import { startQueueBlockedScheduler, stopQueueBlockedScheduler, type BlockableQueueLike } from './lib/alerts.js';
 import { registerApiQueues, registerCpuQueues, registerBrowserQueues } from './entrypoints/register-groups.js';
@@ -35,6 +35,16 @@ import { startRetentionScheduler, stopRetentionScheduler } from './lib/retention
 import { startCourseRefreshScheduler, stopCourseRefreshScheduler } from './lib/course-refresh.js';
 import { startEmailSequenceScheduler, stopEmailSequenceScheduler } from './lib/email-sequence.js';
 import { startAuditRetentionScheduler, stopAuditRetentionScheduler } from './lib/audit-retention.js';
+import { startStreakReminderScheduler, stopStreakReminderScheduler } from './lib/streak-reminder.js';
+import { startBlogScheduler, stopBlogScheduler } from './lib/blog.js';
+import { startDeployScheduleScheduler, stopDeployScheduleScheduler } from './lib/deploy-schedule.js';
+import { startWatermarkWorker, stopWatermarkWorker } from './media/watermark-worker.js';
+import { startVoiceIntakeWorker, stopVoiceIntakeWorker } from './voice/voice-intake-worker.js';
+import { startScreencastRenderWorker, stopScreencastRenderWorker } from './voice/screencast-render-worker.js';
+import { startAudioRepairWorker, stopAudioRepairWorker } from './voice/audio-repair-worker.js';
+import { startSlideImageWorker, stopSlideImageWorker } from './media/slide-image-worker.js';
+import { startManualAudioIntakeWorker, stopManualAudioIntakeWorker } from './voice/manual-audio-intake-worker.js';
+import { startCourseReviewWorker, stopCourseReviewWorker } from './media/course-review-worker.js';
 
 /** Reaper des conteneurs TP orphelins (P22) : au démarrage puis toutes les 15 min. */
 const TP_REAPER_INTERVAL_MS = 15 * 60 * 1_000;
@@ -59,6 +69,16 @@ async function main(): Promise<void> {
   await connectDb(config.MONGO_URI);
   logger.info({ env: config.NODE_ENV }, 'worker SallyCourse : Mongo connecté');
 
+  // Bucket S3/MinIO créé s'il n'existe pas (constaté en réel le 2026-07-25 :
+  // après une réinitialisation du disque Docker, `ensureBucket` existait dans
+  // packages/shared mais n'était appelé NULLE PART — chaque upload échouait en
+  // « The specified bucket does not exist » jusqu'à création manuelle).
+  // Idempotent (BucketAlreadyOwnedByYou ignoré) et sans effet en mock.
+  if (!config.MOCK_PROVIDERS) {
+    await ensureBucket();
+    logger.info('bucket de stockage vérifié/créé');
+  }
+
   // Instancie + enregistre toutes les queues (comportement historique : tout
   // dans un seul process). P71 : chaque groupe peut aussi tourner isolément
   // via les entrypoints dédiés (src/entrypoints/worker-{cpu,api,browser}.ts).
@@ -69,6 +89,39 @@ async function main(): Promise<void> {
 
   // Analyse des retours étudiants (P62) : queue dédiée hors registre typé.
   startFeedbackWorker();
+
+  // Filigrane paresseux du LMS (P206) : queue dédiée hors registre typé,
+  // consomme les jobs enfilés à la 1re lecture d'un étudiant (rendu + cache S3).
+  startWatermarkWorker();
+
+  // Dictée vocale de création de cours (P210) : queue dédiée hors registre typé,
+  // consomme les jobs enfilés par POST /api/voice/dictation (Whisper + LLM).
+  startVoiceIntakeWorker();
+
+  // Rendu de capture d'écran uploadée (Feature B) : queue dédiée hors registre
+  // typé, consomme les jobs enfilés par POST …/lessons/[lessonId]/screencast
+  // (narration TTS + incrustation des légendes via ffmpeg).
+  startScreencastRenderWorker();
+
+  // Réparation audio d'une leçon vidéo déjà générée (Lot 2, plan 2026-07-20) :
+  // queue dédiée hors registre typé, consomme les jobs enfilés par
+  // POST …/lessons/[lessonId]/audio-repair (débruitage ou resynthèse ciblée).
+  startAudioRepairWorker();
+
+  // Régénération d'image de slide à la demande (Lot 3, plan 2026-07-20) :
+  // queue dédiée hors registre typé, consomme les jobs enfilés par
+  // POST …/lessons/[lessonId]/slides/[index]/image (appel Modal SDXL).
+  startSlideImageWorker();
+
+  // Intégration audio manuelle par slide (Lot 4, plan 2026-07-20) : queue
+  // dédiée hors registre typé, consomme les jobs enfilés par
+  // POST …/lessons/[lessonId]/slides/[index]/audio (normalisation loudnorm).
+  startManualAudioIntakeWorker();
+
+  // Révision automatique d'un cours (2026-07-26) : diagnostic complet (images
+  // ratées, audio, TP dégradés, leçons en échec) + réparations enfilées via
+  // les mécanismes existants. Jobs enfilés par POST /api/courses/[id]/review.
+  startCourseReviewWorker();
 
   startHeartbeat();
   startTpReaper();
@@ -111,6 +164,21 @@ async function main(): Promise<void> {
   // Cron purge du journal d'audit (P149) : rétention 12 mois, purge quotidienne
   // des entrées AuditLog expirées (seul point qui supprime des entrées d'audit).
   await startAuditRetentionScheduler();
+
+  // Cron rappel de série (P200) : passage quotidien (18 h UTC) sur les profils
+  // de gamification dont la série est en danger (actif hier, pas aujourd'hui) →
+  // notification in-app + Web Push. Aucun email.
+  await startStreakReminderScheduler();
+
+  // Blog SEO (P204) : passage horaire qui publie les articles arrivés à
+  // échéance, et traitement des jobs de (re)génération enfilés à la publication
+  // d'un cours (adapter LMS) ou par le tableau de bord.
+  await startBlogScheduler();
+
+  // Déploiements programmés « drip » (P181) : passage horaire qui, pour chaque
+  // plan actif dû, publie le lot suivant par plateforme (clips TikTok/Instagram
+  // ou enfilage du déploiement de cours), et publie les ShortClip programmés dus.
+  await startDeployScheduleScheduler();
 }
 
 let shuttingDown = false;
@@ -130,6 +198,16 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
     await stopCourseRefreshScheduler();
     await stopEmailSequenceScheduler();
     await stopAuditRetentionScheduler();
+    await stopStreakReminderScheduler();
+    await stopBlogScheduler();
+    await stopDeployScheduleScheduler();
+    await stopWatermarkWorker();
+    await stopVoiceIntakeWorker();
+    await stopScreencastRenderWorker();
+    await stopAudioRepairWorker();
+    await stopSlideImageWorker();
+    await stopManualAudioIntakeWorker();
+    await stopCourseReviewWorker();
     await stopFeedbackWorker();
     await stopMetricsServer();
     await closeAll();

@@ -5,9 +5,11 @@ import { describe, expect, it } from 'vitest';
 import { QUIZ, UDEMY, type QuizQuestion } from '../shared.js';
 import {
   checkArticlePlaceholders,
+  checkIllustrationConsistency,
   checkQuizzes,
   checkSectionCount,
   checkTotalVideoMinutes,
+  checkTpScreenshots,
   parseMeanVolume,
 } from './qa.js';
 
@@ -78,6 +80,62 @@ describe('checkArticlePlaceholders', () => {
     const md = '{{screenshot:un}} texte {{screenshot:deux}}';
     const problems = checkArticlePlaceholders([{ title: 'B', markdown: md }]);
     expect(problems[0]).toMatch(/2 placeholder/);
+  });
+});
+
+describe('checkTpScreenshots (correctif N2, audit 2026-07-20)', () => {
+  it('accepte un TP sans capture dégradée', () => {
+    const problems = checkTpScreenshots([{ title: 'TP propre', screenshotsCount: 3, degradedCount: 0 }]);
+    expect(problems).toEqual([]);
+  });
+
+  it('ignore un TP sans capture attendue (ex. purement terminal)', () => {
+    const problems = checkTpScreenshots([{ title: 'TP terminal', screenshotsCount: 0, degradedCount: 0 }]);
+    expect(problems).toEqual([]);
+  });
+
+  it('signale un TP dont la moitié ou plus des captures sont dégradées', () => {
+    const problems = checkTpScreenshots([{ title: 'TP fantôme', screenshotsCount: 4, degradedCount: 2 }]);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatch(/TP fantôme/);
+    expect(problems[0]).toMatch(/2\/4/);
+  });
+
+  it("n'signale pas un TP dont seule une minorité des captures est dégradée", () => {
+    const problems = checkTpScreenshots([{ title: 'TP presque propre', screenshotsCount: 4, degradedCount: 1 }]);
+    expect(problems).toEqual([]);
+  });
+});
+
+describe('checkIllustrationConsistency (correctif 1.8, audit 2026-07-20)', () => {
+  it('accepte quand aucune vidéo n’a d’illustration (Modal désactivé pour ce cours)', () => {
+    const problems = checkIllustrationConsistency([
+      { title: 'L0', hasIllustration: false },
+      { title: 'L2', hasIllustration: false },
+    ]);
+    expect(problems).toEqual([]);
+  });
+
+  it('accepte quand toutes les vidéos ont une illustration', () => {
+    const problems = checkIllustrationConsistency([
+      { title: 'L0', hasIllustration: true },
+      { title: 'L2', hasIllustration: true },
+    ]);
+    expect(problems).toEqual([]);
+  });
+
+  it('signale une couverture partielle (échec silencieux ponctuel, cas réel de l’audit)', () => {
+    const problems = checkIllustrationConsistency([
+      { title: 'L0', hasIllustration: true },
+      { title: 'L2', hasIllustration: false },
+    ]);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatch(/L2/);
+    expect(problems[0]).toMatch(/1\/2/);
+  });
+
+  it('accepte une liste vide (aucune vidéo dans le cours)', () => {
+    expect(checkIllustrationConsistency([])).toEqual([]);
   });
 });
 

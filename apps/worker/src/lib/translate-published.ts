@@ -33,6 +33,7 @@ import { callClaudeJson } from './claude.js';
 import { logger } from '../queues/index.js';
 import type { Cue } from '../media/subtitles.js';
 import { toSrt } from '../media/subtitles.js';
+import { loadCourseVoiceSample } from '../media/voice-clone.js';
 import { getAdapter, hasAdapter } from '../deploy/registry.js';
 import type { BoundPublishProgress, DeployContext } from '../deploy/types.js';
 
@@ -223,6 +224,16 @@ export interface TranslateSrtResult {
  * deux cours demandant la même traduction d'un texte identique réutilisent le
  * cache Redis (cf. callClaudeJson).
  */
+/**
+ * Taille des lots de cues envoyés au LLM. Une leçon réelle fait 100-140 cues :
+ * TOUT envoyer en un appel faisait dépasser le budget de SORTIE du provider
+ * (Gemini 8192 tokens → finish_reason=length × 3 tentatives → échec complet de
+ * la traduction — bug « la traduction ne marche pas »). 30 cues ≈ 1-2k tokens
+ * de réponse : très en dessous du plafond, et un lot en échec ne coûte que ses
+ * 30 cues (texte source conservé), jamais la leçon entière.
+ */
+const TRANSLATE_CHUNK_SIZE = 30;
+
 export async function translateSrtContent(
   srtContent: string,
   targetLocale: Locale,
@@ -238,28 +249,42 @@ export async function translateSrtContent(
     text: cue.text,
   }));
 
-  const translated = await callClaudeJson({
-    schema: translatedSegmentsSchema,
-    system: translateSubtitlesSystemPrompt(targetLocale),
-    user: translateSubtitlesUserPrompt(segments),
-    cost: courseId ? { courseId } : undefined,
-  });
-
-  const problems = validateSubtitleTranslation(segments, translated);
-  if (problems.length > 0) {
-    // Repli honnête : structure non conforme → on garde le texte source pour les
-    // segments incohérents plutôt que de perdre le sous-titrage (best-effort).
-    const salvaged: TranslatedSegments = {
-      segments: segments.map((s) => {
-        const match = translated.segments.find((t) => t.index === s.index);
-        return match ?? { index: s.index, text: s.text };
-      }),
-    };
-    const cues = applyTranslatedSegments(sourceCues, salvaged);
-    return { locale: targetLocale, srt: toSrt(cues), cues };
+  // Traduction PAR LOTS — les index globaux sont portés par chaque segment,
+  // applyTranslatedSegments réaligne donc correctement quel que soit le lot.
+  const merged: TranslatedSegments = { segments: [] };
+  for (let offset = 0; offset < segments.length; offset += TRANSLATE_CHUNK_SIZE) {
+    const part = segments.slice(offset, offset + TRANSLATE_CHUNK_SIZE);
+    try {
+      const translated = await callClaudeJson({
+        schema: translatedSegmentsSchema,
+        system: translateSubtitlesSystemPrompt(targetLocale),
+        user: translateSubtitlesUserPrompt(part),
+        maxTokens: 8192,
+        cost: courseId ? { courseId } : undefined,
+      });
+      const problems = validateSubtitleTranslation(part, translated);
+      if (problems.length > 0) {
+        // Repli honnête : structure non conforme → texte source pour les
+        // segments incohérents de CE lot plutôt que de perdre le sous-titrage.
+        for (const s of part) {
+          const match = translated.segments.find((t) => t.index === s.index);
+          merged.segments.push(match ?? { index: s.index, text: s.text });
+        }
+      } else {
+        merged.segments.push(...translated.segments);
+      }
+    } catch (err) {
+      // Lot en échec (LLM indisponible/troncature persistante) : on conserve le
+      // texte source de ce lot — best-effort, la leçon garde un sous-titrage.
+      logger.warn(
+        { courseId, targetLocale, offset, size: part.length, err: err instanceof Error ? err.message : String(err) },
+        'traduction sous-titres : lot en échec — texte source conservé',
+      );
+      for (const s of part) merged.segments.push({ index: s.index, text: s.text });
+    }
   }
 
-  const cues = applyTranslatedSegments(sourceCues, translated);
+  const cues = applyTranslatedSegments(sourceCues, merged);
   return { locale: targetLocale, srt: toSrt(cues), cues };
 }
 
@@ -334,6 +359,13 @@ export async function translatePublishedCourse(
     };
   }
 
+  // Voix CLONÉE de l'instructeur — chargée UNE seule fois : le doublage sonnera
+  // comme lui dans chaque langue cible (« ta voix dans 10 langues »). Uniquement
+  // quand le doublage est demandé (sinon inutile pour la seule traduction des ST).
+  const dubVoiceSample = options.dub
+    ? await loadCourseVoiceSample({ userId: course.userId, useCustomVoice: course.useCustomVoice })
+    : undefined;
+
   const [sections, lessons, deployments] = await Promise.all([
     Section.find({ courseId }).sort({ order: 1 }).lean<ISection[]>(),
     Lesson.find({ courseId, type: 'video' }).sort({ order: 1 }).lean<ILesson[]>(),
@@ -383,7 +415,7 @@ export async function translatePublishedCourse(
         // Doublage optionnel : nouvel audio + nouvelle vidéo, cues traduits.
         if (dub) {
           try {
-            const videoKey = await dubLessonVideo(courseId, lessonId, keys.video(), translated.cues, locale, course.ttsVoice);
+            const videoKey = await dubLessonVideo(courseId, lessonId, keys.video(), translated.cues, locale, course.ttsVoice, dubVoiceSample);
             if (videoKey) dubEntry.videoKeys.push(videoKey);
           } catch (err) {
             errors.push({
@@ -494,6 +526,7 @@ async function dubLessonVideo(
   cues: readonly Cue[],
   locale: Locale,
   ttsVoice: string | undefined,
+  voiceSample?: { b64: string; id: string },
 ): Promise<string | undefined> {
   if (cues.length === 0) return undefined;
   if (!(await objectExists(sourceVideoKey))) return undefined;
@@ -501,5 +534,13 @@ async function dubLessonVideo(
   // Import différé : évite de charger execa/ffmpeg helpers quand le doublage
   // n'est pas demandé (traduction des sous-titres seule, cas le plus courant).
   const { renderDubbedVideoFromCues } = await import('./translate-published-render.js');
-  return renderDubbedVideoFromCues({ courseId, lessonId, sourceVideoKey, cues, locale, ttsVoice });
+  return renderDubbedVideoFromCues({
+    courseId,
+    lessonId,
+    sourceVideoKey,
+    cues,
+    locale,
+    ttsVoice,
+    ...(voiceSample ? { voiceSampleB64: voiceSample.b64, voiceSampleId: voiceSample.id } : {}),
+  });
 }

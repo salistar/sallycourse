@@ -23,21 +23,16 @@ import {
   QUIZ,
   extractScreenshotPlaceholders,
   getConfig,
-  getObjectStream,
+  objectExists,
+  storageKeys,
   type ILesson,
   type IQuiz,
+  readObjectBuffer,
 } from '../shared.js';
 import { logger } from '../queues/index.js';
 
-/** Un objet S3 dont la lecture donne un Buffer complet. */
-async function streamToBuffer(key: string): Promise<Buffer> {
-  const stream = await getObjectStream(key);
-  const chunks: Buffer[] = [];
-  for await (const chunk of stream) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks);
-}
+// (« stream S3 -> Buffer » factorise dans @sallycourse/shared/storage —
+// audit dedup 2026-07-26 : readObjectBuffer/streamToBuffer importes.)
 
 // ── Codes de check (stables : consommés par l'UI web du rapport) ─────
 export const QA_CHECK_CODES = [
@@ -47,6 +42,8 @@ export const QA_CHECK_CODES = [
   'article-placeholders',
   'quiz-valid',
   'lessons-complete',
+  'screenshots-valid',
+  'illustration-consistency',
 ] as const;
 export type QaCheckCode = (typeof QA_CHECK_CODES)[number];
 
@@ -119,6 +116,56 @@ export function checkArticlePlaceholders(
     }
   }
   return problems;
+}
+
+/**
+ * Correctif N2 (audit 2026-07-20) : jusqu'ici, un TP dont TOUTES les captures
+ * étaient des cartons de repli (`{{screenshot:}}` jamais atteint, 404 ou état
+ * par défaut d'un outil tiers) passait le QA sans aucun signal — seul
+ * `checkArticlePlaceholders` existait, et un carton rendu en PNG n'est pas un
+ * placeholder textuel. Ce check exploite `screenshotsDegraded` (désormais
+ * persisté par le processor, cf. media/screenshot-capture.ts) : au-delà de la
+ * MOITIÉ des captures d'une leçon TP en mode dégradé, le TP est signalé —
+ * l'apprenant se retrouverait sinon face à un exercice sans support visuel
+ * réel.
+ */
+export function checkTpScreenshots(
+  tpLessons: { title: string; screenshotsCount: number; degradedCount: number }[],
+): string[] {
+  const problems: string[] = [];
+  for (const lesson of tpLessons) {
+    if (lesson.screenshotsCount === 0) continue; // TP sans capture attendue (ex. purement terminal) — hors périmètre.
+    if (lesson.degradedCount * 2 >= lesson.screenshotsCount) {
+      problems.push(
+        `« ${lesson.title} » : ${lesson.degradedCount}/${lesson.screenshotsCount} capture(s) en mode dégradé (carton de repli, pas une vraie capture).`,
+      );
+    }
+  }
+  return problems;
+}
+
+/**
+ * Correctif 1.8 (audit 2026-07-20) : l'illustration SDXL par leçon est
+ * best-effort PAR CONCEPTION (repli sur un motif géométrique si Modal est
+ * indisponible/désactivé) — son absence n'est donc PAS un défaut en soi :
+ * un cours dont AUCUNE vidéo n'a d'illustration peut simplement avoir Modal
+ * désactivé. Ce qui EST un défaut (constaté sur le cours audité : une seule
+ * vidéo du cours sans illustration, contrairement au reste) est une
+ * couverture PARTIELLE — signe d'un échec silencieux ponctuel plutôt que
+ * d'un choix de configuration global.
+ */
+export function checkIllustrationConsistency(
+  videoLessons: { title: string; hasIllustration: boolean }[],
+): string[] {
+  if (videoLessons.length === 0) return [];
+  const withIllustration = videoLessons.filter((l) => l.hasIllustration).length;
+  if (withIllustration === 0 || withIllustration === videoLessons.length) return [];
+  const missing = videoLessons.filter((l) => !l.hasIllustration);
+  return [
+    `${missing.length}/${videoLessons.length} vidéo(s) sans illustration alors que d'autres leçons du cours en ont une : ${missing
+      .map((l) => `« ${l.title} »`)
+      .join(', ')}.`,
+  ];
 }
 
 /**
@@ -220,7 +267,7 @@ export async function probeVideoFile(file: string): Promise<ProbeResult> {
 async function probeLessonVideo(videoKey: string): Promise<ProbeResult | null> {
   const dir = await mkdtemp(path.join(tmpdir(), 'qa-video-'));
   try {
-    const buffer = await streamToBuffer(videoKey);
+    const buffer = await readObjectBuffer(videoKey);
     const localPath = path.join(dir, 'video.mp4');
     await writeFile(localPath, buffer);
     return await probeVideoFile(localPath);
@@ -240,7 +287,7 @@ async function probeLessonVideo(videoKey: string): Promise<ProbeResult | null> {
 async function readArticleMarkdown(key: string | undefined): Promise<string | null> {
   if (!key) return null;
   try {
-    return (await streamToBuffer(key)).toString('utf-8');
+    return (await readObjectBuffer(key)).toString('utf-8');
   } catch (err) {
     logger.warn({ key, err }, 'QA: article illisible depuis le storage');
     return null;
@@ -248,7 +295,7 @@ async function readArticleMarkdown(key: string | undefined): Promise<string | nu
 }
 
 /** Type minimal d'une leçon hydratée nécessaire au QA. */
-type LessonForQa = Pick<ILesson, 'title' | 'type' | 'status' | 'durationMin' | 'assets'> & {
+type LessonForQa = Pick<ILesson, 'title' | 'type' | 'status' | 'durationMin' | 'assets' | 'order'> & {
   sectionId: { toString(): string };
 };
 
@@ -346,6 +393,30 @@ export async function runCourseQa(courseId: string): Promise<QaReport> {
         : videoProblems.join(' '),
   });
 
+  // ── Check : cohérence de l'illustration SDXL par leçon (correctif 1.8) ──
+  // Best-effort par design (cf. checkIllustrationConsistency) : on ne sonde
+  // que si le pipeline média réel est en jeu (pas en mode mock, où aucun
+  // objet S3 n'existe jamais et où le check serait donc vide de sens).
+  const illustrationLessons: { title: string; hasIllustration: boolean }[] = [];
+  if (!config.MOCK_PROVIDERS) {
+    const sectionOrderById = new Map(sections.map((s) => [String(s._id), s.order]));
+    for (const lesson of videoLessons) {
+      const sectionOrder = sectionOrderById.get(lesson.sectionId.toString());
+      if (sectionOrder === undefined) continue;
+      const key = storageKeys.course(courseId).lesson(sectionOrder, lesson.order).illustration();
+      illustrationLessons.push({ title: lesson.title, hasIllustration: await objectExists(key) });
+    }
+  }
+  const illustrationProblems = checkIllustrationConsistency(illustrationLessons);
+  checks.push({
+    code: 'illustration-consistency',
+    ok: illustrationProblems.length === 0,
+    detail:
+      illustrationProblems.length === 0
+        ? `Illustrations cohérentes (${illustrationLessons.filter((l) => l.hasIllustration).length}/${illustrationLessons.length} vidéo(s)).`
+        : illustrationProblems.join(' '),
+  });
+
   // ── Check : durée vidéo totale ─────────────────────────────────────
   const totalVideoMinutes = totalVideoSeconds / 60;
   const durationProblem = checkTotalVideoMinutes(totalVideoMinutes);
@@ -370,6 +441,21 @@ export async function runCourseQa(courseId: string): Promise<QaReport> {
       placeholderProblems.length === 0
         ? `${articles.length} article(s) sans placeholder résiduel.`
         : placeholderProblems.join(' '),
+  });
+
+  // ── Check : captures de TP réellement exploitables (correctif N2) ──
+  const tpLessons = (lessons as LessonForQa[])
+    .filter((l) => l.type === 'tp')
+    .map((l) => ({
+      title: l.title,
+      screenshotsCount: l.assets?.screenshots?.length ?? 0,
+      degradedCount: l.assets?.screenshotsDegraded?.length ?? 0,
+    }));
+  const tpProblems = checkTpScreenshots(tpLessons);
+  checks.push({
+    code: 'screenshots-valid',
+    ok: tpProblems.length === 0,
+    detail: tpProblems.length === 0 ? `${tpLessons.length} TP avec captures exploitables.` : tpProblems.join(' '),
   });
 
   // ── Check : quiz valides ───────────────────────────────────────────

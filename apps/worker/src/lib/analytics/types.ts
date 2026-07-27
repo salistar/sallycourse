@@ -18,6 +18,8 @@ export interface PlatformMetrics {
   revenue: number;
   /** Vues (YouTube). */
   views: number;
+  /** true si les métriques sont SIMULÉES (aucun token API — jamais des chiffres réels). */
+  simulated?: boolean;
 }
 
 /** Contexte transmis à un provider pour récupérer les métriques d'un cours. */

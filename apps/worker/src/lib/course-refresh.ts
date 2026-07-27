@@ -380,13 +380,6 @@ export async function startCourseRefreshScheduler(
 
   logger.info({ cron }, 'scheduler course-refresh démarré');
 }
-
-/** Déclenche une vérification immédiate hors cadence (diagnostic / bouton admin). */
-export async function triggerCourseRefreshNow(): Promise<void> {
-  if (!refreshQueue) refreshQueue = new Queue<CourseRefreshJobData>(COURSE_REFRESH_QUEUE, { connection: bullConnection() });
-  await refreshQueue.add(COURSE_REFRESH_JOB + ':manual', { reason: 'manual' }, { removeOnComplete: true });
-}
-
 /** Arrête proprement le scheduler (worker + queue). */
 export async function stopCourseRefreshScheduler(): Promise<void> {
   await refreshWorker?.close().catch(() => undefined);

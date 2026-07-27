@@ -104,6 +104,25 @@ describe('extractJsonPayload', () => {
     const raw = 'Le plan demandé est {"name":"y","count":2} — dites-moi si cela convient.';
     expect(JSON.parse(extractJsonPayload(raw))).toEqual({ name: 'y', count: 2 });
   });
+
+  it('ne TRONQUE PAS un JSON fencé dont une valeur contient des blocs de code ``` (bug Gemini→articles)', () => {
+    // Gemini emballe le JSON dans ```json ; le markdown de l'article contient
+    // ses propres ```bash…``` : la regex non-greedy tronquait au 1er ``` interne.
+    const article = { title: 'Docker', markdown: '## Intro\n\n```bash\nnpm i\n```\n\nSuite.', readingTimeMin: 5 };
+    const raw = '```json\n' + JSON.stringify(article, null, 2) + '\n```';
+    expect(JSON.parse(extractJsonPayload(raw))).toEqual(article);
+  });
+
+  it('gère un markdown fencé se terminant par un bloc de code', () => {
+    const doc = { md: 'texte\n\n```js\nconst a = 1;\n```' };
+    const raw = '```json\n' + JSON.stringify(doc) + '\n```';
+    expect(JSON.parse(extractJsonPayload(raw))).toEqual(doc);
+  });
+
+  it('laisse passer un JSON nu contenant des ``` internes', () => {
+    const doc = { md: '```py\nprint(1)\n```' };
+    expect(JSON.parse(extractJsonPayload(JSON.stringify(doc)))).toEqual(doc);
+  });
 });
 
 describe('callClaudeJson — mode mock', () => {

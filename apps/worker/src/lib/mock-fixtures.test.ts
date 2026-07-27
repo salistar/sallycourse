@@ -1,7 +1,8 @@
 // Tests des fixtures mock : validité contre les schémas partagés, règles
 // métier Udemy et déterminisme (même titre → même fixture).
 import { describe, expect, it } from 'vitest';
-import { outlineSchema, quizQuestionSchema, UDEMY, QUIZ } from '../shared.js';
+import { courseFlashcardsSchema, outlineSchema, quizQuestionSchema, UDEMY, QUIZ } from '../shared.js';
+import { trailerScriptSchema } from '../generators/trailer.js';
 import {
   extractTitleFromPrompt,
   hashString,
@@ -79,6 +80,23 @@ describe('mockFixtureFor', () => {
 
     const question = mockFixtureFor(quizQuestionSchema, user);
     expect(question.choices).toHaveLength(4);
+  });
+
+  // Sans ces deux fixtures, la génération des flashcards (P203) et de la
+  // bande-annonce (P197) jetait en mode MOCK_PROVIDERS (et en repli sans clé
+  // API) — l'échec étant avalé par leur wrapper best-effort, les deux features
+  // étaient silencieusement mortes en dev/CI.
+  it('couvre le schéma des flashcards (P203) — sinon la feature meurt en silence en mode mock', () => {
+    const deck = mockFixtureFor(courseFlashcardsSchema, `Cours : « ${TITLE} »`);
+    expect(deck.cards.length).toBeGreaterThanOrEqual(10);
+    expect(deck.cards[0]!.front).toContain('Docker');
+    expect(deck.cards[0]!.back.length).toBeGreaterThan(0);
+  });
+
+  it('couvre le schéma de la bande-annonce (P197)', () => {
+    const script = mockFixtureFor(trailerScriptSchema, `Cours : « ${TITLE} »`);
+    expect(script.narration.length).toBeGreaterThanOrEqual(120);
+    expect(script.narration).toContain('Docker');
   });
 
   it('jette une erreur explicite si aucun fixture ne correspond', () => {

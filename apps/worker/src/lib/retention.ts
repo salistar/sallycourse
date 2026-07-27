@@ -188,6 +188,12 @@ export async function archiveInactiveCourses(
         { $set: { archived: true, archivedAt: now } },
       );
       count += 1;
+      // Filet de sécurité storage : la purge des intermédiaires est normalement
+      // faite à la fin de finalizeCourseIfComplete. Un cours ABANDONNÉ en cours
+      // de route n'y arrive jamais et garderait ses slides/audios indéfiniment —
+      // on les purge ici (idempotent, best-effort). Le filtre archived:{$ne:true}
+      // ci-dessus garantit qu'un cours n'est traité qu'une seule fois.
+      await purgeCourseIntermediateAssets(courseId).catch(() => undefined);
     } catch (err) {
       logger.warn({ courseId, err }, 'retention : archivage du cours échoué');
     }
@@ -251,13 +257,6 @@ export async function startRetentionScheduler(
 
   logger.info({ cron }, 'scheduler rétention démarré');
 }
-
-/** Déclenche un archivage immédiat hors cadence (diagnostic / bouton admin). */
-export async function triggerRetentionArchiveNow(): Promise<void> {
-  if (!retentionQueue) retentionQueue = new Queue<RetentionJobData>(RETENTION_QUEUE, { connection: bullConnection() });
-  await retentionQueue.add(RETENTION_JOB + ':manual', { reason: 'manual' }, { removeOnComplete: true });
-}
-
 /** Arrête proprement le scheduler (worker + queue). */
 export async function stopRetentionScheduler(): Promise<void> {
   await retentionWorker?.close().catch(() => undefined);

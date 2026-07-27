@@ -5,20 +5,28 @@ import { z } from 'zod';
 import {
   ARTICLE,
   AUDIO,
+  BLOG,
   MARKETING_TITLE_IDEAS,
   QUIZ,
   UDEMY,
   altTextResultSchema,
+  blogPlanSchema,
+  blogPostContentSchema,
+  courseFlashcardsSchema,
   courseResourcesContentSchema,
   marketingSchema,
   outlineSchema,
   quizQuestionSchema,
   slideScriptSchema,
   type AltTextResult,
+  type BlogPlan,
+  type BlogPostContent,
+  type CourseFlashcards,
   type CourseResourcesContent,
   type MarketingContent,
   type Outline,
   type QuizQuestion,
+  type SearchIntent,
   type Slide,
   type SlideScript,
   type SlideTemplate,
@@ -521,6 +529,54 @@ export function mockCourseResources(title: string): CourseResourcesContent {
   return courseResourcesContentSchema.parse({ glossary, furtherResources });
 }
 
+// ── Flashcards du cours (Prompt 203) ────────────────────────────
+/** Angles de révision recombinés avec le titre — une notion par carte, sans redite. */
+const FLASHCARD_ANGLES = [
+  { front: 'Que désigne %s en une phrase ?', back: 'Notion centrale du cours : %s, présentée dès la première section.' },
+  { front: 'Quel problème %s résout-il concrètement ?', back: 'Il évite le travail manuel répétitif et fiabilise le résultat.' },
+  { front: 'Quel est le prérequis avant de commencer avec %s ?', back: 'Un environnement de travail propre et un exemple de départ minimal.' },
+  { front: 'Citez une bonne pratique appliquée à %s.', back: 'Isoler chaque changement et le valider séparément avant de complexifier.' },
+  { front: 'Quelle est l’erreur la plus fréquente avec %s ?', back: 'Tout appliquer d’un coup, sans vérifier le cas le plus simple d’abord.' },
+  { front: 'Comment diagnostiquer un problème lié à %s ?', back: 'Relire le dernier changement effectué et le message d’erreur, plutôt que recommencer de zéro.' },
+  { front: 'Quand faut-il éviter %s ?', back: 'Quand le cas d’usage est trop simple pour justifier la mise en place.' },
+  { front: 'Quel outil du quotidien accompagne %s ?', back: 'Les outils vus dans la section « Les outils du quotidien » du cours.' },
+  { front: 'Comment teste-t-on un résultat obtenu avec %s ?', back: 'En le comparant à un cas de référence connu, écart par écart.' },
+  { front: 'Quelle étape précède la mise en production de %s ?', back: 'La validation par les tests et la relecture des bonnes pratiques.' },
+  { front: 'Que retenir de la structure d’un projet %s ?', back: 'Un dossier de travail dédié, des responsabilités séparées, un exemple minimal.' },
+  { front: 'Comment optimiser l’usage de %s ?', back: 'Mesurer d’abord, puis n’optimiser que le point réellement coûteux.' },
+] as const;
+
+/**
+ * Jeu de flashcards mock conforme à courseFlashcardsSchema (min 10 cartes).
+ * Déterministe par titre : mêmes cartes pour un même cours.
+ */
+export function mockCourseFlashcards(title: string): CourseFlashcards {
+  const t = title.trim() || 'le cours';
+  const cards = FLASHCARD_ANGLES.map((angle, i) => ({
+    front: angle.front.replace(/%s/g, t),
+    back: `${angle.back.replace(/%s/g, t)} (point clé n°${i + 1})`,
+  }));
+  return courseFlashcardsSchema.parse({ cards });
+}
+
+// ── Bande-annonce (Prompt 197) ──────────────────────────────────
+/**
+ * Script de bande-annonce mock : accroche → promesse → programme → CTA,
+ * 120-1500 caractères (cf. trailerScriptSchema). Déterministe par titre.
+ */
+export function mockTrailerScript(title: string): { narration: string } {
+  const t = title.trim() || 'ce cours';
+  return {
+    narration:
+      `Vous bloquez sur ${t} et vous tournez en rond dans des tutoriels incomplets ? ` +
+      `Ce cours vous emmène de la découverte à l'autonomie, sans jargon inutile. ` +
+      `Vous installerez votre environnement, appliquerez ${t} sur des cas réels, ` +
+      `et saurez diagnostiquer les erreurs les plus fréquentes. ` +
+      `Au programme : des vidéos courtes, des articles de référence, des ateliers guidés et un quiz à chaque section. ` +
+      `Inscrivez-vous maintenant : votre première manipulation se fait dans les dix prochaines minutes.`,
+  };
+}
+
 // ── Quiz ────────────────────────────────────────────────────────
 export const mockQuizSchema = z.array(quizQuestionSchema).min(1);
 
@@ -557,11 +613,172 @@ export function mockAltText(title: string): AltTextResult {
   });
 }
 
+// ── Blog SEO (Prompt 204) ───────────────────────────────────────
+
+/** Mot-clé cible lu dans le prompt d'article de blog (« Mot-clé cible : … »). */
+export function extractBlogKeywordFromPrompt(user: string): string {
+  const match = /mot-cl[ée]\s+cible\s*:\s*(.+)/i.exec(user);
+  return match?.[1]?.trim() || extractTitleFromPrompt(user);
+}
+
+/** Nombre d'articles demandé dans le prompt de plan éditorial (« plan éditorial de N articles »). */
+export function extractBlogPostCountFromPrompt(user: string): number {
+  const match = /plan\s+[ée]ditorial\s+de\s+(\d+)\s+articles/i.exec(user);
+  const parsed = match?.[1] ? Number.parseInt(match[1], 10) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 24) : BLOG.DEFAULT_POSTS_PER_COURSE;
+}
+
+/** Gabarits d'angles SEO — un mot-clé long traîne distinct par article. */
+const BLOG_ANGLES: readonly {
+  titleTemplate: string;
+  keywordTemplate: string;
+  searchIntent: SearchIntent;
+  angle: string;
+}[] = [
+  {
+    titleTemplate: 'Débuter avec %s : le guide complet pour bien démarrer',
+    keywordTemplate: 'débuter avec %s',
+    searchIntent: 'informational',
+    angle: 'Poser les bases et le vocabulaire pour un lecteur qui part de zéro.',
+  },
+  {
+    titleTemplate: 'Les 7 erreurs les plus fréquentes en %s (et comment les éviter)',
+    keywordTemplate: 'erreurs %s',
+    searchIntent: 'informational',
+    angle: 'Lister les pièges concrets rencontrés en production et leur correction.',
+  },
+  {
+    titleTemplate: 'Combien de temps faut-il pour apprendre %s ?',
+    keywordTemplate: 'apprendre %s',
+    searchIntent: 'commercial',
+    angle: "Cadrer un plan d'apprentissage réaliste selon le temps disponible.",
+  },
+  {
+    titleTemplate: 'Quelle formation choisir pour %s ? Comparatif honnête',
+    keywordTemplate: 'formation %s',
+    searchIntent: 'commercial',
+    angle: 'Comparer les formats de formation et donner des critères de choix.',
+  },
+  {
+    titleTemplate: 'Se former à %s en 30 jours : le plan jour par jour',
+    keywordTemplate: 'se former à %s',
+    searchIntent: 'transactional',
+    angle: 'Proposer un plan daté et actionnable pour passer à la pratique.',
+  },
+  {
+    titleTemplate: 'Ressources et outils indispensables pour %s',
+    keywordTemplate: 'outils %s',
+    searchIntent: 'navigational',
+    angle: 'Recenser les outils du quotidien et quand les utiliser.',
+  },
+];
+
+/**
+ * Plan éditorial mock (MOCK_PROVIDERS=true ou LLM en échec) : `count` articles
+ * aux mots-clés distincts, déterministes par titre de cours.
+ */
+export function mockBlogPlan(courseTitle: string, count: number): BlogPlan {
+  // Le thème est borné : un titre de cours très long ferait dépasser les bornes
+  // de blogPlanSchema (title ≤ 120, keyword ≤ 80) — une fixture ne jette jamais.
+  const t = (courseTitle.trim() || 'la thématique du cours').slice(0, 50).trim();
+  const total = Math.max(1, Math.min(Math.trunc(count) || BLOG.DEFAULT_POSTS_PER_COURSE, 24));
+  const posts = Array.from({ length: total }, (_unused, index) => {
+    const angle = BLOG_ANGLES[index % BLOG_ANGLES.length]!;
+    // Au-delà d'un tour de gabarits, un suffixe déterministe garde les mots-clés distincts.
+    const cycle = Math.floor(index / BLOG_ANGLES.length);
+    const suffix = cycle === 0 ? '' : ` (partie ${cycle + 1})`;
+    return {
+      title: (angle.titleTemplate.replace('%s', t) + suffix).slice(0, 120),
+      keyword: (angle.keywordTemplate.replace('%s', t) + suffix).slice(0, 80),
+      searchIntent: angle.searchIntent,
+      angle: angle.angle,
+    };
+  });
+  return blogPlanSchema.parse({ posts });
+}
+
+/**
+ * Article de blog mock conforme aux règles SEO du générateur (BLOG.MIN_WORDS
+ * mots, ≥ 4 sections H2, mot-clé dans le titre et répété dans le corps, FAQ) —
+ * déterministe par (titre, mot-clé) extraits du prompt.
+ */
+export function mockBlogPost(title: string, keyword: string): BlogPostContent {
+  const k = (keyword.trim() || 'le sujet traité').slice(0, 80).trim();
+  const composed = title.trim().toLowerCase().includes(k.toLowerCase())
+    ? title.trim()
+    : `${title.trim() || 'Guide'} : tout savoir sur ${k}`;
+  // Le titre DOIT contenir le mot-clé (règle SEO) : plutôt que de tronquer un
+  // titre trop long (ce qui pourrait couper le mot-clé), on retombe sur un
+  // gabarit court construit autour du mot-clé.
+  const t = composed.length <= 120 ? composed : `${k} : le guide complet`;
+
+  const skeleton = [
+    `## ${k} : de quoi parle-t-on exactement ?`,
+    `Avant d'aller plus loin, posons une définition claire de ${k}. Derrière l'expression se cachent des réalités très différentes selon les contextes, et c'est précisément cette confusion qui fait perdre le plus de temps aux débutants.`,
+    '',
+    '### Le vocabulaire à connaître',
+    `Trois notions reviennent systématiquement dès que l'on aborde ${k} : le périmètre couvert, les outils employés et les critères de réussite. Les confondre conduit à des choix coûteux, difficiles à corriger plus tard.`,
+    '',
+    `## Pourquoi ${k} intéresse autant aujourd'hui`,
+    `La demande explose parce que les organisations cherchent des résultats mesurables, rapidement. Maîtriser ${k} donne un avantage concret : vous savez quoi faire en premier, et surtout ce qu'il ne faut pas faire.`,
+    '',
+    '## La méthode en quatre étapes',
+    "Commencez par un objectif écrit, mesurable, daté. Passez ensuite à un prototype minimal, mesurez, puis élargissez seulement ce qui a fonctionné. Cette boucle courte évite les mois perdus sur une piste sans issue.",
+    '',
+    '## Les erreurs qui coûtent le plus cher',
+    `Vouloir tout industrialiser dès le premier jour reste l'erreur la plus répandue autour de ${k} : commencez petit, mesurez, puis élargissez ce qui a fait ses preuves.`,
+  ].join('\n');
+
+  const fillers = [
+    `La première étape consiste à cartographier l'existant : ce qui fonctionne déjà, ce qui coince, et ce que vous mesurez réellement. Sans cette photographie initiale, impossible de démontrer le moindre progrès dans six mois.`,
+    `Prenez le temps de documenter vos décisions au fil de l'eau. Une page suffit : le contexte, l'option retenue, les alternatives écartées. Ce réflexe vous fera gagner des heures lors des arbitrages suivants.`,
+    `Testez chaque changement isolément. Modifier trois paramètres à la fois rend l'analyse impossible : vous saurez que le résultat a bougé, jamais pourquoi, et vous ne pourrez pas reproduire le succès.`,
+    `Fixez-vous un rythme régulier plutôt qu'un sprint héroïque. Trente minutes par jour pendant un mois produisent des résultats bien supérieurs à deux week-ends intensifs suivis de six semaines d'oubli complet.`,
+    `Entourez-vous : une communauté, un pair, un mentor. Expliquer votre raisonnement à voix haute révèle immédiatement les zones floues, celles que la lecture passive vous laissait croire acquises.`,
+    `Enfin, mesurez ce qui compte pour vous, pas ce qui est facile à compter. Un indicateur pertinent et imparfait vaut mieux que trois métriques précises mais sans lien avec votre objectif réel.`,
+  ] as const;
+
+  const paragraphs: string[] = [];
+  let markdown = skeleton;
+  for (let i = 0; markdownWords(markdown) < BLOG.MIN_WORDS; i++) {
+    paragraphs.push(fillers[i % fillers.length] ?? fillers[0]);
+    markdown = `${skeleton}\n${paragraphs.join('\n\n')}`;
+  }
+
+  const metaDescription = `Tout ce qu'il faut savoir sur ${k} : définition, méthode en quatre étapes, erreurs fréquentes et réponses aux questions les plus posées.`.slice(
+    0,
+    BLOG.META_DESCRIPTION_MAX_CHARS,
+  );
+
+  return blogPostContentSchema.parse({
+    title: t.slice(0, 120),
+    metaDescription,
+    markdown,
+    faq: [
+      {
+        question: `Faut-il des prérequis pour se lancer dans ${k} ?`,
+        answer: `Non : une bonne méthode et de la régularité suffisent pour démarrer. Les notions techniques s'acquièrent au fil des exercices, pas avant de commencer.`,
+      },
+      {
+        question: `Combien de temps avant d'obtenir des résultats visibles ?`,
+        answer: `Comptez quelques semaines de pratique régulière pour des résultats mesurables, à condition de travailler sur un cas concret plutôt que sur des exemples théoriques.`,
+      },
+      {
+        question: `Quelle est l'erreur la plus coûteuse à éviter ?`,
+        answer: `Vouloir tout automatiser ou tout optimiser dès le premier jour. Commencez par le cas le plus simple, validez-le, puis élargissez progressivement.`,
+      },
+    ],
+  });
+}
+
 // ── Dispatch générique ──────────────────────────────────────────
 /**
  * Retourne la fixture correspondant au schéma demandé : chaque candidat
- * (outline, quiz[], question, script vidéo, article, TP, marketing) est validé contre
- * le schéma, le premier qui passe est retourné. Déterministe par titre.
+ * (outline, quiz[], question, script vidéo, article, TP, marketing, blog) est validé
+ * contre le schéma, le premier qui passe est retourné. Déterministe par titre.
+ * Les fixtures blog sont en FIN de liste : leur forme (title + markdown) est
+ * compatible avec articleContentSchema, elles ne doivent donc jamais passer
+ * devant mockArticle pour les leçons de type article.
  */
 export function mockFixtureFor<T>(schema: z.ZodType<T>, user: string): T {
   const title = extractTitleFromPrompt(user);
@@ -575,7 +792,11 @@ export function mockFixtureFor<T>(schema: z.ZodType<T>, user: string): T {
     mockTp(title),
     mockMarketing(title),
     mockCourseResources(title),
+    mockCourseFlashcards(title),
+    mockTrailerScript(title),
     mockAltText(title),
+    mockBlogPlan(title, extractBlogPostCountFromPrompt(user)),
+    mockBlogPost(title, extractBlogKeywordFromPrompt(user)),
   ];
   for (const candidate of candidates) {
     const parsed = schema.safeParse(candidate);

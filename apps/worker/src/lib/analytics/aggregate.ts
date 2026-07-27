@@ -48,7 +48,7 @@ export function mockMetrics(platform: string, courseId: string): PlatformMetrics
     // ~2 % des vues « likées » → note dérivée dans [3.5, 5].
     const rating = 3.5 + (seededInt(seed, 2, 0, 150) / 100);
     const revenue = Math.round((views / 1000) * 2.5 * 100) / 100; // ~2,5 $ CPM
-    return { platform, enrollments: 0, rating, revenue, views };
+    return { platform, enrollments: 0, rating, revenue, views, simulated: true };
   }
 
   // Udemy (défaut) : inscrits, note, revenu = inscrits × prix net moyen.
@@ -56,7 +56,7 @@ export function mockMetrics(platform: string, courseId: string): PlatformMetrics
   const rating = 3.8 + (seededInt(seed, 2, 0, 120) / 100); // [3.8, 5.0]
   const netPerSale = 9 + seededInt(seed, 3, 0, 6); // 9–15 $ net/vente
   const revenue = Math.round(enrollments * netPerSale * 100) / 100;
-  return { platform, enrollments, rating, revenue, views: 0 };
+  return { platform, enrollments, rating, revenue, views: 0, simulated: true };
 }
 
 /* ------------------------------------------------------------------ */
