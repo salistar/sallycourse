@@ -65,6 +65,12 @@ services:
     environment:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY:-sallycourse}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-sallycourse-secret}
+      # CORS : le lecteur vidéo de la page cours utilise crossOrigin="anonymous"
+      # (obligatoire pour charger les pistes de sous-titres VTT cross-origin) —
+      # sans en-têtes CORS côté MinIO, le NAVIGATEUR refuse de LIRE les URLs
+      # présignées (vidéo qui ne se lance jamais). Les URLs présignées restent
+      # le contrôle d'accès réel ; en prod, restreindre à APP_URL.
+      MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_CORS_ALLOW_ORIGIN:-*}
     volumes:
       - minio-data:/data
     profiles: [core, full]
