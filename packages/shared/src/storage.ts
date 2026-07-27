@@ -63,10 +63,29 @@ export interface LessonKeys {
   /** Préfixe de la leçon : courses/{id}/sections/{n}/lessons/{n} */
   prefix: string;
   video(): string;
+  /** Version verticale 9:16 (P167, format shorts) — courses/…/video-vertical.mp4. */
+  videoVertical(): string;
   article(): string;
   screenshot(index: number): string;
   /** Slide vidéo rendue en PNG (gabarits D7 rendus par Playwright). */
   slide(index: number): string;
+  /**
+   * Illustration SDXL de la leçon (générée via Modal, réutilisée par la slide
+   * de titre) : courses/{id}/sections/{n}/lessons/{n}/illustration.png.
+   * Générée UNE fois puis servie depuis le cache S3 (rendu idempotent).
+   */
+  illustration(): string;
+  /**
+   * Illustration SDXL PAR SLIDE (Lot 3, plan 2026-07-20) — courses/{id}/
+   * sections/{n}/lessons/{n}/slide-illustrations/{index}.png. Distincte de
+   * `slide(index)` (PNG FINAL rendu du gabarit, régénéré à chaque render) :
+   * celle-ci est la source (générée UNE fois ou remplacée manuellement),
+   * injectée en data URI dans le gabarit puis capturée dans `slide(index)`.
+   * EXCLUE de la purge P79 (retention.ts) : contrairement aux mp3/PNG de
+   * rendu, l'auteur doit pouvoir la revoir/remplacer après que le cours soit
+   * `ready` — la traiter comme un asset durable, pas un intermédiaire.
+   */
+  slideIllustration(index: number): string;
   /**
    * Screencast d'une étape de TP (Prompt 85) : mini-vidéo de démonstration
    * (Playwright recordVideo + zoom ffmpeg + narration TTS synchronisée) —
@@ -84,6 +103,17 @@ export interface LessonKeys {
   audio(slide: number): string;
   quiz(): string;
   /**
+   * Markdown « Quiz + Solutions » d'une leçon de type quiz (audit 2026-07-20,
+   * bug N1) : courses/…/lessons/{n}/quiz-solutions.md. AVANT ce correctif, ce
+   * document était uploadé sous `article()` et posé comme `assets.articleMd`
+   * de la leçon — la leçon de clôture de section affichait donc le quiz (avec
+   * les solutions) comme si c'était son article de synthèse. Clé désormais
+   * distincte : `quiz()` reste le JSON brut consommé par le packaging,
+   * `quizSolutions()` est réservé au document imprimable, `article()` n'est
+   * plus jamais écrit par le générateur de quiz.
+   */
+  quizSolutions(): string;
+  /**
    * Sous-titres traduits d'une leçon (Prompt 92, traduction des cours publiés) :
    * courses/{id}/sections/{n}/lessons/{n}/captions-{locale}.srt. Distinct du
    * .srt d'origine (captionsSrt) — n'écrase jamais la langue source.
@@ -94,6 +124,49 @@ export interface LessonKeys {
    * réassemblé avec l'audio TTS traduit — courses/{id}/sections/{n}/lessons/{n}/video-{locale}.mp4.
    */
   videoLocalized(locale: string): string;
+  /**
+   * Copie filigranée d'une leçon PAR ÉTUDIANT (Prompt 206, anti-piratage) :
+   * courses/{id}/sections/{n}/lessons/{n}/watermarked/{studentId}.mp4. Rendue
+   * PARESSEUSEMENT à la 1re lecture par cet étudiant puis mise en cache — jamais
+   * générée en masse. Distincte de video() (copie propre) : l'étudiant reçoit
+   * TOUJOURS une URL signée courte vers SA copie, jamais la clé brute.
+   */
+  watermarkedVideo(studentId: string): string;
+  /**
+   * Capture d'écran UPLOADÉE par l'auteur (Feature B) — enregistrement brut :
+   * courses/{id}/sections/{n}/lessons/{n}/screencast/upload.mp4. DISTINCT de
+   * screencast(index) (flux AUTOMATIQUE Playwright indexé par étape de TP) :
+   * ici l'auteur téléverse SON propre enregistrement, un seul par leçon.
+   */
+  screencastUpload(): string;
+  /**
+   * Entrée de rendu d'une capture uploadée (Feature B) : JSON durable
+   * { narrationText, overlays } — courses/…/lessons/{n}/screencast/input.json.
+   * Persisté par la route, relu par le worker de rendu (source reproductible).
+   */
+  screencastOverlays(): string;
+  /**
+   * Rendu final d'une capture uploadée (Feature B) : MP4 narré + légendes
+   * incrustées — courses/…/lessons/{n}/screencast/render.mp4. S'AJOUTE comme
+   * asset screencast de la leçon (ne remplace jamais la vidéo de la leçon).
+   */
+  screencastRender(): string;
+  /**
+   * Enregistrement audio manuel BRUT PAR SLIDE (Lot 4, plan 2026-07-20),
+   * tel qu'uploadé par l'auteur (webm/mp3/wav) — courses/{id}/sections/{n}/
+   * lessons/{n}/manual-audio/{index}-raw. Conservé (jamais purgé) : source de
+   * référence si l'auteur veut re-normaliser ou vérifier l'original.
+   */
+  manualAudioRaw(index: number): string;
+  /**
+   * Enregistrement audio manuel NORMALISÉ PAR SLIDE (Lot 4, plan 2026-07-20) :
+   * courses/{id}/sections/{n}/lessons/{n}/manual-audio/{index}.mp3 (loudnorm
+   * -16 LUFS, 48 kHz, mêmes réglages que le TTS — media/tts.ts). Distincte de
+   * `audio(index)` (copie de travail lue par le rendu vidéo, ré-écrite à
+   * chaque régénération) : celle-ci est la source durable de l'auteur,
+   * EXCLUE de la purge P79 comme `slideIllustration`.
+   */
+  manualAudio(index: number): string;
 }
 
 export interface CourseKeys {
@@ -104,6 +177,16 @@ export interface CourseKeys {
   exportFile(fileName: string): string;
   /** Ressource téléchargeable du cours (Prompt 65) : courses/{id}/resources/{fileName} */
   resource(fileName: string): string;
+  /** Flashcards du cours (P203) : JSON + export Anki (TSV). */
+  flashcards(): string;
+  flashcardsAnki(): string;
+  /** Podcast (P202) : flux RSS + un épisode audio par section. */
+  podcastFeed(): string;
+  podcastEpisode(sectionOrder: number): string;
+  /** Ebook (P201) : EPUB et/ou PDF « print-ready ». */
+  ebook(ext: 'epub' | 'pdf'): string;
+  /** Bande-annonce du cours (P197) : courses/{id}/trailer.mp4. */
+  trailer(): string;
   /**
    * Segment avatar « talking head » d'intro/conclusion de section (Prompt 82) :
    * courses/{id}/sections/{n}/avatar/{intro|outro}.mp4. Généré une fois par
@@ -151,6 +234,24 @@ export const storageKeys = {
     return `voice-samples/${userId}.audio`;
   },
   /**
+   * Audio d'une dictée de création de cours à la voix (Prompt 210) : clé =
+   * voice-dictations/{userId}/{dictationId}.audio. Préfixe distinct de
+   * "courses/" (jamais purgé par deleteCoursePrefix) — un audio par dictée,
+   * transcrit puis interprété de façon asynchrone par le worker voice-intake.
+   */
+  voiceDictation(userId: string, dictationId: string): string {
+    return `voice-dictations/${userId}/${dictationId}.audio`;
+  },
+  /**
+   * Photo de visage du présentateur pour l'avatar « talking-head » (Ditto/Modal) :
+   * clé = avatar-faces/{userId}.png. Préfixe distinct de "courses/" (jamais purgé
+   * par deleteCoursePrefix) — une seule photo courante par utilisateur, réutilisée
+   * pour tous ses cours. Portrait frontal recommandé (détection de visage).
+   */
+  avatarFace(userId: string): string {
+    return `avatar-faces/${userId}.png`;
+  },
+  /**
    * Logo de marque blanche du certificat (Prompt 88) : clé =
    * branding/{userId}/logo.{ext}. Préfixe distinct de "courses/" (jamais
    * purgé par deleteCoursePrefix) — un seul logo courant par utilisateur.
@@ -183,22 +284,38 @@ export const storageKeys = {
         return {
           prefix: base,
           video: () => `${base}/video.mp4`,
+          videoVertical: () => `${base}/video-vertical.mp4`,
           article: () => `${base}/article.md`,
           screenshot: (index: number) => `${base}/screenshots/${index}.png`,
           slide: (index: number) => `${base}/slides/${index}.png`,
+          illustration: () => `${base}/illustration.png`,
+          slideIllustration: (index: number) => `${base}/slide-illustrations/${index}.png`,
           screencast: (index: number) => `${base}/screencasts/${index}.mp4`,
           captionsSrt: () => `${base}/captions.srt`,
           captionsVtt: () => `${base}/captions.vtt`,
           captionsTxt: () => `${base}/captions.txt`,
           audio: (slide: number) => `${base}/audio/${slide}.mp3`,
           quiz: () => `${base}/quiz.json`,
+          quizSolutions: () => `${base}/quiz-solutions.md`,
           captionsSrtLocalized: (locale: string) => `${base}/captions-${locale}.srt`,
           videoLocalized: (locale: string) => `${base}/video-${locale}.mp4`,
+          watermarkedVideo: (studentId: string) => `${base}/watermarked/${studentId}.mp4`,
+          screencastUpload: () => `${base}/screencast/upload.mp4`,
+          screencastOverlays: () => `${base}/screencast/input.json`,
+          screencastRender: () => `${base}/screencast/render.mp4`,
+          manualAudioRaw: (index: number) => `${base}/manual-audio/${index}-raw`,
+          manualAudio: (index: number) => `${base}/manual-audio/${index}.mp3`,
         };
       },
       marketing: (fileName: string) => `${prefix}/marketing/${fileName}`,
       exportFile: (fileName: string) => `${prefix}/exports/${fileName}`,
       resource: (fileName: string) => `${prefix}/resources/${fileName}`,
+      flashcards: () => `${prefix}/flashcards/deck.json`,
+      flashcardsAnki: () => `${prefix}/flashcards/anki.txt`,
+      podcastFeed: () => `${prefix}/podcast/feed.xml`,
+      podcastEpisode: (sectionOrder: number) => `${prefix}/podcast/episode-${sectionOrder}.mp3`,
+      ebook: (ext: 'epub' | 'pdf') => `${prefix}/ebook/course.${ext}`,
+      trailer: () => `${prefix}/trailer.mp4`,
       avatarSegment: (sectionOrder: number, kind: 'intro' | 'outro') =>
         `${prefix}/sections/${sectionOrder}/avatar/${kind}.mp4`,
       sourceMaterial: (fileName: string) => `${prefix}/source-material/${fileName}`,
@@ -238,13 +355,29 @@ export async function uploadObject(
   }
 }
 
-/** Agrège un stream lisible en Buffer (voir note ContentLength dans uploadObject). */
-async function streamToBufferForUpload(stream: Readable): Promise<Buffer> {
+/**
+ * Agrège un stream lisible en Buffer. EXPORTÉ (audit dédup 2026-07-26) : cette
+ * logique était copiée ~17 fois dans le worker (readObjectBuffer/streamToBuffer
+ * locaux) — c'est désormais l'unique implémentation.
+ */
+export async function streamToBuffer(stream: Readable): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of stream) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
   return Buffer.concat(chunks);
+}
+
+/** Alias interne historique (upload) — même implémentation. */
+const streamToBufferForUpload = streamToBuffer;
+
+/**
+ * Lit un objet du stockage en Buffer complet (audit dédup 2026-07-26) —
+ * remplace toutes les boucles `for await (chunk of getObjectStream(...))`
+ * copiées dans le worker.
+ */
+export async function readObjectBuffer(key: string): Promise<Buffer> {
+  return streamToBuffer(await getObjectStream(key));
 }
 
 /** Récupère un objet sous forme de stream Node lisible. */
@@ -272,6 +405,24 @@ export async function objectExists(key: string): Promise<boolean> {
     const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
     if (code === 'NotFound' || code === 'NoSuchKey' || status === 404) return false;
     throw new StorageError('objectExists', key, err);
+  }
+}
+
+/**
+ * Taille d'un objet en octets (HeadObject) sans télécharger son corps — null
+ * si l'objet n'existe pas. Sert notamment à la révision de cours (2026-07-26) :
+ * une image « générée » quasi vide (fichier minuscule) trahit une génération
+ * ratée à re-produire.
+ */
+export async function objectSize(key: string): Promise<number | null> {
+  try {
+    const head = await getS3Client().send(new HeadObjectCommand({ Bucket: bucket(), Key: key }));
+    return head.ContentLength ?? null;
+  } catch (err) {
+    const code = (err as { name?: string })?.name;
+    const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
+    if (code === 'NotFound' || code === 'NoSuchKey' || status === 404) return null;
+    throw new StorageError('objectSize', key, err);
   }
 }
 
