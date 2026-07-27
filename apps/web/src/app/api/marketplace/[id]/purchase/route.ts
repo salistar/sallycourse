@@ -26,7 +26,7 @@ export async function POST(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Listing introuvable.' }, { status: 404 });
+    return NextResponse.json({ error: 'Listing introuvable.', code: 'listingNotFound' }, { status: 404 });
   }
 
   await connectDb();
@@ -35,11 +35,11 @@ export async function POST(
     .select('sellerId priceCents')
     .lean();
   if (!listing) {
-    return NextResponse.json({ error: 'Listing introuvable ou retiré.' }, { status: 404 });
+    return NextResponse.json({ error: 'Listing introuvable ou retiré.', code: 'listingNotFoundOrRemoved' }, { status: 404 });
   }
 
   if (String(listing.sellerId) === String(user.id)) {
-    return NextResponse.json({ error: 'Vous ne pouvez pas acheter votre propre cours.' }, { status: 400 });
+    return NextResponse.json({ error: 'Vous ne pouvez pas acheter votre propre cours.', code: 'cannotBuyOwnCourse' }, { status: 400 });
   }
 
   const checkout = marketplaceCheckoutStub(listing.priceCents, getConfig().MOCK_PROVIDERS);
@@ -62,7 +62,7 @@ export async function POST(
 
   if (!result.ok) {
     const status = result.reason === 'listing_not_found' ? 404 : 409;
-    return NextResponse.json({ error: `Achat impossible (${result.reason}).` }, { status });
+    return NextResponse.json({ error: `Achat impossible (${result.reason}).`, code: 'purchaseFailed', params: { reason: result.reason } }, { status });
   }
 
   return NextResponse.json(

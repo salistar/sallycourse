@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import { connectDb, Course as CourseModel, Enrollment as EnrollmentModel, Lesson as LessonModel } from '@sallycourse/db';
@@ -33,12 +34,12 @@ export async function POST(
 
   const { id: courseId } = await params;
   if (!isValidObjectId(courseId)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Question invalide (3 à 500 caractères).' }, { status: 400 });
+    return NextResponse.json({ error: 'Question invalide (3 à 500 caractères).', code: 'invalidQuestionLength' }, { status: 400 });
   }
 
   const ip = extractClientIp(request);
@@ -59,12 +60,12 @@ export async function POST(
   // Ownership pédagogique : l'étudiant doit être inscrit à CE cours.
   const enrollment = await EnrollmentModel.findOne({ studentId: user.id, courseId }).select('_id').lean();
   if (!enrollment) {
-    return NextResponse.json({ error: 'Inscription requise pour utiliser l’assistant de cours.' }, { status: 403 });
+    return NextResponse.json({ error: 'Inscription requise pour utiliser l’assistant de cours.', code: 'enrollmentRequiredForAssistant' }, { status: 403 });
   }
 
   const course = await CourseModel.findById(courseId).select('title locale').lean();
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   const lessons = await LessonModel.find({ courseId, status: 'ready' })
@@ -89,7 +90,7 @@ export async function POST(
     });
   } catch {
     return NextResponse.json(
-      { error: 'Assistant de cours indisponible pour le moment, réessayez plus tard.' },
+      { error: 'Assistant de cours indisponible pour le moment, réessayez plus tard.', code: 'courseAssistantUnavailable' },
       { status: 502 },
     );
   }

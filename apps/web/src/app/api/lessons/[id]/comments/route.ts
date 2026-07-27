@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import { Lesson as LessonModel, LessonComment, TeamActivity, User as UserModel, connectDb } from '@sallycourse/db';
@@ -38,7 +39,7 @@ export async function GET(
 
   const resolved = await loadLessonWorkspaceAccess(id, user.id);
   if (!resolved) {
-    return NextResponse.json({ error: 'Leçon introuvable.' }, { status: 404 });
+    return apiError('lessonNotFound');
   }
 
   const comments = await LessonComment.find({ lessonId: id })
@@ -73,20 +74,20 @@ export async function POST(
 
   const resolved = await loadLessonWorkspaceAccess(id, user.id);
   if (!resolved) {
-    return NextResponse.json({ error: 'Leçon introuvable.' }, { status: 404 });
+    return apiError('lessonNotFound');
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = commentSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Commentaire invalide.', details: parsed.error.flatten().fieldErrors },
+      { error: 'Commentaire invalide.', code: 'invalidComment', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }

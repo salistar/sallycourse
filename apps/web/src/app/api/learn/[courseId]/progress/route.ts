@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import { connectDb, Enrollment, Lesson } from '@sallycourse/db';
@@ -29,19 +30,19 @@ export async function POST(
 
   const { courseId } = await params;
   if (!isValidObjectId(courseId)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Requête invalide.' }, { status: 400 });
+    return apiError('invalidRequest');
   }
 
   await connectDb();
 
   const enrollment = await Enrollment.findOne({ studentId: user.id, courseId });
   if (!enrollment) {
-    return NextResponse.json({ error: 'Inscription requise.' }, { status: 403 });
+    return apiError('enrollmentRequired');
   }
 
   // Ids de leçons valides du cours (bornage anti-injection + total pour la complétion).

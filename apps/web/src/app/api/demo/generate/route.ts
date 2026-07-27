@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { z } from 'zod';
 import { connectDb, DemoCourse } from '@sallycourse/db';
 import { extractClientIp, rateLimit } from '@/lib/rate-limit';
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
   const ipLimit = await rateLimit(`demo:ip:${ip}`, DEMO_IP_LIMIT);
   if (!ipLimit.allowed) {
     return NextResponse.json(
-      { error: 'Trop de démos générées depuis cette adresse, réessayez plus tard.' },
+      { error: 'Trop de démos générées depuis cette adresse, réessayez plus tard.', code: 'tooManyDemosFromAddress' },
       {
         status: 429,
         headers: { 'Retry-After': String(Math.ceil((ipLimit.resetAt.getTime() - Date.now()) / 1000)) },
@@ -39,13 +40,13 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Données invalides.', details: parsed.error.flatten().fieldErrors },
+      { error: 'Données invalides.', code: 'invalidData', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }

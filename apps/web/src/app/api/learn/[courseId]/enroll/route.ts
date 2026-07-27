@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { getConfig } from '@sallycourse/shared';
 import { connectDb, Enrollment, LmsListing } from '@sallycourse/db';
@@ -25,7 +26,7 @@ export async function POST(
 
   const { courseId } = await params;
   if (!isValidObjectId(courseId)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   // Corps optionnel — un couponCode absent ou un JSON vide ne bloque rien.
@@ -43,10 +44,10 @@ export async function POST(
 
   // Le cours doit être publié sur le LMS interne pour être ouvert à l'inscription.
   const listing = await LmsListing.findOne({ courseId, published: true })
-    .select('title priceCents')
+    .select('title priceCents userId')
     .lean();
   if (!listing) {
-    return NextResponse.json({ error: 'Cours non disponible sur le LMS.' }, { status: 404 });
+    return NextResponse.json({ error: 'Cours non disponible sur le LMS.', code: 'courseNotAvailableOnLms' }, { status: 404 });
   }
 
   // Déjà inscrit ? On renvoie l'existant (idempotence — le coupon n'est pas rejoué).
@@ -57,7 +58,12 @@ export async function POST(
 
   let priceCents = listing.priceCents ?? 0;
   if (couponCode) {
-    const redemption = await redeemCoupon({ code: couponCode, priceCents, courseId });
+    const redemption = await redeemCoupon({
+      code: couponCode,
+      priceCents,
+      courseId,
+      ownerId: String(listing.userId),
+    });
     if (!redemption.ok) {
       return NextResponse.json({ error: redemption.error }, { status: 400 });
     }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import {
@@ -105,20 +106,20 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = createListingSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Données invalides.', details: parsed.error.flatten().fieldErrors },
+      { error: 'Données invalides.', code: 'invalidData', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }
 
   const { courseId, priceCents, licenseType, description, category, currency } = parsed.data;
   if (!isValidObjectId(courseId)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   await connectDb();
@@ -128,25 +129,25 @@ export async function POST(request: Request) {
     .select('status outline')
     .lean();
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   if (licenseType === 'course-copy' && course.status !== 'ready' && course.status !== 'published') {
     return NextResponse.json(
-      { error: 'Seul un cours entièrement généré (prêt ou publié) peut être vendu en copie intégrale.' },
+      { error: 'Seul un cours entièrement généré (prêt ou publié) peut être vendu en copie intégrale.', code: 'fullCopySaleRequiresGeneratedCourse' },
       { status: 409 },
     );
   }
   if (licenseType === 'template-only' && !course.outline) {
     return NextResponse.json(
-      { error: 'Ce cours n’a pas encore de plan validé à vendre en tant que template.' },
+      { error: 'Ce cours n’a pas encore de plan validé à vendre en tant que template.', code: 'noValidatedPlanToSellAsTemplate' },
       { status: 409 },
     );
   }
 
   const platformFeeRate = DEFAULT_MARKETPLACE_FEE_RATE;
   if (!isValidListingShape({ priceCents, platformFeeRate, licenseType })) {
-    return NextResponse.json({ error: 'Paramètres de listing invalides.' }, { status: 400 });
+    return NextResponse.json({ error: 'Paramètres de listing invalides.', code: 'invalidListingParams' }, { status: 400 });
   }
 
   // Un seul listing actif par (cours, licenceType) — évite les doublons de catalogue.
@@ -157,7 +158,7 @@ export async function POST(request: Request) {
   }).lean();
   if (already) {
     return NextResponse.json(
-      { error: 'Ce cours est déjà listé sur le marketplace avec cette licence.' },
+      { error: 'Ce cours est déjà listé sur le marketplace avec cette licence.', code: 'courseAlreadyListedWithLicense' },
       { status: 409 },
     );
   }

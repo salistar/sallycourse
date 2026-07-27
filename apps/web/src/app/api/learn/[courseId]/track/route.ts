@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import { connectDb, Enrollment, Lesson, LessonProgress } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
+import { awardForLessonCompletion, type GamificationAward } from '@/lib/gamification-award';
 
 /**
  * POST /api/learn/[courseId]/track — événements granulaires du player LMS
@@ -11,6 +13,13 @@ import { requireApiUser } from '@/lib/session';
  * en alimentant LessonProgress, source de la heatmap d'abandon et de l'export
  * xAPI. Idempotent par (studentId, lessonId) : upsert, jamais de doublon.
  * Best-effort côté client — un échec ici ne bloque jamais la lecture.
+ *
+ * P200 (gamification) : l'upsert se fait en `findOneAndUpdate` avec
+ * `returnDocument: 'before'` — l'état ANTÉRIEUR permet de savoir si c'est la
+ * PREMIÈRE complétion de la leçon (document absent, ou présent sans
+ * `completedAt`). L'XP n'est attribué que dans ce cas : re-visionner une leçon
+ * déjà terminée ne rapporte plus rien (anti double-XP). Le delta (XP, niveau,
+ * badges, streak) est renvoyé au client, qui déclenche les célébrations.
  */
 
 export const dynamic = 'force-dynamic';
@@ -43,28 +52,29 @@ export async function POST(
 
   const { courseId } = await params;
   if (!isValidObjectId(courseId)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Requête invalide.' }, { status: 400 });
+    return apiError('invalidRequest');
   }
   const { lessonId, event, deltaSeconds, quizScore, wrongAnswers } = parsed.data;
   if (!isValidObjectId(lessonId)) {
-    return NextResponse.json({ error: 'Leçon introuvable.' }, { status: 404 });
+    return apiError('lessonNotFound');
   }
 
   await connectDb();
 
   const enrollment = await Enrollment.findOne({ studentId: user.id, courseId }).select('_id').lean();
   if (!enrollment) {
-    return NextResponse.json({ error: 'Inscription requise.' }, { status: 403 });
+    return apiError('enrollmentRequired');
   }
 
-  const lesson = await Lesson.findOne({ _id: lessonId, courseId }).select('_id').lean();
+  // `type` : requis par la gamification (badge « premier TP »).
+  const lesson = await Lesson.findOne({ _id: lessonId, courseId }).select('_id type').lean();
   if (!lesson) {
-    return NextResponse.json({ error: 'Leçon introuvable.' }, { status: 404 });
+    return apiError('lessonNotFound');
   }
 
   const now = new Date();
@@ -87,7 +97,27 @@ export async function POST(
   }
   if (Object.keys(set).length > 0) update.$set = set;
 
-  await LessonProgress.updateOne({ studentId: user.id, lessonId }, update, { upsert: true });
+  // returnDocument: 'before' → état ANTÉRIEUR (null si la ligne est créée ici) :
+  // seule façon de distinguer la première complétion d'un re-visionnage.
+  const before = await LessonProgress.findOneAndUpdate(
+    { studentId: user.id, lessonId },
+    update,
+    { upsert: true, returnDocument: 'before' },
+  );
 
-  return NextResponse.json({ ok: true });
+  const firstCompletion = event === 'completed' && !before?.completedAt;
+
+  let gamification: GamificationAward | null = null;
+  if (firstCompletion) {
+    gamification = await awardForLessonCompletion({
+      userId: user.id,
+      courseId,
+      lessonId,
+      lessonType: lesson.type,
+      quizScore,
+      now,
+    });
+  }
+
+  return NextResponse.json({ ok: true, gamification });
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import {
   connectDb,
@@ -42,7 +43,7 @@ export async function POST(
 
   const { id: lessonId } = await params;
   if (!isValidObjectId(lessonId)) {
-    return NextResponse.json({ error: 'Leçon introuvable.' }, { status: 404 });
+    return apiError('lessonNotFound');
   }
 
   const ip = extractClientIp(request);
@@ -62,11 +63,11 @@ export async function POST(
 
   const lesson = await LessonModel.findById(lessonId).select('_id courseId title type').lean();
   if (!lesson) {
-    return NextResponse.json({ error: 'Leçon introuvable.' }, { status: 404 });
+    return apiError('lessonNotFound');
   }
   if (lesson.type !== 'quiz') {
     return NextResponse.json(
-      { error: 'Les exercices personnalisés ne sont disponibles que pour les leçons de type quiz.' },
+      { error: 'Les exercices personnalisés ne sont disponibles que pour les leçons de type quiz.', code: 'customExercisesQuizOnly' },
       { status: 409 },
     );
   }
@@ -85,8 +86,7 @@ export async function POST(
   if (wrongAnswers.length === 0) {
     return NextResponse.json(
       {
-        error:
-          'Aucune réponse erronée enregistrée sur cette leçon — passez le quiz au moins une fois pour obtenir des exercices ciblés.',
+        error: 'Aucune réponse erronée enregistrée sur cette leçon — passez le quiz au moins une fois pour obtenir des exercices ciblés.', code: 'noWrongAnswersForTargetedExercises',
       },
       { status: 400 },
     );
@@ -111,7 +111,7 @@ export async function POST(
     });
   } catch {
     return NextResponse.json(
-      { error: 'Génération des exercices indisponible pour le moment, réessayez plus tard.' },
+      { error: 'Génération des exercices indisponible pour le moment, réessayez plus tard.', code: 'exerciseGenerationUnavailable' },
       { status: 502 },
     );
   }

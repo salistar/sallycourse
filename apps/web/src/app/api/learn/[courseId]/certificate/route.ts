@@ -1,4 +1,5 @@
 import { isValidObjectId } from 'mongoose';
+import { apiError } from '@/lib/api-error';
 import { connectDb, Course, Enrollment, SchoolBranding, User as UserModel } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
 import { renderCertificateHtml, resolveCertificateBranding } from '@/lib/lms';
@@ -20,25 +21,25 @@ export async function GET(
 
   const { courseId } = await params;
   if (!isValidObjectId(courseId)) {
-    return Response.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   await connectDb();
 
   const enrollment = await Enrollment.findOne({ studentId: user.id, courseId }).lean();
   if (!enrollment) {
-    return Response.json({ error: 'Inscription requise.' }, { status: 403 });
+    return apiError('enrollmentRequired');
   }
   if (!enrollment.completedAt) {
     return Response.json(
-      { error: 'Terminez toutes les leçons pour obtenir votre certificat.' },
+      { error: 'Terminez toutes les leçons pour obtenir votre certificat.', code: 'completeAllLessonsForCertificate' },
       { status: 409 },
     );
   }
 
   const course = await Course.findById(courseId).select('title locale userId').lean();
   if (!course) {
-    return Response.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   // Marque blanche (Prompt 88) : branding de l'AUTEUR du cours (l'école qui a

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import {
   connectDb,
@@ -27,26 +28,26 @@ export async function POST(
 
   const { id, versionId } = await params;
   if (!isValidObjectId(id) || !isValidObjectId(versionId)) {
-    return NextResponse.json({ error: 'Version introuvable.' }, { status: 404 });
+    return apiError('versionNotFound');
   }
 
   await connectDb();
 
   const lesson = await LessonModel.findById(id);
   if (!lesson) {
-    return NextResponse.json({ error: 'Leçon introuvable.' }, { status: 404 });
+    return apiError('lessonNotFound');
   }
 
   const course = await CourseModel.findOne({ _id: lesson.courseId, userId: user.id })
     .select('_id')
     .lean();
   if (!course) {
-    return NextResponse.json({ error: 'Leçon introuvable.' }, { status: 404 });
+    return apiError('lessonNotFound');
   }
 
   const version = await LessonVersion.findOne({ _id: versionId, lessonId: id }).lean();
   if (!version) {
-    return NextResponse.json({ error: 'Version introuvable.' }, { status: 404 });
+    return apiError('versionNotFound');
   }
 
   const snapshot = version.snapshot as
@@ -55,7 +56,7 @@ export async function POST(
     | undefined;
 
   if (!snapshot || typeof snapshot !== 'object') {
-    return NextResponse.json({ error: 'Version corrompue.' }, { status: 409 });
+    return NextResponse.json({ error: 'Version corrompue.', code: 'versionCorrupted' }, { status: 409 });
   }
 
   // ── Quiz : restaure les questions du document Quiz, pas de statut leçon
@@ -70,18 +71,18 @@ export async function POST(
 
   if (snapshot.articleMd !== undefined) {
     if (lesson.type !== 'article') {
-      return NextResponse.json({ error: 'Cette leçon n’est pas un article.' }, { status: 409 });
+      return NextResponse.json({ error: 'Cette leçon n’est pas un article.', code: 'lessonNotArticle' }, { status: 409 });
     }
     const section = await SectionModel.findById(lesson.sectionId).select('order').lean();
     if (!section) {
-      return NextResponse.json({ error: 'Section introuvable.' }, { status: 404 });
+      return apiError('sectionNotFound');
     }
     const key = storageKeys.course(lesson.courseId.toString()).lesson(section.order, lesson.order).article();
     try {
       await uploadObject(key, snapshot.articleMd, 'text/markdown; charset=utf-8');
     } catch {
       return NextResponse.json(
-        { error: 'Impossible de restaurer l’article, réessayez plus tard.' },
+        { error: 'Impossible de restaurer l’article, réessayez plus tard.', code: 'articleRestoreFailed' },
         { status: 503 },
       );
     }
@@ -89,7 +90,7 @@ export async function POST(
   } else if (snapshot.script !== undefined) {
     lesson.script = snapshot.script;
   } else {
-    return NextResponse.json({ error: 'Version corrompue.' }, { status: 409 });
+    return NextResponse.json({ error: 'Version corrompue.', code: 'versionCorrupted' }, { status: 409 });
   }
 
   lesson.status = 'pending';

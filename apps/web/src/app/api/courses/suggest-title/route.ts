@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { z } from 'zod';
 import { UDEMY, getConfig } from '@sallycourse/shared';
 import { buildTitleSuggestions } from '@/components/create/mock-title-suggestions';
@@ -104,12 +105,12 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Données invalides.' }, { status: 400 });
+    return apiError('invalidData');
   }
 
   const subject = parsed.data.title;

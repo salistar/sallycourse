@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { z } from 'zod';
 import { connectDb, Notification } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
@@ -57,13 +58,13 @@ export async function PATCH(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Requête invalide (fournir { id } ou { all: true }).' },
+      { error: 'Requête invalide (fournir { id } ou { all: true }).', code: 'invalidRequestIdOrAll' },
       { status: 400 },
     );
   }

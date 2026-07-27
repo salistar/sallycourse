@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import { QUEUES, defaultJobOptions, makeJobId } from '@sallycourse/shared';
@@ -27,13 +28,13 @@ export async function POST(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Leçon introuvable.' }, { status: 404 });
+    return apiError('lessonNotFound');
   }
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => undefined));
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Instruction invalide.', details: parsed.error.flatten().fieldErrors },
+      { error: 'Instruction invalide.', code: 'invalidInstruction', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }
@@ -42,7 +43,7 @@ export async function POST(
 
   const lesson = await LessonModel.findById(id);
   if (!lesson) {
-    return NextResponse.json({ error: 'Leçon introuvable.' }, { status: 404 });
+    return apiError('lessonNotFound');
   }
 
   // Ownership : la leçon doit appartenir à un cours de l'utilisateur.
@@ -50,7 +51,7 @@ export async function POST(
     .select('_id')
     .lean();
   if (!course) {
-    return NextResponse.json({ error: 'Leçon introuvable.' }, { status: 404 });
+    return apiError('lessonNotFound');
   }
 
   const courseId = lesson.courseId.toString();
@@ -67,7 +68,7 @@ export async function POST(
     );
   } catch {
     return NextResponse.json(
-      { error: 'Impossible de lancer la régénération, réessayez plus tard.' },
+      { error: 'Impossible de lancer la régénération, réessayez plus tard.', code: 'cannotRegenerate' },
       { status: 503 },
     );
   }

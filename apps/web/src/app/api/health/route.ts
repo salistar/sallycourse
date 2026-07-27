@@ -72,14 +72,32 @@ async function checkRedis(): Promise<void> {
   await getRedis().ping();
 }
 
-/** Heartbeat du worker : timestamp (epoch ms ou ISO) posé périodiquement. */
+/**
+ * Heartbeat du worker : bug trouvé lors du balayage de routes (2026-07-26) —
+ * cette fonction lisait la clé LITTÉRALE `worker:heartbeat`, qui n'a jamais
+ * existé : le worker écrit une clé PAR INSTANCE (`worker:heartbeat:{host}:
+ * {pid}`, voir apps/worker/src/queues/index.ts startHeartbeat) et publie sur
+ * le CANAL pub/sub `worker:heartbeat` (non lisible par GET). Résultat :
+ * /api/health répondait TOUJOURS 503 « aucun heartbeat worker », même worker
+ * parfaitement sain. Fix : scanner le pattern par instance et prendre le plus
+ * récent.
+ */
 async function checkWorkerHeartbeat(): Promise<void> {
-  const raw = await getRedis().get(HEARTBEAT_KEY);
-  if (!raw) throw new Error('aucun heartbeat worker');
-  const asNumber = Number(raw);
-  const ts = Number.isFinite(asNumber) ? asNumber : Date.parse(raw);
-  if (!Number.isFinite(ts)) throw new Error('heartbeat illisible');
-  const ageMs = Date.now() - ts;
+  const keys = await getRedis().keys(`${HEARTBEAT_KEY}:*`);
+  if (keys.length === 0) throw new Error('aucun heartbeat worker');
+  const values = await getRedis().mget(...keys);
+  let freshest = -Infinity;
+  for (const raw of values) {
+    if (!raw) continue;
+    try {
+      const parsed = JSON.parse(raw) as { ts?: number };
+      if (Number.isFinite(parsed.ts)) freshest = Math.max(freshest, parsed.ts!);
+    } catch {
+      /* clé illisible — ignorée, une autre instance peut être valide */
+    }
+  }
+  if (!Number.isFinite(freshest)) throw new Error('heartbeat illisible');
+  const ageMs = Date.now() - freshest;
   if (ageMs > HEARTBEAT_MAX_AGE_MS) {
     throw new Error(`heartbeat trop ancien (${Math.round(ageMs / 1000)} s)`);
   }
