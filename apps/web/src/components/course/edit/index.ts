@@ -5,6 +5,7 @@
 export { ArticleEditor, type ArticleEditorProps } from './article-editor';
 export { VideoScriptEditor, type VideoScriptEditorProps } from './video-script-editor';
 export { QuizEditor, type QuizEditorProps } from './quiz-editor';
+export { TpEditor, type TpEditorProps } from './tp-editor';
 export { useDirtyState, confirmDiscardIfDirty } from './use-dirty-state';
 export { VersionHistoryPanel, type VersionHistoryPanelProps } from './version-history-panel';
 export {
@@ -16,4 +17,4 @@ export {
   type DiffOp,
   type LessonVersionSummary,
 } from './version-history';
-export type { EditableSlide, EditableQuizQuestion } from './types';
+export type { EditableSlide, EditableQuizQuestion, EditableTpStep } from './types';

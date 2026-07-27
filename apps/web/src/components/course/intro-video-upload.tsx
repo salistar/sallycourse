@@ -1,7 +1,9 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { Trash2, UploadCloud, Video } from 'lucide-react';
+import { errorMessage } from '@/lib/error-message';
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, useToast } from '@/components/ui';
 
 /**
@@ -24,6 +26,8 @@ const ENDPOINT = (id: string): string => `/api/courses/${id}/intro-video`;
 
 export function IntroVideoUpload({ courseId }: IntroVideoUploadProps) {
   const { toast } = useToast();
+  const t = useTranslations('course.introVideo');
+  const tApiError = useTranslations('apiErrors');
   const [state, setState] = React.useState<IntroState>({ phase: 'loading' });
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -59,8 +63,8 @@ export function IntroVideoUpload({ courseId }: IntroVideoUploadProps) {
           const data = (await res.json().catch(() => null)) as { error?: string } | null;
           setState({ phase: 'empty' });
           toast({
-            title: 'Upload impossible',
-            description: data?.error ?? 'Réessayez avec un fichier MP4 plus léger.',
+            title: t('uploadFailedTitle'),
+            description: errorMessage(data, tApiError),
             variant: 'danger',
           });
           return;
@@ -69,10 +73,10 @@ export function IntroVideoUpload({ courseId }: IntroVideoUploadProps) {
         const check = await fetch(ENDPOINT(courseId), { method: 'GET' });
         const data = (await check.json().catch(() => null)) as { url?: string } | null;
         setState(data?.url ? { phase: 'ready', url: data.url } : { phase: 'empty' });
-        toast({ title: 'Vidéo d’intro enregistrée', variant: 'success' });
+        toast({ title: t('savedTitle'), variant: 'success' });
       } catch {
         setState({ phase: 'empty' });
-        toast({ title: 'Erreur réseau', description: 'Serveur injoignable.', variant: 'danger' });
+        toast({ title: t('networkErrorTitle'), description: t('networkErrorDescription'), variant: 'danger' });
       }
     },
     [courseId, toast],
@@ -83,12 +87,12 @@ export function IntroVideoUpload({ courseId }: IntroVideoUploadProps) {
       const res = await fetch(ENDPOINT(courseId), { method: 'DELETE' });
       if (res.ok) {
         setState({ phase: 'empty' });
-        toast({ title: 'Vidéo d’intro retirée', variant: 'success' });
+        toast({ title: t('removedTitle'), variant: 'success' });
       } else {
-        toast({ title: 'Suppression impossible', variant: 'danger' });
+        toast({ title: t('removeFailedTitle'), variant: 'danger' });
       }
     } catch {
-      toast({ title: 'Erreur réseau', variant: 'danger' });
+      toast({ title: t('networkErrorTitle'), variant: 'danger' });
     }
   }, [courseId, toast]);
 
@@ -97,12 +101,9 @@ export function IntroVideoUpload({ courseId }: IntroVideoUploadProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Video aria-hidden="true" className="size-5" />
-          Vidéo d’intro Udemy
+          {t('title')}
         </CardTitle>
-        <CardDescription>
-          Une présentation webcam d’environ 60 s humanise le cours et réduit le risque de
-          rejet à la revue Udemy (mode compliance maximale).
-        </CardDescription>
+        <CardDescription>{t('description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {state.phase === 'ready' ? (
@@ -115,11 +116,11 @@ export function IntroVideoUpload({ courseId }: IntroVideoUploadProps) {
             <div className="flex gap-2">
               <Button variant="secondary" size="sm" onClick={() => inputRef.current?.click()}>
                 <UploadCloud aria-hidden="true" />
-                Remplacer
+                {t('replace')}
               </Button>
               <Button variant="ghost" size="sm" onClick={onRemove}>
                 <Trash2 aria-hidden="true" />
-                Retirer
+                {t('remove')}
               </Button>
             </div>
           </>
@@ -132,7 +133,7 @@ export function IntroVideoUpload({ courseId }: IntroVideoUploadProps) {
             onClick={() => inputRef.current?.click()}
           >
             {state.phase !== 'uploading' && <UploadCloud aria-hidden="true" />}
-            {state.phase === 'uploading' ? 'Envoi…' : 'Téléverser une vidéo d’intro'}
+            {state.phase === 'uploading' ? t('uploading') : t('upload')}
           </Button>
         )}
 

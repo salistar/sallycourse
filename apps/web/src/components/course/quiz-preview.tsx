@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { Check, CheckCircle2, RotateCcw, X, XCircle } from 'lucide-react';
 import { Button, Progress } from '@/components/ui';
 import { cn } from '@/lib/cn';
@@ -17,6 +18,7 @@ export interface QuizPreviewProps {
 }
 
 export function QuizPreview({ questions, className }: QuizPreviewProps) {
+  const t = useTranslations('course.preview');
   // Index de la question courante ; === questions.length → écran de score.
   const [index, setIndex] = React.useState(0);
   /** Choix verrouillé pour la question courante (null = pas encore répondu). */
@@ -44,7 +46,7 @@ export function QuizPreview({ questions, className }: QuizPreviewProps) {
   };
 
   if (total === 0) {
-    return <p className="text-sm text-muted">Ce quiz ne contient encore aucune question.</p>;
+    return <p className="text-sm text-muted">{t('quizAuthor.noQuestions')}</p>;
   }
 
   // ── Écran de score final ──────────────────────────────────────
@@ -52,23 +54,23 @@ export function QuizPreview({ questions, className }: QuizPreviewProps) {
     const percent = Math.round((correctCount / total) * 100);
     const message =
       percent === 100
-        ? 'Sans faute — le quiz est prêt à être publié.'
+        ? t('quizAuthor.msgPerfect')
         : percent >= 60
-          ? 'Bon niveau de difficulté pour vos apprenants.'
-          : 'Quiz corsé — vérifiez les explications avant publication.';
+          ? t('quizAuthor.msgGood')
+          : t('quizAuthor.msgHard');
 
     return (
       <div className={cn('flex flex-col items-center gap-4 py-8 text-center', className)}>
-        <p className="text-2xs font-semibold uppercase tracking-wide text-muted">Score final</p>
+        <p className="text-2xs font-semibold uppercase tracking-wide text-muted">{t('quizAuthor.scoreFinal')}</p>
         <p className="font-display text-4xl font-semibold text-foreground">
           {correctCount}
           <span className="text-muted"> / {total}</span>
         </p>
-        <Progress value={percent} label="Bonnes réponses" showLabel className="max-w-xs" />
+        <Progress value={percent} label={t('quiz.correctAnswers')} showLabel className="max-w-xs" />
         <p className="max-w-sm text-sm text-muted">{message}</p>
         <Button variant="secondary" size="sm" onClick={restart}>
           <RotateCcw aria-hidden="true" />
-          Recommencer le quiz
+          {t('quiz.restart')}
         </Button>
       </div>
     );
@@ -84,11 +86,11 @@ export function QuizPreview({ questions, className }: QuizPreviewProps) {
     <div className={cn('flex flex-col gap-4', className)}>
       <div className="flex items-center justify-between gap-3">
         <p className="text-2xs font-semibold uppercase tracking-wide text-muted">
-          Question {index + 1} / {total}
+          {t('quizAuthor.questionCounter', { index: index + 1, total })}
         </p>
-        <span className="text-2xs tabular-nums text-muted">{correctCount} bonne(s) réponse(s)</span>
+        <span className="text-2xs tabular-nums text-muted">{t('quizAuthor.correctCountLabel', { count: correctCount })}</span>
       </div>
-      <Progress value={(index / total) * 100} label="Avancement du quiz" />
+      <Progress value={(index / total) * 100} label={t('quiz.progressAria')} />
 
       <h4 className="font-display text-lg font-semibold text-foreground">{question.question}</h4>
 
@@ -160,12 +162,12 @@ export function QuizPreview({ questions, className }: QuizPreviewProps) {
             ) : (
               <XCircle className="size-4" aria-hidden="true" />
             )}
-            {isCorrect ? 'Bonne réponse !' : 'Mauvaise réponse'}
+            {isCorrect ? t('quizAuthor.goodAnswer') : t('quizAuthor.badAnswer')}
           </p>
           {question.explanation && <p className="text-sm text-muted">{question.explanation}</p>}
           <div className="mt-2">
             <Button size="sm" onClick={next}>
-              {index + 1 < total ? 'Question suivante' : 'Voir le score'}
+              {index + 1 < total ? t('quizAuthor.nextQuestion') : t('quizAuthor.seeScore')}
             </Button>
           </div>
         </div>

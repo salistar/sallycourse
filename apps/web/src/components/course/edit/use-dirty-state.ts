@@ -36,9 +36,9 @@ export function useDirtyState<T>(current: T, baseline: T) {
  * d'une navigation interne (changement de leçon, sortie du mode édition).
  * Retourne true si l'on peut continuer.
  */
-export function confirmDiscardIfDirty(dirty: boolean): boolean {
+export function confirmDiscardIfDirty(dirty: boolean, message?: string): boolean {
   if (!dirty) return true;
   return window.confirm(
-    'Des modifications non sauvegardées seront perdues. Continuer ?',
+    message ?? 'Des modifications non sauvegardées seront perdues. Continuer ?',
   );
 }

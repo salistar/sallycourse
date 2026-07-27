@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { Check, CheckCircle2, RotateCcw, X, XCircle } from 'lucide-react';
 import { Button, Progress } from '@/components/ui';
 import { cn } from '@/lib/cn';
@@ -21,6 +22,7 @@ export interface QuizRunnerProps {
 }
 
 export function QuizRunner({ questions, onSubmitted, className }: QuizRunnerProps) {
+  const t = useTranslations('course.preview');
   const total = questions.length;
   // answers[i] = index du choix sélectionné, ou null si pas encore répondu.
   const [answers, setAnswers] = React.useState<(number | null)[]>(() =>
@@ -53,7 +55,7 @@ export function QuizRunner({ questions, onSubmitted, className }: QuizRunnerProp
   };
 
   if (total === 0) {
-    return <p className="text-sm text-muted">Ce quiz ne contient pas encore de questions.</p>;
+    return <p className="text-sm text-muted">{t('quizNoQuestions')}</p>;
   }
 
   const answeredCount = answers.filter((a) => a != null).length;
@@ -63,14 +65,14 @@ export function QuizRunner({ questions, onSubmitted, className }: QuizRunnerProp
       {/* Bandeau de score (après soumission) */}
       {submitted ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface-subtle p-6 text-center">
-          <p className="text-2xs font-semibold uppercase tracking-wide text-muted">Résultat</p>
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted">{t('quiz.result')}</p>
           <p className="font-display text-4xl font-semibold text-foreground">
             {grade.correct}
             <span className="text-muted"> / {grade.total}</span>
           </p>
           <Progress
             value={grade.percent}
-            label="Bonnes réponses"
+            label={t('quiz.correctAnswers')}
             showLabel
             className="max-w-xs"
           />
@@ -82,25 +84,25 @@ export function QuizRunner({ questions, onSubmitted, className }: QuizRunnerProp
           >
             {grade.passed ? (
               <>
-                <CheckCircle2 className="size-4" aria-hidden="true" /> Quiz réussi
+                <CheckCircle2 className="size-4" aria-hidden="true" /> {t('quiz.passed')}
               </>
             ) : (
               <>
-                <XCircle className="size-4" aria-hidden="true" /> En dessous du seuil (70 %)
+                <XCircle className="size-4" aria-hidden="true" /> {t('quiz.belowThreshold')}
               </>
             )}
           </p>
           <Button variant="secondary" size="sm" onClick={restart}>
             <RotateCcw aria-hidden="true" />
-            Recommencer le quiz
+            {t('quiz.restart')}
           </Button>
         </div>
       ) : (
         <div className="flex items-center justify-between gap-3">
           <p className="text-2xs font-semibold uppercase tracking-wide text-muted">
-            {answeredCount} / {total} question(s) répondue(s)
+            {t('quiz.answeredProgress', { answered: answeredCount, total })}
           </p>
-          <Progress value={(answeredCount / total) * 100} label="Avancement du quiz" className="max-w-[12rem]" />
+          <Progress value={(answeredCount / total) * 100} label={t('quiz.progressAria')} className="max-w-[12rem]" />
         </div>
       )}
 
@@ -172,7 +174,7 @@ export function QuizRunner({ questions, onSubmitted, className }: QuizRunnerProp
               {/* Explication révélée seulement APRÈS soumission */}
               {submitted && question.explanation && (
                 <p className="rounded-md border border-border bg-surface-subtle p-3 text-sm text-muted">
-                  <span className="font-semibold text-foreground">Explication : </span>
+                  <span className="font-semibold text-foreground">{t('quiz.explanationLabel')}</span>
                   {question.explanation}
                 </p>
               )}
@@ -186,11 +188,11 @@ export function QuizRunner({ questions, onSubmitted, className }: QuizRunnerProp
         <div>
           <Button onClick={submit} disabled={!ready}>
             <CheckCircle2 aria-hidden="true" />
-            Soumettre le quiz
+            {t('quiz.submit')}
           </Button>
           {!ready && (
             <p className="mt-2 text-2xs text-muted">
-              Répondez à toutes les questions pour soumettre.
+              {t('quiz.answerAllToSubmit')}
             </p>
           )}
         </div>

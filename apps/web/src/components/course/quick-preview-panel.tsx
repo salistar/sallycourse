@@ -2,8 +2,10 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Gauge, Sparkles } from 'lucide-react';
 import { Button, useToast } from '@/components/ui';
+import { errorMessage } from '@/lib/error-message';
 // Sous-module direct (et non le barrel @sallycourse/shared) : le barrel
 // réexporte crypto.ts (node:crypto), incompatible avec le bundle client.
 import {
@@ -33,6 +35,8 @@ export interface QuickPreviewPanelProps {
 export function QuickPreviewPanel({ courseId, videoLessons }: QuickPreviewPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const t = useTranslations('course.quickPreview');
+  const tApiError = useTranslations('apiErrors');
   const [loadingPreview, setLoadingPreview] = React.useState(false);
   const [loadingFinal, setLoadingFinal] = React.useState(false);
 
@@ -54,21 +58,21 @@ export function QuickPreviewPanel({ courseId, videoLessons }: QuickPreviewPanelP
       if (res.ok) {
         toast({
           title: successTitle,
-          description: `${data?.queuedLessons ?? 0} leçon(s) en file de traitement.`,
+          description: t('queuedDescription', { count: data?.queuedLessons ?? 0 }),
           variant: 'success',
         });
         router.refresh();
       } else {
         toast({
-          title: 'Action impossible',
-          description: data?.error ?? 'Une erreur est survenue, réessayez plus tard.',
+          title: t('actionImpossibleTitle'),
+          description: errorMessage(data, tApiError),
           variant: 'danger',
         });
       }
     } catch {
       toast({
-        title: 'Erreur réseau',
-        description: 'Impossible de joindre le serveur, vérifiez votre connexion.',
+        title: t('networkErrorTitle'),
+        description: t('networkErrorDescription'),
         variant: 'danger',
       });
     } finally {
@@ -82,11 +86,10 @@ export function QuickPreviewPanel({ courseId, videoLessons }: QuickPreviewPanelP
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
             <Gauge className="size-4 text-primary" aria-hidden="true" />
-            Prévisualisation vidéo rapide
+            {t('title')}
           </p>
           <p className="mt-1 text-xs text-muted">
-            Génère un brouillon basse qualité de toutes les leçons vidéo pour valider le contenu
-            avant de lancer le rendu HD, plus long.
+            {t('description')}
           </p>
           <p className="mt-1 inline-flex items-center gap-1 text-2xs font-semibold uppercase tracking-wide text-accent">
             <Sparkles className="size-3.5" aria-hidden="true" />
@@ -99,19 +102,19 @@ export function QuickPreviewPanel({ courseId, videoLessons }: QuickPreviewPanelP
             variant="secondary"
             size="sm"
             loading={loadingPreview}
-            onClick={() => post('quick-preview', setLoadingPreview, 'Aperçu rapide lancé')}
+            onClick={() => post('quick-preview', setLoadingPreview, t('draftLaunchedToast'))}
           >
-            Générer un aperçu rapide (brouillon)
+            {t('generateDraftButton')}
           </Button>
-          <span title={approvedCount === 0 ? 'Approuvez au moins un aperçu pour activer' : undefined} className="inline-flex">
+          <span title={approvedCount === 0 ? t('finalDisabledHint') : undefined} className="inline-flex">
             <Button
               variant="gold"
               size="sm"
               loading={loadingFinal}
               disabled={approvedCount === 0}
-              onClick={() => post('finalize-video', setLoadingFinal, 'Version finale HD lancée')}
+              onClick={() => post('finalize-video', setLoadingFinal, t('finalLaunchedToast'))}
             >
-              Générer la version finale HD{approvedCount > 0 ? ` (${approvedCount})` : ''}
+              {t('generateFinalButton')}{approvedCount > 0 ? ` (${approvedCount})` : ''}
             </Button>
           </span>
         </div>

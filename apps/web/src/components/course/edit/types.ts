@@ -16,3 +16,16 @@ export interface EditableSlide {
 
 /** Question de quiz éditable (identique à la vue, réutilisée par l'éditeur). */
 export type EditableQuizQuestion = QuizQuestionView;
+
+/**
+ * Étape de TP éditable — sous-ensemble modifiable de TpStep (@sallycourse/shared) ;
+ * les champs non exposés (screenshotSpec de la capture automatique) sont
+ * préservés tels quels dans `rest` et réinjectés à la sauvegarde (Lot 5, plan
+ * 2026-07-20).
+ */
+export interface EditableTpStep {
+  instruction: string;
+  command: string;
+  expectedResult: string;
+  rest: Record<string, unknown>;
+}

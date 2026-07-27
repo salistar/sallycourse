@@ -3,9 +3,10 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge, Card, CardContent, CardHeader, Progress } from '@/components/ui';
-import { GenerationTimeline, type GenerationStep } from '@/components/motion';
+import { GenerationTimeline } from '@/components/motion';
 import { useCourseProgress } from '@/hooks/use-course-progress';
 import type { QueueName } from '@sallycourse/shared';
+import { useTranslations } from 'next-intl';
 
 /**
  * Bandeau « génération en cours » de la page détail — timeline des étapes du
@@ -14,19 +15,21 @@ import type { QueueName } from '@sallycourse/shared';
  * localement pour ne rien embarquer du baril serveur dans le bundle client.
  */
 
-interface PipelineStep extends GenerationStep {
+interface PipelineStep {
   id: QueueName;
+  labelKey: string;
+  descriptionKey: string;
 }
 
 const PIPELINE_STEPS: readonly PipelineStep[] = [
-  { id: 'outline-generation', label: 'Plan du cours', description: 'Sections et leçons' },
-  { id: 'content-generation', label: 'Rédaction du contenu', description: 'Scripts, articles et TP' },
-  { id: 'tts-generation', label: 'Voix off', description: 'Synthèse vocale des scripts' },
-  { id: 'screenshot-capture', label: "Captures d'écran", description: 'Illustrations des démos' },
-  { id: 'video-render', label: 'Rendu vidéo', description: 'Montage des leçons' },
-  { id: 'subtitle-generation', label: 'Sous-titres', description: 'Pistes SRT / VTT' },
-  { id: 'packaging', label: 'Packaging', description: 'Assemblage du pack' },
-  { id: 'deployment', label: 'Déploiement', description: 'Publication plateformes' },
+  { id: 'outline-generation', labelKey: 'stepOutlineLabel', descriptionKey: 'stepOutlineDescription' },
+  { id: 'content-generation', labelKey: 'stepContentLabel', descriptionKey: 'stepContentDescription' },
+  { id: 'tts-generation', labelKey: 'stepTtsLabel', descriptionKey: 'stepTtsDescription' },
+  { id: 'screenshot-capture', labelKey: 'stepScreenshotLabel', descriptionKey: 'stepScreenshotDescription' },
+  { id: 'video-render', labelKey: 'stepVideoLabel', descriptionKey: 'stepVideoDescription' },
+  { id: 'subtitle-generation', labelKey: 'stepSubtitleLabel', descriptionKey: 'stepSubtitleDescription' },
+  { id: 'packaging', labelKey: 'stepPackagingLabel', descriptionKey: 'stepPackagingDescription' },
+  { id: 'deployment', labelKey: 'stepDeploymentLabel', descriptionKey: 'stepDeploymentDescription' },
 ];
 
 export interface ProgressBannerProps {
@@ -35,13 +38,18 @@ export interface ProgressBannerProps {
 }
 
 /** Formate une durée (ms) en libellé court français (P73). */
-function formatWaitLabel(ms: number): string {
+function formatWaitLabel(
+  ms: number,
+  t: ReturnType<typeof useTranslations<'course.progress'>>,
+): string {
   const totalMinutes = Math.round(ms / 60_000);
-  if (totalMinutes < 1) return "moins d'une minute";
-  if (totalMinutes < 60) return `~${totalMinutes} min`;
+  if (totalMinutes < 1) return t('waitLessThanMinute');
+  if (totalMinutes < 60) return t('waitMinutes', { minutes: totalMinutes });
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  return minutes > 0 ? `~${hours} h ${minutes} min` : `~${hours} h`;
+  return minutes > 0
+    ? t('waitHoursMinutes', { hours, minutes })
+    : t('waitHours', { hours });
 }
 
 /** Intervalle de rafraîchissement de l'estimation de temps d'attente. */
@@ -49,6 +57,7 @@ const ESTIMATE_POLL_MS = 15_000;
 
 export function ProgressBanner({ courseId, className }: ProgressBannerProps) {
   const router = useRouter();
+  const t = useTranslations('course.progress');
   const { step, progress, logs, connected } = useCourseProgress(courseId);
 
   // Estimation du temps d'attente (P73) — rafraîchie tant que la génération
@@ -146,24 +155,24 @@ export function ProgressBanner({ courseId, className }: ProgressBannerProps) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-2xs font-semibold uppercase tracking-wide text-muted">
-              Génération en direct
+              {t('liveGeneration')}
             </p>
             <h2 className="mt-0.5 font-display text-lg font-semibold text-foreground">
               {hasError
-                ? 'Un incident est survenu pendant la génération'
-                : 'Votre cours est en cours de production'}
+                ? t('generationErrorTitle')
+                : t('generationInProgressTitle')}
             </h2>
           </div>
           <Badge variant={hasError ? 'failed' : 'generating'}>
-            {hasError ? 'Incident' : connected ? 'En cours' : 'Reconnexion…'}
+            {hasError ? t('badgeError') : connected ? t('badgeInProgress') : t('badgeReconnecting')}
           </Badge>
         </div>
         {/* Pas encore d'événement reçu → barre indéterminée. */}
-        <Progress value={overall} label="Avancement global" showLabel={overall !== undefined} />
+        <Progress value={overall} label={t('overallProgress')} showLabel={overall !== undefined} />
         {/* Estimation du temps d'attente (P73) — masquée si file vide/sans historique. */}
         {!finished && !hasError && waitMs !== null && waitMs > 0 && (
           <p className="text-2xs text-muted">
-            Temps d'attente estimé avant traitement : {formatWaitLabel(waitMs)}
+            {t('estimatedWait', { label: formatWaitLabel(waitMs, t) })}
           </p>
         )}
         {/* File d'attente + estimation globale du pipeline (P134). */}
@@ -171,34 +180,34 @@ export function ProgressBanner({ courseId, className }: ProgressBannerProps) {
           <p className="text-2xs text-muted">
             {pipelineInfo.queuePosition > 0 && (
               <>
-                {pipelineInfo.queuePosition} cours devant le vôtre dans la file
+                {t('queuePosition', { count: pipelineInfo.queuePosition })}
                 {pipelineInfo.readyAtLabel ? ' — ' : ''}
               </>
             )}
-            {pipelineInfo.readyAtLabel && `Votre cours sera prêt vers ${pipelineInfo.readyAtLabel}`}
+            {pipelineInfo.readyAtLabel && t('readyAt', { label: pipelineInfo.readyAtLabel })}
           </p>
         )}
       </CardHeader>
 
       <CardContent className="grid gap-6 lg:grid-cols-[minmax(240px,300px)_1fr]">
         <GenerationTimeline
-          steps={PIPELINE_STEPS.map((s) => ({ ...s }))}
+          steps={PIPELINE_STEPS.map((s) => ({ id: s.id, label: t(s.labelKey), description: t(s.descriptionKey) }))}
           currentIndex={stepIndex}
           status={hasError ? 'failed' : finished ? 'done' : 'running'}
         />
         <div className="flex flex-col gap-2">
-          <p className="text-2xs font-semibold uppercase tracking-wide text-muted">Dernière activité</p>
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted">{t('lastActivity')}</p>
           {lastLog ? (
             <p className="rounded-md border border-border bg-surface-subtle p-3 font-mono text-xs leading-relaxed text-foreground/90">
               {lastLog.msg}
             </p>
           ) : (
             <p className="text-sm text-muted">
-              En attente des premiers événements du worker de génération…
+              {t('waitingFirstEvents')}
             </p>
           )}
           {logs.length > 1 && (
-            <p className="text-2xs tabular-nums text-muted">{logs.length} événements reçus</p>
+            <p className="text-2xs tabular-nums text-muted">{t('eventsReceived', { count: logs.length })}</p>
           )}
         </div>
       </CardContent>

@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import {
   ArrowLeft,
   ChevronLeft,
@@ -44,11 +45,12 @@ const TYPE_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   quiz: HelpCircle,
 };
 
-const TYPE_LABEL: Record<string, string> = {
-  video: 'Vidéo',
-  article: 'Article',
-  tp: 'Travaux pratiques',
-  quiz: 'Quiz',
+/** Clé i18n du libellé de type (résolue via t() au rendu — pas de hook ici). */
+const TYPE_LABEL_KEY: Record<string, string> = {
+  video: 'typeVideo',
+  article: 'typeArticle',
+  tp: 'typeTp',
+  quiz: 'typeQuiz',
 };
 
 export interface StudentPreviewProps {
@@ -56,6 +58,7 @@ export interface StudentPreviewProps {
 }
 
 export function StudentPreview({ course }: StudentPreviewProps) {
+  const t = useTranslations('course.preview');
   const total = course.lessons.length;
   const [activeIndex, setActiveIndex] = React.useState(0);
   // Progression locale : ids des leçons « vues » pendant la session de preview.
@@ -104,14 +107,14 @@ export function StudentPreview({ course }: StudentPreviewProps) {
           className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted transition-colors duration-fast hover:text-foreground"
         >
           <ArrowLeft className="size-4" aria-hidden="true" />
-          Retour au cours
+          {t('backToCourse')}
         </Link>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-2xs font-semibold uppercase tracking-wide text-accent">
                 <Eye className="size-3.5" aria-hidden="true" />
-                Aperçu étudiant
+                {t('studentPreview')}
               </span>
               <h1 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">
                 {course.title}
@@ -127,25 +130,25 @@ export function StudentPreview({ course }: StudentPreviewProps) {
         <CardContent className="flex flex-col gap-3 p-5">
           <div className="flex items-center justify-between gap-4">
             <p className="text-sm font-medium text-foreground">
-              Progression : {doneCount} / {total} leçon(s)
+              {t('progressLabel', { done: doneCount, total })}
             </p>
-            <span className="text-2xs text-muted">Progression locale (non enregistrée)</span>
+            <span className="text-2xs text-muted">{t('localProgress')}</span>
           </div>
-          <Progress value={percent} label="Progression de l’aperçu" />
+          <Progress value={percent} label={t('progressAria')} />
         </CardContent>
       </Card>
 
       {total === 0 ? (
         <Card>
           <CardContent className="p-6">
-            <p className="text-sm text-muted">Ce cours ne contient encore aucune leçon à prévisualiser.</p>
+            <p className="text-sm text-muted">{t('noLessons')}</p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[300px_1fr]" dir={dir}>
           {/* Plan du cours */}
           <nav
-            aria-label="Plan du cours"
+            aria-label={t('planAria')}
             className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto"
           >
             {course.sections.map((section) => {
@@ -201,11 +204,10 @@ export function StudentPreview({ course }: StudentPreviewProps) {
                 <CardContent className="flex flex-col items-center gap-3 p-6 text-center">
                   <PartyPopper className="size-8 text-accent" aria-hidden="true" />
                   <h2 className="font-display text-xl font-semibold text-foreground">
-                    Aperçu terminé
+                    {t('finishedTitle')}
                   </h2>
                   <p className="max-w-md text-sm text-muted">
-                    Vous avez parcouru toutes les leçons comme un étudiant. Ce parcours reflète
-                    l’expérience d’apprentissage de votre cours.
+                    {t('finishedDesc')}
                   </p>
                 </CardContent>
               </Card>
@@ -231,7 +233,7 @@ export function StudentPreview({ course }: StudentPreviewProps) {
                 onClick={() => prevIndex !== null && goTo(prevIndex)}
               >
                 <ChevronLeft aria-hidden="true" className="rtl:rotate-180" />
-                Précédent
+                {t('prev')}
               </Button>
               <span className="text-2xs tabular-nums text-muted">
                 {activeIndex + 1} / {total}
@@ -244,7 +246,7 @@ export function StudentPreview({ course }: StudentPreviewProps) {
                   if (nextIndex !== null) goTo(nextIndex);
                 }}
               >
-                Suivant
+                {t('next')}
                 <ChevronRight aria-hidden="true" className="rtl:rotate-180" />
               </Button>
             </div>
@@ -269,7 +271,9 @@ function LessonStage({
   done: boolean;
   onMarkDone: () => void;
 }) {
+  const t = useTranslations('course.preview');
   const Icon = TYPE_ICON[lesson.type] ?? FileText;
+  const typeLabelKey = TYPE_LABEL_KEY[lesson.type];
   return (
     <Card>
       <CardContent className="flex flex-col gap-5 p-6">
@@ -277,20 +281,20 @@ function LessonStage({
           <div className="min-w-0">
             <p className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wide text-muted">
               <Icon className="size-3.5" aria-hidden="true" />
-              {TYPE_LABEL[lesson.type] ?? lesson.type}
-              <span className="text-muted"> · Leçon {position} / {total}</span>
+              {typeLabelKey ? t(typeLabelKey) : lesson.type}
+              <span className="text-muted"> · {t('lessonPosition', { position, total })}</span>
             </p>
             <h2 className="mt-1 font-display text-xl font-semibold text-foreground">{lesson.title}</h2>
           </div>
           {lesson.type !== 'quiz' && (
             <Button variant={done ? 'secondary' : 'primary'} size="sm" onClick={onMarkDone}>
               <CheckCircle2 aria-hidden="true" />
-              {done ? 'Vue' : 'Marquer comme vue'}
+              {done ? t('viewed') : t('markViewed')}
             </Button>
           )}
           {lesson.type === 'quiz' && done && (
             <Badge variant="published">
-              <CheckCircle2 className="size-3.5" aria-hidden="true" /> Terminé
+              <CheckCircle2 className="size-3.5" aria-hidden="true" /> {t('quizDone')}
             </Badge>
           )}
         </div>
@@ -306,12 +310,12 @@ function LessonStage({
             >
               <source src={lesson.videoUrl} type="video/mp4" />
               {lesson.captionsUrl && (
-                <track kind="captions" src={lesson.captionsUrl} default label="Sous-titres" />
+                <track kind="captions" src={lesson.captionsUrl} default label={t('captions')} />
               )}
             </video>
           ) : (
             <div className="flex aspect-video w-full items-center justify-center rounded-md border border-dashed border-border bg-surface-subtle">
-              <p className="text-sm text-muted">La vidéo de cette leçon n’est pas encore disponible.</p>
+              <p className="text-sm text-muted">{t('videoUnavailable')}</p>
             </div>
           ))}
 
@@ -323,7 +327,7 @@ function LessonStage({
             className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-muted underline underline-offset-2 hover:text-foreground"
           >
             <Download className="size-3.5" aria-hidden="true" />
-            Télécharger la transcription (.txt)
+            {t('downloadTranscript')}
           </a>
         )}
 
@@ -332,7 +336,7 @@ function LessonStage({
           (lesson.articleMd ? (
             <ArticleView markdown={lesson.articleMd} />
           ) : (
-            <p className="text-sm text-muted">L’article de cette leçon n’est pas encore disponible.</p>
+            <p className="text-sm text-muted">{t('articleUnavailable')}</p>
           ))}
 
         {/* Quiz interactif — solutions révélées APRÈS soumission */}
@@ -340,15 +344,14 @@ function LessonStage({
           (lesson.quiz.length > 0 ? (
             <QuizRunner questions={lesson.quiz} onSubmitted={onMarkDone} />
           ) : (
-            <p className="text-sm text-muted">Ce quiz ne contient pas encore de questions.</p>
+            <p className="text-sm text-muted">{t('quizNoQuestions')}</p>
           ))}
 
         {/* TP : pas de player dédié */}
         {lesson.type === 'tp' && (
           <div className="rounded-md border border-border bg-surface-subtle p-4">
             <p className="text-sm text-muted">
-              Les travaux pratiques se réalisent dans l’environnement fourni avec le cours. Cet
-              aperçu en présente l’intitulé.
+              {t('tpNote')}
             </p>
           </div>
         )}

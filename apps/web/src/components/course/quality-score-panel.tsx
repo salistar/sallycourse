@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations, useFormatter } from 'next-intl';
 import { ChevronDown, GraduationCap } from 'lucide-react';
 import { Badge, type BadgeProps } from '@/components/ui';
 import { cn } from '@/lib/cn';
@@ -17,17 +18,17 @@ import type { QualityScoreView } from './types';
 const QUALITY_THRESHOLD = 60;
 
 const RUBRIC_LABELS: Record<keyof QualityScoreView['rubric'], string> = {
-  clarity: 'Clarté',
-  progression: 'Progression',
-  examples: 'Exemples & pratique',
-  engagement: 'Engagement',
+  clarity: 'rubricClarity',
+  progression: 'rubricProgression',
+  examples: 'rubricExamples',
+  engagement: 'rubricEngagement',
 };
 
 /** Score → variante Badge + libellé, alignés sur le seuil de déploiement. */
-function scoreBadge(score: number): { variant: NonNullable<BadgeProps['variant']>; label: string } {
-  if (score >= 80) return { variant: 'published', label: `${score}/100 · Excellent` };
-  if (score >= QUALITY_THRESHOLD) return { variant: 'ready', label: `${score}/100 · Bon` };
-  return { variant: 'failed', label: `${score}/100 · Sous le seuil` };
+function scoreBadge(score: number): { variant: NonNullable<BadgeProps['variant']>; labelKey: string } {
+  if (score >= 80) return { variant: 'published', labelKey: 'badgeExcellent' };
+  if (score >= QUALITY_THRESHOLD) return { variant: 'ready', labelKey: 'badgeGood' };
+  return { variant: 'failed', labelKey: 'badgeBelowThreshold' };
 }
 
 export interface QualityScorePanelProps {
@@ -39,6 +40,8 @@ export function QualityScorePanel({ qualityScore }: QualityScorePanelProps) {
     Boolean(qualityScore) && qualityScore!.score < QUALITY_THRESHOLD,
   );
   const contentId = React.useId();
+  const t = useTranslations('course.quality');
+  const format = useFormatter();
 
   if (!qualityScore) return null;
 
@@ -59,14 +62,15 @@ export function QualityScorePanel({ qualityScore }: QualityScorePanelProps) {
           <GraduationCap className="size-5 shrink-0 text-primary" aria-hidden="true" />
           <span className="min-w-0">
             <span className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-foreground">Qualité pédagogique</span>
+              <span className="font-medium text-foreground">{t('title')}</span>
               <Badge variant={badge.variant} hideDot className="text-2xs">
-                {badge.label}
+                {t(badge.labelKey, { score: qualityScore.score })}
               </Badge>
             </span>
             <span className="block text-xs text-muted">
-              Évalué le{' '}
-              {evaluatedAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+              {t('evaluatedOn', {
+                date: format.dateTime(evaluatedAt, { day: 'numeric', month: 'long', year: 'numeric' }),
+              })}
             </span>
           </span>
         </span>
@@ -86,7 +90,7 @@ export function QualityScorePanel({ qualityScore }: QualityScorePanelProps) {
             {rubricEntries.map(([key, value]) => (
               <div key={key} className="rounded-md border border-border bg-background p-3">
                 <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="font-medium text-foreground">{RUBRIC_LABELS[key]}</span>
+                  <span className="font-medium text-foreground">{t(RUBRIC_LABELS[key])}</span>
                   <span className="tabular-nums text-muted">{value}/25</span>
                 </div>
                 <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-subtle">
@@ -116,8 +120,7 @@ export function QualityScorePanel({ qualityScore }: QualityScorePanelProps) {
 
           {qualityScore.score < QUALITY_THRESHOLD && (
             <p className="rounded-md border border-danger/40 bg-danger/5 p-3 text-xs text-danger">
-              Score sous le seuil recommandé ({QUALITY_THRESHOLD}/100) — le déploiement demandera une
-              confirmation explicite.
+              {t('belowThresholdWarning', { threshold: QUALITY_THRESHOLD })}
             </p>
           )}
         </div>

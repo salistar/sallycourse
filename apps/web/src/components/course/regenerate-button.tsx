@@ -4,6 +4,8 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { RefreshCw } from 'lucide-react';
 import { Button, useToast } from '@/components/ui';
+import { useTranslations } from 'next-intl';
+import { errorMessage } from '@/lib/error-message';
 
 /**
  * « Régénérer la leçon » — POST /api/lessons/[id]/regenerate puis refresh
@@ -19,6 +21,8 @@ export interface RegenerateButtonProps {
 export function RegenerateButton({ lessonId, lessonTitle, disabled = false }: RegenerateButtonProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const t = useTranslations('course.regenerate');
+  const tApiError = useTranslations('apiErrors');
   const [loading, setLoading] = React.useState(false);
 
   const regenerate = async () => {
@@ -27,23 +31,23 @@ export function RegenerateButton({ lessonId, lessonTitle, disabled = false }: Re
       const res = await fetch(`/api/lessons/${lessonId}/regenerate`, { method: 'POST' });
       if (res.ok) {
         toast({
-          title: 'Régénération lancée',
-          description: `« ${lessonTitle} » repart en production.`,
+          title: t('startedTitle'),
+          description: t('startedDescription', { title: lessonTitle }),
           variant: 'success',
         });
         router.refresh();
       } else {
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
         toast({
-          title: 'Régénération impossible',
-          description: data?.error ?? 'Une erreur est survenue, réessayez plus tard.',
+          title: t('failedTitle'),
+          description: errorMessage(data, tApiError),
           variant: 'danger',
         });
       }
     } catch {
       toast({
-        title: 'Erreur réseau',
-        description: 'Impossible de joindre le serveur, vérifiez votre connexion.',
+        title: t('networkErrorTitle'),
+        description: t('networkErrorDescription'),
         variant: 'danger',
       });
     } finally {
@@ -58,10 +62,10 @@ export function RegenerateButton({ lessonId, lessonTitle, disabled = false }: Re
       loading={loading}
       disabled={disabled}
       onClick={regenerate}
-      title={disabled ? 'Génération déjà en cours' : undefined}
+      title={disabled ? t('alreadyGenerating') : undefined}
     >
       {!loading && <RefreshCw aria-hidden="true" />}
-      Régénérer la leçon
+      {t('button')}
     </Button>
   );
 }

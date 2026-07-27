@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useFormatter, useTranslations } from 'next-intl';
 import { CheckCircle2, ChevronDown, ShieldAlert, ShieldCheck, XCircle } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import type { QaReportView } from './types';
@@ -14,12 +15,12 @@ import type { QaReportView } from './types';
 
 /** Libellés lisibles des codes de check (fallback : le code brut). */
 const CHECK_LABELS: Record<string, string> = {
-  'video-duration': 'Durée vidéo totale',
-  'section-count': 'Nombre de sections',
-  'video-playable': 'Vidéos jouables (audio présent)',
-  'article-placeholders': 'Captures d’écran des articles',
-  'quiz-valid': 'Quiz valides',
-  'lessons-complete': 'Leçons finalisées',
+  'video-duration': 'checks.videoDuration',
+  'section-count': 'checks.sectionCount',
+  'video-playable': 'checks.videoPlayable',
+  'article-placeholders': 'checks.articlePlaceholders',
+  'quiz-valid': 'checks.quizValid',
+  'lessons-complete': 'checks.lessonsComplete',
 };
 
 export interface QaReportPanelProps {
@@ -27,6 +28,8 @@ export interface QaReportPanelProps {
 }
 
 export function QaReportPanel({ report }: QaReportPanelProps) {
+  const t = useTranslations('course.qa');
+  const format = useFormatter();
   // Ouvert d'office si le contrôle échoue : les problèmes doivent être visibles.
   const [open, setOpen] = React.useState(!report.passed);
   const contentId = React.useId();
@@ -51,19 +54,20 @@ export function QaReportPanel({ report }: QaReportPanelProps) {
           )}
           <span className="min-w-0">
             <span className="block font-medium text-foreground">
-              Contrôle qualité{' '}
+              {t('title')}{' '}
               {report.passed ? (
-                <span className="text-success">réussi</span>
+                <span className="text-success">{t('passed')}</span>
               ) : (
                 <span className="text-danger">
-                  échoué · {failedCount} problème{failedCount > 1 ? 's' : ''}
+                  {t('failed', { count: failedCount })}
                 </span>
               )}
             </span>
             <span className="block text-xs text-muted">
-              Exécuté le{' '}
-              {ranAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} à{' '}
-              {ranAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+              {t('ranAt', {
+                date: format.dateTime(ranAt, { day: 'numeric', month: 'long', year: 'numeric' }),
+                time: format.dateTime(ranAt, { hour: '2-digit', minute: '2-digit' }),
+              })}
             </span>
           </span>
         </span>
@@ -87,7 +91,7 @@ export function QaReportPanel({ report }: QaReportPanelProps) {
               )}
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-foreground">
-                  {CHECK_LABELS[check.code] ?? check.code}
+                  {CHECK_LABELS[check.code] ? t(CHECK_LABELS[check.code]) : check.code}
                 </span>
                 <span
                   className={cn('block text-sm', check.ok ? 'text-muted' : 'text-danger')}

@@ -2,14 +2,21 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowDown, ArrowUp, Film, Plus, Save, Trash2, X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import { ArrowDown, ArrowUp, Film, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import { Button, useToast } from '@/components/ui';
 import { cn } from '@/lib/cn';
+import { errorMessage } from '@/lib/error-message';
 import { useDirtyState, confirmDiscardIfDirty } from './use-dirty-state';
 import { useAutosave, autosaveStatusLabel } from '@/hooks/use-autosave';
 import { clearLocalDraft, readLocalDraft, shouldOfferRecovery, writeLocalDraft } from '@/hooks/local-draft';
 import { VersionHistoryPanel } from './version-history-panel';
+import { SlideImagePanel } from './slide-image-panel';
+import { SlideAudioPanel } from './slide-audio-panel';
 import type { EditableSlide } from './types';
+
+/** Gabarits qui affichent un panneau latéral illustré (miroir de media/slide-renderer.ts, SLIDE_ILLUSTRATION_TEMPLATES). */
+const ILLUSTRATED_TEMPLATES = new Set(['content', 'recap']);
 
 /**
  * Éditeur de script vidéo — une carte par slide (titre, puces, narration
@@ -19,6 +26,7 @@ import type { EditableSlide } from './types';
  * Autosave débouncée (P131) + brouillon local de secours.
  */
 export interface VideoScriptEditorProps {
+  courseId: string;
   lessonId: string;
   /** Slides initiales extraites de lesson.script. */
   initialSlides: EditableSlide[];
@@ -34,8 +42,10 @@ function move<T>(items: T[], from: number, to: number): T[] {
   return next;
 }
 
-export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScriptEditorProps) {
+export function VideoScriptEditor({ courseId, lessonId, initialSlides, onExit }: VideoScriptEditorProps) {
   const router = useRouter();
+  const t = useTranslations('course.editor');
+  const tApiError = useTranslations('apiErrors');
   const { toast } = useToast();
   const draftScope = `video-script:${lessonId}`;
 
@@ -51,6 +61,7 @@ export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScri
   const [baseline, setBaseline] = React.useState<EditableSlide[]>(initialSlides);
   const [saving, setSaving] = React.useState(false);
   const [regenerating, setRegenerating] = React.useState(false);
+  const [applyingMedia, setApplyingMedia] = React.useState(false);
 
   const dirty = useDirtyState(slides, baseline);
 
@@ -60,7 +71,7 @@ export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScri
   }, [dirty, slides, draftScope]);
 
   const exit = () => {
-    if (confirmDiscardIfDirty(dirty)) onExit();
+    if (confirmDiscardIfDirty(dirty, t('discardConfirm'))) onExit();
   };
 
   /** Sauvegarde silencieuse (sans toast) — réutilisée par l'autosave. */
@@ -119,16 +130,16 @@ export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScri
     try {
       await persist(slides);
       toast({
-        title: 'Script enregistré',
-        description: 'La vidéo actuelle est marquée obsolète — régénérez-la pour appliquer les changements.',
+        title: t('video.savedTitle'),
+        description: t('video.savedDesc'),
         variant: 'success',
       });
       router.refresh();
       return true;
     } catch {
       toast({
-        title: 'Enregistrement impossible',
-        description: 'Une erreur est survenue, réessayez plus tard. Votre brouillon reste sauvegardé localement.',
+        title: t('saveErrorTitle'),
+        description: t('saveErrorDesc'),
         variant: 'danger',
       });
       return false;
@@ -153,8 +164,8 @@ export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScri
       });
       if (res.ok) {
         toast({
-          title: 'Régénération lancée',
-          description: 'La vidéo repart en production à partir du script édité.',
+          title: t('video.regenStartedTitle'),
+          description: t('video.regenStartedDesc'),
           variant: 'success',
         });
         router.refresh();
@@ -162,33 +173,71 @@ export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScri
       } else {
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
         toast({
-          title: 'Régénération impossible',
-          description: data?.error ?? 'Une erreur est survenue, réessayez plus tard.',
+          title: t('video.regenErrorTitle'),
+          description: errorMessage(data, tApiError),
           variant: 'danger',
         });
       }
     } catch {
-      toast({ title: 'Erreur réseau', description: 'Impossible de joindre le serveur.', variant: 'danger' });
+      toast({ title: t('networkError'), description: t('serverUnreachable'), variant: 'danger' });
     } finally {
       setRegenerating(false);
     }
   };
 
-  const autosaveLabel = autosaveStatusLabel(autosave.status, autosave.lastSavedAt);
+  /**
+   * Applique les changements de médias par slide (image régénérée/remplacée —
+   * Lot 3, audio manuel enregistré/uploadé — Lot 4) à la vidéo déjà rendue,
+   * sans repasser par le LLM ni retoucher script/narration texte.
+   */
+  const applyMediaToVideo = async () => {
+    setApplyingMedia(true);
+    try {
+      const res = await fetch(`/api/lessons/${lessonId}/regenerate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'render-only' }),
+      });
+      if (res.ok) {
+        toast({
+          title: t('video.applyMediaStartedTitle'),
+          description: t('video.applyMediaStartedDesc'),
+          variant: 'success',
+        });
+        router.refresh();
+      } else {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast({
+          title: t('video.applyMediaErrorTitle'),
+          description: errorMessage(data, tApiError),
+          variant: 'danger',
+        });
+      }
+    } catch {
+      toast({ title: t('networkError'), description: t('serverUnreachable'), variant: 'danger' });
+    } finally {
+      setApplyingMedia(false);
+    }
+  };
+
+  const autosaveLabel = autosaveStatusLabel(autosave.status, autosave.lastSavedAt, {
+    saving: t('saving'),
+    error: t('autosaveError'),
+    savedAt: (time) => t('autosaveSavedAt', { time }),
+  });
 
   return (
     <div className="flex flex-col gap-4">
       {recovered && (
         <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
-          Un brouillon non synchronisé a été retrouvé sur cet appareil et rechargé — pensez à
-          l’enregistrer.
+          {t('recoveredDraft')}
         </p>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wide text-muted">
           <Film className="size-3.5 text-primary" aria-hidden="true" />
-          Édition du script vidéo · {slides.length} slide{slides.length > 1 ? 's' : ''}
-          {dirty && <span className="ms-1 text-accent-500 normal-case tracking-normal">• non enregistré</span>}
+          {t('video.titleWithCount', { count: slides.length })}
+          {dirty && <span className="ms-1 text-accent-500 normal-case tracking-normal">• {t('unsaved')}</span>}
           {!dirty && autosaveLabel && (
             <span className="ms-1 text-muted normal-case tracking-normal">• {autosaveLabel}</span>
           )}
@@ -197,15 +246,19 @@ export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScri
           <VersionHistoryPanel lessonId={lessonId} />
           <Button variant="ghost" size="sm" onClick={exit}>
             <X aria-hidden="true" />
-            Fermer
+            {t('close')}
           </Button>
           <Button variant="secondary" size="sm" loading={saving} disabled={!dirty} onClick={save}>
             {!saving && <Save aria-hidden="true" />}
-            Enregistrer
+            {t('save')}
+          </Button>
+          <Button variant="secondary" size="sm" loading={applyingMedia} onClick={applyMediaToVideo}>
+            <RefreshCw aria-hidden="true" />
+            {t('video.applyMedia')}
           </Button>
           <Button size="sm" loading={regenerating} onClick={regenerate}>
             <Film aria-hidden="true" />
-            Régénérer cette vidéo
+            {t('video.regenerate')}
           </Button>
         </div>
       </div>
@@ -218,14 +271,14 @@ export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScri
           >
             <div className="flex items-center justify-between gap-3">
               <span className="text-2xs font-semibold uppercase tracking-wide text-muted">
-                Slide {index + 1} · {slide.template}
+                {t('video.slideLabel', { number: index + 1, template: slide.template })}
               </span>
               <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
                   size="icon"
                   className="size-8"
-                  aria-label="Monter la slide"
+                  aria-label={t('video.moveUp')}
                   disabled={index === 0}
                   onClick={() => setSlides((prev) => move(prev, index, index - 1))}
                 >
@@ -235,7 +288,7 @@ export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScri
                   variant="ghost"
                   size="icon"
                   className="size-8"
-                  aria-label="Descendre la slide"
+                  aria-label={t('video.moveDown')}
                   disabled={index === slides.length - 1}
                   onClick={() => setSlides((prev) => move(prev, index, index + 1))}
                 >
@@ -245,7 +298,7 @@ export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScri
                   variant="ghost"
                   size="icon"
                   className="size-8 text-danger hover:bg-danger/10"
-                  aria-label="Supprimer la slide"
+                  aria-label={t('video.deleteSlide')}
                   disabled={slides.length <= 2}
                   onClick={() => setSlides((prev) => prev.filter((_, i) => i !== index))}
                 >
@@ -254,7 +307,7 @@ export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScri
               </div>
             </div>
 
-            <FieldLabel htmlFor={`slide-title-${index}`}>Titre</FieldLabel>
+            <FieldLabel htmlFor={`slide-title-${index}`}>{t('video.fieldTitle')}</FieldLabel>
             <input
               id={`slide-title-${index}`}
               value={slide.title}
@@ -263,9 +316,9 @@ export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScri
             />
 
             <div className="flex flex-col gap-2">
-              <FieldLabel>Puces</FieldLabel>
+              <FieldLabel>{t('video.bullets')}</FieldLabel>
               {slide.bullets.length === 0 && (
-                <p className="text-xs text-muted">Aucune puce — ajoutez-en si besoin.</p>
+                <p className="text-xs text-muted">{t('video.noBullets')}</p>
               )}
               {slide.bullets.map((bullet, bulletIndex) => (
                 <div key={bulletIndex} className="flex items-center gap-2">
@@ -278,7 +331,7 @@ export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScri
                     variant="ghost"
                     size="icon"
                     className="size-8 shrink-0 text-danger hover:bg-danger/10"
-                    aria-label="Supprimer la puce"
+                    aria-label={t('video.deleteBullet')}
                     onClick={() => removeBullet(index, bulletIndex)}
                   >
                     <Trash2 aria-hidden="true" />
@@ -287,11 +340,11 @@ export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScri
               ))}
               <Button variant="ghost" size="sm" className="w-fit" onClick={() => addBullet(index)}>
                 <Plus aria-hidden="true" />
-                Ajouter une puce
+                {t('video.addBullet')}
               </Button>
             </div>
 
-            <FieldLabel htmlFor={`slide-narration-${index}`}>Narration</FieldLabel>
+            <FieldLabel htmlFor={`slide-narration-${index}`}>{t('video.narration')}</FieldLabel>
             <textarea
               id={`slide-narration-${index}`}
               value={slide.narration}
@@ -299,6 +352,11 @@ export function VideoScriptEditor({ lessonId, initialSlides, onExit }: VideoScri
               rows={3}
               className={cn(inputClass, 'resize-y leading-relaxed')}
             />
+
+            {ILLUSTRATED_TEMPLATES.has(slide.template) && (
+              <SlideImagePanel courseId={courseId} lessonId={lessonId} index={index} />
+            )}
+            <SlideAudioPanel courseId={courseId} lessonId={lessonId} index={index} />
           </li>
         ))}
       </ol>

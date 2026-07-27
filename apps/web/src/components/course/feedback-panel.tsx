@@ -2,9 +2,11 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations, useFormatter } from 'next-intl';
 import { ChevronDown, MessageSquareText, Sparkles, Star } from 'lucide-react';
 import { Badge, Button, useToast } from '@/components/ui';
 import { cn } from '@/lib/cn';
+import { errorMessage } from '@/lib/error-message';
 import type { ReviewFeedbackView } from './types';
 
 /**
@@ -25,15 +27,18 @@ export interface FeedbackPanelProps {
 
 const SENTIMENT_BADGE: Record<
   ReviewFeedbackView['themes'][number]['sentiment'],
-  { variant: 'ready' | 'failed' | 'draft'; label: string }
+  { variant: 'ready' | 'failed' | 'draft'; labelKey: string }
 > = {
-  positive: { variant: 'ready', label: 'Positif' },
-  neutral: { variant: 'draft', label: 'Neutre' },
-  negative: { variant: 'failed', label: 'Négatif' },
+  positive: { variant: 'ready', labelKey: 'sentimentPositive' },
+  neutral: { variant: 'draft', labelKey: 'sentimentNeutral' },
+  negative: { variant: 'failed', labelKey: 'sentimentNegative' },
 };
 
 export function FeedbackPanel({ courseId, feedback, reviewable }: FeedbackPanelProps) {
   const router = useRouter();
+  const t = useTranslations('course.feedback');
+  const tApiError = useTranslations('apiErrors');
+  const format = useFormatter();
   const { toast } = useToast();
   const [open, setOpen] = React.useState(Boolean(feedback && feedback.suggestions.length > 0));
   const [analyzing, setAnalyzing] = React.useState(false);
@@ -48,8 +53,8 @@ export function FeedbackPanel({ courseId, feedback, reviewable }: FeedbackPanelP
       const res = await fetch(`/api/courses/${courseId}/reviews/analyze`, { method: 'POST' });
       if (res.ok) {
         toast({
-          title: 'Analyse lancée',
-          description: 'Les retours étudiants sont en cours d’analyse, revenez dans un instant.',
+          title: t('analysisStartedTitle'),
+          description: t('analysisStartedDesc'),
           variant: 'success',
         });
         setOpen(true);
@@ -57,15 +62,15 @@ export function FeedbackPanel({ courseId, feedback, reviewable }: FeedbackPanelP
       } else {
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
         toast({
-          title: 'Analyse impossible',
-          description: data?.error ?? 'Une erreur est survenue, réessayez plus tard.',
+          title: t('analysisFailedTitle'),
+          description: errorMessage(data, tApiError),
           variant: 'danger',
         });
       }
     } catch {
       toast({
-        title: 'Erreur réseau',
-        description: 'Impossible de joindre le serveur, vérifiez votre connexion.',
+        title: t('networkErrorTitle'),
+        description: t('networkErrorDesc'),
         variant: 'danger',
       });
     } finally {
@@ -83,23 +88,23 @@ export function FeedbackPanel({ courseId, feedback, reviewable }: FeedbackPanelP
       });
       if (res.ok) {
         toast({
-          title: 'Régénération lancée',
-          description: 'La leçon repart en production avec cette amélioration.',
+          title: t('regenStartedTitle'),
+          description: t('regenStartedDesc'),
           variant: 'success',
         });
         router.refresh();
       } else {
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
         toast({
-          title: 'Application impossible',
-          description: data?.error ?? 'Une erreur est survenue, réessayez plus tard.',
+          title: t('applyFailedTitle'),
+          description: errorMessage(data, tApiError),
           variant: 'danger',
         });
       }
     } catch {
       toast({
-        title: 'Erreur réseau',
-        description: 'Impossible de joindre le serveur, vérifiez votre connexion.',
+        title: t('networkErrorTitle'),
+        description: t('networkErrorDesc'),
         variant: 'danger',
       });
     } finally {
@@ -121,19 +126,20 @@ export function FeedbackPanel({ courseId, feedback, reviewable }: FeedbackPanelP
         <span className="flex min-w-0 items-center gap-3">
           <MessageSquareText className="size-5 shrink-0 text-muted" aria-hidden="true" />
           <span className="min-w-0">
-            <span className="block font-medium text-foreground">Retours étudiants</span>
+            <span className="block font-medium text-foreground">{t('heading')}</span>
             <span className="block text-xs text-muted">
               {hasFeedback ? (
-                <>
-                  {feedback!.reviewCount} avis · note moyenne {feedback!.averageRating.toFixed(1)}/5 · analysé le{' '}
-                  {new Date(feedback!.generatedAt).toLocaleDateString('fr-FR', {
+                t('summary', {
+                  count: feedback!.reviewCount,
+                  rating: feedback!.averageRating.toFixed(1),
+                  date: format.dateTime(new Date(feedback!.generatedAt), {
                     day: 'numeric',
                     month: 'long',
                     year: 'numeric',
-                  })}
-                </>
+                  }),
+                })
               ) : (
-                'Aucune analyse pour le moment.'
+                t('noAnalysis')
               )}
             </span>
           </span>
@@ -148,29 +154,28 @@ export function FeedbackPanel({ courseId, feedback, reviewable }: FeedbackPanelP
         <div id={contentId} className="flex flex-col gap-6 border-t border-border p-4">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm text-muted">
-              Récupère les avis publiés (Udemy) et les analyse par IA pour en extraire les thèmes récurrents
-              et des pistes d'amélioration ciblées.
+              {t('intro')}
             </p>
             <Button variant="secondary" size="sm" loading={analyzing} onClick={runAnalysis}>
               {!analyzing && <Sparkles aria-hidden="true" />}
-              Analyser les retours
+              {t('analyzeButton')}
             </Button>
           </div>
 
           {hasFeedback && feedback!.themes.length > 0 && (
             <div className="flex flex-col gap-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Thèmes récurrents</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">{t('themesHeading')}</h3>
               <ul className="flex flex-col gap-2">
                 {feedback!.themes.map((theme, i) => (
                   <li key={`${theme.label}-${i}`} className="rounded-md border border-border bg-surface-subtle p-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant={SENTIMENT_BADGE[theme.sentiment].variant} hideDot>
-                        {SENTIMENT_BADGE[theme.sentiment].label}
+                        {t(SENTIMENT_BADGE[theme.sentiment].labelKey)}
                       </Badge>
                       <span className="text-sm font-medium text-foreground">{theme.label}</span>
                       <span className="inline-flex items-center gap-1 text-xs text-muted">
                         <Star className="size-3" aria-hidden="true" />
-                        {theme.count} avis
+                        {t('reviewsCount', { count: theme.count })}
                       </span>
                     </div>
                     {theme.quotes.length > 0 && (
@@ -191,7 +196,7 @@ export function FeedbackPanel({ courseId, feedback, reviewable }: FeedbackPanelP
           {hasFeedback && feedback!.suggestions.length > 0 && (
             <div className="flex flex-col gap-2">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                Suggestions d'amélioration
+                {t('suggestionsHeading')}
               </h3>
               <ul className="flex flex-col gap-2">
                 {feedback!.suggestions.map((suggestion, i) => (
@@ -203,16 +208,16 @@ export function FeedbackPanel({ courseId, feedback, reviewable }: FeedbackPanelP
                       <p className="text-sm font-medium text-foreground">
                         {suggestion.lessonRef ? (
                           <>
-                            Leçon : <span className="font-normal text-muted">{suggestion.lessonRef}</span>
+                            {t('lessonLabel')} <span className="font-normal text-muted">{suggestion.lessonRef}</span>
                           </>
                         ) : (
-                          'Amélioration générale du cours'
+                          t('generalImprovement')
                         )}
                       </p>
                       <p className="mt-1 text-sm text-foreground">{suggestion.action}</p>
                       <p className="mt-1 text-xs text-muted">{suggestion.rationale}</p>
                     </div>
-                    <span className="shrink-0" title={!suggestion.lessonId ? 'Suggestion globale : aucune leçon à régénérer automatiquement' : undefined}>
+                    <span className="shrink-0" title={!suggestion.lessonId ? t('globalSuggestionHint') : undefined}>
                       <Button
                         variant="secondary"
                         size="sm"
@@ -222,7 +227,7 @@ export function FeedbackPanel({ courseId, feedback, reviewable }: FeedbackPanelP
                           suggestion.lessonId && applySuggestion(i, suggestion.lessonId, suggestion.action)
                         }
                       >
-                        Appliquer
+                        {t('applyButton')}
                       </Button>
                     </span>
                   </li>
@@ -234,8 +239,8 @@ export function FeedbackPanel({ courseId, feedback, reviewable }: FeedbackPanelP
           {hasFeedback && feedback!.themes.length === 0 && feedback!.suggestions.length === 0 && (
             <p className="text-sm text-muted">
               {feedback!.reviewCount > 0
-                ? "Aucun thème ni suggestion n'a pu être extrait de ces avis."
-                : "Aucun avis disponible pour ce cours pour le moment."}
+                ? t('noThemesExtracted')
+                : t('noReviewsYet')}
             </p>
           )}
         </div>

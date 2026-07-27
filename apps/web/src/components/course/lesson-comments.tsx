@@ -3,6 +3,8 @@
 import * as React from 'react';
 import { MessageCircle, Send } from 'lucide-react';
 import { Button, Textarea, useToast } from '@/components/ui';
+import { useTranslations, useFormatter } from 'next-intl';
+import { errorMessage } from '@/lib/error-message';
 
 /**
  * Commentaires d'équipe sur une leçon (Prompt 138) — liste + formulaire
@@ -25,6 +27,9 @@ export interface LessonCommentsProps {
 
 export function LessonComments({ lessonId }: LessonCommentsProps) {
   const { toast } = useToast();
+  const t = useTranslations('course.lessonComments');
+  const tApiError = useTranslations('apiErrors');
+  const format = useFormatter();
   const [comments, setComments] = React.useState<CommentDto[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [text, setText] = React.useState('');
@@ -64,15 +69,15 @@ export function LessonComments({ lessonId }: LessonCommentsProps) {
       } else {
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
         toast({
-          title: 'Envoi impossible',
-          description: data?.error ?? 'Une erreur est survenue, réessayez plus tard.',
+          title: t('sendFailedTitle'),
+          description: errorMessage(data, tApiError),
           variant: 'danger',
         });
       }
     } catch {
       toast({
-        title: 'Erreur réseau',
-        description: 'Impossible de joindre le serveur, vérifiez votre connexion.',
+        title: t('networkErrorTitle'),
+        description: t('networkErrorDescription'),
         variant: 'danger',
       });
     } finally {
@@ -84,13 +89,13 @@ export function LessonComments({ lessonId }: LessonCommentsProps) {
     <section className="mt-6 rounded-lg border border-border bg-surface p-4">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
         <MessageCircle className="size-4 text-muted" aria-hidden="true" />
-        Commentaires d'équipe
+        {t('title')}
       </h3>
 
       {loading ? (
-        <p className="mt-3 text-sm text-muted">Chargement…</p>
+        <p className="mt-3 text-sm text-muted">{t('loading')}</p>
       ) : comments.length === 0 ? (
-        <p className="mt-3 text-sm text-muted">Aucun commentaire pour l'instant.</p>
+        <p className="mt-3 text-sm text-muted">{t('empty')}</p>
       ) : (
         <ul className="mt-3 flex flex-col gap-3">
           {comments.map((c) => (
@@ -98,7 +103,7 @@ export function LessonComments({ lessonId }: LessonCommentsProps) {
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-medium text-foreground">{c.authorName}</span>
                 <span className="text-2xs text-muted">
-                  {new Date(c.createdAt).toLocaleString('fr-FR', {
+                  {format.dateTime(new Date(c.createdAt), {
                     day: 'numeric',
                     month: 'short',
                     hour: '2-digit',
@@ -114,16 +119,16 @@ export function LessonComments({ lessonId }: LessonCommentsProps) {
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
         <Textarea
-          label="Commentaire"
+          label={t('commentLabel')}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Ajouter un commentaire pour l'équipe…"
+          placeholder={t('commentPlaceholder')}
           rows={2}
           className="flex-1"
         />
         <Button size="sm" onClick={submit} loading={submitting} disabled={!text.trim()}>
           {!submitting && <Send aria-hidden="true" />}
-          Envoyer
+          {t('submit')}
         </Button>
       </div>
     </section>

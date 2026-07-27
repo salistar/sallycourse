@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useFormatter, useTranslations } from 'next-intl';
 import { History, RotateCcw } from 'lucide-react';
 import {
   Button,
@@ -14,6 +15,7 @@ import {
 } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { diffLines, sortVersionsDesc, type LessonVersionSummary } from './version-history';
+import { errorMessage } from '@/lib/error-message';
 
 /**
  * Panneau « Historique » d'une leçon (P131) : liste des versions passées
@@ -36,6 +38,9 @@ export interface VersionHistoryPanelProps {
 
 export function VersionHistoryPanel({ lessonId, currentMarkdown, onRestored }: VersionHistoryPanelProps) {
   const router = useRouter();
+  const t = useTranslations('course.editor');
+  const tApiError = useTranslations('apiErrors');
+  const format = useFormatter();
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
@@ -69,20 +74,20 @@ export function VersionHistoryPanel({ lessonId, currentMarkdown, onRestored }: V
         method: 'POST',
       });
       if (res.ok) {
-        toast({ title: 'Version restaurée', description: 'Le contenu précédent a été réappliqué.', variant: 'success' });
+        toast({ title: t('history.restoredTitle'), description: t('history.restoredDesc'), variant: 'success' });
         setOpen(false);
         router.refresh();
         onRestored?.();
       } else {
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
         toast({
-          title: 'Restauration impossible',
-          description: data?.error ?? 'Une erreur est survenue, réessayez plus tard.',
+          title: t('history.restoreErrorTitle'),
+          description: errorMessage(data, tApiError),
           variant: 'danger',
         });
       }
     } catch {
-      toast({ title: 'Erreur réseau', description: 'Impossible de joindre le serveur.', variant: 'danger' });
+      toast({ title: t('networkError'), description: t('serverUnreachable'), variant: 'danger' });
     } finally {
       setRestoringId(null);
     }
@@ -92,23 +97,20 @@ export function VersionHistoryPanel({ lessonId, currentMarkdown, onRestored }: V
     <>
       <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
         <History aria-hidden="true" />
-        Historique
+        {t('history.open')}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Historique des versions</DialogTitle>
-            <DialogDescription>
-              Une version est enregistrée avant chaque modification importante. Restaurer une
-              version réapplique son contenu immédiatement.
-            </DialogDescription>
+            <DialogTitle>{t('history.dialogTitle')}</DialogTitle>
+            <DialogDescription>{t('history.dialogDescription')}</DialogDescription>
           </DialogHeader>
 
           <div className="flex max-h-[26rem] flex-col gap-3 overflow-y-auto">
-            {loading && <p className="text-sm text-muted">Chargement…</p>}
+            {loading && <p className="text-sm text-muted">{t('history.loading')}</p>}
             {!loading && versions.length === 0 && (
-              <p className="text-sm text-muted">Aucune version antérieure enregistrée pour cette leçon.</p>
+              <p className="text-sm text-muted">{t('history.empty')}</p>
             )}
             {versions.map((version) => {
               const expanded = expandedId === version.id;
@@ -122,7 +124,7 @@ export function VersionHistoryPanel({ lessonId, currentMarkdown, onRestored }: V
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-foreground">
-                        {new Date(version.createdAt).toLocaleString('fr-FR', {
+                        {format.dateTime(new Date(version.createdAt), {
                           day: 'numeric',
                           month: 'short',
                           hour: '2-digit',
@@ -138,7 +140,7 @@ export function VersionHistoryPanel({ lessonId, currentMarkdown, onRestored }: V
                           size="sm"
                           onClick={() => setExpandedId(expanded ? null : version.id)}
                         >
-                          {expanded ? 'Masquer le diff' : 'Voir le diff'}
+                          {expanded ? t('history.hideDiff') : t('history.showDiff')}
                         </Button>
                       )}
                       <Button
@@ -148,7 +150,7 @@ export function VersionHistoryPanel({ lessonId, currentMarkdown, onRestored }: V
                         onClick={() => restore(version.id)}
                       >
                         {restoringId !== version.id && <RotateCcw aria-hidden="true" />}
-                        Restaurer
+                        {t('history.restore')}
                       </Button>
                     </div>
                   </div>

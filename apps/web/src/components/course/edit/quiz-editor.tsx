@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { HelpCircle, Plus, Save, Trash2, X } from 'lucide-react';
 import { Button, useToast } from '@/components/ui';
 import { cn } from '@/lib/cn';
@@ -40,6 +41,7 @@ function emptyQuestion(): EditableQuizQuestion {
 
 export function QuizEditor({ lessonId, initialQuestions, onExit }: QuizEditorProps) {
   const router = useRouter();
+  const t = useTranslations('course.editor');
   const { toast } = useToast();
   const draftScope = `quiz:${lessonId}`;
   const initialQuestionsOrEmpty = initialQuestions.length > 0 ? initialQuestions : [emptyQuestion()];
@@ -64,7 +66,7 @@ export function QuizEditor({ lessonId, initialQuestions, onExit }: QuizEditorPro
   }, [dirty, questions, draftScope]);
 
   const exit = () => {
-    if (confirmDiscardIfDirty(dirty)) onExit();
+    if (confirmDiscardIfDirty(dirty, t('discardConfirm'))) onExit();
   };
 
   const patchQuestion = (index: number, patch: Partial<EditableQuizQuestion>) => {
@@ -81,14 +83,15 @@ export function QuizEditor({ lessonId, initialQuestions, onExit }: QuizEditorPro
 
   /** Validation locale avant envoi (miroir léger de quizQuestionSchema). */
   const validate = (): string | null => {
-    if (questions.length === 0) return 'Le quiz doit contenir au moins une question.';
+    if (questions.length === 0) return t('quiz.vAtLeastOne');
     for (let i = 0; i < questions.length; i += 1) {
       const q = questions[i]!;
-      if (!q.question.trim()) return `Question ${i + 1} : l’intitulé est vide.`;
-      if (q.choices.length !== CHOICES_PER_QUESTION) return `Question ${i + 1} : ${CHOICES_PER_QUESTION} choix requis.`;
-      if (q.choices.some((c) => !c.trim())) return `Question ${i + 1} : tous les choix doivent être renseignés.`;
+      if (!q.question.trim()) return t('quiz.vEmptyTitle', { number: i + 1 });
+      if (q.choices.length !== CHOICES_PER_QUESTION)
+        return t('quiz.vChoicesCount', { number: i + 1, count: CHOICES_PER_QUESTION });
+      if (q.choices.some((c) => !c.trim())) return t('quiz.vChoicesFilled', { number: i + 1 });
       if (q.correctIndex < 0 || q.correctIndex >= CHOICES_PER_QUESTION)
-        return `Question ${i + 1} : bonne réponse invalide.`;
+        return t('quiz.vInvalidCorrect', { number: i + 1 });
     }
     return null;
   };
@@ -122,18 +125,18 @@ export function QuizEditor({ lessonId, initialQuestions, onExit }: QuizEditorPro
   const save = async () => {
     const error = validate();
     if (error) {
-      toast({ title: 'Quiz incomplet', description: error, variant: 'danger' });
+      toast({ title: t('quiz.incompleteTitle'), description: error, variant: 'danger' });
       return;
     }
     setSaving(true);
     try {
       await persist(questions);
-      toast({ title: 'Quiz enregistré', description: 'Les questions ont été mises à jour.', variant: 'success' });
+      toast({ title: t('quiz.savedTitle'), description: t('quiz.savedDesc'), variant: 'success' });
       router.refresh();
     } catch {
       toast({
-        title: 'Enregistrement impossible',
-        description: 'Une erreur est survenue, réessayez plus tard. Votre brouillon reste sauvegardé localement.',
+        title: t('saveErrorTitle'),
+        description: t('saveErrorDesc'),
         variant: 'danger',
       });
     } finally {
@@ -141,21 +144,24 @@ export function QuizEditor({ lessonId, initialQuestions, onExit }: QuizEditorPro
     }
   };
 
-  const autosaveLabel = autosaveStatusLabel(autosave.status, autosave.lastSavedAt);
+  const autosaveLabel = autosaveStatusLabel(autosave.status, autosave.lastSavedAt, {
+    saving: t('saving'),
+    error: t('autosaveError'),
+    savedAt: (time) => t('autosaveSavedAt', { time }),
+  });
 
   return (
     <div className="flex flex-col gap-4">
       {recovered && (
         <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
-          Un brouillon non synchronisé a été retrouvé sur cet appareil et rechargé — pensez à
-          l’enregistrer.
+          {t('recoveredDraft')}
         </p>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wide text-muted">
           <HelpCircle className="size-3.5 text-primary" aria-hidden="true" />
-          Édition du quiz · {questions.length} question{questions.length > 1 ? 's' : ''}
-          {dirty && <span className="ms-1 text-accent-500 normal-case tracking-normal">• non enregistré</span>}
+          {t('quiz.titleWithCount', { count: questions.length })}
+          {dirty && <span className="ms-1 text-accent-500 normal-case tracking-normal">• {t('unsaved')}</span>}
           {!dirty && autosaveLabel && (
             <span className="ms-1 text-muted normal-case tracking-normal">• {autosaveLabel}</span>
           )}
@@ -164,11 +170,11 @@ export function QuizEditor({ lessonId, initialQuestions, onExit }: QuizEditorPro
           <VersionHistoryPanel lessonId={lessonId} />
           <Button variant="ghost" size="sm" onClick={exit}>
             <X aria-hidden="true" />
-            Fermer
+            {t('close')}
           </Button>
           <Button size="sm" loading={saving} disabled={!dirty} onClick={save}>
             {!saving && <Save aria-hidden="true" />}
-            Enregistrer
+            {t('save')}
           </Button>
         </div>
       </div>
@@ -181,13 +187,13 @@ export function QuizEditor({ lessonId, initialQuestions, onExit }: QuizEditorPro
           >
             <div className="flex items-center justify-between gap-3">
               <span className="text-2xs font-semibold uppercase tracking-wide text-muted">
-                Question {qIndex + 1}
+                {t('quiz.questionLabel', { number: qIndex + 1 })}
               </span>
               <Button
                 variant="ghost"
                 size="icon"
                 className="size-8 text-danger hover:bg-danger/10"
-                aria-label="Supprimer la question"
+                aria-label={t('quiz.deleteQuestion')}
                 disabled={questions.length <= 1}
                 onClick={() => setQuestions((prev) => prev.filter((_, i) => i !== qIndex))}
               >
@@ -199,13 +205,13 @@ export function QuizEditor({ lessonId, initialQuestions, onExit }: QuizEditorPro
               value={question.question}
               onChange={(event) => patchQuestion(qIndex, { question: event.target.value })}
               rows={2}
-              placeholder="Intitulé de la question"
+              placeholder={t('quiz.questionPlaceholder')}
               className={cn(inputClass, 'resize-y')}
             />
 
             <fieldset className="flex flex-col gap-2">
               <legend className="mb-1 text-2xs font-semibold uppercase tracking-wide text-muted">
-                Choix (cochez la bonne réponse)
+                {t('quiz.choicesLegend')}
               </legend>
               {question.choices.map((choice, cIndex) => {
                 const isCorrect = question.correctIndex === cIndex;
@@ -216,7 +222,7 @@ export function QuizEditor({ lessonId, initialQuestions, onExit }: QuizEditorPro
                       name={`correct-${qIndex}`}
                       checked={isCorrect}
                       onChange={() => patchQuestion(qIndex, { correctIndex: cIndex })}
-                      aria-label={`Marquer le choix ${String.fromCharCode(65 + cIndex)} comme bonne réponse`}
+                      aria-label={t('quiz.markCorrect', { letter: String.fromCharCode(65 + cIndex) })}
                       className="size-4 shrink-0 accent-[var(--color-success)]"
                     />
                     <span
@@ -228,7 +234,7 @@ export function QuizEditor({ lessonId, initialQuestions, onExit }: QuizEditorPro
                     <input
                       value={choice}
                       onChange={(event) => setChoice(qIndex, cIndex, event.target.value)}
-                      placeholder={`Choix ${String.fromCharCode(65 + cIndex)}`}
+                      placeholder={t('quiz.choicePlaceholder', { letter: String.fromCharCode(65 + cIndex) })}
                       className={cn(
                         inputClass,
                         isCorrect && 'border-success/60 bg-success/5',
@@ -244,14 +250,14 @@ export function QuizEditor({ lessonId, initialQuestions, onExit }: QuizEditorPro
                 htmlFor={`explanation-${qIndex}`}
                 className="text-2xs font-semibold uppercase tracking-wide text-muted"
               >
-                Explication
+                {t('quiz.explanation')}
               </label>
               <textarea
                 id={`explanation-${qIndex}`}
                 value={question.explanation}
                 onChange={(event) => patchQuestion(qIndex, { explanation: event.target.value })}
                 rows={2}
-                placeholder="Pourquoi cette réponse est correcte"
+                placeholder={t('quiz.explanationPlaceholder')}
                 className={cn(inputClass, 'resize-y')}
               />
             </div>
@@ -266,7 +272,7 @@ export function QuizEditor({ lessonId, initialQuestions, onExit }: QuizEditorPro
         onClick={() => setQuestions((prev) => [...prev, emptyQuestion()])}
       >
         <Plus aria-hidden="true" />
-        Ajouter une question
+        {t('quiz.addQuestion')}
       </Button>
     </div>
   );

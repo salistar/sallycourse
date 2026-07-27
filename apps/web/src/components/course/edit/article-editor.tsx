@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Eye, Pencil, Save, X } from 'lucide-react';
 import { Button, useToast } from '@/components/ui';
 import { cn } from '@/lib/cn';
@@ -28,6 +29,7 @@ export interface ArticleEditorProps {
 
 export function ArticleEditor({ lessonId, initialMarkdown, onExit }: ArticleEditorProps) {
   const router = useRouter();
+  const t = useTranslations('course.editor');
   const { toast } = useToast();
   const draftScope = `article:${lessonId}`;
 
@@ -77,7 +79,7 @@ export function ArticleEditor({ lessonId, initialMarkdown, onExit }: ArticleEdit
   }, [dirty, markdown, draftScope]);
 
   const exit = () => {
-    if (confirmDiscardIfDirty(dirty)) onExit();
+    if (confirmDiscardIfDirty(dirty, t('discardConfirm'))) onExit();
   };
 
   const save = async () => {
@@ -85,15 +87,15 @@ export function ArticleEditor({ lessonId, initialMarkdown, onExit }: ArticleEdit
     try {
       await persist(markdown);
       toast({
-        title: 'Article enregistré',
-        description: 'Les captures dérivées seront régénérées à la prochaine production.',
+        title: t('article.savedTitle'),
+        description: t('article.savedDesc'),
         variant: 'success',
       });
       router.refresh();
     } catch {
       toast({
-        title: 'Enregistrement impossible',
-        description: 'Une erreur est survenue, réessayez plus tard. Votre brouillon reste sauvegardé localement.',
+        title: t('saveErrorTitle'),
+        description: t('saveErrorDesc'),
         variant: 'danger',
       });
     } finally {
@@ -101,37 +103,40 @@ export function ArticleEditor({ lessonId, initialMarkdown, onExit }: ArticleEdit
     }
   };
 
-  const autosaveLabel = autosaveStatusLabel(autosave.status, autosave.lastSavedAt);
+  const autosaveLabel = autosaveStatusLabel(autosave.status, autosave.lastSavedAt, {
+    saving: t('saving'),
+    error: t('autosaveError'),
+    savedAt: (time) => t('autosaveSavedAt', { time }),
+  });
 
   return (
     <div className="flex flex-col gap-4">
       {recovered && (
         <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
-          Un brouillon non synchronisé a été retrouvé sur cet appareil et rechargé — pensez à
-          l’enregistrer.
+          {t('recoveredDraft')}
         </p>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wide text-muted">
           <Pencil className="size-3.5 text-primary" aria-hidden="true" />
-          Édition de l’article
-          {dirty && <span className="ms-1 text-accent-500 normal-case tracking-normal">• non enregistré</span>}
+          {t('article.title')}
+          {dirty && <span className="ms-1 text-accent-500 normal-case tracking-normal">• {t('unsaved')}</span>}
           {!dirty && autosaveLabel && (
             <span className="ms-1 text-muted normal-case tracking-normal">• {autosaveLabel}</span>
           )}
           {autosave.status === 'saving' && (
-            <span className="ms-1 text-muted normal-case tracking-normal">• Enregistrement…</span>
+            <span className="ms-1 text-muted normal-case tracking-normal">• {t('saving')}</span>
           )}
         </p>
         <div className="flex items-center gap-2">
           <VersionHistoryPanel lessonId={lessonId} currentMarkdown={markdown} />
           <Button variant="ghost" size="sm" onClick={exit}>
             <X aria-hidden="true" />
-            Fermer
+            {t('close')}
           </Button>
           <Button size="sm" loading={saving} disabled={!dirty} onClick={save}>
             {!saving && <Save aria-hidden="true" />}
-            Enregistrer
+            {t('save')}
           </Button>
         </div>
       </div>
@@ -143,7 +148,7 @@ export function ArticleEditor({ lessonId, initialMarkdown, onExit }: ArticleEdit
             htmlFor={`md-${lessonId}`}
             className="text-2xs font-semibold uppercase tracking-wide text-muted"
           >
-            Markdown
+            {t('article.markdown')}
           </label>
           <textarea
             id={`md-${lessonId}`}
@@ -163,13 +168,13 @@ export function ArticleEditor({ lessonId, initialMarkdown, onExit }: ArticleEdit
         <div className="flex min-w-0 flex-col gap-1.5">
           <p className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wide text-muted">
             <Eye className="size-3.5" aria-hidden="true" />
-            Aperçu
+            {t('article.preview')}
           </p>
           <div className="min-h-[28rem] overflow-y-auto rounded-md border border-border bg-surface-subtle/40 p-4">
             {markdown.trim() ? (
               <ArticleView markdown={markdown} />
             ) : (
-              <p className="text-sm text-muted">L’aperçu s’affichera ici dès que vous saisissez du Markdown.</p>
+              <p className="text-sm text-muted">{t('article.previewEmpty')}</p>
             )}
           </div>
         </div>

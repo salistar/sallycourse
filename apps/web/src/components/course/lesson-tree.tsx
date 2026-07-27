@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { FileText, FlaskConical, HelpCircle, Video, type LucideIcon } from 'lucide-react';
 import { Badge, type BadgeProps } from '@/components/ui';
 import { cn } from '@/lib/cn';
@@ -38,8 +39,9 @@ export interface LessonTreeProps {
 }
 
 export function LessonTree({ sections, selectedId, onSelect, className }: LessonTreeProps) {
+  const t = useTranslations('course.lessonTree');
   return (
-    <nav aria-label="Plan du cours" className={cn('flex flex-col gap-6', className)}>
+    <nav aria-label={t('navLabel')} className={cn('flex flex-col gap-6', className)}>
       {sections.map((section, sectionIndex) => (
         <section key={section.id} aria-label={section.title}>
           <header className="mb-2 flex items-baseline justify-between gap-2 px-1">
@@ -48,7 +50,7 @@ export function LessonTree({ sections, selectedId, onSelect, className }: Lesson
               {section.title}
             </h3>
             <span className="shrink-0 text-2xs font-medium uppercase tracking-wide text-muted">
-              {section.lessons.length} leçon{section.lessons.length > 1 ? 's' : ''}
+              {t('lessonCount', { count: section.lessons.length })}
             </span>
           </header>
 
@@ -87,7 +89,7 @@ export function LessonTree({ sections, selectedId, onSelect, className }: Lesson
                       </span>
                       {lesson.durationMin !== undefined && (
                         <span className="block text-2xs tabular-nums text-muted">
-                          ~{lesson.durationMin} min
+                          {t('duration', { minutes: lesson.durationMin })}
                         </span>
                       )}
                     </span>
