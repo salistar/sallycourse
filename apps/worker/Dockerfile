@@ -32,8 +32,12 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/worker/node_modules ./apps/worker/node_modules
 COPY --from=build /app/apps/worker/dist ./apps/worker/dist
 COPY --from=build /app/packages ./packages
-# Chromium pour Playwright (dépendances système incluses)
-RUN npx playwright install --with-deps chromium
+# Chromium pour Playwright (dépendances système incluses).
+# Le binaire playwright est dans apps/worker/node_modules/.bin (workspace pnpm) ;
+# navigateurs dans un chemin partagé lisible par l'utilisateur `node`.
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
+RUN cd apps/worker && npx playwright install --with-deps chromium \
+    && chmod -R a+rx /opt/pw-browsers
 USER node
 # Sonde /metrics (serveur HTTP interne du worker, METRICS_PORT défaut 9090) —
 # preuve de vie du process (event loop non bloquée), pas une vérif Mongo/Redis.
