@@ -290,10 +290,16 @@ export async function callClaudeJson<T>(params: CallClaudeJsonParams<T>): Promis
   }
 
   // 2) Anthropic (SDK) — choix explicite, ou disponible et cloud OpenAI-compat absent.
+  // Enveloppé : une erreur Anthropic (crédit épuisé, 5xx…) ne doit PAS faire
+  // échouer le job — on retombe sur Ollama (3) puis le mock, jamais de blocage.
   if (config.ANTHROPIC_API_KEY && !wantsOllama) {
-    if (skipCache) return callClaudeJsonUncached(params);
-    const key = claudeCacheKey(system, user, model);
-    return getOrCompute<T>(key, CLAUDE_CACHE_TTL_SEC, () => callClaudeJsonUncached(params), 'claude');
+    try {
+      if (skipCache) return await callClaudeJsonUncached(params);
+      const key = claudeCacheKey(system, user, model);
+      return await getOrCompute<T>(key, CLAUDE_CACHE_TTL_SEC, () => callClaudeJsonUncached(params), 'claude');
+    } catch (err) {
+      logger.warn({ err }, 'callClaudeJson : Anthropic indisponible (crédit/erreur) — repli Ollama');
+    }
   }
 
   // 3) Ollama LOCAL (P152) — dernier recours réel avant le mock déterministe.
