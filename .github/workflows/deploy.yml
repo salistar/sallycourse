@@ -77,7 +77,7 @@ jobs:
           tags: |
             type=sha,format=long
             type=ref,event=tag
-            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=latest
 
       - name: Build & push ${{ matrix.app }}
         uses: docker/build-push-action@v6

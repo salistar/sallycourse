@@ -1,6 +1,7 @@
 # Overlay production : docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 services:
   web:
+    image: ghcr.io/salistar/sallycourse-web:latest
     restart: unless-stopped
     deploy:
       resources:
@@ -9,6 +10,7 @@ services:
     networks: [internal, edge]
 
   worker:
+    image: ghcr.io/salistar/sallycourse-worker:latest
     restart: unless-stopped
     deploy:
       resources:
