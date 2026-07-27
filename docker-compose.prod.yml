@@ -2,6 +2,9 @@
 services:
   web:
     image: ghcr.io/salistar/sallycourse-web:latest
+    environment:
+      HOSTNAME: "0.0.0.0"
+      PORT: "3000"
     restart: unless-stopped
     deploy:
       resources:
