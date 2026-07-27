@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { storageKeys, uploadObject } from '@sallycourse/shared';
 import { connectDb, ManualPaymentRequest } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   try {
     form = await request.formData();
   } catch {
-    return NextResponse.json({ error: 'Requête multipart invalide.' }, { status: 400 });
+    return apiError('invalidMultipart');
   }
 
   const plan = String(form.get('plan') ?? '');
@@ -49,12 +50,12 @@ export async function POST(request: Request) {
   if (proof instanceof File && proof.size > 0) {
     if (proof.type && !ACCEPTED_PROOF_TYPES.includes(proof.type)) {
       return NextResponse.json(
-        { error: 'Format de preuve non supporté (PNG, JPEG, WebP ou PDF attendu).' },
+        { error: 'Format de preuve non supporté (PNG, JPEG, WebP ou PDF attendu).', code: 'unsupportedProofFormat' },
         { status: 415 },
       );
     }
     if (proof.size > MAX_PROOF_MB * 1024 * 1024) {
-      return NextResponse.json({ error: `Preuve trop lourde (max ${MAX_PROOF_MB} Mo).` }, { status: 413 });
+      return NextResponse.json({ error: `Preuve trop lourde (max ${MAX_PROOF_MB} Mo).`, code: 'manualPaymentProofTooLarge', params: { max: MAX_PROOF_MB } }, { status: 413 });
     }
   }
 

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { getConfig, decryptCredentials, redactCredentials } from '@sallycourse/shared';
 import { connectDb, PlatformCredential } from '@sallycourse/db';
@@ -20,14 +21,14 @@ export async function POST(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Identifiant invalide.' }, { status: 400 });
+    return apiError('invalidId');
   }
 
   await connectDb();
 
   const cred = await PlatformCredential.findOne({ _id: id, userId: user.id }).lean();
   if (!cred) {
-    return NextResponse.json({ error: 'Credential introuvable.' }, { status: 404 });
+    return apiError('credentialNotFound');
   }
 
   const config = getConfig();

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { connectDb, Course as CourseModel, User as UserModel } from '@sallycourse/db';
 import { requireApiKeyUser } from '@/lib/api-auth';
 import { createCourseForUser } from '@/lib/create-course';
@@ -21,13 +22,13 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = v1CreateCourseSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Données invalides.', details: parsed.error.flatten().fieldErrors },
+      { error: 'Données invalides.', code: 'invalidData', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
   await connectDb();
   const userDoc = await UserModel.findById(auth.userId).select('plan').lean();
   if (!userDoc) {
-    return NextResponse.json({ error: 'Utilisateur introuvable.' }, { status: 401 });
+    return NextResponse.json({ error: 'Utilisateur introuvable.', code: 'userNotFound' }, { status: 401 });
   }
 
   const result = await createCourseForUser(auth.userId, userDoc.plan, {
@@ -50,20 +51,20 @@ export async function POST(request: Request) {
       case 'quota':
         return NextResponse.json(
           {
-            error: `Quota mensuel atteint : ${result.error.limit} cours/mois sur le plan ${result.error.plan}.`,
+            error: `Quota mensuel atteint : ${result.error.limit} cours/mois sur le plan ${result.error.plan}.`, params: { limit: result.error.limit, plan: result.error.plan },
             code: 'quota_exceeded',
           },
           { status: 402 },
         );
       case 'user_not_found':
-        return NextResponse.json({ error: 'Utilisateur introuvable.' }, { status: 401 });
+        return NextResponse.json({ error: 'Utilisateur introuvable.', code: 'userNotFound' }, { status: 401 });
       case 'enqueue_failed':
         return NextResponse.json(
-          { error: 'Impossible de démarrer la génération, réessayez plus tard.' },
+          { error: 'Impossible de démarrer la génération, réessayez plus tard.', code: 'cannotStartGeneration' },
           { status: 503 },
         );
       default:
-        return NextResponse.json({ error: 'Erreur interne, réessayez plus tard.' }, { status: 500 });
+        return apiError('internalError');
     }
   }
 

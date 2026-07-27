@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { QUEUES, defaultJobOptions, makeJobId } from '@sallycourse/shared';
 import { connectDb, Course as CourseModel, Deployment } from '@sallycourse/db';
@@ -24,20 +25,20 @@ export async function POST(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = v1DeploySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Données invalides.', details: parsed.error.flatten().fieldErrors },
+      { error: 'Données invalides.', code: 'invalidData', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }
@@ -46,7 +47,7 @@ export async function POST(
   const unknown = requested.filter((p) => !isKnownPlatform(p));
   if (unknown.length > 0) {
     return NextResponse.json(
-      { error: `Plateforme(s) inconnue(s) : ${unknown.join(', ')}.` },
+      { error: `Plateforme(s) inconnue(s) : ${unknown.join(', ')}.`, code: 'v1DeployUnknownPlatforms', params: { platforms: unknown.join(', ') } },
       { status: 400 },
     );
   }
@@ -57,12 +58,12 @@ export async function POST(
     .select('_id status')
     .lean();
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   if (course.status !== 'ready' && course.status !== 'published') {
     return NextResponse.json(
-      { error: 'Le cours doit être généré (prêt) avant tout déploiement.' },
+      { error: 'Le cours doit être généré (prêt) avant tout déploiement.', code: 'courseNotReadyForDeploy' },
       { status: 409 },
     );
   }

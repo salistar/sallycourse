@@ -22,7 +22,7 @@ interface DemoPageProps {
 }
 
 export async function generateMetadata({ params }: DemoPageProps): Promise<Metadata> {
-  const { id } = await params;
+  const { id: _id } = await params;
   return {
     title: `Aperçu de démo — SallyCourse`,
     description: 'Aperçu d’un mini cours généré automatiquement par SallyCourse.',

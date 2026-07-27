@@ -41,6 +41,13 @@ export const metadata: Metadata = {
   description: 'Génération automatique de cours — titre + niveau → cours complet.',
 };
 
+/**
+ * Applique la classe `.dark` AVANT le premier paint (anti-FOUC) selon la
+ * préférence stockée : 'light' → clair, 'system' → suit l'OS, 'dark'/absent →
+ * sombre (comportement historique conservé par défaut). Exécuté en tête de body.
+ */
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('theme');var dark=t==='light'?false:(t==='system'?window.matchMedia('(prefers-color-scheme: dark)').matches:true);document.documentElement.classList.toggle('dark',dark);}catch(e){document.documentElement.classList.add('dark');}})();`;
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Locale résolue par next-intl (cookie NEXT_LOCALE → défaut fr) et messages
   // du bundle actif ; `dir` bascule en RTL pour l'arabe (localeDirection).
@@ -51,10 +58,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html
       lang={locale}
       dir={localeDirection(locale)}
-      className={`dark ${fraunces.variable} ${figtree.variable} ${ibmPlexSansArabic.variable}`}
+      className={`${fraunces.variable} ${figtree.variable} ${ibmPlexSansArabic.variable}`}
       suppressHydrationWarning
     >
       <body>
+        {/* Thème (clair/sombre/système) appliqué avant paint pour éviter le flash. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         {/* Tracking d'audience OSS (P157) — no-op sans NEXT_PUBLIC_UMAMI_*, pas de cookie tiers. */}
         <UmamiScript />
         {/* Provider next-intl : expose messages + locale aux composants client. */}

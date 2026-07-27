@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { cookies } from 'next/headers';
 import { getConfig } from '@sallycourse/shared';
 import { connectDb, User as UserModel } from '@sallycourse/db';
@@ -25,18 +26,18 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const plan = (body as { plan?: unknown })?.plan;
   if (typeof plan !== 'string' || !isPaidPlan(plan)) {
-    return NextResponse.json({ error: 'Plan invalide (pro | business attendu).' }, { status: 400 });
+    return apiError('invalidPlan');
   }
 
   const cmi = getCmiConfig();
   if (!cmi) {
     return NextResponse.json(
-      { error: 'Paiement CMI non configuré. En développement, utilisez le paiement simulé.' },
+      { error: 'Paiement CMI non configuré. En développement, utilisez le paiement simulé.', code: 'cmiPaymentNotConfigured' },
       { status: 503 },
     );
   }
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
   await connectDb();
   const dbUser = await UserModel.findById(user.id).select('email name').lean();
   if (!dbUser) {
-    return NextResponse.json({ error: 'Utilisateur introuvable.' }, { status: 404 });
+    return apiError('userNotFound');
   }
 
   // Affiliation (P89) : mémorise le code référent en attente (cookie posé par
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
   });
 
   if (!prepared) {
-    return NextResponse.json({ error: 'Tarif indisponible pour ce plan.' }, { status: 400 });
+    return NextResponse.json({ error: 'Tarif indisponible pour ce plan.', code: 'priceUnavailableForPlan' }, { status: 400 });
   }
 
   return NextResponse.json(

@@ -35,6 +35,7 @@ import {
   useToast,
   type ToastVariant,
 } from '@/components/ui';
+import { useTranslations } from 'next-intl';
 
 /**
  * Page de démonstration /design/components — chaque composant de la
@@ -65,41 +66,42 @@ function Example({ label, children }: { label: string; children: React.ReactNode
 }
 
 function ButtonsSection() {
+  const t = useTranslations('design.componentsPage');
   return (
-    <Section title="Boutons">
+    <Section title={t('sections.buttons')}>
       <div className="flex flex-col gap-6">
-        <Example label="Variantes">
+        <Example label={t('buttons.examples.variants')}>
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="primary">Générer le cours</Button>
-            <Button variant="secondary">Prévisualiser</Button>
-            <Button variant="ghost">Annuler</Button>
+            <Button variant="primary">{t('buttons.generate')}</Button>
+            <Button variant="secondary">{t('buttons.preview')}</Button>
+            <Button variant="ghost">{t('buttons.cancel')}</Button>
             <Button variant="danger">
-              <Trash2 aria-hidden="true" /> Supprimer
+              <Trash2 aria-hidden="true" /> {t('buttons.delete')}
             </Button>
             <Button variant="gold">
-              <Sparkles aria-hidden="true" /> Passer en Premium
+              <Sparkles aria-hidden="true" /> {t('buttons.goPremium')}
             </Button>
           </div>
         </Example>
-        <Example label="Tailles">
+        <Example label={t('buttons.examples.sizes')}>
           <div className="flex flex-wrap items-center gap-3">
-            <Button size="sm">Petit</Button>
-            <Button size="md">Moyen</Button>
-            <Button size="lg">Grand</Button>
-            <Button size="icon" aria-label="Ajouter un module">
+            <Button size="sm">{t('buttons.sizeSm')}</Button>
+            <Button size="md">{t('buttons.sizeMd')}</Button>
+            <Button size="lg">{t('buttons.sizeLg')}</Button>
+            <Button size="icon" aria-label={t('buttons.addModuleAria')}>
               <Plus aria-hidden="true" />
             </Button>
           </div>
         </Example>
-        <Example label="États (survol/press animés · focus clavier = halo or)">
+        <Example label={t('buttons.examples.states')}>
           <div className="flex flex-wrap items-center gap-3">
-            <Button loading>Génération…</Button>
-            <Button disabled>Désactivé</Button>
+            <Button loading>{t('buttons.generating')}</Button>
+            <Button disabled>{t('buttons.disabled')}</Button>
             <Button variant="secondary" loading>
-              Chargement
+              {t('buttons.loading')}
             </Button>
             <Button variant="gold" disabled>
-              Premium désactivé
+              {t('buttons.premiumDisabled')}
             </Button>
           </div>
         </Example>
@@ -109,16 +111,17 @@ function ButtonsSection() {
 }
 
 function BadgesSection() {
+  const t = useTranslations('design.componentsPage');
   return (
-    <Section title="Badges de statut">
+    <Section title={t('sections.badges')}>
       <div className="flex flex-wrap items-center gap-3">
-        <Badge variant="draft">Brouillon</Badge>
-        <Badge variant="generating">Génération…</Badge>
-        <Badge variant="ready">Prêt</Badge>
-        <Badge variant="failed">Échec</Badge>
-        <Badge variant="published">Publié</Badge>
+        <Badge variant="draft">{t('badges.draft')}</Badge>
+        <Badge variant="generating">{t('badges.generating')}</Badge>
+        <Badge variant="ready">{t('badges.ready')}</Badge>
+        <Badge variant="failed">{t('badges.failed')}</Badge>
+        <Badge variant="published">{t('badges.published')}</Badge>
         <Badge variant="ready" hideDot>
-          Sans pastille
+          {t('badges.noDot')}
         </Badge>
       </div>
     </Section>
@@ -126,43 +129,44 @@ function BadgesSection() {
 }
 
 function CardsSection() {
+  const t = useTranslations('design.componentsPage');
   return (
-    <Section title="Cartes (bordure dégradée violet → or)">
+    <Section title={t('sections.cards')}>
       <div className="grid gap-6 sm:grid-cols-2">
         <Card interactive>
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
-              <CardTitle>Introduction à l&apos;algèbre</CardTitle>
-              <Badge variant="published">Publié</Badge>
+              <CardTitle>{t('cards.course1Title')}</CardTitle>
+              <Badge variant="published">{t('badges.published')}</Badge>
             </div>
-            <CardDescription>Niveau collège · 8 modules · généré le 12 juin</CardDescription>
+            <CardDescription>{t('cards.course1Desc')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Progress value={100} label="Complétude" showLabel />
+            <Progress value={100} label={t('cards.completeness')} showLabel />
           </CardContent>
           <CardFooter>
             <Button size="sm" variant="secondary">
-              Ouvrir
+              {t('cards.open')}
             </Button>
             <Button size="sm" variant="ghost">
-              Dupliquer
+              {t('cards.duplicate')}
             </Button>
           </CardFooter>
         </Card>
         <Card interactive>
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
-              <CardTitle>Histoire du Maroc moderne</CardTitle>
-              <Badge variant="generating">Génération…</Badge>
+              <CardTitle>{t('cards.course2Title')}</CardTitle>
+              <Badge variant="generating">{t('badges.generating')}</Badge>
             </div>
-            <CardDescription>Niveau lycée · plan en cours de rédaction</CardDescription>
+            <CardDescription>{t('cards.course2Desc')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Progress value={42} label="Génération" showLabel />
+            <Progress value={42} label={t('cards.generationLabel')} showLabel />
           </CardContent>
           <CardFooter>
             <Button size="sm" variant="ghost" disabled>
-              Ouvrir
+              {t('cards.open')}
             </Button>
           </CardFooter>
         </Card>
@@ -172,35 +176,36 @@ function CardsSection() {
 }
 
 function FormsSection() {
-  const [title, setTitle] = React.useState('Les fractions au CM2');
+  const t = useTranslations('design.componentsPage');
+  const [title, setTitle] = React.useState(t('forms.sampleTitle'));
   return (
-    <Section title="Formulaires (labels flottants)">
+    <Section title={t('sections.forms')}>
       <div className="grid gap-6 sm:grid-cols-2">
-        <Example label="Input vide">
-          <Input label="Titre du cours" />
+        <Example label={t('forms.examples.inputEmpty')}>
+          <Input label={t('forms.courseTitleLabel')} />
         </Example>
-        <Example label="Input rempli (contrôlé)">
-          <Input label="Titre du cours" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <Example label={t('forms.examples.inputFilled')}>
+          <Input label={t('forms.courseTitleLabel')} value={title} onChange={(e) => setTitle(e.target.value)} />
         </Example>
-        <Example label="Input avec aide">
-          <Input label="Public cible" hint="Ex. : élèves de 6e, adultes débutants…" />
+        <Example label={t('forms.examples.inputHint')}>
+          <Input label={t('forms.audienceLabel')} hint={t('forms.audienceHint')} />
         </Example>
-        <Example label="Input en erreur">
-          <Input label="Titre du cours" defaultValue="ab" error="Le titre doit contenir au moins 5 caractères." />
+        <Example label={t('forms.examples.inputError')}>
+          <Input label={t('forms.courseTitleLabel')} defaultValue="ab" error={t('forms.titleError')} />
         </Example>
-        <Example label="Input désactivé">
-          <Input label="Identifiant" defaultValue="cours-1024" disabled />
+        <Example label={t('forms.examples.inputDisabled')}>
+          <Input label={t('forms.identifierLabel')} defaultValue="cours-1024" disabled />
         </Example>
-        <Example label="Select">
-          <Select label="Niveau" defaultValue="college">
-            <option value="primaire">Primaire</option>
-            <option value="college">Collège</option>
-            <option value="lycee">Lycée</option>
-            <option value="superieur">Supérieur</option>
+        <Example label={t('forms.examples.select')}>
+          <Select label={t('forms.levelLabel')} defaultValue="college">
+            <option value="primaire">{t('forms.levelPrimary')}</option>
+            <option value="college">{t('forms.levelCollege')}</option>
+            <option value="lycee">{t('forms.levelLycee')}</option>
+            <option value="superieur">{t('forms.levelSuperieur')}</option>
           </Select>
         </Example>
-        <Example label="Select en erreur">
-          <Select label="Langue" error="Choisissez une langue de génération." defaultValue="">
+        <Example label={t('forms.examples.selectError')}>
+          <Select label={t('forms.languageLabel')} error={t('forms.languageError')} defaultValue="">
             <option value="" disabled>
               —
             </option>
@@ -209,10 +214,10 @@ function FormsSection() {
             <option value="en">English</option>
           </Select>
         </Example>
-        <Example label="Textarea">
+        <Example label={t('forms.examples.textarea')}>
           <Textarea
-            label="Consignes pour l'IA"
-            hint="Précisez le ton, les prérequis, les exemples souhaités…"
+            label={t('forms.aiInstructionsLabel')}
+            hint={t('forms.aiInstructionsHint')}
           />
         </Example>
       </div>
@@ -221,28 +226,26 @@ function FormsSection() {
 }
 
 function DialogSection() {
+  const t = useTranslations('design.componentsPage');
   const [open, setOpen] = React.useState(false);
   return (
-    <Section title="Dialogue (backdrop flouté)">
+    <Section title={t('sections.dialog')}>
       <Dialog open={open} onOpenChange={setOpen}>
         <div className="flex flex-wrap gap-3">
           {/* DialogTrigger rend son propre <button> — stylé via buttonVariants */}
           <DialogTrigger className={buttonVariants({ variant: 'secondary' })}>
-            Ouvrir le dialogue
+            {t('dialog.open')}
           </DialogTrigger>
         </div>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Supprimer ce cours ?</DialogTitle>
-            <DialogDescription>
-              « Introduction à l&apos;algèbre » et ses 8 modules seront définitivement supprimés. Cette action est
-              irréversible.
-            </DialogDescription>
+            <DialogTitle>{t('dialog.title')}</DialogTitle>
+            <DialogDescription>{t('dialog.description')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <DialogClose className={buttonVariants({ variant: 'ghost' })}>Annuler</DialogClose>
+            <DialogClose className={buttonVariants({ variant: 'ghost' })}>{t('buttons.cancel')}</DialogClose>
             <Button variant="danger" onClick={() => setOpen(false)}>
-              <Trash2 aria-hidden="true" /> Supprimer
+              <Trash2 aria-hidden="true" /> {t('buttons.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -252,42 +255,43 @@ function DialogSection() {
 }
 
 function ToastSection() {
+  const t = useTranslations('design.componentsPage');
   const { toast } = useToast();
   const fire = (variant: ToastVariant, title: string, description: string) =>
     toast({ variant, title, description });
 
   return (
-    <Section title="Toasts">
+    <Section title={t('sections.toasts')}>
       <div className="flex flex-wrap gap-3">
         <Button
           variant="secondary"
-          onClick={() => fire('default', 'Sally vous informe', 'Un nouveau modèle de cours est disponible.')}
+          onClick={() => fire('default', t('toasts.default.title'), t('toasts.default.description'))}
         >
-          Défaut
+          {t('toasts.buttons.default')}
         </Button>
         <Button
           variant="secondary"
-          onClick={() => fire('success', 'Cours généré', 'Les 8 modules sont prêts à être relus.')}
+          onClick={() => fire('success', t('toasts.success.title'), t('toasts.success.description'))}
         >
-          Succès
+          {t('toasts.buttons.success')}
         </Button>
         <Button
           variant="secondary"
-          onClick={() => fire('warning', 'Quota bientôt atteint', 'Il vous reste 2 générations ce mois-ci.')}
+          onClick={() => fire('warning', t('toasts.warning.title'), t('toasts.warning.description'))}
         >
-          Avertissement
+          {t('toasts.buttons.warning')}
         </Button>
         <Button
           variant="secondary"
-          onClick={() => fire('danger', 'Échec de génération', 'Le service IA est momentanément indisponible.')}
+          onClick={() => fire('danger', t('toasts.danger.title'), t('toasts.danger.description'))}
         >
-          Erreur
+          {t('toasts.buttons.error')}
         </Button>
         <Button
           variant="secondary"
-          onClick={() => fire('info', 'Astuce', 'Ajoutez des consignes pour affiner le ton du cours.')}
+          onClick={() => fire('info', t('toasts.info.title'), t('toasts.info.description'))}
         >
-          Info
+          {t('toasts.buttons.info')}
         </Button>
       </div>
     </Section>
@@ -327,21 +331,22 @@ function SkeletonSection() {
 }
 
 function ProgressSection() {
+  const t = useTranslations('design.componentsPage');
   const [value, setValue] = React.useState(35);
   return (
-    <Section title="Progression (dégradé animé violet → or)">
+    <Section title={t('sections.progress')}>
       <div className="flex max-w-xl flex-col gap-6">
-        <Progress value={value} label="Génération du cours" showLabel />
-        <Progress value={80} label="Relecture" showLabel />
-        <Example label="Indéterminée">
-          <Progress label="Analyse du sujet…" />
+        <Progress value={value} label={t('progress.courseGeneration')} showLabel />
+        <Progress value={80} label={t('progress.review')} showLabel />
+        <Example label={t('progress.examples.indeterminate')}>
+          <Progress label={t('progress.topicAnalysis')} />
         </Example>
         <div className="flex gap-3">
           <Button size="sm" variant="secondary" onClick={() => setValue((v) => Math.max(0, v - 15))}>
-            −15 %
+            {t('progress.decrease')}
           </Button>
           <Button size="sm" variant="secondary" onClick={() => setValue((v) => Math.min(100, v + 15))}>
-            +15 %
+            {t('progress.increase')}
           </Button>
         </div>
       </div>
@@ -350,35 +355,29 @@ function ProgressSection() {
 }
 
 function TabsSection() {
+  const t = useTranslations('design.componentsPage');
   return (
-    <Section title="Onglets (soulignement animé)">
+    <Section title={t('sections.tabs')}>
       <Tabs defaultValue="plan" className="max-w-2xl">
         <TabsList>
-          <TabsTrigger value="plan">Plan</TabsTrigger>
-          <TabsTrigger value="contenu">Contenu</TabsTrigger>
-          <TabsTrigger value="quiz">Quiz</TabsTrigger>
+          <TabsTrigger value="plan">{t('tabs.plan')}</TabsTrigger>
+          <TabsTrigger value="contenu">{t('tabs.content')}</TabsTrigger>
+          <TabsTrigger value="quiz">{t('tabs.quiz')}</TabsTrigger>
           <TabsTrigger value="exports" disabled>
-            Exports
+            {t('tabs.exports')}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="plan">
-          <p className="text-sm text-muted">
-            Le plan du cours est structuré en 8 modules progressifs, du rappel des prérequis jusqu&apos;à
-            l&apos;évaluation finale.
-          </p>
+          <p className="text-sm text-muted">{t('tabs.planText')}</p>
         </TabsContent>
         <TabsContent value="contenu">
-          <p className="text-sm text-muted">
-            Chaque module contient une leçon rédigée, deux exemples corrigés et une synthèse mémorisable.
-          </p>
+          <p className="text-sm text-muted">{t('tabs.contentText')}</p>
         </TabsContent>
         <TabsContent value="quiz">
-          <p className="text-sm text-muted">
-            10 questions à choix multiples générées par module, avec explication de chaque réponse.
-          </p>
+          <p className="text-sm text-muted">{t('tabs.quizText')}</p>
         </TabsContent>
         <TabsContent value="exports">
-          <p className="text-sm text-muted">Exports PDF et SCORM (bientôt disponibles).</p>
+          <p className="text-sm text-muted">{t('tabs.exportsText')}</p>
         </TabsContent>
       </Tabs>
     </Section>
@@ -386,19 +385,20 @@ function TabsSection() {
 }
 
 function EmptyStateSection() {
+  const t = useTranslations('design.componentsPage');
   return (
-    <Section title="État vide">
+    <Section title={t('sections.emptyState')}>
       <div className="max-w-2xl">
         <EmptyState
-          title="Aucun cours pour l'instant"
-          description="Donnez un titre et un niveau : Sally génère le plan, les leçons et les quiz en quelques minutes."
+          title={t('emptyState.title')}
+          description={t('emptyState.description')}
           action={
             <>
               <Button>
-                <Wand2 aria-hidden="true" /> Générer mon premier cours
+                <Wand2 aria-hidden="true" /> {t('emptyState.generate')}
               </Button>
               <Button variant="ghost">
-                <BookOpen aria-hidden="true" /> Voir un exemple
+                <BookOpen aria-hidden="true" /> {t('emptyState.seeExample')}
               </Button>
             </>
           }
@@ -410,8 +410,9 @@ function EmptyStateSection() {
 
 /** Vérification RTL : mêmes composants, direction inversée, texte arabe. */
 function RtlSection() {
+  const t = useTranslations('design.componentsPage');
   return (
-    <Section title="RTL (aperçu arabe)">
+    <Section title={t('sections.rtl')}>
       <div dir="rtl" lang="ar" className="flex max-w-2xl flex-col gap-6 font-arabic">
         <div className="flex flex-wrap items-center gap-3">
           <Button>إنشاء الدرس</Button>
@@ -427,15 +428,13 @@ function RtlSection() {
 }
 
 function Gallery() {
+  const t = useTranslations('design.componentsPage');
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-16 px-6 py-16">
       <header className="flex flex-col gap-3">
-        <p className="text-xs font-semibold uppercase tracking-widest text-accent">Design system · D3</p>
-        <h1 className="font-display text-4xl font-bold text-foreground">Composants SALISTAR</h1>
-        <p className="max-w-2xl text-base text-muted">
-          Bibliothèque UI de SallyCourse : chaque composant est présenté dans tous ses états — dark mode par
-          défaut, RTL natif, animations sobres.
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-accent">{t('header.eyebrow')}</p>
+        <h1 className="font-display text-4xl font-bold text-foreground">{t('header.title')}</h1>
+        <p className="max-w-2xl text-base text-muted">{t('header.description')}</p>
       </header>
 
       <ButtonsSection />

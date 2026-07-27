@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { connectDb, PlatformCredential, recordAudit } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
@@ -18,7 +19,7 @@ export async function DELETE(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Identifiant invalide.' }, { status: 400 });
+    return apiError('invalidId');
   }
 
   await connectDb();
@@ -29,7 +30,7 @@ export async function DELETE(
 
   const result = await PlatformCredential.deleteOne({ _id: id, userId: user.id });
   if (result.deletedCount === 0) {
-    return NextResponse.json({ error: 'Credential introuvable.' }, { status: 404 });
+    return apiError('credentialNotFound');
   }
 
   // Journal d'audit (P149) : suppression de credentials plateforme.

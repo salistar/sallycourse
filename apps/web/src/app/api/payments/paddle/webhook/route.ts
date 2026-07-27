@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { getConfig } from '@sallycourse/shared';
 import {
   verifyPaddleSignature,
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
   const secret = getConfig().PADDLE_WEBHOOK_SECRET;
   if (!secret) {
     logger.warn('Webhook paiement reçu mais aucun secret configuré');
-    return NextResponse.json({ error: 'Webhook non configuré.' }, { status: 503 });
+    return NextResponse.json({ error: 'Webhook non configuré.', code: 'webhookNotConfigured' }, { status: 503 });
   }
 
   // Corps brut obligatoire : la signature couvre les octets exacts reçus.
@@ -60,26 +61,26 @@ export async function POST(request: Request) {
   if (paddleSig) {
     if (!verifyPaddleSignature(rawBody, secret, paddleSig)) {
       logger.warn('Webhook Paddle : signature invalide');
-      return NextResponse.json({ error: 'Signature invalide.' }, { status: 401 });
+      return apiError('invalidSignature');
     }
     provider = 'paddle';
     intent = interpretPaddleEvent(safeJson(rawBody));
   } else if (lemonSig) {
     if (!verifyLemonSqueezySignature(rawBody, secret, lemonSig)) {
       logger.warn('Webhook Lemon Squeezy : signature invalide');
-      return NextResponse.json({ error: 'Signature invalide.' }, { status: 401 });
+      return apiError('invalidSignature');
     }
     provider = 'lemonsqueezy';
     intent = interpretLemonSqueezyEvent(safeJson(rawBody));
   } else {
-    return NextResponse.json({ error: 'En-tête de signature absent.' }, { status: 400 });
+    return NextResponse.json({ error: 'En-tête de signature absent.', code: 'signatureHeaderMissing' }, { status: 400 });
   }
 
   try {
     await applyIntent(intent, provider);
   } catch (err) {
     logger.error({ err, provider }, 'Webhook paiement : application échouée');
-    return NextResponse.json({ error: 'Traitement échoué.' }, { status: 500 });
+    return NextResponse.json({ error: 'Traitement échoué.', code: 'processingFailed' }, { status: 500 });
   }
 
   return NextResponse.json({ received: true, action: intent.action }, { status: 200 });

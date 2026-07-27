@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { cookies } from 'next/headers';
 import { getConfig } from '@sallycourse/shared';
 import { connectDb, User as UserModel } from '@sallycourse/db';
@@ -28,7 +29,7 @@ function mockAllowed(): boolean {
 
 export async function POST(request: Request) {
   if (!mockAllowed()) {
-    return NextResponse.json({ error: 'Paiement simulé indisponible.' }, { status: 404 });
+    return NextResponse.json({ error: 'Paiement simulé indisponible.', code: 'simulatedPaymentUnavailable' }, { status: 404 });
   }
 
   const user = await requireApiUser();
@@ -38,12 +39,12 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const plan = (body as { plan?: unknown })?.plan;
   if (typeof plan !== 'string' || !isPaidPlan(plan)) {
-    return NextResponse.json({ error: 'Plan invalide (pro | business attendu).' }, { status: 400 });
+    return apiError('invalidPlan');
   }
 
   // Affiliation (P89) : mémorise le code référent en attente s'il n'a pas déjà

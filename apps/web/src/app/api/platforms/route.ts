@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { z } from 'zod';
 import { getConfig, encryptCredentials } from '@sallycourse/shared';
 import { connectDb, PlatformCredential, recordAudit } from '@sallycourse/db';
@@ -55,20 +56,20 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = addSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Données invalides.', details: parsed.error.flatten().fieldErrors },
+      { error: 'Données invalides.', code: 'invalidData', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }
 
   const meta = getPlatformMeta(parsed.data.platform);
   if (!meta) {
-    return NextResponse.json({ error: 'Plateforme non supportée.' }, { status: 400 });
+    return NextResponse.json({ error: 'Plateforme non supportée.', code: 'unsupportedPlatform' }, { status: 400 });
   }
 
   // Ne conserver que les champs déclarés par la plateforme ; exiger les requis.
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
     const value = parsed.data.fields[field.name]?.trim() ?? '';
     if (!value) {
       return NextResponse.json(
-        { error: `Champ requis manquant : ${field.label}.` },
+        { error: `Champ requis manquant : ${field.label}.`, code: 'platformsMissingRequiredField', params: { field: field.label } },
         { status: 400 },
       );
     }

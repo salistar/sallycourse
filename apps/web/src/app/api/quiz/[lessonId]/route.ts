@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import { quizQuestionSchema } from '@sallycourse/shared';
@@ -31,7 +32,7 @@ export async function PATCH(
 
   const { lessonId } = await params;
   if (!isValidObjectId(lessonId)) {
-    return NextResponse.json({ error: 'Leçon introuvable.' }, { status: 404 });
+    return apiError('lessonNotFound');
   }
 
   const parsed = patchQuizSchema.safeParse(await request.json().catch(() => null));
@@ -46,7 +47,7 @@ export async function PATCH(
 
   const lesson = await LessonModel.findById(lessonId).select('_id courseId sectionId').lean();
   if (!lesson) {
-    return NextResponse.json({ error: 'Leçon introuvable.' }, { status: 404 });
+    return apiError('lessonNotFound');
   }
 
   // Ownership via le cours parent.
@@ -54,7 +55,7 @@ export async function PATCH(
     .select('_id')
     .lean();
   if (!course) {
-    return NextResponse.json({ error: 'Leçon introuvable.' }, { status: 404 });
+    return apiError('lessonNotFound');
   }
 
   // ── Historique des versions (P131) : instantané des questions précédentes

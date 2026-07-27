@@ -26,7 +26,7 @@ export async function GET(
   const { event } = await params;
   if (!isWebhookEvent(event)) {
     return NextResponse.json(
-      { error: `Événement inconnu. Valeurs possibles : ${WEBHOOK_EVENTS.join(', ')}.` },
+      { error: `Événement inconnu. Valeurs possibles : ${WEBHOOK_EVENTS.join(', ')}.`, code: 'zapierSampleUnknownEvent', params: { events: WEBHOOK_EVENTS.join(', ') } },
       { status: 404 },
     );
   }

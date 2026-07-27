@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import { connectDb, Webhook, WEBHOOK_EVENTS } from '@sallycourse/db';
@@ -30,20 +31,20 @@ export async function PATCH(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Webhook introuvable.' }, { status: 404 });
+    return apiError('webhookNotFound');
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Données invalides.', details: parsed.error.flatten().fieldErrors },
+      { error: 'Données invalides.', code: 'invalidData', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }
@@ -57,7 +58,7 @@ export async function PATCH(
     .select('url events active createdAt')
     .lean();
   if (!doc) {
-    return NextResponse.json({ error: 'Webhook introuvable.' }, { status: 404 });
+    return apiError('webhookNotFound');
   }
 
   return NextResponse.json({
@@ -78,13 +79,13 @@ export async function DELETE(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Webhook introuvable.' }, { status: 404 });
+    return apiError('webhookNotFound');
   }
 
   await connectDb();
   const res = await Webhook.deleteOne({ _id: id, userId: user.id });
   if (res.deletedCount === 0) {
-    return NextResponse.json({ error: 'Webhook introuvable.' }, { status: 404 });
+    return apiError('webhookNotFound');
   }
 
   return NextResponse.json({ ok: true });

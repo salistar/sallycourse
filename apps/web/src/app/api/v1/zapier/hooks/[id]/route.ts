@@ -21,13 +21,13 @@ export async function DELETE(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Abonnement introuvable.' }, { status: 404 });
+    return NextResponse.json({ error: 'Abonnement introuvable.', code: 'subscriptionNotFound' }, { status: 404 });
   }
 
   await connectDb();
   const res = await Webhook.deleteOne({ _id: id, userId: auth.userId });
   if (res.deletedCount === 0) {
-    return NextResponse.json({ error: 'Abonnement introuvable.' }, { status: 404 });
+    return NextResponse.json({ error: 'Abonnement introuvable.', code: 'subscriptionNotFound' }, { status: 404 });
   }
 
   return NextResponse.json({ ok: true });
