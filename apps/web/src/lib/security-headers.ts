@@ -17,16 +17,34 @@
  * - img-src autorise data: (icônes inline / placeholders) et blob: (aperçus
  *   médias générés côté client) + https: (miniatures plateformes tierces).
  */
+/**
+ * Origine du stockage objet (URLs présignées MinIO/S3) — les vidéos, images
+ * et sous-titres des leçons sont servis DIRECTEMENT depuis cette origine.
+ * Sans elle dans media-src/img-src/connect-src, Chromium refuse la lecture
+ * (« Media load rejected by URL safety check ») : indispensable en dev où
+ * MinIO est en http:// (non couvert par le fallback https:).
+ */
+function storageOrigin(): string | null {
+  const raw = process.env.S3_ENDPOINT?.trim();
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+}
+
 function buildCsp(): string {
   const isDev = process.env.NODE_ENV !== 'production';
+  const s3Origin = storageOrigin();
   const directives: Record<string, string[]> = {
     'default-src': ["'self'"],
     'script-src': ["'self'", "'unsafe-inline'", ...(isDev ? ["'unsafe-eval'"] : [])],
     'style-src': ["'self'", "'unsafe-inline'"],
-    'img-src': ["'self'", 'data:', 'blob:', 'https:'],
+    'img-src': ["'self'", 'data:', 'blob:', 'https:', ...(s3Origin ? [s3Origin] : [])],
     'font-src': ["'self'", 'data:'],
-    'connect-src': ["'self'", ...(isDev ? ['ws:', 'wss:'] : [])],
-    'media-src': ["'self'", 'blob:', 'https:'],
+    'connect-src': ["'self'", ...(isDev ? ['ws:', 'wss:'] : []), ...(s3Origin ? [s3Origin] : [])],
+    'media-src': ["'self'", 'blob:', 'https:', ...(s3Origin ? [s3Origin] : [])],
     'frame-ancestors': ["'none'"],
     'base-uri': ["'self'"],
     'form-action': ["'self'"],
@@ -51,7 +69,9 @@ export function applySecurityHeaders(headers: Headers): Headers {
     'Permissions-Policy',
     [
       'camera=()',
-      'microphone=()',
+      // Micro autorisé pour la MÊME origine uniquement : enregistrement d'un
+      // échantillon vocal pour le clonage (Chatterbox). Aucun tiers.
+      'microphone=(self)',
       'geolocation=()',
       'payment=()',
       'usb=()',

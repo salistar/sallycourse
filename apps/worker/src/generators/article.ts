@@ -11,6 +11,7 @@ import {
   Section,
   articleContentSchema,
   extractScreenshotPlaceholders,
+  renderGenerationDirectives,
   storageKeys,
   uploadObject,
   type ArticleContent,
@@ -25,7 +26,7 @@ import { articleSystemPrompt, articleUserPrompt } from '../prompts/article.js';
 /** Tentatives quand les règles rédactionnelles échouent (le schéma est garanti par callClaudeJson). */
 const MAX_BUSINESS_ATTEMPTS = 3;
 /** Un article de 1500 mots + blocs de code tient largement dans ce budget de sortie. */
-const ARTICLE_MAX_TOKENS = 8192;
+const ARTICLE_MAX_TOKENS = 16384;
 
 export interface ArticleResult {
   lessonId: string;
@@ -88,6 +89,10 @@ export interface ArticleContentInput {
   context?: string | undefined;
   /** Rattachement du coût des appels Claude à un cours (P55). */
   cost?: CostContext | undefined;
+  /** Provider LLM choisi pour le cours (course.llmProvider) — voir cloud-llm.ts. */
+  llmProviderId?: string | null | undefined;
+  /** Consignes avancées (Phase 10) déjà rendues en texte, appendues au prompt. */
+  directives?: string | undefined;
 }
 
 /**
@@ -101,7 +106,7 @@ export async function generateArticleContent(
   input: ArticleContentInput,
 ): Promise<{ article: ArticleContent; violations: string[] }> {
   const system = articleSystemPrompt();
-  const baseUser = articleUserPrompt(input);
+  const baseUser = articleUserPrompt(input) + (input.directives ?? '');
 
   let article: ArticleContent | null = null;
   let violations: string[] = [];
@@ -123,6 +128,7 @@ export async function generateArticleContent(
       // à l'autre — désactive le cache pour ne pas rejouer la même réponse.
       skipCache: attempt > 1,
       ...(input.cost ? { cost: input.cost } : {}),
+      llmProviderId: input.llmProviderId,
     });
 
     violations = validateArticleBusiness(article);
@@ -155,8 +161,10 @@ export async function generateArticle(params: {
   lessonId: string;
   /** Contexte de continuité (résumés des leçons précédentes, P19). */
   context?: string;
+  /** Override de provider LLM pour cette régénération (« éditer avec l'IA »). */
+  llmProviderId?: string;
 }): Promise<ArticleResult> {
-  const { courseId, lessonId, context } = params;
+  const { courseId, lessonId, context, llmProviderId } = params;
 
   const lesson = await Lesson.findById(lessonId);
   if (!lesson) throw new Error(`leçon introuvable : ${lessonId}`);
@@ -178,6 +186,8 @@ export async function generateArticle(params: {
     locale: course.locale,
     context,
     cost: { courseId, userId: String(course.userId) },
+    llmProviderId: llmProviderId ?? course.llmProvider,
+    directives: renderGenerationDirectives(course.advancedParams, 'article'),
   });
 
   // Placeholders {{screenshot:…}} : ils ne sont remplacés par de vraies

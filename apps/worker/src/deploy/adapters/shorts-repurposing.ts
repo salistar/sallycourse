@@ -38,6 +38,7 @@ import type { Readable } from 'node:stream';
 import { execa } from 'execa';
 import { z } from 'zod';
 import {
+  AUDIO,
   getConfig,
   getObjectStream,
   storageKeys,
@@ -211,7 +212,7 @@ export function buildCropArgs(
     '-b:a',
     '192k',
     '-ar',
-    '44100',
+    String(AUDIO.SAMPLE_RATE),
     '-ac',
     '2',
     output,
@@ -512,9 +513,7 @@ export async function publishScheduledClip(
   clip: ShortClipDocument,
   credentials: Record<string, string>,
 ): Promise<{ externalId: string; externalUrl: string }> {
-  const mock = getConfig().MOCK_PROVIDERS || !credentials.accessToken;
-
-  if (mock) {
+  if (getConfig().MOCK_PROVIDERS) {
     const externalId = `${clip.platform}_mock_${String(clip._id)}`;
     const externalUrl =
       clip.platform === 'tiktok'
@@ -525,6 +524,18 @@ export async function publishScheduledClip(
     clip.status = 'published';
     await clip.save();
     return { externalId, externalUrl };
+  }
+
+  // Hors mode mock, l'absence de credentials est un ÉCHEC EXPLICITE — plus
+  // jamais une publication simulée marquée 'published' avec une URL fictive
+  // (intégrité, audit 2026-07-17) : l'utilisateur voit le clip en échec et la
+  // raison, au lieu d'un faux succès invérifiable.
+  if (!credentials.accessToken) {
+    clip.status = 'failed';
+    await clip.save();
+    throw new Error(
+      `Publication ${clip.platform} impossible : aucun accessToken configuré (Réglages → Plateformes).`,
+    );
   }
 
   const videoUrl = await presignedUrlOrKey(clip.videoKey);

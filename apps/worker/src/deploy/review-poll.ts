@@ -487,6 +487,11 @@ export async function pollDeploymentReview(
 ): Promise<ReviewPollOutcome | null> {
   const platform = deployment.platform;
   const courseId = String(deployment.courseId);
+  // Défense en profondeur (P178) : un déploiement manuel ne se publie QUE via la
+  // porte canPublishManually (route .../status). Il n'a pas de revue plateforme.
+  if (deployment.mode === 'manual') {
+    return null;
+  }
   if (!hasAdapter(platform)) {
     logger.debug({ platform }, 'review-poll : aucun adapter pour la plateforme, ignoré');
     return null;
@@ -620,6 +625,12 @@ export async function pollReviews(): Promise<ReviewPollOutcome[]> {
   const mock = getConfig().MOCK_PROVIDERS;
   const deployments = await Deployment.find({
     status: { $in: POLLABLE_STATUSES },
+    // Les déploiements MANUELS (P178) n'ont aucune revue plateforme à interroger :
+    // pas de job adapter, pas d'externalId. Les inclure ferait appeler
+    // adapter.getStatus dessus, qui pour le LMS interne renvoie toujours
+    // 'published' → auto-publication contournant la porte canPublishManually,
+    // écrasement de l'URL saisie par l'auteur et fausse notification.
+    mode: { $ne: 'manual' },
     // On ne surveille pas les déploiements déjà approuvés/publiés définitivement.
     'checkpoint.step': { $ne: `${REVIEW_STEP}:approved` },
   });
@@ -692,13 +703,6 @@ export async function startReviewScheduler(cron: string = process.env.REVIEW_POL
 
   logger.info({ cron }, 'scheduler review-poll démarré');
 }
-
-/** Déclenche un poll immédiat hors cadence (diagnostic / bouton admin). */
-export async function triggerReviewPollNow(): Promise<void> {
-  if (!reviewQueue) reviewQueue = new Queue<ReviewPollJobData>(REVIEW_POLL_QUEUE, { connection: bullConnection() });
-  await reviewQueue.add(REVIEW_POLL_JOB + ':manual', { reason: 'manual' }, { removeOnComplete: true });
-}
-
 /** Arrête proprement le scheduler (worker + queue). */
 export async function stopReviewScheduler(): Promise<void> {
   await reviewWorker?.close().catch(() => undefined);

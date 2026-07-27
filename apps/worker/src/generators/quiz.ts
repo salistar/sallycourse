@@ -9,6 +9,7 @@ import {
   Quiz,
   Section,
   quizQuestionSchema,
+  renderGenerationDirectives,
   storageKeys,
   uploadObject,
   type Outline,
@@ -23,7 +24,7 @@ import type { CostContext } from '../lib/cost.js';
 /** Tentatives quand les règles MÉTIER échouent (le schéma est garanti par callClaudeJson). */
 const MAX_BUSINESS_ATTEMPTS = 3;
 /** 8-12 questions détaillées avec explications : budget de sortie large. */
-const QUIZ_MAX_TOKENS = 8192;
+const QUIZ_MAX_TOKENS = 16384;
 /** En dessous, une explication ne peut ni justifier la bonne réponse ni réfuter les autres. */
 const MIN_EXPLANATION_CHARS = 20;
 
@@ -32,6 +33,19 @@ export const quizArraySchema = z
   .array(quizQuestionSchema)
   .min(QUIZ.MIN_QUESTIONS_PER_SECTION)
   .max(QUIZ.MAX_QUESTIONS_PER_SECTION);
+
+/**
+ * Correctif N1 (audit 2026-07-20) : la leçon de fin de section n'avait AUCUN
+ * article propre — `Lesson.assets.articleMd` pointait vers le Markdown du
+ * quiz lui-même (solutions comprises). Ce schéma minimal produit une courte
+ * synthèse de section (300-500 mots, pas les 800-1500 d'un article complet)
+ * pour donner une vraie conclusion écrite avant le quiz, sans spoiler les
+ * réponses.
+ */
+const sectionSynthesisSchema = z.object({ markdown: z.string().min(100) });
+
+const MIN_SYNTHESIS_WORDS = 150;
+const MAX_SYNTHESIS_TOKENS = 2048;
 
 export interface QuizGenerationResult {
   lessonId: string;
@@ -90,9 +104,12 @@ export function validateQuizBusiness(questions: readonly QuizQuestion[]): string
 export async function generateQuizQuestions(
   input: QuizPromptInput,
   cost?: CostContext,
+  directives?: string,
+  llmProviderId?: string,
 ): Promise<QuizQuestion[]> {
   const system = quizSystemPrompt();
-  const baseUser = quizUserPrompt(input);
+  // Phase 10 — consignes avancées (pédagogie + domaine, dont certification).
+  const baseUser = quizUserPrompt(input) + (directives ?? '');
 
   let feedback: string[] = [];
   for (let attempt = 1; attempt <= MAX_BUSINESS_ATTEMPTS; attempt++) {
@@ -114,6 +131,7 @@ export async function generateQuizQuestions(
       // à l'autre — désactive le cache pour ne pas rejouer la même réponse.
       skipCache: attempt > 1,
       ...(cost ? { cost } : {}),
+      ...(llmProviderId ? { llmProviderId } : {}),
     })) as QuizQuestion[];
 
     feedback = validateQuizBusiness(candidate);
@@ -173,6 +191,62 @@ export function buildQuizMarkdown(input: QuizMarkdownInput): string {
   return `${lines.join('\n')}\n`;
 }
 
+export interface SectionSynthesisInput {
+  courseTitle: string;
+  sectionTitle: string;
+  locale: 'fr' | 'en' | 'ar';
+  sectionLessons?: readonly { title: string; summary?: string }[];
+}
+
+const LOCALE_LABELS: Record<SectionSynthesisInput['locale'], string> = {
+  fr: 'français',
+  en: 'anglais',
+  ar: 'arabe',
+};
+
+/**
+ * Courte synthèse de clôture de section (correctif N1) — appelée par
+ * `generateQuiz` pour donner à la leçon quiz un VRAI article de conclusion,
+ * distinct du document questions/solutions. Best-effort : en cas d'échec, le
+ * quiz reste généré sans article (mieux qu'un faux article = copie du quiz).
+ */
+export async function generateSectionSynthesis(
+  input: SectionSynthesisInput,
+  cost?: CostContext,
+): Promise<string> {
+  const { courseTitle, sectionTitle, locale, sectionLessons } = input;
+  const system = [
+    `Tu rédiges la conclusion écrite de fin de section d'un cours en ligne.`,
+    `Synthétise ce qui a été appris — ne pose AUCUNE question, ne révèle AUCUNE réponse de quiz.`,
+    `300 à 500 mots, en ${LOCALE_LABELS[locale]}, Markdown avec un titre "## Ce qu'il faut retenir" et un encadré final "> **À retenir**".`,
+    `Réponds UNIQUEMENT avec un objet JSON {"markdown": string} — aucun texte autour, aucune fence.`,
+  ].join('\n');
+  const user = [
+    `Cours « ${courseTitle} » — synthèse de fin de section « ${sectionTitle} ».`,
+    ...(sectionLessons && sectionLessons.length > 0
+      ? [
+          '',
+          'Leçons couvertes par la section :',
+          ...sectionLessons.map((l) => `- ${l.title}${l.summary ? ` — ${l.summary}` : ''}`),
+        ]
+      : []),
+  ].join('\n');
+
+  const { markdown } = await callClaudeJson({
+    schema: sectionSynthesisSchema,
+    system,
+    user,
+    maxTokens: MAX_SYNTHESIS_TOKENS,
+    ...(cost ? { cost } : {}),
+  });
+
+  const words = markdown.split(/\s+/).filter(Boolean).length;
+  if (words < MIN_SYNTHESIS_WORDS) {
+    logger.warn({ sectionTitle, words }, 'synthèse de section acceptée malgré une longueur insuffisante');
+  }
+  return markdown;
+}
+
 /**
  * Génère le quiz d'une leçon de type « quiz » et le persiste :
  * QuizModel (upsert idempotent), uploads S3 (quiz.json + Markdown solutions),
@@ -184,8 +258,10 @@ export async function generateQuiz(params: {
   lessonId: string;
   /** Contexte de continuité (résumés des leçons précédentes, P19). */
   context?: string;
+  /** Override de provider LLM pour cette régénération (« éditer avec l'IA »). */
+  llmProviderId?: string;
 }): Promise<QuizGenerationResult> {
-  const { courseId, lessonId, context } = params;
+  const { courseId, lessonId, context, llmProviderId } = params;
 
   const lesson = await Lesson.findById(lessonId);
   if (!lesson) throw new Error(`leçon introuvable : ${lessonId}`);
@@ -217,6 +293,8 @@ export async function generateQuiz(params: {
       context,
     },
     { courseId, userId: String(course.userId) },
+    renderGenerationDirectives(course.advancedParams, 'quiz'),
+    llmProviderId ?? course.llmProvider,
   );
 
   // Persistance — upsert idempotent : un retry BullMQ remplace les questions.
@@ -227,9 +305,12 @@ export async function generateQuiz(params: {
   );
 
   // Exports S3 : JSON brut (consommé par le packaging) + Markdown « Quiz + Solutions ».
+  // Correctif N1 (audit 2026-07-20) : la doc questions/solutions vit désormais
+  // sous sa PROPRE clé (`quizSolutions()`), plus jamais sous `article()` — sinon
+  // la leçon expose le quiz (réponses comprises) comme si c'était son article.
   const keys = storageKeys.course(courseId).lesson(section.order, lesson.order);
   const quizKey = keys.quiz();
-  const solutionsKey = keys.article();
+  const solutionsKey = keys.quizSolutions();
   await uploadObject(quizKey, JSON.stringify(questions, null, 2), 'application/json');
   await uploadObject(
     solutionsKey,
@@ -242,12 +323,28 @@ export async function generateQuiz(params: {
     'text/markdown; charset=utf-8',
   );
 
-  lesson.assets.articleMd = solutionsKey;
+  // Vrai article de clôture (best-effort) : le cours ne doit pas se terminer
+  // abruptement sur un quiz sans synthèse écrite. Un échec ici ne doit jamais
+  // faire échouer la génération du quiz lui-même — on log et on continue sans
+  // article plutôt que de retomber sur le document quiz (régression N1).
+  let articleKey: string | undefined;
+  try {
+    const synthesisMarkdown = await generateSectionSynthesis(
+      { courseTitle: course.title, sectionTitle: section.title, locale: course.locale, sectionLessons },
+      { courseId, userId: String(course.userId) },
+    );
+    articleKey = keys.article();
+    await uploadObject(articleKey, synthesisMarkdown, 'text/markdown; charset=utf-8');
+    lesson.assets.articleMd = articleKey;
+  } catch (err) {
+    logger.warn({ courseId, lessonId, err }, 'synthèse de section non générée — quiz sans article de clôture');
+  }
+
   lesson.status = 'ready';
   await lesson.save();
 
   logger.info(
-    { courseId, lessonId, questions: questions.length, quizKey, solutionsKey },
+    { courseId, lessonId, questions: questions.length, quizKey, solutionsKey, articleKey },
     'quiz généré et persisté',
   );
   return { lessonId, questions: questions.length, quizKey, solutionsKey };

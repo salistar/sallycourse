@@ -110,15 +110,15 @@ export async function fetchUdemyReviews(
   opts: { mock: boolean; externalId?: string } = { mock: true },
 ): Promise<StudentReview[]> {
   if (opts.mock) return fetchUdemyReviewsMock(course.title);
-  try {
-    // Chemin réel non implémenté (Udemy sans API d'authoring publique) :
-    // on retombe sur le mock plutôt que d'échouer le pipeline.
-    logger.debug({ externalId: opts.externalId }, 'fetchUdemyReviews : API réelle indisponible, fallback mock');
-    return fetchUdemyReviewsMock(course.title);
-  } catch (err) {
-    logger.warn({ err }, 'fetchUdemyReviews : récupération des avis échouée');
-    return [];
-  }
+  // Intégrité (audit 2026-07-17) : hors mode mock, on ne FABRIQUE plus d'avis —
+  // des retours étudiants inventés étaient analysés et affichés comme réels.
+  // Chemin réel non implémenté (Udemy sans API d'authoring publique) → liste
+  // vide + log explicite ; le panneau feedback reste simplement vide.
+  logger.warn(
+    { externalId: opts.externalId },
+    'fetchUdemyReviews : aucune source d’avis réelle configurée — aucun avis fabriqué (liste vide)',
+  );
+  return [];
 }
 
 /* ------------------------------------------------------------------ */

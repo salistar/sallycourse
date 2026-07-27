@@ -15,6 +15,7 @@ import {
   storageKeys,
   generateCourseImage,
   slideScriptSchema,
+  streamToBuffer,
 } from '../../shared.js';
 import {
   buildLessonTitle,
@@ -500,14 +501,8 @@ function hashId(input: string): string {
   return (hash >>> 0).toString(36);
 }
 
-/** Concatène un Readable en Buffer (upload simple pour vidéos de cours). */
-async function streamToBuffer(stream: Readable): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of stream) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks);
-}
+// (« stream S3 -> Buffer » factorise dans @sallycourse/shared/storage —
+// audit dedup 2026-07-26 : readObjectBuffer/streamToBuffer importes.)
 
 /** Corps multipart/related pour captions.insert (métadonnées JSON + fichier). */
 function buildMultipart(

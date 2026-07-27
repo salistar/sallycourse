@@ -2,7 +2,7 @@
 // avec tpSchema, applique les validations métier (screenshotSpec Playwright
 // exigé pour les étapes sur ordinateur) avec retry + feedback, puis persiste
 // Lesson.script + status. Mode mock : fixture locale déterministe, zéro appel payant.
-import { Course, Lesson, getConfig, tpSchema, type TpContent } from '../shared.js';
+import { Course, Lesson, getConfig, renderGenerationDirectives, tpSchema, type TpContent } from '../shared.js';
 import { callClaudeJson } from '../lib/claude.js';
 import type { CostContext } from '../lib/cost.js';
 import { hashString } from '../lib/mock-fixtures.js';
@@ -13,7 +13,7 @@ import { buildTpProjectFiles, createSandboxLinks, detectTpLanguage } from '../me
 /** Tentatives quand les validations MÉTIER échouent (le schéma est garanti par callClaudeJson). */
 const MAX_BUSINESS_ATTEMPTS = 3;
 /** Un TP détaillé (étapes + specs de capture) est volumineux. */
-const TP_MAX_TOKENS = 8192;
+const TP_MAX_TOKENS = 16384;
 
 export interface TpResult {
   lessonId: string;
@@ -127,7 +127,12 @@ export function mockTpContent(lessonTitle: string): TpContent {
  * - Mode mock (MOCK_PROVIDERS ou clé absente) : fixture déterministe locale.
  * - Mode réel : callClaudeJson + boucle métier avec réinjection du feedback.
  */
-export async function generateTpContent(input: TpPromptInput, cost?: CostContext): Promise<TpContent> {
+export async function generateTpContent(
+  input: TpPromptInput,
+  cost?: CostContext,
+  directives?: string,
+  llmProviderId?: string,
+): Promise<TpContent> {
   const config = getConfig();
   if (config.MOCK_PROVIDERS || !config.ANTHROPIC_API_KEY) {
     logger.debug({ lesson: input.lessonTitle, mock: true }, 'generateTpContent : fixture mock déterministe');
@@ -135,7 +140,8 @@ export async function generateTpContent(input: TpPromptInput, cost?: CostContext
   }
 
   const system = tpSystemPrompt();
-  const baseUser = tpUserPrompt(input);
+  // Phase 10 — consignes avancées (dont OS ciblé + langue des commentaires).
+  const baseUser = tpUserPrompt(input) + (directives ?? '');
 
   let feedback: string[] = [];
   for (let attempt = 1; attempt <= MAX_BUSINESS_ATTEMPTS; attempt++) {
@@ -156,6 +162,7 @@ export async function generateTpContent(input: TpPromptInput, cost?: CostContext
       // même réponse (invalide) servie depuis le cache et ne convergerait jamais.
       skipCache: attempt > 1,
       ...(cost ? { cost } : {}),
+      ...(llmProviderId ? { llmProviderId } : {}),
     });
 
     feedback = validateTpBusiness(candidate);
@@ -179,6 +186,7 @@ export async function attachSandboxLinksBestEffort(lessonId: string, lessonTitle
 
     const { starterFiles, solutionFiles } = buildTpProjectFiles(tp, language);
     const links = await createSandboxLinks({ title: lessonTitle, language, starterFiles, solutionFiles });
+    if (!links) return; // création réelle impossible : aucun lien fictif persisté
 
     await Lesson.updateOne(
       { _id: lessonId },
@@ -204,8 +212,10 @@ export async function generateTp(params: {
   lessonId: string;
   /** Contexte de continuité (résumés des leçons précédentes, P19). */
   context?: string;
+  /** Override de provider LLM pour cette régénération (« éditer avec l'IA »). */
+  llmProviderId?: string;
 }): Promise<TpResult> {
-  const { courseId, lessonId, context } = params;
+  const { courseId, lessonId, context, llmProviderId } = params;
 
   const lesson = await Lesson.findById(lessonId);
   if (!lesson) throw new Error(`leçon introuvable : ${lessonId}`);
@@ -225,6 +235,8 @@ export async function generateTp(params: {
       context,
     },
     { courseId, userId: String(course.userId) },
+    renderGenerationDirectives(course.advancedParams, 'tp'),
+    llmProviderId ?? course.llmProvider,
   );
 
   lesson.script = tp;

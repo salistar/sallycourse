@@ -330,13 +330,6 @@ export async function startAbTestingScheduler(
 
   logger.info({ cron }, 'scheduler ab-testing démarré');
 }
-
-/** Déclenche une rotation immédiate hors cadence (diagnostic / bouton). */
-export async function triggerAbTestingNow(): Promise<void> {
-  if (!abTestingQueue) abTestingQueue = new Queue<AbTestingJobData>(AB_TESTING_QUEUE, { connection: bullConnection() });
-  await abTestingQueue.add(AB_TESTING_JOB + ':manual', { reason: 'manual' }, { removeOnComplete: true });
-}
-
 /** Arrête proprement le scheduler (worker + queue). */
 export async function stopAbTestingScheduler(): Promise<void> {
   await abTestingWorker?.close().catch(() => undefined);

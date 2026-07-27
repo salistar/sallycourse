@@ -20,6 +20,7 @@ import { logger } from '../queues/index.js';
 import { callClaudeJson } from '../lib/claude.js';
 import { recordImageCost } from '../lib/cost.js';
 import { marketingSystemPrompt, marketingUserPrompt } from '../prompts/marketing.js';
+import { generateImageWithEngine, isAnyImageEngineConfigured } from '../media/image-generation.js';
 
 /** Tentatives quand les règles MÉTIER échouent (le schéma est garanti par callClaudeJson). */
 const MAX_BUSINESS_ATTEMPTS = 3;
@@ -30,6 +31,8 @@ const MARKETING_MAX_TOKENS = 8192;
 export const MARKETING_ASSET_FILES = {
   udemyCover: 'cover-udemy.png',
   youtubeThumbnail: 'thumbnail-youtube.png',
+  // Illustration SDXL (Modal) — vraie image, sert de hero (coverImageUrl).
+  heroCover: 'cover-hero.png',
 } as const;
 
 /** Badge affiché sur les visuels selon le niveau du cours. */
@@ -38,6 +41,35 @@ const BADGE_LABELS: Record<Difficulty, string> = {
   intermediate: 'Intermédiaire',
   advanced: 'Avancé',
 };
+
+/** Seed déterministe (même cours → même illustration SDXL) dérivé de l'ObjectId hex. */
+function coverSeed(courseId: string): number {
+  const hex = courseId.replace(/[^0-9a-f]/gi, '').slice(-7) || '1';
+  return parseInt(hex, 16) % 2_000_000_000;
+}
+
+/**
+ * Prompt SDXL de la cover : sujet du cours + style illustration pro, SANS texte
+ * (SDXL ne rend pas de texte lisible → la cover texte-baked SVG reste pour la
+ * marketplace). L'anglais donne de meilleurs résultats SDXL ; le titre technique
+ * + des mots-clés de style + le niveau suffisent à orienter le visuel.
+ */
+function buildCoverPrompt(title: string, outline: Outline | undefined, difficulty: Difficulty): string {
+  const subtitle = outline?.subtitle?.trim();
+  const level =
+    difficulty === 'advanced'
+      ? 'expert, sophisticated'
+      : difficulty === 'beginner'
+        ? 'friendly, approachable'
+        : 'professional';
+  return [
+    `Professional online course cover illustration about: ${title}.`,
+    subtitle ?? '',
+    `Modern flat vector illustration, clean ${level} tech aesthetic, soft gradient background, subtle depth, high detail, no text, no words, no letters.`,
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
 
 export interface CourseMarketingResult {
   courseId: string;
@@ -173,17 +205,53 @@ export async function generateCourseMarketing(params: { courseId: string }): Pro
   // Coût des 2 visuels marketing générés (P55) — best-effort.
   await recordImageCost({ courseId, userId: String(course.userId) }, 2).catch(() => undefined);
 
+  // ── Cover art RÉELLE via SDXL/Z-Image Turbo (Modal GPU) ─────────
+  // Remplace la miniature géométrique par une vraie illustration quand un
+  // moteur d'image est activé. Best-effort : tout échec (endpoint froid,
+  // quota…) garde la cover SVG. Ni SDXL ni Z-Image Turbo ne rendent de texte,
+  // l'illustration sert donc de HERO (course.coverImageUrl) ; la cover SVG
+  // texte-baked reste udemyCover pour l'export marketplace.
+  let heroCoverKey: string | undefined;
+  if (isAnyImageEngineConfigured()) {
+    try {
+      const { png: heroPng, provider } = await generateImageWithEngine(
+        {
+          prompt: buildCoverPrompt(course.title, outline, course.difficulty as Difficulty),
+          negativePrompt:
+            'text, words, letters, captions, watermark, logo, blurry, distorted, low quality, extra limbs, deformed',
+          width: 1360,
+          height: 768,
+          steps: 30,
+          seed: coverSeed(courseId),
+        },
+        course.imageEngine,
+      );
+      heroCoverKey = keys.marketing(MARKETING_ASSET_FILES.heroCover);
+      await uploadObject(heroCoverKey, heroPng, 'image/png');
+      // Moteur réel dans `model` (audit coûts 2026-07-26) : ventilation par app Modal.
+      await recordImageCost({ courseId, userId: String(course.userId) }, 1, provider).catch(() => undefined);
+      logger.info({ courseId, heroCoverKey, provider }, 'cover générée (hero)');
+    } catch (err) {
+      logger.warn({ courseId, err }, 'cover indisponible — repli sur la miniature SVG');
+      heroCoverKey = undefined;
+    }
+  }
+
   // ── Persistance sur le cours ────────────────────────────────────
   await Course.updateOne(
     { _id: courseId },
     {
       $set: {
+        // Hero réel SDXL comme cover du cours (sinon on ne touche pas à un
+        // coverImageUrl éventuellement déjà présent).
+        ...(heroCoverKey ? { coverImageUrl: heroCoverKey } : {}),
         marketing: {
           status: 'ready',
           content,
           assets: {
             udemyCover: udemyCoverKey,
             youtubeThumbnail: youtubeThumbnailKey,
+            ...(heroCoverKey ? { heroCover: heroCoverKey } : {}),
           },
           generatedAt: new Date(),
         },

@@ -13,6 +13,7 @@
 
 import { BaseDeploymentAdapter } from '../base-adapter.js';
 import { registerAdapter } from '../registry.js';
+import { enqueueBlogGeneration } from '../../lib/blog.js';
 import { LmsListing, Course } from '../../shared.js';
 import type { DeploymentMode, ILesson } from '../../shared.js';
 import type { DeployContext, DeployStatus } from '../types.js';
@@ -113,6 +114,10 @@ export class LmsAdapter extends BaseDeploymentAdapter {
    * « Soumission à la revue » = publication immédiate sur le LMS interne
    * (pas de modération externe) : LmsListing.published=true + publishedAt, et
    * Course.status='published' pour refléter l'état dans le tableau de bord.
+   *
+   * C'est AUSSI le point de déclenchement du blog SEO (P204) : la génération
+   * des articles est enfilée (jamais exécutée en ligne) et reste BEST-EFFORT —
+   * un échec de mise en file n'empêche jamais la publication du cours.
    */
   async submitForReview(ctx: DeployContext): Promise<void> {
     const courseId = String((ctx.course as { _id?: unknown })._id ?? '');
@@ -124,6 +129,7 @@ export class LmsAdapter extends BaseDeploymentAdapter {
           { $set: { published: true, publishedAt: new Date() } },
         );
         await Course.updateOne({ _id: courseId }, { $set: { status: 'published' } });
+        await enqueueBlogGeneration(courseId);
       },
       () => undefined,
     );

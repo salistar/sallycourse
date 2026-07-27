@@ -6,6 +6,7 @@ import { mockQuiz } from '../lib/mock-fixtures.js';
 import {
   buildQuizMarkdown,
   generateQuizQuestions,
+  generateSectionSynthesis,
   quizArraySchema,
   validateQuizBusiness,
 } from './quiz.js';
@@ -135,5 +136,28 @@ describe('buildQuizMarkdown', () => {
     questions.forEach((q, i) => {
       expect(markdown).toContain(`### Question ${i + 1} (${q.difficulty})`);
     });
+  });
+});
+
+describe('generateSectionSynthesis — correctif N1 (audit 2026-07-20)', () => {
+  it('produit un Markdown de synthèse en mode mock, sans appel réseau', async () => {
+    const markdown = await generateSectionSynthesis({
+      courseTitle: PROMPT_INPUT.courseTitle,
+      sectionTitle: PROMPT_INPUT.sectionTitle,
+      locale: 'fr',
+      sectionLessons: PROMPT_INPUT.sectionLessons,
+    });
+    expect(typeof markdown).toBe('string');
+    expect(markdown.length).toBeGreaterThan(0);
+  });
+
+  it("ne contient ni titre de quiz ni section Solutions (ce n'est pas le document quiz)", async () => {
+    const markdown = await generateSectionSynthesis({
+      courseTitle: PROMPT_INPUT.courseTitle,
+      sectionTitle: PROMPT_INPUT.sectionTitle,
+      locale: 'fr',
+    });
+    expect(markdown).not.toMatch(/^# Quiz —/m);
+    expect(markdown).not.toContain('## Solutions');
   });
 });

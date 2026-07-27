@@ -18,11 +18,11 @@
 
 import {
   Quiz,
-  getObjectStream,
   storageKeys,
   uploadObject,
   type DeploymentMode,
   type ILesson,
+  readObjectBuffer as sharedReadObjectBuffer,
 } from '../../shared.js';
 import { BaseDeploymentAdapter } from '../base-adapter.js';
 import { registerAdapter } from '../registry.js';
@@ -43,12 +43,9 @@ export const EDX_PLATFORM = 'edx';
 /** Lit le contenu binaire complet d'un objet du stockage (null si absent/erreur). */
 async function readObjectBuffer(key: string): Promise<Buffer | null> {
   try {
-    const stream = await getObjectStream(key);
-    const chunks: Buffer[] = [];
-    for await (const chunk of stream) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array));
-    }
-    return Buffer.concat(chunks);
+    // Helper partage (audit dedup 2026-07-26) — seule la semantique best-effort
+    // (| null) reste locale a cet adapter.
+    return await sharedReadObjectBuffer(key);
   } catch {
     return null;
   }

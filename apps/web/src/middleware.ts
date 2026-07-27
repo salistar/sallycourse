@@ -21,7 +21,19 @@ import { extractSubdomain } from '@/lib/white-label';
  */
 const { auth } = NextAuth(authConfig);
 
-const PUBLIC_API_PREFIXES = ['/api/auth', '/api/health', '/api/altcha'];
+const PUBLIC_API_PREFIXES = [
+  '/api/auth',
+  '/api/health',
+  '/api/altcha',
+  // Endpoints publics par conception : ils DOIVENT être joignables sans session
+  // (le middleware les bloquait en 401 avant d'atteindre le handler). Chacun
+  // applique sa propre sécurité en interne :
+  //  - démo landing : rate-limit + PoW ALTCHA ;
+  //  - webhooks/callbacks de paiement : vérification de signature/clé fournisseur.
+  '/api/demo',
+  '/api/payments/paddle/webhook',
+  '/api/payments/cmi/callback',
+];
 
 function isPublicApi(pathname: string): boolean {
   return PUBLIC_API_PREFIXES.some(
