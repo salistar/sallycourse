@@ -20,16 +20,41 @@ import { SLIDE_TEMPLATE_NAMES } from './render-templates';
 
 const templatesDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'render-templates');
 
-/** Extrait les déclarations `--nom: #hex;` du bloc :root d'un fichier gabarit. */
+/**
+ * Extrait les déclarations `--nom: #hex;` du bloc :root d'un fichier gabarit.
+ *
+ * Ferme le bloc par COMPTAGE d'accolades équilibrées (pas un simple match
+ * "jusqu'au premier }") : depuis le correctif 1.5 (auto-fit du titre), le
+ * gabarit "title" injecte un jeton `{{titleScale}}` À L'INTÉRIEUR du bloc
+ * :root (`--title-scale: {{titleScale}};`) — les deux accolades internes de
+ * ce jeton feraient sinon terminer le match AVANT `--fg`/`--muted`/etc.,
+ * laissant ces variables introuvables (`undefined`). Le jeton est remplacé
+ * par sa vraie valeur au RENDU réel (renderTemplate) ; ce test lit le fichier
+ * .html brut, donc doit rester robuste à ce genre de jeton non substitué.
+ */
 function extractRootVars(html: string): Record<string, string> {
-  // Retire les commentaires CSS AVANT de chercher la fermeture du bloc :root —
-  // un commentaire peut contenir des accolades (ex. exemples de code) qui
-  // sinon tromperaient un simple match "jusqu'au premier }".
+  // Retire les commentaires CSS AVANT de chercher le bloc :root — un
+  // commentaire peut contenir des accolades (ex. exemples de code) qui
+  // fausseraient le comptage.
   const withoutComments = html.replace(/\/\*[\s\S]*?\*\//g, '');
-  const rootMatch = withoutComments.match(/:root\s*\{([^}]*)\}/);
+  const start = withoutComments.search(/:root\s*\{/);
   const vars: Record<string, string> = {};
-  if (!rootMatch) return vars;
-  const body = rootMatch[1]!;
+  if (start === -1) return vars;
+  const openBrace = withoutComments.indexOf('{', start);
+  let depth = 0;
+  let end = -1;
+  for (let i = openBrace; i < withoutComments.length; i += 1) {
+    if (withoutComments[i] === '{') depth += 1;
+    else if (withoutComments[i] === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        end = i;
+        break;
+      }
+    }
+  }
+  if (end === -1) return vars;
+  const body = withoutComments.slice(openBrace + 1, end);
   const re = /--([\w-]+):\s*(#[0-9a-fA-F]{6})/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(body))) {

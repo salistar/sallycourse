@@ -9,18 +9,53 @@ export const UDEMY = {
   COURSE_IMAGE: { width: 750, height: 422 },
 } as const;
 
+/**
+ * Marge de planification (audit ESG 2026-07-19, E1) : la narration TTS réelle
+ * parle en moyenne ~10 % plus vite que l'estimation `durationMin` du plan (mots
+ * ÷ AUDIO.NARRATION_WORDS_PER_MINUTE), si bien qu'un plan qui vise pile
+ * `MIN_TOTAL_VIDEO_MINUTES` produit régulièrement une vidéo finale SOUS le
+ * plancher (mesuré : plan ~32 min → rendu 28,7 min, -10 %). On demande donc à
+ * l'IA de planifier une cible plus haute que le plancher réel, qui reste lui
+ * strictement inchangé (`checkTotalVideoMinutes` continue de comparer au
+ * plancher `MIN_TOTAL_VIDEO_MINUTES`, mesuré sur la vidéo rendue).
+ */
+export const OUTLINE_PLANNING_DURATION_MARGIN = 1.18;
+export const OUTLINE_PLANNING_TARGET_MINUTES = Math.ceil(
+  UDEMY.MIN_TOTAL_VIDEO_MINUTES * OUTLINE_PLANNING_DURATION_MARGIN,
+);
+
 export const AUDIO = {
   TARGET_LUFS: -16,
   BACKGROUND_MUSIC_DB_UNDER_VOICE: -28,
   NARRATION_WORDS_PER_MINUTE: 140,
+  /**
+   * Fréquence d'échantillonnage de TOUS les flux audio du pipeline (Hz). 48 kHz
+   * est le standard vidéo (YouTube/Udemy/broadcast), contre 44,1 kHz pour le CD.
+   * Doit être uniforme : concaténer un silence 44,1 k avec une narration 48 k
+   * force de toute façon un rééchantillonnage — autant tout produire en 48 k.
+   */
+  SAMPLE_RATE: 48000,
 } as const;
 
 export const VIDEO = {
   WIDTH: 1920,
   HEIGHT: 1080,
+  /** Fréquence d'images de TOUTES les sorties vidéo (leçons, avatar, trailer). */
+  FPS: 30,
   SLIDE_CROSSFADE_SECONDS: 0.4,
   INTRO_SECONDS: 3,
   DRAFT_HEIGHT: 720,
+} as const;
+
+/**
+ * Paramètres de génération des ILLUSTRATIONS de slides (SDXL/Z-Image) —
+ * centralisés par l'audit dédup 2026-07-26 (auparavant {896, 896, 25}
+ * recopiés dans slide-renderer, slide-image et course-review).
+ */
+export const SLIDE_IMAGE = {
+  WIDTH: 896,
+  HEIGHT: 896,
+  STEPS: 25,
 } as const;
 
 /** Avatar vidéo « talking head » (Prompt 82) — segment intro/conclusion de section. */

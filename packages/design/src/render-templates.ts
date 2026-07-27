@@ -70,12 +70,21 @@ const lessonSchema = baseSchema.extend({
 const titleSchema = lessonSchema.extend({
   title: z.string().min(1),
   subtitle: z.string().default(''),
+  /**
+   * Illustration générée (SDXL) affichée côté fin de lecture À LA PLACE du
+   * motif géométrique — data URI `data:image/png;base64,…` UNIQUEMENT (tout
+   * autre schéma est ignoré au rendu : jamais d'URL réseau dans une slide,
+   * le rendu Playwright doit rester hermétique). Vide = motif par défaut.
+   */
+  illustrationDataUri: z.string().default(''),
 });
 
 const contentSchema = lessonSchema.extend({
   title: z.string().min(1),
   /** 5 points MAXIMUM — règle de lisibilité du gabarit. */
   bullets: z.array(z.string().min(1)).min(1).max(5),
+  /** Image SDXL PAR SLIDE (Lot 3, plan 2026-07-20) — même contrat que titleSchema.illustrationDataUri. */
+  illustrationDataUri: z.string().default(''),
 });
 
 const codeSchema = lessonSchema.extend({
@@ -122,6 +131,8 @@ const recapSchema = lessonSchema.extend({
   title: z.string().min(1),
   /** 6 points MAXIMUM — passe en 2 colonnes au-delà de 4. */
   items: z.array(z.string().min(1)).min(1).max(6),
+  /** Image SDXL PAR SLIDE (Lot 3, plan 2026-07-20) — même contrat que titleSchema.illustrationDataUri. */
+  illustrationDataUri: z.string().default(''),
 });
 
 const sectionTransitionSchema = baseSchema.extend({
@@ -270,6 +281,78 @@ function loadTemplate(name: SlideTemplateName): string {
 
 type PlaceholderMap = Record<string, string>;
 
+/**
+ * Fragment HTML de l'illustration d'une slide. Sécurité : n'accepte QUE les
+ * data URI image base64 (regex stricte — aucune URL réseau, aucun HTML
+ * arbitraire ne peut être injecté). Vide/invalide → '' (motif géométrique par
+ * défaut, masqué par le CSS uniquement quand l'illustration est là).
+ * Réutilisé par les gabarits "title", "content" et "recap" (Lot 3, plan
+ * 2026-07-20 — image SDXL par slide, pas seulement sur la slide de titre).
+ */
+function illustrationFragment(dataUri: string): string {
+  if (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(dataUri)) return '';
+  return `<div class="illustration" aria-hidden="true"><img src="${dataUri}" alt=""></div>`;
+}
+
+/**
+ * Facteur d'échelle du titre de la slide "title" (correctif 1.5, audit
+ * 2026-07-20) : à 116px fixe, un titre de cours long (mesuré : « La Due
+ * Diligence Environnementale », 34 caractères) débordait de `.hero`
+ * (max-width 1240px) et était TRONQUÉ par `overflow:hidden` du gabarit
+ * (« La Due Diligence Environnementa »). Le gabarit n'avait aucun mécanisme
+ * de fit — contrairement à `fitText` des covers marketing (marketing-assets.ts)
+ * — donc un titre trop long ne pouvait QUE déborder, jamais rétrécir. Paliers
+ * volontairement simples (longueur de caractères, pas de mesure réelle de
+ * largeur de police) : suffisant pour rester dans le gabarit sans mesure
+ * Playwright coûteuse par slide.
+ */
+export function titleFontScale(title: string): number {
+  const len = title.trim().length;
+  if (len <= 20) return 1;
+  if (len <= 30) return 0.85;
+  if (len <= 40) return 0.72;
+  if (len <= 55) return 0.6;
+  return 0.5;
+}
+
+/**
+ * Facteur de « fit » des puces du gabarit "content" (correctif 2026-07-26).
+ * Le gabarit rend les puces à taille FIXE (37px, gap 52px, margin-top 84px)
+ * dans un cadre 1920×1080 en `overflow:hidden` : des puces nombreuses ou
+ * longues (wrap sur 2-3 lignes) débordent en bas et étaient TRONQUÉES à
+ * l'écran (« il manque une partie du texte »). Comme titleFontScale pour le
+ * titre, on estime le volume vertical par heuristique (aucune mesure
+ * Playwright par slide) et on renvoie un scale ≤ 1 appliqué à la police ET
+ * aux espacements via la variable CSS `--fit` (défaut 1 → rendu inchangé).
+ * Symétrie assurée : réduire police + gaps préserve les proportions.
+ */
+export function contentFitScale(
+  title: string,
+  bullets: readonly string[],
+  hasIllustration: boolean,
+): number {
+  if (bullets.length === 0) return 1;
+  // Caractères par ligne estimés (largeur utile réduite quand une
+  // illustration occupe la droite : max-width 1020px vs 1480px).
+  const bulletCharsPerLine = hasIllustration ? 52 : 78;
+  const bulletLines = bullets.reduce(
+    (acc, b) => acc + Math.max(1, Math.ceil(b.trim().length / bulletCharsPerLine)),
+    0,
+  );
+  const titleCharsPerLine = hasIllustration ? 30 : 44;
+  const titleLines = Math.min(3, Math.max(1, Math.ceil(title.trim().length / titleCharsPerLine)));
+
+  // Budgets verticaux (px) à l'échelle 1, alignés sur content.html.
+  const bulletsHeight =
+    bulletLines * (37 * 1.45) + Math.max(0, bullets.length - 1) * 52 + 84; // + margin-top
+  const titleHeight = titleLines * (64 * 1.15) + 28; // + margin-top
+  const available = 1080 - 112 /*top pad*/ - 54 /*kicker*/ - titleHeight - 176 /*bottom pad*/;
+
+  if (bulletsHeight <= available) return 1;
+  const scale = available / bulletsHeight;
+  return Math.max(0.6, Math.min(1, Number(scale.toFixed(3))));
+}
+
 /** Valeurs communes (échappées) : localisation + pied de page. */
 function basePlaceholders(data: z.output<typeof baseSchema>): PlaceholderMap {
   return {
@@ -300,14 +383,21 @@ function buildPlaceholders(
         ...lessonPlaceholders(d),
         title: escapeHtml(d.title),
         subtitle: escapeHtml(d.subtitle),
+        illustrationHtml: illustrationFragment(d.illustrationDataUri),
+        titleScale: String(titleFontScale(d.title)),
       };
     }
     case SlideTemplate.Content: {
       const d = data as SlideTemplateData['content'];
+      const illustrationHtml = illustrationFragment(d.illustrationDataUri);
       return {
         ...lessonPlaceholders(d),
         title: escapeHtml(d.title),
         bullets: d.bullets.map(bulletFragment).join('\n      '),
+        illustrationHtml,
+        // Fit anti-troncature des puces (2026-07-26) : réduit police + gaps
+        // quand le volume de texte déborderait le cadre 1080px.
+        fitScale: String(contentFitScale(d.title, d.bullets, illustrationHtml !== '')),
       };
     }
     case SlideTemplate.Code: {
@@ -357,6 +447,7 @@ function buildPlaceholders(
         items: d.items.map(checklistFragment).join('\n      '),
         // Au-delà de 4 points : passage en grille 2 colonnes
         checklistLayout: d.items.length > 4 ? ' two-cols' : '',
+        illustrationHtml: illustrationFragment(d.illustrationDataUri),
       };
     }
     case SlideTemplate.SectionTransition: {
@@ -401,15 +492,37 @@ export interface RenderTemplateOptions {
    * Défaut false (comportement inchangé).
    */
   largeText?: boolean;
+  /**
+   * Thème visuel (catalogue de thèmes 2026-07-26) : surcharges de variables
+   * CSS `:root` injectées avant `</head>` — même mécanisme que `--text-scale`.
+   * Absent/objet vide → rendu strictement identique à avant (le défaut
+   * `salistar` reproduit les valeurs figées des gabarits).
+   */
+  themeVars?: Record<string, string>;
 }
 
-/** Injecte l'override `--text-scale` juste avant la fermeture du `<style>`. */
-function applyTextScale(html: string, largeText: boolean | undefined): string {
-  if (!largeText) return html;
-  const override = `<style>:root{--text-scale:${LARGE_TEXT_SCALE};}</style>`;
+/** Injecte des overrides `:root{…}` juste avant la fermeture du `</head>`. */
+function injectRootOverride(html: string, declarations: string): string {
+  if (!declarations) return html;
+  const override = `<style>:root{${declarations}}</style>`;
   const closeHeadIndex = html.indexOf('</head>');
   if (closeHeadIndex === -1) return html + override;
   return `${html.slice(0, closeHeadIndex)}${override}${html.slice(closeHeadIndex)}`;
+}
+
+/** Injecte l'override `--text-scale` + les variables de thème éventuelles. */
+function applyRenderOptions(html: string, options: RenderTemplateOptions | undefined): string {
+  let declarations = '';
+  if (options?.themeVars) {
+    declarations += Object.entries(options.themeVars)
+      .filter(([k]) => k.startsWith('--'))
+      .map(([k, v]) => `${k}:${v};`)
+      .join('');
+  }
+  if (options?.largeText) {
+    declarations += `--text-scale:${LARGE_TEXT_SCALE};`;
+  }
+  return injectRootOverride(html, declarations);
 }
 
 /**
@@ -455,5 +568,5 @@ export function renderTemplate<N extends SlideTemplateName>(
     return value;
   });
 
-  return applyTextScale(html, options?.largeText);
+  return applyRenderOptions(html, options);
 }

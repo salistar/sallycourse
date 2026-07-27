@@ -1,4 +1,6 @@
 import { z } from 'zod';
+// @ts-ignore TS2835 — import sans extension, résolu partout (Bundler/Next/tsx)
+import { BLOG } from './blog';
 
 // Configuration centralisée : validation Zod des variables d'environnement.
 // Lazy + cache : la validation n'a lieu qu'au premier appel de getConfig().
@@ -44,6 +46,25 @@ export const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   ELEVENLABS_API_KEY: z.string().min(1).optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),
+  // Providers LLM cloud additionnels (catalogue dans worker/src/providers/
+  // cloud-llm.ts). Tous exposés en choix côté création de cours ; l'ordre par
+  // défaut est optimisé COÛT (gratuit d'abord). base URL/modèle surchargeables
+  // via CLOUD_LLM_<ID>_BASE_URL / _MODEL. Absente → provider indisponible.
+  GEMINI_API_KEY: z.string().min(1).optional(), // Google — gemini-flash (free tier)
+  ZHIPU_API_KEY: z.string().min(1).optional(), // GLM-4-flash (free)
+  DEEPSEEK_API_KEY: z.string().min(1).optional(), // deepseek-chat (très bon marché)
+  DASHSCOPE_API_KEY: z.string().min(1).optional(), // Alibaba Qwen
+  DASHSCOPE_BASE_URL: z.string().min(1).optional(), // endpoint workspace dédié
+  MOONSHOT_API_KEY: z.string().min(1).optional(), // Kimi
+  MINIMAX_API_KEY: z.string().min(1).optional(),
+  XAI_API_KEY: z.string().min(1).optional(), // Grok
+  // Cloudflare Workers AI (OpenAI-compatible) — modèles hébergés, facturés au
+  // token, souvent avec quota gratuit quotidien. Nécessite le compte + un token.
+  CLOUDFLARE_ACCOUNT_ID: z.string().min(1).optional(),
+  CLOUDFLARE_API_TOKEN: z.string().min(1).optional(),
+  // Provider LLM cloud choisi PAR DÉFAUT quand un cours ne précise rien
+  // (course.llmProvider prime). Voir CLOUD_LLM_PROVIDERS pour les ids valides.
+  DEFAULT_CLOUD_LLM: z.string().min(1).optional(),
   // Avatar vidéo (P82) — HeyGen choisi (API REST simple, statut de rendu
   // pollable, coût prévisible /min). Absente → mode mock (carte titre animée).
   HEYGEN_API_KEY: z.string().min(1).optional(),
@@ -94,6 +115,12 @@ export const envSchema = z.object({
   // worker/lib/plagiarism-check.ts) — jamais d'appel réseau bloquant.
   WEB_SEARCH_API_KEY: z.string().min(1).optional(),
 
+  // ── Blog SEO automatique par cours (P204) ─────────────────────
+  // Articles générés à la PUBLICATION d'un cours, et cadence (en jours) de leur
+  // publication étalée. Défauts : 6 articles, 1 par semaine (cf. BLOG).
+  BLOG_POSTS_PER_COURSE: z.coerce.number().int().min(1).max(24).default(BLOG.DEFAULT_POSTS_PER_COURSE),
+  BLOG_CADENCE_DAYS: z.coerce.number().int().min(1).max(90).default(BLOG.DEFAULT_CADENCE_DAYS),
+
   // ── Chiffrement des credentials plateformes ───────────────────
   CREDENTIALS_MASTER_KEY: masterKeySchema,
 
@@ -112,12 +139,23 @@ export const envSchema = z.object({
   // (base64url, exposée au navigateur pour PushManager.subscribe) + clé privée
   // (signe le JWT VAPID des requêtes vers l'endpoint FCM/Mozilla, jamais
   // exposée). Générées par `scripts/generate-vapid-keys.mjs`. Absentes →
-  // apps/web/src/lib/web-push.ts retombe en mode mock (aucun envoi réel).
+  // packages/shared/src/web-push.ts retombe en mode mock (aucun envoi réel).
   VAPID_PUBLIC_KEY: z.string().min(1).optional(),
   VAPID_PRIVATE_KEY: z.string().min(1).optional(),
   // Contact affiché aux navigateurs par certains push services (obligatoire
   // pour Mozilla autopush) — un mailto: ou https:.
   VAPID_SUBJECT: z.string().min(1).default('mailto:notifications@sallycourse.app'),
+
+  // ── Anti-piratage & watermarking (P206) ───────────────────────
+  // Police .ttf utilisée par le filigrane drawtext. Défaut = LiberationSans,
+  // présente dans l'image worker (paquet fonts-liberation). Si le fichier est
+  // absent (ex. dev Windows), le worker retombe PROPREMENT sur fontconfig puis,
+  // en dernier recours, sert la vidéo NON filigranée (jamais de blocage de
+  // lecture — cf. worker/src/media/watermark.ts).
+  WATERMARK_FONT_FILE: z
+    .string()
+    .min(1)
+    .default('/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf'),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;
@@ -146,6 +184,18 @@ export function getConfig(env: Record<string, string | undefined> = process.env)
       .map((issue) => `  - ${issue.path.join('.') || '(racine)'} : ${issue.message}`)
       .join('\n');
     throw new Error(`Configuration invalide — variables d'environnement en erreur :\n${details}`);
+  }
+
+  // Durcissement (L1 audit) : le mode mock court-circuite les providers réels
+  // (LLM, paiements, déploiements) et renvoie des résultats simulés. Il ne doit
+  // JAMAIS être actif en production — sinon des générations/publications/paiements
+  // factices passeraient pour réels. On refuse de démarrer plutôt que de servir
+  // des données simulées à des utilisateurs réels.
+  if (result.data.NODE_ENV === 'production' && result.data.MOCK_PROVIDERS) {
+    throw new Error(
+      'Configuration invalide — MOCK_PROVIDERS=true est interdit en production (NODE_ENV=production) : ' +
+        'le mode mock simule providers, paiements et déploiements.',
+    );
   }
 
   cachedConfig = result.data;
