@@ -149,6 +149,15 @@ export function registerWorker<N extends QueueName>(
   const worker = new Worker<QueueJobData[N]>(name, processor, {
     connection: bullConnection(),
     concurrency,
+    // Jobs LOURDS sur CPU (TTS locale, rendu ffmpeg, LLM local) : sous forte
+    // charge machine, la boucle d'événements peut être affamée plus de 30 s
+    // (bail BullMQ par défaut) → « could not renew lock » puis « job stalled »
+    // en cascade alors que le job PROGRESSE normalement. Bail long + tolérance
+    // de stall élevée : le vrai filet anti-zombie reste le scan anti-blocage
+    // des queues (metrics/alerts) et les timeouts durs par étape (ffmpeg P128).
+    lockDuration: 10 * 60_000,
+    stalledInterval: 60_000,
+    maxStalledCount: 3,
   });
 
   worker.on('failed', (job, err) => {

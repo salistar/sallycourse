@@ -50,6 +50,25 @@ function setTestEnv(overrides: Record<string, string> = {}): void {
 
 const simpleSchema = z.object({ name: z.string(), count: z.number().int() });
 
+/**
+ * Réponse fetch simulant le flux NDJSON de /api/generate en streaming
+ * (ollamaGenerateRaw consomme res.body en async-iterable et concatène les
+ * fragments `response` jusqu'à done:true).
+ */
+function ndjsonResponse(payload: string): { ok: true; body: AsyncIterable<Uint8Array> } {
+  const encoder = new TextEncoder();
+  const lines = [
+    JSON.stringify({ response: payload, done: false }),
+    JSON.stringify({ response: '', done: true }),
+  ];
+  return {
+    ok: true,
+    body: (async function* () {
+      for (const line of lines) yield encoder.encode(`${line}\n`);
+    })(),
+  };
+}
+
 const fetchMock = vi.fn();
 
 beforeEach(() => {
@@ -75,13 +94,14 @@ describe('buildOllamaRequest', () => {
       prompt: 'utilisateur',
       system: 'système',
       format: 'json',
-      stream: false,
+      stream: true,
+      options: { num_ctx: 8192, num_predict: 4096 },
     });
   });
 
   it('inclut la température si fournie', () => {
     const req = buildOllamaRequest('qwen2.5:14b', 'système', 'utilisateur', 0.7);
-    expect(req.options).toEqual({ temperature: 0.7 });
+    expect(req.options).toEqual({ num_ctx: 8192, num_predict: 4096, temperature: 0.7 });
   });
 });
 
@@ -178,10 +198,7 @@ describe('callOllamaJson — routage critique / non configuré', () => {
 
 describe('callOllamaJson — succès Ollama', () => {
   it('retourne le JSON validé dès la première tentative', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ response: JSON.stringify({ name: 'ok', count: 3 }) }),
-    });
+    fetchMock.mockResolvedValueOnce(ndjsonResponse(JSON.stringify({ name: 'ok', count: 3 })));
     const result = await callOllamaJson({ schema: simpleSchema, system: 's', user: 'u' });
     expect(result).toEqual({ name: 'ok', count: 3 });
     expect(mockCallClaudeJson).not.toHaveBeenCalled();
@@ -192,10 +209,7 @@ describe('callOllamaJson — escalade après échecs de validation', () => {
   it('escalade vers callClaudeJson (cloud) après MAX_OLLAMA_ATTEMPTS validations Zod échouées', async () => {
     setTestEnv({ OLLAMA_BASE_URL: 'http://localhost:11434', OLLAMA_HAS_GPU: 'false', ANTHROPIC_API_KEY: 'sk-ant-test' });
     // Chaque tentative Ollama renvoie un JSON qui échoue la validation (count manquant).
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({ response: JSON.stringify({ name: 'incomplet' }) }),
-    });
+    fetchMock.mockImplementation(async () => ndjsonResponse(JSON.stringify({ name: 'incomplet' })));
     mockCallClaudeJson.mockResolvedValueOnce({ name: 'cloud', count: 9 });
 
     const result = await callOllamaJson({ schema: simpleSchema, system: 's', user: 'u' });
@@ -209,10 +223,7 @@ describe('callOllamaJson — escalade après échecs de validation', () => {
 
   it('escalade vers mock-fixtures (pas cloud) si aucune clé Anthropic disponible', async () => {
     setTestEnv({ OLLAMA_BASE_URL: 'http://localhost:11434', OLLAMA_HAS_GPU: 'false' }); // pas de ANTHROPIC_API_KEY
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({ response: JSON.stringify({ name: 'incomplet' }) }),
-    });
+    fetchMock.mockImplementation(async () => ndjsonResponse(JSON.stringify({ name: 'incomplet' })));
     mockFixtureFor.mockReturnValueOnce({ name: 'mock', count: 0 });
 
     const result = await callOllamaJson({ schema: simpleSchema, system: 's', user: 'u' });
@@ -236,7 +247,7 @@ describe('callOllamaJson — escalade après échecs de validation', () => {
 
   it('JSON non parsable réessayé jusqu’à MAX_OLLAMA_ATTEMPTS puis escalade', async () => {
     setTestEnv({ OLLAMA_BASE_URL: 'http://localhost:11434', OLLAMA_HAS_GPU: 'false', ANTHROPIC_API_KEY: 'sk-ant-test' });
-    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ response: 'pas du json' }) });
+    fetchMock.mockImplementation(async () => ndjsonResponse('pas du json'));
     mockCallClaudeJson.mockResolvedValueOnce({ name: 'cloud', count: 1 });
 
     const result = await callOllamaJson({ schema: simpleSchema, system: 's', user: 'u' });

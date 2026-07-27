@@ -93,15 +93,33 @@ export async function recommendedOllamaModel(critical: boolean): Promise<string>
   return hasGpu ? OLLAMA_MODELS.simple : OLLAMA_MODELS.simpleLight;
 }
 
-/** Corps de la requête POST /api/generate — format JSON forcé (paramètre natif Ollama). */
+/**
+ * Corps de la requête POST /api/generate — format JSON forcé (paramètre natif
+ * Ollama). `stream: true` OBLIGATOIRE : en mode non-stream, Ollama n'émet
+ * aucun en-tête HTTP avant la fin complète de la génération, et le fetch de
+ * Node (undici) coupe à 5 min (« Headers Timeout Error ») — systématique pour
+ * une génération longue sur CPU. En streaming, les en-têtes partent dès le
+ * premier token et chaque chunk ré-arme le body timeout.
+ */
 export interface OllamaGenerateRequest {
   model: string;
   prompt: string;
   system: string;
   format: 'json';
-  stream: false;
-  options?: { temperature?: number };
+  stream: true;
+  options?: { temperature?: number; num_ctx?: number; num_predict?: number };
 }
+
+/**
+ * Fenêtre de contexte imposée à Ollama. Le défaut du serveur (2048 tokens)
+ * est bien trop petit pour nos prompts de génération (system outline/article
+ * ≈ 1500+ tokens) : le prompt est silencieusement TRONQUÉ et la réponse JSON
+ * sort incomplète (champs racine manquants), ce qui fait échouer toutes les
+ * validations Zod puis retomber la cascade sur les mock-fixtures.
+ */
+export const OLLAMA_NUM_CTX = 8192;
+/** Budget de génération (tokens de sortie) — un plan de cours complet ≈ 2-3k. */
+export const OLLAMA_NUM_PREDICT = 4096;
 
 /** Construit la requête Ollama (pure, testable sans réseau) — system+user → /api/generate. */
 export function buildOllamaRequest(model: string, system: string, user: string, temperature?: number): OllamaGenerateRequest {
@@ -110,18 +128,25 @@ export function buildOllamaRequest(model: string, system: string, user: string, 
     prompt: user,
     system,
     format: 'json',
-    stream: false,
-    ...(temperature !== undefined ? { options: { temperature } } : {}),
+    stream: true,
+    options: {
+      num_ctx: OLLAMA_NUM_CTX,
+      num_predict: OLLAMA_NUM_PREDICT,
+      ...(temperature !== undefined ? { temperature } : {}),
+    },
   };
 }
 
-/** Réponse /api/generate (non-stream) : le JSON généré est dans `response` (texte brut). */
-interface OllamaGenerateResponse {
-  response: string;
-  done: boolean;
+/** Un chunk NDJSON de /api/generate en streaming : fragment de texte + drapeau de fin. */
+interface OllamaGenerateChunk {
+  response?: string;
+  done?: boolean;
 }
 
-/** Appelle /api/generate et retourne la charge JSON brute (texte, non encore validé). */
+/**
+ * Appelle /api/generate en STREAMING et concatène les fragments jusqu'à
+ * `done: true`. Retourne la charge JSON brute (texte, non encore validé).
+ */
 async function ollamaGenerateRaw(base: string, request: OllamaGenerateRequest): Promise<string> {
   const res = await fetch(`${base}/api/generate`, {
     method: 'POST',
@@ -134,8 +159,29 @@ async function ollamaGenerateRaw(base: string, request: OllamaGenerateRequest): 
     err.status = res.status;
     throw err;
   }
-  const body = (await res.json()) as OllamaGenerateResponse;
-  return body.response;
+  if (!res.body) throw new Error('Ollama : réponse sans corps');
+
+  // Flux NDJSON : une ligne JSON par chunk, accumulée jusqu'à done:true.
+  let raw = '';
+  let buffer = '';
+  const decoder = new TextDecoder();
+  for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+    buffer += decoder.decode(chunk, { stream: true });
+    let nl: number;
+    while ((nl = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, nl).trim();
+      buffer = buffer.slice(nl + 1);
+      if (!line) continue;
+      try {
+        const parsed = JSON.parse(line) as OllamaGenerateChunk;
+        if (parsed.response) raw += parsed.response;
+        if (parsed.done) return raw;
+      } catch {
+        // Ligne partielle/inattendue : ignorée (le JSON final est revalidé en aval).
+      }
+    }
+  }
+  return raw;
 }
 
 export interface CallOllamaJsonParams<T> {
@@ -158,6 +204,59 @@ export interface CallOllamaJsonParams<T> {
   temperature?: number;
   /** Rattache le coût au cours si escalade cloud (Prompt 55) — voir CallClaudeJsonParams. */
   cost?: CallClaudeJsonParams<T>['cost'];
+}
+
+/**
+ * Appel Ollama DIRECT, sans aucun repli : jusqu'à MAX_OLLAMA_ATTEMPTS
+ * tentatives avec réinjection du feedback Zod, puis JETTE si la validation
+ * échoue toujours (ou si le service est injoignable). Utilisé par
+ * lib/claude.ts pour insérer Ollama dans la cascade locale→cloud→mock SANS
+ * cycle d'appels (callOllamaJson replie sur callClaudeJson, qui replie sur
+ * cette fonction : un repli mutuel via les fonctions publiques bouclerait).
+ */
+export async function generateOllamaJsonDirect<T>(params: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Input volontairement libre, voir claude.ts.
+  schema: z.ZodType<T, z.ZodTypeDef, any>;
+  system: string;
+  user: string;
+  model?: string;
+  temperature?: number;
+  /** Tâche critique : sélectionne le modèle « qualité » recommandé. */
+  critical?: boolean;
+}): Promise<T> {
+  const { schema, system, user, temperature, critical = false } = params;
+  const base = ollamaBaseUrl();
+  if (!base) throw new Error('Ollama non configuré (OLLAMA_BASE_URL absente)');
+  const model = params.model ?? (await recommendedOllamaModel(critical));
+
+  let lastIssues = '';
+  for (let attempt = 1; attempt <= MAX_OLLAMA_ATTEMPTS; attempt++) {
+    const promptUser =
+      attempt === 1
+        ? user
+        : `${user}\n\nTa réponse précédente ne respectait pas le schéma attendu. Erreurs :\n${lastIssues}\n` +
+          `Corrige ces erreurs et réponds UNIQUEMENT avec le JSON complet corrigé.`;
+
+    const raw = await ollamaGenerateRaw(base, buildOllamaRequest(model, system, promptUser, temperature));
+
+    let parsedJson: unknown;
+    try {
+      parsedJson = JSON.parse(extractJsonPayload(raw));
+    } catch (err) {
+      lastIssues = `JSON invalide : ${(err as Error).message}`;
+      logger.warn({ model, attempt, issues: lastIssues }, 'generateOllamaJsonDirect : parsing JSON échoué');
+      continue;
+    }
+
+    const validated = schema.safeParse(parsedJson);
+    if (validated.success) return validated.data;
+
+    lastIssues = validated.error.issues
+      .map((issue) => `- ${issue.path.join('.') || '(racine)'} : ${issue.message}`)
+      .join('\n');
+    logger.warn({ model, attempt, issues: lastIssues }, 'generateOllamaJsonDirect : validation Zod échouée');
+  }
+  throw new Error(`Ollama : JSON non conforme après ${MAX_OLLAMA_ATTEMPTS} tentatives — ${lastIssues.slice(0, 300)}`);
 }
 
 /**
