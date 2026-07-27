@@ -1,6 +1,8 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
+import { errorMessage } from '@/lib/error-message';
 import { Plug, Trash2, CheckCircle2, PlugZap } from 'lucide-react';
 import {
   Button,
@@ -26,11 +28,11 @@ interface PlatformsManagerProps {
   initialCredentials: ConnectedCredential[];
 }
 
-/** Libellé français de la nature du secret. */
-const KIND_LABEL: Record<string, string> = {
-  password: 'Mot de passe',
-  apikey: 'Clé API',
-  oauth: 'OAuth',
+/** Clé i18n de la nature du secret. */
+const KIND_LABEL_KEY: Record<string, string> = {
+  password: 'kindPassword',
+  apikey: 'kindApiKey',
+  oauth: 'kindOAuth',
 };
 
 /**
@@ -40,6 +42,8 @@ const KIND_LABEL: Record<string, string> = {
  */
 export function PlatformsManager({ initialCredentials }: PlatformsManagerProps) {
   const { toast } = useToast();
+  const t = useTranslations('settings.platforms');
+  const _tApiError = useTranslations('apiErrors');
   const [credentials, setCredentials] = React.useState(initialCredentials);
   const [openPlatform, setOpenPlatform] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -62,11 +66,11 @@ export function PlatformsManager({ initialCredentials }: PlatformsManagerProps) 
       const json = (await res.json()) as { ok: boolean; mock?: boolean; message?: string };
       toast({
         variant: json.ok ? 'success' : 'danger',
-        title: json.ok ? 'Connexion OK' : 'Connexion échouée',
-        description: json.mock ? `${json.message ?? ''} (mode mock)` : json.message,
+        title: json.ok ? t('testSuccessTitle') : t('testFailTitle'),
+        description: json.mock ? t('mockSuffix', { message: json.message ?? '' }) : json.message,
       });
     } catch {
-      toast({ variant: 'danger', title: 'Erreur', description: 'Test impossible.' });
+      toast({ variant: 'danger', title: t('error'), description: t('testError') });
     } finally {
       setBusy(null);
     }
@@ -78,9 +82,9 @@ export function PlatformsManager({ initialCredentials }: PlatformsManagerProps) 
       const res = await fetch(`/api/platforms/${cred.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       setCredentials((prev) => prev.filter((c) => c.id !== cred.id));
-      toast({ variant: 'success', title: 'Déconnecté', description: cred.accountLabel });
+      toast({ variant: 'success', title: t('disconnected'), description: cred.accountLabel });
     } catch {
-      toast({ variant: 'danger', title: 'Erreur', description: 'Déconnexion impossible.' });
+      toast({ variant: 'danger', title: t('error'), description: t('disconnectError') });
     } finally {
       setBusy(null);
     }
@@ -95,7 +99,7 @@ export function PlatformsManager({ initialCredentials }: PlatformsManagerProps) 
       ),
     ]);
     setOpenPlatform(null);
-    toast({ variant: 'success', title: `${meta.label} connecté`, description: cred.accountLabel });
+    toast({ variant: 'success', title: t('connected', { label: meta.label }), description: cred.accountLabel });
   }
 
   return (
@@ -110,15 +114,15 @@ export function PlatformsManager({ initialCredentials }: PlatformsManagerProps) 
                 <CardTitle className="text-lg">{meta.label}</CardTitle>
                 {accounts.length > 0 ? (
                   <Badge variant="published">
-                    {accounts.length > 1 ? `${accounts.length} comptes` : 'Connecté'}
+                    {t('accountsBadge', { count: accounts.length })}
                   </Badge>
                 ) : (
-                  <Badge variant="draft">Non connecté</Badge>
+                  <Badge variant="draft">{t('notConnected')}</Badge>
                 )}
               </div>
               <p className="text-sm text-muted">{meta.description}</p>
               <p className="text-2xs font-semibold uppercase tracking-wide text-muted">
-                {KIND_LABEL[meta.kind] ?? meta.kind}
+                {KIND_LABEL_KEY[meta.kind] ? t(KIND_LABEL_KEY[meta.kind]) : meta.kind}
               </p>
             </CardHeader>
 
@@ -137,7 +141,7 @@ export function PlatformsManager({ initialCredentials }: PlatformsManagerProps) 
                       loading={busy === `test:${account.id}`}
                       onClick={() => handleTest(account)}
                     >
-                      <PlugZap aria-hidden="true" /> Tester
+                      <PlugZap aria-hidden="true" /> {t('test')}
                     </Button>
                     <Button
                       variant="ghost"
@@ -145,7 +149,7 @@ export function PlatformsManager({ initialCredentials }: PlatformsManagerProps) 
                       loading={busy === `del:${account.id}`}
                       onClick={() => handleDelete(account)}
                     >
-                      <Trash2 aria-hidden="true" /> Déconnecter
+                      <Trash2 aria-hidden="true" /> {t('disconnect')}
                     </Button>
                   </div>
                 </div>
@@ -157,7 +161,7 @@ export function PlatformsManager({ initialCredentials }: PlatformsManagerProps) 
               ) : (
                 <Button variant="primary" size="sm" onClick={() => setOpenPlatform(meta.id)}>
                   <Plug aria-hidden="true" />{' '}
-                  {accounts.length > 0 ? 'Ajouter un compte' : 'Connecter'}
+                  {accounts.length > 0 ? t('addAccount') : t('connect')}
                 </Button>
               )}
             </CardContent>
@@ -180,6 +184,8 @@ interface AddFormProps {
 
 function AddForm({ meta, onCancel, onAdded }: AddFormProps) {
   const { toast } = useToast();
+  const t = useTranslations('settings.platforms');
+  const _tApiError = useTranslations('apiErrors');
   const [values, setValues] = React.useState<Record<string, string>>({});
   const [accountLabel, setAccountLabel] = React.useState('');
   const [saving, setSaving] = React.useState(false);
@@ -199,7 +205,7 @@ function AddForm({ meta, onCancel, onAdded }: AddFormProps) {
       });
       const json = (await res.json()) as { id?: string; error?: string };
       if (!res.ok || !json.id) {
-        toast({ variant: 'danger', title: 'Ajout impossible', description: json.error });
+        toast({ variant: 'danger', title: t('addError'), description: errorMessage(json, _tApiError) });
         return;
       }
       onAdded(meta, {
@@ -209,7 +215,7 @@ function AddForm({ meta, onCancel, onAdded }: AddFormProps) {
         kind: meta.kind,
       });
     } catch {
-      toast({ variant: 'danger', title: 'Erreur', description: 'Réseau indisponible.' });
+      toast({ variant: 'danger', title: t('error'), description: t('networkError') });
     } finally {
       setSaving(false);
     }
@@ -218,7 +224,7 @@ function AddForm({ meta, onCancel, onAdded }: AddFormProps) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       <Input
-        label="Libellé du compte"
+        label={t('accountLabel')}
         value={accountLabel}
         onChange={(e) => setAccountLabel(e.target.value)}
         placeholder={meta.label}
@@ -236,10 +242,10 @@ function AddForm({ meta, onCancel, onAdded }: AddFormProps) {
       ))}
       <div className="flex gap-2">
         <Button type="submit" variant="primary" size="sm" loading={saving}>
-          Enregistrer
+          {t('save')}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-          Annuler
+          {t('cancel')}
         </Button>
       </div>
     </form>

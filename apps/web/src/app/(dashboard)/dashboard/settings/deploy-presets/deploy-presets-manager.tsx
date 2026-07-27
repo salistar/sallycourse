@@ -18,6 +18,8 @@ import {
   Select,
   useToast,
 } from '@/components/ui';
+import { useTranslations } from 'next-intl';
+import { errorMessage } from '@/lib/error-message';
 import { getPlatformMeta } from '@/lib/platforms';
 
 /** Plateforme d'un preset — miroir de IDeployPresetPlatform (packages/db). */
@@ -42,9 +44,9 @@ interface CourseOption {
 }
 
 const MODE_LABEL: Record<string, string> = {
-  auto: 'Automatique',
-  assisted: 'Assisté',
-  manual: 'Manuel',
+  auto: 'modeAuto',
+  assisted: 'modeAssisted',
+  manual: 'modeManual',
 };
 
 function platformLabel(id: string): string {
@@ -64,6 +66,8 @@ interface DeployPresetsManagerProps {
  */
 export function DeployPresetsManager({ initialPresets, initialPublicPresets }: DeployPresetsManagerProps) {
   const { toast } = useToast();
+  const t = useTranslations('settings.deployPresets');
+  const _tApiError = useTranslations('apiErrors');
   const [presets, setPresets] = React.useState(initialPresets);
   const [publicPresets] = React.useState(initialPublicPresets);
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -76,9 +80,9 @@ export function DeployPresetsManager({ initialPresets, initialPublicPresets }: D
       const res = await fetch(`/api/deploy-presets/${preset.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       setPresets((prev) => prev.filter((p) => p.id !== preset.id));
-      toast({ variant: 'success', title: 'Preset supprimé', description: preset.name });
+      toast({ variant: 'success', title: t('toastDeletedTitle'), description: preset.name });
     } catch {
-      toast({ variant: 'danger', title: 'Erreur', description: 'Suppression impossible.' });
+      toast({ variant: 'danger', title: t('toastDeleteErrorTitle'), description: t('toastDeleteErrorDesc') });
     } finally {
       setBusy(null);
     }
@@ -87,24 +91,23 @@ export function DeployPresetsManager({ initialPresets, initialPublicPresets }: D
   function handleCreated(preset: PresetSummary) {
     setPresets((prev) => [preset, ...prev]);
     setCreateOpen(false);
-    toast({ variant: 'success', title: 'Preset enregistré', description: preset.name });
+    toast({ variant: 'success', title: t('toastSavedTitle'), description: preset.name });
   }
 
   return (
     <div className="flex flex-col gap-8">
       <section className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-foreground">Mes presets</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t('myPresets')}</h2>
           <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus aria-hidden="true" /> Nouveau preset
+            <Plus aria-hidden="true" /> {t('newPreset')}
           </Button>
         </div>
 
         {presets.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-sm text-muted">
-              Aucun preset pour le moment. Créez-en un pour réutiliser une combinaison de
-              plateformes en un clic sur vos prochains cours.
+              {t('emptyState')}
             </CardContent>
           </Card>
         ) : (
@@ -124,7 +127,7 @@ export function DeployPresetsManager({ initialPresets, initialPublicPresets }: D
 
       {publicPresets.length > 0 && (
         <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold text-foreground">Presets partagés par la communauté</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t('communityPresets')}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             {publicPresets.map((preset) => (
               <PresetCard
@@ -156,6 +159,8 @@ interface PresetCardProps {
 }
 
 function PresetCard({ preset, busy, onApply, onDelete }: PresetCardProps) {
+  const t = useTranslations('settings.deployPresets');
+  const _tApiError = useTranslations('apiErrors');
   return (
     <Card className="flex flex-col">
       <CardHeader>
@@ -166,22 +171,22 @@ function PresetCard({ preset, busy, onApply, onDelete }: PresetCardProps) {
           </CardTitle>
           {preset.isPublic && (
             <Badge variant="published" hideDot className="text-2xs">
-              <Share2 className="size-3" aria-hidden="true" /> Public
+              <Share2 className="size-3" aria-hidden="true" /> {t('publicBadge')}
             </Badge>
           )}
         </div>
         <ul className="mt-1 flex flex-col gap-0.5 text-sm text-muted">
           {preset.platforms.map((p) => (
             <li key={p.platform}>
-              {platformLabel(p.platform)} · {MODE_LABEL[p.mode] ?? p.mode}
+              {platformLabel(p.platform)} · {MODE_LABEL[p.mode] ? t(MODE_LABEL[p.mode]) : p.mode}
               {p.accountLabel ? ` · ${p.accountLabel}` : ''}
             </li>
           ))}
         </ul>
       </CardHeader>
       <CardContent className="mt-auto flex flex-wrap gap-2">
-        <Button variant="gold" size="sm" onClick={onApply}>
-          <Rocket aria-hidden="true" /> Appliquer à un cours
+        <Button variant="primary" size="sm" onClick={onApply}>
+          <Rocket aria-hidden="true" /> {t('applyToCourse')}
         </Button>
         {onDelete && (
           <Button
@@ -190,7 +195,7 @@ function PresetCard({ preset, busy, onApply, onDelete }: PresetCardProps) {
             loading={busy === `del:${preset.id}`}
             onClick={onDelete}
           >
-            <Trash2 aria-hidden="true" /> Supprimer
+            <Trash2 aria-hidden="true" /> {t('delete')}
           </Button>
         )}
       </CardContent>
@@ -222,6 +227,8 @@ const KNOWN_PLATFORM_IDS = [
 
 function CreatePresetDialog({ open, onOpenChange, onCreated }: CreatePresetDialogProps) {
   const { toast } = useToast();
+  const t = useTranslations('settings.deployPresets');
+  const _tApiError = useTranslations('apiErrors');
   const [name, setName] = React.useState('');
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [mode, setMode] = React.useState('auto');
@@ -264,12 +271,12 @@ function CreatePresetDialog({ open, onOpenChange, onCreated }: CreatePresetDialo
         | { preset?: PresetSummary; error?: string }
         | null;
       if (!res.ok || !json?.preset) {
-        toast({ variant: 'danger', title: 'Création impossible', description: json?.error });
+        toast({ variant: 'danger', title: t('createErrorTitle'), description: errorMessage(json, _tApiError) });
         return;
       }
       onCreated({ ...json.preset, mine: true });
     } catch {
-      toast({ variant: 'danger', title: 'Erreur réseau', description: 'Serveur injoignable.' });
+      toast({ variant: 'danger', title: t('networkErrorTitle'), description: t('networkErrorDesc') });
     } finally {
       setSaving(false);
     }
@@ -279,18 +286,18 @@ function CreatePresetDialog({ open, onOpenChange, onCreated }: CreatePresetDialo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nouveau preset de déploiement</DialogTitle>
+          <DialogTitle>{t('createDialogTitle')}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
           <Input
-            label="Nom du preset"
+            label={t('presetNameLabel')}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ex. Combo YouTube + Udemy FR"
+            placeholder={t('presetNamePlaceholder')}
           />
 
           <div>
-            <p className="mb-2 text-sm font-medium text-foreground">Plateformes</p>
+            <p className="mb-2 text-sm font-medium text-foreground">{t('platforms')}</p>
             <div className="grid grid-cols-2 gap-2">
               {KNOWN_PLATFORM_IDS.map((id) => (
                 <label key={id} className="flex items-center gap-2 text-sm">
@@ -306,10 +313,10 @@ function CreatePresetDialog({ open, onOpenChange, onCreated }: CreatePresetDialo
             </div>
           </div>
 
-          <Select label="Mode" value={mode} onChange={(e) => setMode(e.target.value)}>
-            <option value="auto">Automatique</option>
-            <option value="assisted">Assisté</option>
-            <option value="manual">Manuel</option>
+          <Select label={t('modeLabel')} value={mode} onChange={(e) => setMode(e.target.value)}>
+            <option value="auto">{t('modeAuto')}</option>
+            <option value="assisted">{t('modeAssisted')}</option>
+            <option value="manual">{t('modeManual')}</option>
           </Select>
 
           <label className="flex items-start gap-2 text-sm">
@@ -320,10 +327,8 @@ function CreatePresetDialog({ open, onOpenChange, onCreated }: CreatePresetDialo
               onChange={(e) => setIsPublic(e.target.checked)}
             />
             <span>
-              <span className="font-medium text-foreground">Partager publiquement</span>{' '}
-              <span className="text-muted">
-                D&apos;autres utilisateurs pourront appliquer ce preset (jamais vos identifiants).
-              </span>
+              <span className="font-medium text-foreground">{t('sharePublicly')}</span>{' '}
+              <span className="text-muted">{t('sharePubliclyHint')}</span>
             </span>
           </label>
 
@@ -334,7 +339,7 @@ function CreatePresetDialog({ open, onOpenChange, onCreated }: CreatePresetDialo
               loading={saving}
               disabled={!name.trim() || selected.size === 0}
             >
-              Enregistrer
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>
@@ -354,6 +359,8 @@ interface ApplyPresetDialogProps {
 
 function ApplyPresetDialog({ preset, onOpenChange }: ApplyPresetDialogProps) {
   const { toast } = useToast();
+  const t = useTranslations('settings.deployPresets');
+  const _tApiError = useTranslations('apiErrors');
   const [courses, setCourses] = React.useState<CourseOption[]>([]);
   const [selectedCourse, setSelectedCourse] = React.useState('');
   const [loading, setLoading] = React.useState(false);
@@ -396,17 +403,17 @@ function ApplyPresetDialog({ preset, onOpenChange }: ApplyPresetDialogProps) {
       );
       const json = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) {
-        toast({ variant: 'danger', title: 'Application impossible', description: json?.error });
+        toast({ variant: 'danger', title: t('applyErrorTitle'), description: errorMessage(json, _tApiError) });
         return;
       }
       toast({
         variant: 'success',
-        title: 'Preset appliqué',
-        description: `${preset.platforms.length} plateforme(s) en file pour ce cours.`,
+        title: t('appliedTitle'),
+        description: t('appliedDesc', { count: preset.platforms.length }),
       });
       onOpenChange(false);
     } catch {
-      toast({ variant: 'danger', title: 'Erreur réseau', description: 'Serveur injoignable.' });
+      toast({ variant: 'danger', title: t('networkErrorTitle'), description: t('networkErrorDesc') });
     } finally {
       setApplying(false);
     }
@@ -416,22 +423,20 @@ function ApplyPresetDialog({ preset, onOpenChange }: ApplyPresetDialogProps) {
     <Dialog open={preset !== null} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Appliquer « {preset?.name} »</DialogTitle>
+          <DialogTitle>{t('applyDialogTitle', { name: preset?.name ?? '' })}</DialogTitle>
         </DialogHeader>
         <div className="mt-4 flex flex-col gap-4">
           {loading ? (
-            <p className="text-sm text-muted">Chargement de vos cours…</p>
+            <p className="text-sm text-muted">{t('loadingCourses')}</p>
           ) : courses.length === 0 ? (
-            <p className="text-sm text-muted">
-              Aucun cours prêt à déployer pour le moment. Générez d&apos;abord un cours.
-            </p>
+            <p className="text-sm text-muted">{t('noCoursesReady')}</p>
           ) : (
             <Select
-              label="Cours cible"
+              label={t('targetCourseLabel')}
               value={selectedCourse}
               onChange={(e) => setSelectedCourse(e.target.value)}
             >
-              <option value="">Sélectionner un cours…</option>
+              <option value="">{t('selectCourse')}</option>
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.title}
@@ -442,12 +447,12 @@ function ApplyPresetDialog({ preset, onOpenChange }: ApplyPresetDialogProps) {
         </div>
         <DialogFooter>
           <Button
-            variant="gold"
+            variant="primary"
             loading={applying}
             disabled={!selectedCourse}
             onClick={() => void handleApply()}
           >
-            <Rocket aria-hidden="true" /> Lancer le déploiement
+            <Rocket aria-hidden="true" /> {t('launchDeploy')}
           </Button>
         </DialogFooter>
       </DialogContent>

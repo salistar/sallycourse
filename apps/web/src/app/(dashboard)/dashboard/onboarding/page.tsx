@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { connectDb, Course } from '@sallycourse/db';
 import { requireUser } from '@/lib/session';
 import { OnboardingWizard } from '@/components/onboarding';
@@ -9,11 +10,13 @@ import { OnboardingWizard } from '@/components/onboarding';
  * N'a de sens que si l'utilisateur n'a encore aucun cours : sinon on renvoie
  * vers le dashboard (l'onboarding est un moment unique, pas une page récurrente).
  */
-export const metadata: Metadata = {
-  title: 'Premier cours — SallyCourse',
-  description:
-    'Choisissez un modèle de niche et lancez votre premier cours en quelques clics.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('dashboard.onboarding');
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  };
+}
 
 // Dépend de l'utilisateur et de l'état Mongo : rendu à la requête.
 export const dynamic = 'force-dynamic';

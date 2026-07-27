@@ -1,6 +1,8 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
+import { errorMessage } from '@/lib/error-message';
 import { ImageIcon, Lock, Palette, Trash2, UploadCloud } from 'lucide-react';
 // Import du sous-module direct (pas le baril '@sallycourse/design') : le
 // baril réexporte aussi render-templates.ts (Node-only, node:url) qui ne
@@ -48,6 +50,8 @@ type Phase = 'loading' | 'idle' | 'saving' | 'uploading';
 
 export function BrandingManager({ userPlan }: { userPlan: string }) {
   const { toast } = useToast();
+  const t = useTranslations('settings.branding');
+  const tApiError = useTranslations('apiErrors');
   const isBusiness = userPlan === 'business';
   const [phase, setPhase] = React.useState<Phase>('loading');
   const [branding, setBranding] = React.useState<BrandingState>({
@@ -88,22 +92,22 @@ export function BrandingManager({ userPlan }: { userPlan: string }) {
   }, []);
 
   const hexError = (value: string) =>
-    HEX_RE.test(value) ? undefined : 'Couleur hexadécimale invalide (#RRGGBB).';
+    HEX_RE.test(value) ? undefined : t('hexInvalid');
 
   const onSave = React.useCallback(async () => {
     if (!branding.schoolName.trim()) {
-      toast({ title: 'Nom d’école requis', variant: 'danger' });
+      toast({ title: t('schoolNameRequired'), variant: 'danger' });
       return;
     }
     if (hexError(branding.primaryColorHex) || hexError(branding.accentColorHex)) {
-      toast({ title: 'Couleur invalide', description: 'Utilisez le format #RRGGBB.', variant: 'danger' });
+      toast({ title: t('colorInvalidTitle'), description: t('colorInvalidDesc'), variant: 'danger' });
       return;
     }
     const subdomain = subdomainInput.trim().toLowerCase();
     if (subdomain && (subdomain.length < 3 || !SUBDOMAIN_RE.test(subdomain))) {
       toast({
-        title: 'Sous-domaine invalide',
-        description: 'Minuscules, chiffres et tirets, 3 caractères minimum.',
+        title: t('subdomainInvalidTitle'),
+        description: t('subdomainInvalidDesc'),
         variant: 'danger',
       });
       return;
@@ -126,19 +130,21 @@ export function BrandingManager({ userPlan }: { userPlan: string }) {
         | null;
 
       if (!res.ok) {
-        toast({ title: 'Enregistrement impossible', description: data?.error, variant: 'danger' });
+        toast({ title: t('saveErrorTitle'), description: errorMessage(data, tApiError), variant: 'danger' });
         return;
       }
 
       if (data?.branding) setBranding(data.branding);
       setHasBranding(true);
-      toast({ title: 'Marque blanche enregistrée', variant: 'success' });
+      toast({ title: t('saveSuccess'), variant: 'success' });
     } catch {
-      toast({ title: 'Erreur réseau', description: 'Serveur injoignable.', variant: 'danger' });
+      toast({ title: t('networkErrorTitle'), description: t('networkErrorDesc'), variant: 'danger' });
     } finally {
       setPhase('idle');
     }
-  }, [branding, toast]);
+    // subdomainInput fait partie des lectures : sans lui, le callback mémoïsé
+    // enverrait l'ancienne valeur si SEUL le sous-domaine a changé.
+  }, [branding, subdomainInput, toast]);
 
   const onPickLogo = React.useCallback(
     async (file: File) => {
@@ -153,15 +159,15 @@ export function BrandingManager({ userPlan }: { userPlan: string }) {
           | null;
 
         if (!res.ok) {
-          toast({ title: 'Téléversement impossible', description: data?.error, variant: 'danger' });
+          toast({ title: t('uploadErrorTitle'), description: errorMessage(data, tApiError), variant: 'danger' });
           return;
         }
 
         if (data?.branding) setBranding(data.branding);
         setHasBranding(true);
-        toast({ title: 'Logo mis à jour', variant: 'success' });
+        toast({ title: t('logoUpdated'), variant: 'success' });
       } catch {
-        toast({ title: 'Erreur réseau', variant: 'danger' });
+        toast({ title: t('networkErrorTitle'), variant: 'danger' });
       } finally {
         setPhase('idle');
       }
@@ -181,12 +187,12 @@ export function BrandingManager({ userPlan }: { userPlan: string }) {
           accentColorHex: DEFAULT_ACCENT,
         });
         setHasBranding(false);
-        toast({ title: 'Marque blanche réinitialisée (retour à SALISTAR)', variant: 'success' });
+        toast({ title: t('resetSuccess'), variant: 'success' });
       } else {
-        toast({ title: 'Réinitialisation impossible', variant: 'danger' });
+        toast({ title: t('resetErrorTitle'), variant: 'danger' });
       }
     } catch {
-      toast({ title: 'Erreur réseau', variant: 'danger' });
+      toast({ title: t('networkErrorTitle'), variant: 'danger' });
     } finally {
       setPhase('idle');
     }
@@ -197,29 +203,28 @@ export function BrandingManager({ userPlan }: { userPlan: string }) {
       <CardHeader className="gap-2">
         <CardTitle className="flex items-center gap-2 text-lg">
           <Palette className="size-5 text-accent" aria-hidden="true" />
-          Certificat — marque blanche
+          {t('title')}
         </CardTitle>
         <CardDescription>
-          Le logo et les couleurs choisis ci-dessous remplacent la marque SALISTAR sur le
-          certificat PDF délivré à vos étudiants. Fonctionnalité réservée au plan Business.
+          {t('description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex items-center gap-2">
           <Badge variant={hasBranding ? 'ready' : 'draft'}>
-            {hasBranding ? 'Marque blanche active' : 'SALISTAR par défaut'}
+            {hasBranding ? t('statusActive') : t('statusDefault')}
           </Badge>
           {!isBusiness && (
             <span className="flex items-center gap-1 text-xs text-muted">
               <Lock className="size-3.5" aria-hidden="true" />
-              Réservé au plan Business
+              {t('businessOnly')}
             </span>
           )}
         </div>
 
         <fieldset disabled={!isBusiness || phase === 'loading'} className="flex flex-col gap-6 disabled:opacity-50">
           <Input
-            label="Nom de l’école"
+            label={t('schoolNameLabel')}
             value={branding.schoolName}
             onChange={(e) => setBranding((b) => ({ ...b, schoolName: e.target.value }))}
             maxLength={80}
@@ -227,11 +232,11 @@ export function BrandingManager({ userPlan }: { userPlan: string }) {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <span className="px-1 text-xs font-semibold text-muted">Couleur principale</span>
+              <span className="px-1 text-xs font-semibold text-muted">{t('primaryColor')}</span>
               <div className="flex items-center gap-2">
                 <input
                   type="color"
-                  aria-label="Couleur principale"
+                  aria-label={t('primaryColor')}
                   value={HEX_RE.test(branding.primaryColorHex) ? branding.primaryColorHex : DEFAULT_PRIMARY}
                   onChange={(e) => setBranding((b) => ({ ...b, primaryColorHex: e.target.value }))}
                   className="size-13 shrink-0 cursor-pointer rounded-sm border border-input bg-surface p-1"
@@ -247,11 +252,11 @@ export function BrandingManager({ userPlan }: { userPlan: string }) {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <span className="px-1 text-xs font-semibold text-muted">Couleur d’accent</span>
+              <span className="px-1 text-xs font-semibold text-muted">{t('accentColor')}</span>
               <div className="flex items-center gap-2">
                 <input
                   type="color"
-                  aria-label="Couleur d’accent"
+                  aria-label={t('accentColor')}
                   value={HEX_RE.test(branding.accentColorHex) ? branding.accentColorHex : DEFAULT_ACCENT}
                   onChange={(e) => setBranding((b) => ({ ...b, accentColorHex: e.target.value }))}
                   className="size-13 shrink-0 cursor-pointer rounded-sm border border-input bg-surface p-1"
@@ -270,28 +275,26 @@ export function BrandingManager({ userPlan }: { userPlan: string }) {
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
               <Input
-                label="Sous-domaine white-label"
+                label={t('subdomainLabel')}
                 value={subdomainInput}
                 onChange={(e) => setSubdomainInput(e.target.value.toLowerCase())}
-                placeholder="academie-client"
+                placeholder={t('subdomainPlaceholder')}
                 wrapperClassName="flex-1"
               />
               <span className="whitespace-nowrap text-sm text-muted">.{ROOT_DOMAIN_DISPLAY}</span>
             </div>
             <p className="px-1 text-xs text-muted">
-              Votre catalogue de cours publiés sera accessible à cette adresse, avec votre nom et
-              vos couleurs. Laissez vide pour désactiver. Configuration DNS requise en prod (voir
-              docs/WHITE-LABEL-DNS.md).
+              {t('subdomainHelp')}
             </p>
           </div>
 
           <div className="flex flex-col gap-3">
-            <span className="px-1 text-xs font-semibold text-muted">Logo</span>
+            <span className="px-1 text-xs font-semibold text-muted">{t('logo')}</span>
             <div className="flex items-center gap-4">
               <div className="flex size-16 items-center justify-center overflow-hidden rounded-sm border border-input bg-surface">
                 {branding.logoUrl ? (
                   // Logo utilisateur externe (URL présignée S3) : <img> natif nécessaire.
-                  <img src={branding.logoUrl} alt="Logo de l’école" className="size-full object-contain" />
+                  <img src={branding.logoUrl} alt={t('logoAlt')} className="size-full object-contain" />
                 ) : (
                   <ImageIcon className="size-6 text-muted" aria-hidden="true" />
                 )}
@@ -303,7 +306,7 @@ export function BrandingManager({ userPlan }: { userPlan: string }) {
                 onClick={() => inputRef.current?.click()}
               >
                 {phase !== 'uploading' && <UploadCloud aria-hidden="true" />}
-                {phase === 'uploading' ? 'Téléversement…' : 'Téléverser un logo'}
+                {phase === 'uploading' ? t('uploading') : t('uploadLogo')}
               </Button>
             </div>
             <input
@@ -321,12 +324,12 @@ export function BrandingManager({ userPlan }: { userPlan: string }) {
 
           <div className="flex items-center gap-3">
             <Button loading={phase === 'saving'} onClick={() => void onSave()}>
-              Enregistrer
+              {t('save')}
             </Button>
             {hasBranding && (
               <Button variant="ghost" size="sm" onClick={() => void onReset()}>
                 <Trash2 aria-hidden="true" />
-                Revenir à SALISTAR
+                {t('backToSalistar')}
               </Button>
             )}
           </div>

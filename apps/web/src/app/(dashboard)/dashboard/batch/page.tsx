@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { PLANS, type PlanId } from '@sallycourse/shared';
+import { getTranslations } from 'next-intl/server';
+import { type PlanId } from '@sallycourse/shared';
 import { connectDb, User as UserModel } from '@sallycourse/db';
 import { requireUser } from '@/lib/session';
 import { getQuotaState } from '@/lib/quota';
@@ -10,18 +11,22 @@ import { BatchExperience } from '@/components/batch/batch-experience';
  * Page serveur : lit le plan + quota restant de l'utilisateur (pour l'aperçu et
  * le garde-fou côté client) et délègue l'UX au composant client.
  */
-export const metadata: Metadata = {
-  title: 'Génération en batch — SallyCourse',
-  description: 'Importez un CSV pour lancer la génération de plusieurs cours en une fois.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('batch.page');
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  };
+}
 
-const PLAN_LABELS: Record<PlanId, string> = {
-  free: 'Gratuit',
-  pro: 'Pro',
-  business: 'Business',
+const PLAN_LABEL_KEYS: Record<PlanId, string> = {
+  free: 'planFree',
+  pro: 'planPro',
+  business: 'planBusiness',
 };
 
 export default async function BatchPage() {
+  const t = await getTranslations('batch.page');
   const user = await requireUser();
   await connectDb();
 
@@ -32,5 +37,5 @@ export default async function BatchPage() {
   // Infinity (business) → null côté client pour signifier « illimité ».
   const remaining = Number.isFinite(quota.remaining) ? quota.remaining : null;
 
-  return <BatchExperience remaining={remaining} planLabel={PLAN_LABELS[plan]} />;
+  return <BatchExperience remaining={remaining} planLabel={t(PLAN_LABEL_KEYS[plan])} />;
 }

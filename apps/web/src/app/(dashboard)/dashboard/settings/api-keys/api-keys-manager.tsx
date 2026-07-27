@@ -1,6 +1,8 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations, useFormatter } from 'next-intl';
+import { errorMessage } from '@/lib/error-message';
 import { KeyRound, Webhook as WebhookIcon, Trash2, Copy, Plus } from 'lucide-react';
 import {
   Button,
@@ -42,10 +44,10 @@ const WEBHOOK_EVENTS = [
 ] as const;
 
 const EVENT_LABEL: Record<string, string> = {
-  outline_ready: 'Plan prêt',
-  generation_complete: 'Génération terminée',
-  deployed: 'Déployé',
-  review_approved: 'Review approuvée',
+  outline_ready: 'events.outlineReady',
+  generation_complete: 'events.generationComplete',
+  deployed: 'events.deployed',
+  review_approved: 'events.reviewApproved',
 };
 
 interface Props {
@@ -68,31 +70,33 @@ export function ApiKeysManager({ initialKeys, initialWebhooks }: Props) {
 
 function RevealedSecret({ value, onDismiss }: { value: string; onDismiss: () => void }) {
   const { toast } = useToast();
+  const t = useTranslations('settings.apiKeys');
+  const _tApiError = useTranslations('apiErrors');
 
   async function copy() {
     try {
       await navigator.clipboard.writeText(value);
-      toast({ variant: 'success', title: 'Copié' });
+      toast({ variant: 'success', title: t('copied') });
     } catch {
-      toast({ variant: 'danger', title: 'Copie impossible' });
+      toast({ variant: 'danger', title: t('copyFailed') });
     }
   }
 
   return (
     <div className="flex flex-col gap-2 rounded-sm border border-warning/40 bg-warning/5 p-3">
       <p className="text-sm font-medium text-foreground">
-        Copiez cette valeur maintenant — elle ne sera plus affichée.
+        {t('revealHint')}
       </p>
       <div className="flex items-center gap-2">
         <code className="flex-1 truncate rounded-sm bg-surface-subtle px-2 py-1 text-2xs">
           {value}
         </code>
         <Button variant="secondary" size="sm" onClick={copy}>
-          <Copy aria-hidden="true" /> Copier
+          <Copy aria-hidden="true" /> {t('copy')}
         </Button>
       </div>
       <Button variant="ghost" size="sm" onClick={onDismiss}>
-        J&apos;ai copié
+        {t('iCopied')}
       </Button>
     </div>
   );
@@ -104,6 +108,9 @@ function RevealedSecret({ value, onDismiss }: { value: string; onDismiss: () => 
 
 function ApiKeysSection({ initialKeys }: { initialKeys: ApiKeyView[] }) {
   const { toast } = useToast();
+  const t = useTranslations('settings.apiKeys');
+  const _tApiError = useTranslations('apiErrors');
+  const format = useFormatter();
   const [keys, setKeys] = React.useState(initialKeys);
   const [label, setLabel] = React.useState('');
   const [creating, setCreating] = React.useState(false);
@@ -128,7 +135,7 @@ function ApiKeysSection({ initialKeys }: { initialKeys: ApiKeyView[] }) {
         error?: string;
       };
       if (!res.ok || !json.id || !json.key) {
-        toast({ variant: 'danger', title: 'Création impossible', description: json.error });
+        toast({ variant: 'danger', title: t('createFailed'), description: errorMessage(json, _tApiError) });
         return;
       }
       setKeys((prev) => [
@@ -138,7 +145,7 @@ function ApiKeysSection({ initialKeys }: { initialKeys: ApiKeyView[] }) {
       setRevealed(json.key);
       setLabel('');
     } catch {
-      toast({ variant: 'danger', title: 'Erreur', description: 'Réseau indisponible.' });
+      toast({ variant: 'danger', title: t('errorTitle'), description: t('networkUnavailable') });
     } finally {
       setCreating(false);
     }
@@ -150,9 +157,9 @@ function ApiKeysSection({ initialKeys }: { initialKeys: ApiKeyView[] }) {
       const res = await fetch(`/api/api-keys/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       setKeys((prev) => prev.filter((k) => k.id !== id));
-      toast({ variant: 'success', title: 'Clé révoquée' });
+      toast({ variant: 'success', title: t('keyRevoked') });
     } catch {
-      toast({ variant: 'danger', title: 'Erreur', description: 'Révocation impossible.' });
+      toast({ variant: 'danger', title: t('errorTitle'), description: t('revokeFailed') });
     } finally {
       setBusy(null);
     }
@@ -163,11 +170,14 @@ function ApiKeysSection({ initialKeys }: { initialKeys: ApiKeyView[] }) {
       <CardHeader>
         <div className="flex items-center gap-2">
           <KeyRound className="size-5 text-muted" aria-hidden="true" />
-          <CardTitle className="text-lg">Clés API</CardTitle>
+          <CardTitle className="text-lg">{t('apiKeysTitle')}</CardTitle>
         </div>
         <p className="text-sm text-muted">
-          Authentifiez vos appels à l&apos;API publique v1 (en-tête{' '}
-          <code className="text-2xs">Authorization: Bearer &lt;clé&gt;</code>).
+          {t.rich('apiKeysHint', {
+            code: () => (
+              <code className="text-2xs">Authorization: Bearer &lt;clé&gt;</code>
+            ),
+          })}
         </p>
       </CardHeader>
 
@@ -179,19 +189,19 @@ function ApiKeysSection({ initialKeys }: { initialKeys: ApiKeyView[] }) {
         <form onSubmit={createKey} className="flex flex-wrap items-end gap-2">
           <div className="flex-1">
             <Input
-              label="Libellé de la clé"
+              label={t('keyLabelLabel')}
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="CI GitHub"
+              placeholder={t('keyLabelPlaceholder')}
             />
           </div>
           <Button type="submit" variant="primary" size="sm" loading={creating}>
-            <Plus aria-hidden="true" /> Créer une clé
+            <Plus aria-hidden="true" /> {t('createKey')}
           </Button>
         </form>
 
         {keys.length === 0 ? (
-          <p className="text-sm text-muted">Aucune clé. Créez-en une pour démarrer.</p>
+          <p className="text-sm text-muted">{t('noKeys')}</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {keys.map((k) => (
@@ -204,8 +214,8 @@ function ApiKeysSection({ initialKeys }: { initialKeys: ApiKeyView[] }) {
                   <p className="text-2xs text-muted">
                     <code>{k.prefix}…</code>
                     {k.lastUsed
-                      ? ` · utilisée le ${new Date(k.lastUsed).toLocaleDateString('fr-FR')}`
-                      : ' · jamais utilisée'}
+                      ? t('usedOn', { date: format.dateTime(new Date(k.lastUsed), { dateStyle: 'medium' }) })
+                      : t('neverUsed')}
                   </p>
                 </div>
                 <Button
@@ -214,7 +224,7 @@ function ApiKeysSection({ initialKeys }: { initialKeys: ApiKeyView[] }) {
                   loading={busy === k.id}
                   onClick={() => revoke(k.id)}
                 >
-                  <Trash2 aria-hidden="true" /> Révoquer
+                  <Trash2 aria-hidden="true" /> {t('revoke')}
                 </Button>
               </li>
             ))}
@@ -231,6 +241,8 @@ function ApiKeysSection({ initialKeys }: { initialKeys: ApiKeyView[] }) {
 
 function WebhooksSection({ initialWebhooks }: { initialWebhooks: WebhookView[] }) {
   const { toast } = useToast();
+  const t = useTranslations('settings.apiKeys');
+  const _tApiError = useTranslations('apiErrors');
   const [hooks, setHooks] = React.useState(initialWebhooks);
   const [url, setUrl] = React.useState('');
   const [events, setEvents] = React.useState<string[]>([...WEBHOOK_EVENTS]);
@@ -261,7 +273,7 @@ function WebhooksSection({ initialWebhooks }: { initialWebhooks: WebhookView[] }
         error?: string;
       };
       if (!res.ok || !json.id || !json.secret) {
-        toast({ variant: 'danger', title: 'Création impossible', description: json.error });
+        toast({ variant: 'danger', title: t('createFailed'), description: errorMessage(json, _tApiError) });
         return;
       }
       setHooks((prev) => [
@@ -271,7 +283,7 @@ function WebhooksSection({ initialWebhooks }: { initialWebhooks: WebhookView[] }
       setRevealed(json.secret);
       setUrl('');
     } catch {
-      toast({ variant: 'danger', title: 'Erreur', description: 'Réseau indisponible.' });
+      toast({ variant: 'danger', title: t('errorTitle'), description: t('networkUnavailable') });
     } finally {
       setCreating(false);
     }
@@ -290,7 +302,7 @@ function WebhooksSection({ initialWebhooks }: { initialWebhooks: WebhookView[] }
         prev.map((h) => (h.id === hook.id ? { ...h, active: !h.active } : h)),
       );
     } catch {
-      toast({ variant: 'danger', title: 'Erreur', description: 'Mise à jour impossible.' });
+      toast({ variant: 'danger', title: t('errorTitle'), description: t('updateFailed') });
     } finally {
       setBusy(null);
     }
@@ -302,9 +314,9 @@ function WebhooksSection({ initialWebhooks }: { initialWebhooks: WebhookView[] }
       const res = await fetch(`/api/webhooks/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       setHooks((prev) => prev.filter((h) => h.id !== id));
-      toast({ variant: 'success', title: 'Webhook supprimé' });
+      toast({ variant: 'success', title: t('webhookDeleted') });
     } catch {
-      toast({ variant: 'danger', title: 'Erreur', description: 'Suppression impossible.' });
+      toast({ variant: 'danger', title: t('errorTitle'), description: t('deleteFailed') });
     } finally {
       setBusy(null);
     }
@@ -315,11 +327,12 @@ function WebhooksSection({ initialWebhooks }: { initialWebhooks: WebhookView[] }
       <CardHeader>
         <div className="flex items-center gap-2">
           <WebhookIcon className="size-5 text-muted" aria-hidden="true" />
-          <CardTitle className="text-lg">Webhooks</CardTitle>
+          <CardTitle className="text-lg">{t('webhooksTitle')}</CardTitle>
         </div>
         <p className="text-sm text-muted">
-          Recevez une requête POST signée (HMAC-SHA256, en-tête{' '}
-          <code className="text-2xs">X-SallyCourse-Signature</code>) à chaque événement de vos cours.
+          {t.rich('webhooksHint', {
+            code: () => <code className="text-2xs">X-SallyCourse-Signature</code>,
+          })}
         </p>
       </CardHeader>
 
@@ -330,7 +343,7 @@ function WebhooksSection({ initialWebhooks }: { initialWebhooks: WebhookView[] }
 
         <form onSubmit={createHook} className="flex flex-col gap-3">
           <Input
-            label="URL de destination"
+            label={t('webhookUrlLabel')}
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
@@ -350,20 +363,20 @@ function WebhooksSection({ initialWebhooks }: { initialWebhooks: WebhookView[] }
                       : 'rounded-full border border-border px-3 py-1 text-2xs text-muted'
                   }
                 >
-                  {EVENT_LABEL[ev]}
+                  {t(EVENT_LABEL[ev])}
                 </button>
               );
             })}
           </div>
           <div>
             <Button type="submit" variant="primary" size="sm" loading={creating}>
-              <Plus aria-hidden="true" /> Ajouter un webhook
+              <Plus aria-hidden="true" /> {t('addWebhook')}
             </Button>
           </div>
         </form>
 
         {hooks.length === 0 ? (
-          <p className="text-sm text-muted">Aucun webhook configuré.</p>
+          <p className="text-sm text-muted">{t('noWebhooks')}</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {hooks.map((h) => (
@@ -374,12 +387,12 @@ function WebhooksSection({ initialWebhooks }: { initialWebhooks: WebhookView[] }
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-foreground">{h.url}</p>
                   <p className="text-2xs text-muted">
-                    {h.events.map((e) => EVENT_LABEL[e] ?? e).join(', ')}
+                    {h.events.map((e) => (EVENT_LABEL[e] ? t(EVENT_LABEL[e]) : e)).join(', ')}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant={h.active ? 'published' : 'draft'}>
-                    {h.active ? 'Actif' : 'Inactif'}
+                    {h.active ? t('active') : t('inactive')}
                   </Badge>
                   <Button
                     variant="secondary"
@@ -387,7 +400,7 @@ function WebhooksSection({ initialWebhooks }: { initialWebhooks: WebhookView[] }
                     loading={busy === h.id}
                     onClick={() => toggleActive(h)}
                   >
-                    {h.active ? 'Désactiver' : 'Activer'}
+                    {h.active ? t('deactivate') : t('activate')}
                   </Button>
                   <Button
                     variant="ghost"

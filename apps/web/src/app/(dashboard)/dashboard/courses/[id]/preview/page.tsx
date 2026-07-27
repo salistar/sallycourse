@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { isValidObjectId } from 'mongoose';
 import {
@@ -24,9 +25,10 @@ import type { PreviewCourse, PreviewLesson } from '@/components/course/preview';
 // URLs présignées à durée de vie courte + données propriétaire : pas de cache.
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Aperçu étudiant — SallyCourse',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('course.preview');
+  return { title: t('metaTitle') };
+}
 
 /** Présigne une clé S3 (1 h) ; http(s) conservé ; échec → undefined. */
 async function safePresign(key: string | undefined): Promise<string | undefined> {

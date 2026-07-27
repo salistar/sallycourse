@@ -1,8 +1,10 @@
 import type { Types } from 'mongoose';
+import { getFormatter, getTranslations } from 'next-intl/server';
 import { connectDb, Course, GenerationJob, Lesson, Section } from '@sallycourse/db';
-import type { CourseStatus } from '@sallycourse/shared';
+import { presignedGetUrl, type CourseStatus } from '@sallycourse/shared';
 import { requireUser } from '@/lib/session';
 import {
+  AssistantPanel,
   CourseGrid,
   GenerationPanel,
   GreetingHeader,
@@ -25,56 +27,67 @@ export const dynamic = 'force-dynamic';
 /* Formatage                                                            */
 /* ------------------------------------------------------------------ */
 
-/** Libellés français des étapes du pipeline (match par fragment de nom). */
-const STEP_LABELS: readonly [key: string, label: string][] = [
-  ['outline', 'plan du cours'],
-  ['content', 'rédaction'],
-  ['tts', 'narration'],
-  ['screenshot', 'captures'],
-  ['video', 'rendu vidéo'],
-  ['subtitle', 'sous-titres'],
-  ['packaging', 'export'],
-  ['deploy', 'publication'],
+type DashboardTranslator = Awaited<ReturnType<typeof getTranslations>>;
+type DashboardFormatter = Awaited<ReturnType<typeof getFormatter>>;
+
+/** Clés i18n des étapes du pipeline (match par fragment de nom). */
+const STEP_LABELS: readonly [key: string, labelKey: string][] = [
+  ['outline', 'stepOutline'],
+  ['content', 'stepContent'],
+  ['tts', 'stepTts'],
+  ['screenshot', 'stepScreenshot'],
+  ['video', 'stepVideo'],
+  ['subtitle', 'stepSubtitle'],
+  ['packaging', 'stepPackaging'],
+  ['deploy', 'stepDeploy'],
 ];
 
-function stepLabel(step: string | undefined): string | null {
+function stepLabel(step: string | undefined, t: DashboardTranslator): string | null {
   if (!step) return null;
   const match = STEP_LABELS.find(([key]) => step.includes(key));
-  return match ? match[1] : step;
+  return match ? t(match[1]) : step;
 }
 
-/** Fraîcheur relative en français (« il y a 3 jours », « hier »…). */
-function relativeLabel(date: Date): string {
+/** Fraîcheur relative localisée (« il y a 3 jours », « hier »…). */
+function relativeLabel(date: Date, t: DashboardTranslator, format: DashboardFormatter): string {
   const minutes = Math.floor((Date.now() - date.getTime()) / 60_000);
-  if (minutes < 1) return 'à l’instant';
-  if (minutes < 60) return `il y a ${minutes} min`;
+  if (minutes < 1) return t('relativeJustNow');
+  if (minutes < 60) return t('relativeMinutes', { minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `il y a ${hours} h`;
+  if (hours < 24) return t('relativeHours', { hours });
   const days = Math.floor(hours / 24);
-  if (days === 1) return 'hier';
-  if (days < 30) return `il y a ${days} jours`;
-  return `le ${new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }).format(date)}`;
+  if (days === 1) return t('relativeYesterday');
+  if (days < 30) return t('relativeDays', { days });
+  return t('relativeOnDate', {
+    date: format.dateTime(date, { day: 'numeric', month: 'long', year: 'numeric' }),
+  });
 }
 
 /** Ligne de fraîcheur contextualisée par le statut du cours. */
-function freshnessLabel(status: CourseStatus, updatedAt: Date, jobStep?: string): string {
-  const rel = relativeLabel(updatedAt);
-  const step = stepLabel(jobStep);
+function freshnessLabel(
+  status: CourseStatus,
+  updatedAt: Date,
+  t: DashboardTranslator,
+  format: DashboardFormatter,
+  jobStep?: string,
+): string {
+  const rel = relativeLabel(updatedAt, t, format);
+  const step = stepLabel(jobStep, t);
   switch (status) {
     case 'draft':
-      return `brouillon modifié ${rel}`;
+      return t('freshnessDraft', { rel });
     case 'generating':
-      return step ? `en cours — étape ${step}` : `génération lancée ${rel}`;
+      return step ? t('freshnessGeneratingStep', { step }) : t('freshnessGeneratingStarted', { rel });
     case 'outline-review':
-      return `plan à valider — ${rel}`;
+      return t('freshnessOutlineReview', { rel });
     case 'ready':
-      return `généré ${rel}`;
+      return t('freshnessReady', { rel });
     case 'published':
-      return `publié ${rel}`;
+      return t('freshnessPublished', { rel });
     case 'failed':
-      return step ? `échec à l’étape ${step}` : `échec ${rel}`;
+      return step ? t('freshnessFailedStep', { step }) : t('freshnessFailed', { rel });
     case 'cancelled':
-      return `annulé ${rel}`;
+      return t('freshnessCancelled', { rel });
   }
 }
 
@@ -104,6 +117,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const activeFilter = parseCourseFilter(typeof params.status === 'string' ? params.status : undefined);
 
   await connectDb();
+
+  const t = await getTranslations('dashboard');
+  const format = await getFormatter();
 
   // Cours de l'utilisateur, du plus récent au plus ancien.
   const courseDocs = await Course.find({ userId: user.id }).sort({ createdAt: -1 }).lean();
@@ -136,6 +152,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const lessonsByCourse = new Map(lessonAgg.map((l) => [String(l._id), l]));
   const jobByCourse = new Map(jobAgg.map((j) => [String(j._id), j]));
 
+  // Couvertures réelles (hero SDXL/Z-Image ou upload) présignées en parallèle —
+  // affichées sur les cartes ; repli sur la miniature générée si absente/échec.
+  const coverUrls = await Promise.all(
+    courseDocs.map((doc) => {
+      const key = (doc as { coverImageUrl?: unknown }).coverImageUrl;
+      return typeof key === 'string' && key ? presignedGetUrl(key).catch(() => undefined) : Promise.resolve(undefined);
+    }),
+  );
+  const coverByCourse = new Map(courseDocs.map((doc, i) => [String(doc._id), coverUrls[i]]));
+
   // Mapping documents → props des composants existants du dashboard.
   const courses: DashboardCourse[] = courseDocs.map((doc) => {
     const id = String(doc._id);
@@ -151,7 +177,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       lessonsCount: lessons?.count ?? 0,
       durationMin: Math.round(lessons?.durationMin ?? 0),
       platforms: toPlatformIds(doc.targetPlatforms ?? []),
-      updatedAtLabel: freshnessLabel(doc.status, new Date(doc.updatedAt), job?.step),
+      updatedAtLabel: freshnessLabel(doc.status, new Date(doc.updatedAt), t, format, job?.step),
+      // Rétention P79 : les cours archivés étaient invisibles/irrécupérables
+      // via l'UI avant l'audit connectivité 2026-07-17.
+      archived: (doc as { archived?: boolean }).archived === true,
+      coverUrl: coverByCourse.get(id),
     };
   });
 
@@ -169,22 +199,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const stats: DashboardStat[] = [
     {
       id: 'courses',
-      label: 'Cours créés',
+      label: t('statCoursesCreated'),
       value: courses.length,
-      trend: createdThisMonth > 0 ? `+${createdThisMonth} ce mois-ci` : undefined,
+      trend: createdThisMonth > 0 ? t('trendThisMonth', { count: createdThisMonth }) : undefined,
     },
-    { id: 'published', label: 'Cours publiés', value: publishedCount },
+    { id: 'published', label: t('statCoursesPublished'), value: publishedCount },
     {
       id: 'generating',
-      label: 'En génération',
+      label: t('statGenerating'),
       value: generatingCount,
-      trend: generatingCount > 0 ? 'pipeline actif' : undefined,
+      trend: generatingCount > 0 ? t('trendPipelineActive') : undefined,
     },
     {
       id: 'video',
-      label: 'Minutes de vidéo',
+      label: t('statVideoMinutes'),
       value: totalMinutes,
-      trend: totalMinutes >= 60 ? `≈ ${Math.round(totalMinutes / 60)} h de contenu` : undefined,
+      trend: totalMinutes >= 60 ? t('trendVideoContent', { hours: Math.round(totalMinutes / 60) }) : undefined,
     },
   ];
 
@@ -193,11 +223,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const generatingJob = generating ? jobByCourse.get(generating.id) : undefined;
 
   const firstName =
-    (user.name ?? '').trim().split(/\s+/)[0] || user.email?.split('@')[0] || 'Créateur';
+    (user.name ?? '').trim().split(/\s+/)[0] || user.email?.split('@')[0] || t('defaultUser');
 
   return (
     <div className="flex flex-col gap-10">
       <GreetingHeader firstName={firstName} stats={stats} />
+
+      {/* Assistant conversationnel (P210) — résout une intention, exécute après confirmation. */}
+      <AssistantPanel />
 
       {generating && (
         <GenerationPanel

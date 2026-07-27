@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { requireUser } from '@/lib/session';
 import { NicheResearchExplorer } from '@/components/niche-research';
 
@@ -7,10 +8,13 @@ import { NicheResearchExplorer } from '@/components/niche-research';
  * Page serveur minimale : garde d'auth, tout le formulaire + résultats vit
  * dans le composant client dédié (état local + server action).
  */
-export const metadata: Metadata = {
-  title: 'Trouver un sujet — SallyCourse',
-  description: 'Explorez des sujets de cours par demande et concurrence estimées, par catégorie.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('nicheResearch.page');
+  return {
+    title: t('metadataTitle'),
+    description: t('metadataDescription'),
+  };
+}
 
 export default async function NicheResearchPage() {
   await requireUser();

@@ -1,27 +1,34 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { isValidObjectId } from 'mongoose';
 import {
   connectDb,
+  BlogPost as BlogPostModel,
   Course as CourseModel,
   Lesson as LessonModel,
+  LmsListing as LmsListingModel,
   Quiz as QuizModel,
   Section as SectionModel,
   Workspace as WorkspaceModel,
 } from '@sallycourse/db';
-import { getObjectStream, presignedGetUrl } from '@sallycourse/shared';
+import { getObjectStream, objectExists, presignedGetUrl, storageKeys } from '@sallycourse/shared';
 import { requireUser } from '@/lib/session';
 import { loadCourseAccess } from '@/lib/workspace-access';
-import { CourseDetail } from '@/components/course';
+import { CourseDetail, DmcaKitPanel } from '@/components/course';
 import type {
+  CourseBlogView,
   CourseDetailView,
   CourseResourcesView,
+  MarketingKitView,
+  RepurposingView,
   LessonView,
   QaReportView,
   QualityScoreView,
   ReviewFeedbackView,
   SectionView,
   SlideView,
+  TpContentView,
 } from '@/components/course';
 import { OutlineReview } from '@/components/outline';
 import type { OutlineReviewCourse } from '@/components/outline';
@@ -35,9 +42,10 @@ import type { OutlineReviewCourse } from '@/components/outline';
 // Données personnelles + URLs présignées à durée de vie courte : jamais de cache.
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Détail du cours — SallyCourse',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('course.detail');
+  return { title: t('metaTitle') };
+}
 
 /**
  * Présigne une clé S3 (1 h). Les valeurs déjà absolues (http/https) sont
@@ -89,6 +97,36 @@ function extractSlides(script: unknown): SlideView[] | undefined {
       rest,
     };
   });
+}
+
+/** Extrait le contenu structuré d'un TP de lesson.script (structure TpContent, Lot 5, plan 2026-07-20). */
+function extractTp(script: unknown): TpContentView | undefined {
+  if (!script || typeof script !== 'object') return undefined;
+  const raw = script as Record<string, unknown>;
+  const steps = raw.steps;
+  if (!Array.isArray(steps) || typeof raw.objective !== 'string') return undefined;
+  return {
+    objective: raw.objective,
+    environment: Array.isArray(raw.environment)
+      ? raw.environment.filter((e): e is string => typeof e === 'string')
+      : [],
+    steps: steps.map((entry) => {
+      const step = (entry ?? {}) as Record<string, unknown>;
+      const { instruction, command, expectedResult, ...rest } = step;
+      return {
+        instruction: typeof instruction === 'string' ? instruction : '',
+        command: typeof command === 'string' ? command : undefined,
+        expectedResult: typeof expectedResult === 'string' ? expectedResult : '',
+        rest,
+      };
+    }),
+    validation: Array.isArray(raw.validation)
+      ? raw.validation.filter((v): v is string => typeof v === 'string')
+      : [],
+    troubleshooting: Array.isArray(raw.troubleshooting)
+      ? raw.troubleshooting.filter((t): t is string => typeof t === 'string')
+      : [],
+  };
 }
 
 /**
@@ -241,6 +279,133 @@ async function toResourcesView(raw: unknown): Promise<CourseResourcesView | null
   };
 }
 
+/**
+ * Normalise `Course.repurposing` (P197/201/202/203) en DTO présigné : flashcards
+ * (JSON + Anki), podcast (RSS), ebook (EPUB/PDF), trailer. Section masquée si rien.
+ */
+async function toRepurposingView(
+  raw: unknown,
+  courseId: string,
+  sections: { order: number; title: string }[],
+): Promise<RepurposingView | null> {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as {
+    flashcards?: { count?: unknown; jsonKey?: unknown; ankiKey?: unknown };
+    podcast?: { episodes?: unknown; feedKey?: unknown };
+    ebook?: { epubKey?: unknown; pdfKey?: unknown };
+    trailer?: { videoKey?: unknown };
+  };
+  const view: RepurposingView = {};
+
+  if (r.flashcards && typeof r.flashcards.count === 'number') {
+    const [jsonUrl, ankiUrl] = await Promise.all([
+      safePresign(typeof r.flashcards.jsonKey === 'string' ? r.flashcards.jsonKey : undefined),
+      safePresign(typeof r.flashcards.ankiKey === 'string' ? r.flashcards.ankiKey : undefined),
+    ]);
+    view.flashcards = { count: r.flashcards.count, jsonUrl, ankiUrl };
+  }
+  if (r.podcast && typeof r.podcast.episodes === 'number') {
+    // Le modèle ne stocke que le nombre d'épisodes ; les MP3 vivent à des clés
+    // déterministes par section (podcastEpisode). On énumère les sections et on
+    // présigne celles dont l'épisode existe réellement, pour un vrai lecteur.
+    const episodes: { title: string; url: string }[] = [];
+    for (const section of sections) {
+      const key = storageKeys.course(courseId).podcastEpisode(section.order);
+      if (await objectExists(key)) {
+        const url = await safePresign(key);
+        if (url) episodes.push({ title: section.title, url });
+      }
+    }
+    view.podcast = {
+      count: r.podcast.episodes,
+      feedUrl: await safePresign(typeof r.podcast.feedKey === 'string' ? r.podcast.feedKey : undefined),
+      episodes: episodes.length > 0 ? episodes : undefined,
+    };
+  }
+  if (r.ebook) {
+    const [epubUrl, pdfUrl] = await Promise.all([
+      safePresign(typeof r.ebook.epubKey === 'string' ? r.ebook.epubKey : undefined),
+      safePresign(typeof r.ebook.pdfKey === 'string' ? r.ebook.pdfKey : undefined),
+    ]);
+    if (epubUrl || pdfUrl) view.ebook = { epubUrl, pdfUrl };
+  }
+  if (r.trailer && typeof r.trailer.videoKey === 'string') {
+    view.trailer = { videoUrl: await safePresign(r.trailer.videoKey) };
+  }
+  return Object.keys(view).length > 0 ? view : null;
+}
+
+/**
+ * Normalise `Course.marketing` (Prompt 28) en DTO présigné : textes (description
+ * Udemy, promo, messages, idées de titres scorées) + visuels (cover Udemy 750×422,
+ * miniature YouTube 1280×720, hero SDXL). Renvoie null si non généré/incomplet.
+ */
+async function toMarketingView(raw: unknown): Promise<MarketingKitView | null> {
+  if (!raw || typeof raw !== 'object') return null;
+  const m = raw as {
+    status?: unknown;
+    content?: {
+      udemyDescription?: unknown;
+      promoText?: unknown;
+      welcomeMessage?: unknown;
+      congratsMessage?: unknown;
+      titleIdeas?: unknown;
+    };
+    assets?: { udemyCover?: unknown; youtubeThumbnail?: unknown; heroCover?: unknown };
+  };
+  const c = m.content;
+  if (!c || typeof c.udemyDescription !== 'string') return null;
+
+  const titleIdeas = Array.isArray(c.titleIdeas)
+    ? c.titleIdeas
+        .filter((t): t is { title: string; score: number; reason: string } =>
+          Boolean(t && typeof t === 'object' && typeof (t as { title?: unknown }).title === 'string'),
+        )
+        .map((t) => ({ title: t.title, score: Number(t.score) || 0, reason: String(t.reason ?? '') }))
+    : [];
+
+  const [udemyCoverUrl, youtubeThumbnailUrl, heroCoverUrl] = await Promise.all([
+    safePresign(typeof m.assets?.udemyCover === 'string' ? m.assets.udemyCover : undefined),
+    safePresign(typeof m.assets?.youtubeThumbnail === 'string' ? m.assets.youtubeThumbnail : undefined),
+    safePresign(typeof m.assets?.heroCover === 'string' ? m.assets.heroCover : undefined),
+  ]);
+
+  return {
+    udemyDescription: c.udemyDescription,
+    promoText: typeof c.promoText === 'string' ? c.promoText : '',
+    welcomeMessage: typeof c.welcomeMessage === 'string' ? c.welcomeMessage : '',
+    congratsMessage: typeof c.congratsMessage === 'string' ? c.congratsMessage : '',
+    titleIdeas,
+    udemyCoverUrl,
+    youtubeThumbnailUrl,
+    heroCoverUrl,
+  };
+}
+
+/**
+ * Blog SEO du cours (P204) : articles générés à la publication sur le LMS,
+ * dans l'ordre du plan éditorial. `publishedOnLms` pilote l'affichage de la
+ * section (sans publication, aucun blog n'est généré).
+ */
+async function loadBlogView(courseId: string): Promise<CourseBlogView> {
+  const [listing, posts] = await Promise.all([
+    LmsListingModel.findOne({ courseId, published: true }).select('_id').lean(),
+    BlogPostModel.find({ courseId }).select('slug title keyword status scheduledFor publishedAt').sort({ order: 1 }).lean(),
+  ]);
+
+  return {
+    publishedOnLms: Boolean(listing),
+    posts: posts.map((post) => ({
+      slug: post.slug,
+      title: post.title,
+      keyword: post.keyword,
+      status: post.status,
+      scheduledFor: post.scheduledFor.toISOString(),
+      publishedAt: post.publishedAt ? post.publishedAt.toISOString() : null,
+    })),
+  };
+}
+
 export default async function CourseDetailPage({
   params,
 }: {
@@ -314,9 +479,12 @@ export default async function CourseDetailPage({
           const quiz = quizByLesson.get(lessonId);
 
           // Présignature/résolution parallèle des assets de la leçon.
-          const [videoUrl, vttUrl, screenshots, articleMd] = await Promise.all([
+          const [videoUrl, vttUrl, videoVerticalUrl, screenshots, articleMd] = await Promise.all([
             safePresign(lesson.assets?.videoUrl),
             safePresign(lesson.assets?.vttUrl),
+            // Export vertical 9:16 (P167) — rendu par le worker mais jamais
+            // exposé dans l'UI avant l'audit connectivité 2026-07-17.
+            safePresign((lesson.assets as { videoVerticalUrl?: string } | undefined)?.videoVerticalUrl),
             Promise.all((lesson.assets?.screenshots ?? []).map((key) => safePresign(key))),
             safeReadMarkdown(lesson.assets?.articleMd),
           ]);
@@ -332,8 +500,14 @@ export default async function CourseDetailPage({
             assets: {
               videoUrl,
               vttUrl,
+              videoVerticalUrl,
               articleMd,
-              screenshots: screenshots.filter((url): url is string => Boolean(url)),
+              // Lot 5 (plan 2026-07-20) : PRÉSERVE l'alignement par index avec
+              // tp.steps[i] (une chaîne vide = pas encore de capture pour cette
+              // étape) — un .filter() ici compacterait le tableau et
+              // désaligner readait screenshots[i] de steps[i] dès qu'une
+              // capture manque ou est supprimée manuellement.
+              screenshots: screenshots.map((url) => url ?? ''),
             },
             quiz: quiz
               ? quiz.questions.map((question) => ({
@@ -344,6 +518,7 @@ export default async function CourseDetailPage({
                 }))
               : null,
             scriptSlides: extractSlides(lesson.script),
+            tpContent: extractTp(lesson.script),
             videoQualityStatus: lesson.videoQualityStatus,
           };
         }),
@@ -372,7 +547,19 @@ export default async function CourseDetailPage({
     }
   }
 
-  const resourcesView = await toResourcesView(course.resources);
+  // Vues indépendantes construites EN PARALLÈLE (audit optimisations
+  // 2026-07-26, item #5 : présignations/agrégations distinctes, aucune
+  // dépendance mutuelle) — latence de la page détail réduite.
+  const [resourcesView, repurposingView, marketingView, blogView] = await Promise.all([
+    toResourcesView(course.resources),
+    toRepurposingView(
+      course.repurposing,
+      course._id.toString(),
+      sectionsView.map((s) => ({ order: s.order, title: s.title })),
+    ),
+    toMarketingView(course.marketing),
+    loadBlogView(course._id.toString()),
+  ]);
   const dubbedVersionsView = (course.dubbedVersions ?? []).map((v) => ({
     locale: v.locale,
     status: v.status,
@@ -388,11 +575,20 @@ export default async function CourseDetailPage({
     difficulty: course.difficulty,
     locale: course.locale,
     createdAt: course.createdAt.toISOString(),
+    generationMode: course.generationMode ?? 'auto',
+    // Thème visuel (catalogue 2026-07-26) — absent = « salistar » (défaut).
+    ...(course.themeId ? { themeId: course.themeId } : {}),
+    // Dernier rapport de révision automatique (2026-07-26).
+    reviewReport: (course.reviewReport as CourseDetailView['reviewReport']) ?? null,
     sections: sectionsView,
     qaReport: toQaReportView(course.qaReport),
     qualityScore: toQualityScoreView(course.qualityScore),
     feedback: toFeedbackView(course.improvementSuggestions, lessonTitleToId),
     resources: resourcesView,
+    repurposing: repurposingView,
+    marketing: marketingView,
+    archived: Boolean(course.archived),
+    blog: blogView,
     dubbedVersions: dubbedVersionsView,
     workspace: workspaceView,
     approvedBy: course.approvedBy ? course.approvedBy.toString() : null,
@@ -400,5 +596,18 @@ export default async function CourseDetailPage({
     providerMix: course.providerMix,
   };
 
-  return <CourseDetail course={courseView} />;
+  return (
+    <>
+      <CourseDetail course={courseView} />
+      {/* Kit anti-piratage DMCA (P206) — utile quand le cours est diffusé (LMS) :
+          l'auteur génère la notification de retrait + checklist, sans envoi auto. */}
+      {blogView.publishedOnLms && (
+        // Aligné sur la largeur de CourseDetail (conteneur du layout) : pas de
+        // max-w/padding propres, qui désalignaient le panneau et ses gouttières.
+        <div className="pb-12">
+          <DmcaKitPanel courseId={course._id.toString()} />
+        </div>
+      )}
+    </>
+  );
 }

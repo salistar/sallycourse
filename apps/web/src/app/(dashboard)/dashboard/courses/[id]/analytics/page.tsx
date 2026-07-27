@@ -25,6 +25,7 @@ import { AnalyticsDashboard, AbTestingPanel, DropoutHeatmapPanel } from '@/compo
 import { computeDropoutHeatmap, type HeatmapLessonRef, type HeatmapProgressRow } from '@/lib/dropout-heatmap';
 import { cn } from '@/lib/cn';
 import { Download } from 'lucide-react';
+import { getTranslations } from 'next-intl/server';
 
 /**
  * Dashboard analytics consolidé d'un cours (P61) — Server Component :
@@ -36,15 +37,19 @@ import { Download } from 'lucide-react';
 // Données personnelles + snapshots rafraîchis en tâche de fond : jamais de cache.
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Analytics du cours — SallyCourse',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('analytics.page');
+  return {
+    title: t('metaTitle'),
+  };
+}
 
 export default async function CourseAnalyticsPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const t = await getTranslations('analytics.page');
   const user = await requireUser();
 
   const { id } = await params;
@@ -68,9 +73,11 @@ export default async function CourseAnalyticsPage({
     revenue: s.revenue,
     views: s.views,
     fetchedAt: s.fetchedAt ? new Date(s.fetchedAt).toISOString() : null,
+    simulated: (s as { simulated?: boolean }).simulated === true,
   }));
 
   const totals = aggregateAnalytics(rows);
+  const hasSimulated = rows.some((r) => r.simulated);
 
   // Test A/B des landing pages (P87) : variantes de titre par plateforme,
   // regroupées pour l'affichage (une section par plateforme testée).
@@ -121,9 +128,9 @@ export default async function CourseAnalyticsPage({
             href={`/dashboard/courses/${id}`}
             className="text-sm text-muted hover:text-foreground"
           >
-            ← Retour au cours
+            ← {t('backToCourse')}
           </Link>
-          <h1 className="font-display text-3xl font-semibold text-foreground">Analytics</h1>
+          <h1 className="font-display text-3xl font-semibold text-foreground">{t('heading')}</h1>
           <p className="text-sm text-muted">{course.title}</p>
         </div>
         {/* Export xAPI basique (P144) — rapport de complétion par apprenant, pour clients entreprise. */}
@@ -133,24 +140,31 @@ export default async function CourseAnalyticsPage({
           className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'gap-2')}
         >
           <Download className="size-4" aria-hidden="true" />
-          Exporter xAPI
+          {t('exportXapi')}
         </a>
       </div>
 
       {rows.length === 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Aucune métrique pour l’instant</CardTitle>
+            <CardTitle>{t('noMetricsTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
             <EmptyState
-              title="Pas encore de données"
-              description="Les métriques apparaîtront ici une fois le cours publié sur une plateforme et le prochain rafraîchissement effectué."
+              title={t('emptyTitle')}
+              description={t('emptyDescription')}
             />
           </CardContent>
         </Card>
       ) : (
-        <AnalyticsDashboard rows={rows} totals={totals} />
+        <>
+          {hasSimulated && (
+            <p className="rounded-md border border-accent-400/40 bg-accent-400/10 px-3 py-2 text-xs text-foreground">
+              {t('simulatedWarning')}
+            </p>
+          )}
+          <AnalyticsDashboard rows={rows} totals={totals} />
+        </>
       )}
 
       {[...variantsByPlatform.entries()].map(([platform, variants]) => (

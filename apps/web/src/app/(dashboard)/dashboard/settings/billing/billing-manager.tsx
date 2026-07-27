@@ -16,6 +16,8 @@ import {
   useToast,
 } from '@/components/ui';
 import { cn } from '@/lib/cn';
+import { useTranslations, useFormatter } from 'next-intl';
+import { errorMessage } from '@/lib/error-message';
 
 /**
  * Réglages → Facturation (Prompt 148, conformité fiscale Maroc) : statut
@@ -52,18 +54,18 @@ interface InvoiceRow {
 }
 
 const TAX_STATUS_LABELS: Record<TaxStatus, string> = {
-  auto_entrepreneur: 'Auto-entrepreneur',
-  company: 'Société',
-  unspecified: 'Non renseigné',
+  auto_entrepreneur: 'statusAutoEntrepreneur',
+  company: 'statusCompany',
+  unspecified: 'statusUnspecified',
 };
-
-/** Formate un montant en plus petite unité (centimes) vers l'affichage devise. */
-function formatMinor(amountMinor: number, currency: 'MAD' | 'EUR'): string {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amountMinor / 100);
-}
 
 export function BillingManager() {
   const { toast } = useToast();
+  const t = useTranslations('settings.billing');
+  const tApiError = useTranslations('apiErrors');
+  const format = useFormatter();
+  const formatMinor = (amountMinor: number, currency: 'MAD' | 'EUR'): string =>
+    format.number(amountMinor / 100, { style: 'currency', currency });
   const [billing, setBilling] = React.useState<BillingState>({
     billingTaxStatus: 'unspecified',
     billingIce: '',
@@ -109,12 +111,12 @@ export function BillingManager() {
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) {
-        toast({ title: 'Enregistrement impossible', description: data?.error, variant: 'danger' });
+        toast({ title: t('toastSaveErrorTitle'), description: errorMessage(data, tApiError), variant: 'danger' });
         return;
       }
-      toast({ title: 'Réglages de facturation enregistrés', variant: 'success' });
+      toast({ title: t('toastSavedTitle'), variant: 'success' });
     } catch {
-      toast({ title: 'Erreur réseau', description: 'Serveur injoignable.', variant: 'danger' });
+      toast({ title: t('toastNetworkErrorTitle'), description: t('toastNetworkErrorDescription'), variant: 'danger' });
     } finally {
       setSaving(false);
     }
@@ -126,30 +128,28 @@ export function BillingManager() {
         <CardHeader className="gap-2">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Receipt className="size-5 text-accent" aria-hidden="true" />
-            Informations fiscales (Maroc)
+            {t('taxInfoTitle')}
           </CardTitle>
           <CardDescription>
-            Renseignez votre statut fiscal pour recevoir des factures conformes. L’ICE et l’IF
-            apparaissent sur chaque facture émise à partir de maintenant — les factures déjà émises
-            ne sont pas modifiées rétroactivement.
+            {t('taxInfoDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <fieldset disabled={loading} className="flex flex-col gap-5 disabled:opacity-50">
             <Select
-              label="Statut fiscal"
+              label={t('statusLabel')}
               value={billing.billingTaxStatus}
               onChange={(e) =>
                 setBilling((b) => ({ ...b, billingTaxStatus: e.target.value as TaxStatus }))
               }
             >
-              <option value="unspecified">Non renseigné</option>
-              <option value="auto_entrepreneur">Auto-entrepreneur</option>
-              <option value="company">Société</option>
+              <option value="unspecified">{t('statusUnspecified')}</option>
+              <option value="auto_entrepreneur">{t('statusAutoEntrepreneur')}</option>
+              <option value="company">{t('statusCompany')}</option>
             </Select>
 
             <Input
-              label="Raison sociale / nom facturé"
+              label={t('companyNameLabel')}
               value={billing.billingCompanyName}
               onChange={(e) => setBilling((b) => ({ ...b, billingCompanyName: e.target.value }))}
               maxLength={120}
@@ -157,25 +157,25 @@ export function BillingManager() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Input
-                label={`ICE${isCompany ? ' (obligatoire)' : ''}`}
+                label={`ICE${isCompany ? ` ${t('requiredSuffix')}` : ''}`}
                 value={billing.billingIce}
                 onChange={(e) => setBilling((b) => ({ ...b, billingIce: e.target.value }))}
-                placeholder="15 chiffres"
+                placeholder={t('icePlaceholder')}
                 maxLength={20}
-                hint="Identifiant Commun de l'Entreprise"
+                hint={t('iceHint')}
               />
               <Input
-                label={`IF${isCompany ? ' (obligatoire)' : ''}`}
+                label={`IF${isCompany ? ` ${t('requiredSuffix')}` : ''}`}
                 value={billing.billingIf}
                 onChange={(e) => setBilling((b) => ({ ...b, billingIf: e.target.value }))}
-                placeholder="6 à 8 chiffres"
+                placeholder={t('ifPlaceholder')}
                 maxLength={20}
-                hint="Identifiant Fiscal"
+                hint={t('ifHint')}
               />
             </div>
 
             <Input
-              label="Adresse de facturation"
+              label={t('addressLabel')}
               value={billing.billingAddress}
               onChange={(e) => setBilling((b) => ({ ...b, billingAddress: e.target.value }))}
               maxLength={300}
@@ -183,7 +183,7 @@ export function BillingManager() {
 
             <div>
               <Button loading={saving} onClick={() => void onSave()}>
-                Enregistrer
+                {t('saveButton')}
               </Button>
             </div>
           </fieldset>
@@ -195,7 +195,7 @@ export function BillingManager() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <FileText className="size-5 text-accent" aria-hidden="true" />
-              Historique des factures
+              {t('invoicesTitle')}
             </CardTitle>
             {invoices.length > 0 && (
               <a
@@ -204,29 +204,28 @@ export function BillingManager() {
                 className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }))}
               >
                 <Download className="size-4" aria-hidden="true" />
-                Export comptable (.csv)
+                {t('exportButton')}
               </a>
             )}
           </div>
           <CardDescription>
-            Une facture est émise automatiquement à chaque paiement réussi. Cliquez sur une facture
-            pour l’ouvrir au format imprimable (imprimer → PDF depuis votre navigateur).
+            {t('invoicesDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {invoices.length === 0 ? (
-            <p className="text-sm text-muted">Aucune facture pour le moment.</p>
+            <p className="text-sm text-muted">{t('emptyInvoices')}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-start text-xs uppercase tracking-wide text-muted">
-                    <th className="px-2 py-2 text-start">Facture</th>
-                    <th className="px-2 py-2 text-start">Date</th>
-                    <th className="px-2 py-2 text-start">Statut</th>
-                    <th className="px-2 py-2 text-end">HT</th>
-                    <th className="px-2 py-2 text-end">TVA</th>
-                    <th className="px-2 py-2 text-end">TTC</th>
+                    <th className="px-2 py-2 text-start">{t('colInvoice')}</th>
+                    <th className="px-2 py-2 text-start">{t('colDate')}</th>
+                    <th className="px-2 py-2 text-start">{t('colStatus')}</th>
+                    <th className="px-2 py-2 text-end">{t('colHT')}</th>
+                    <th className="px-2 py-2 text-end">{t('colTVA')}</th>
+                    <th className="px-2 py-2 text-end">{t('colTTC')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -243,10 +242,10 @@ export function BillingManager() {
                         </a>
                       </td>
                       <td className="px-2 py-2 text-muted">
-                        {new Date(inv.issuedAt).toLocaleDateString('fr-FR')}
+                        {format.dateTime(new Date(inv.issuedAt), { dateStyle: 'short' })}
                       </td>
                       <td className="px-2 py-2">
-                        <Badge variant="draft">{TAX_STATUS_LABELS[inv.taxStatus]}</Badge>
+                        <Badge variant="draft">{t(TAX_STATUS_LABELS[inv.taxStatus])}</Badge>
                       </td>
                       <td className="px-2 py-2 text-end tabular-nums">
                         {formatMinor(inv.amountHT, inv.currency)}

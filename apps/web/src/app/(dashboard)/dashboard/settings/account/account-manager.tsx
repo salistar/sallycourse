@@ -3,6 +3,8 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
+import { useTranslations } from 'next-intl';
+import { errorMessage } from '@/lib/error-message';
 import { AlertTriangle, Download, Trash2 } from 'lucide-react';
 import {
   Button,
@@ -31,6 +33,8 @@ interface AccountManagerProps {
  */
 export function AccountManager({ email }: AccountManagerProps) {
   const router = useRouter();
+  const t = useTranslations('settings.account');
+  const tApiError = useTranslations('apiErrors');
   const { toast } = useToast();
   const [exporting, setExporting] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
@@ -42,7 +46,7 @@ export function AccountManager({ email }: AccountManagerProps) {
     try {
       const res = await fetch('/api/account/export');
       if (!res.ok) {
-        toast({ variant: 'danger', title: 'Export impossible', description: 'Réessayez plus tard.' });
+        toast({ variant: 'danger', title: t('toast.exportFailedTitle'), description: t('toast.exportFailedDescription') });
         return;
       }
       const blob = await res.blob();
@@ -54,9 +58,9 @@ export function AccountManager({ email }: AccountManagerProps) {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toast({ variant: 'success', title: 'Export prêt', description: 'Le téléchargement a démarré.' });
+      toast({ variant: 'success', title: t('toast.exportReadyTitle'), description: t('toast.exportReadyDescription') });
     } catch {
-      toast({ variant: 'danger', title: 'Erreur réseau', description: 'Serveur injoignable.' });
+      toast({ variant: 'danger', title: t('toast.networkErrorTitle'), description: t('toast.networkErrorDescription') });
     } finally {
       setExporting(false);
     }
@@ -72,14 +76,14 @@ export function AccountManager({ email }: AccountManagerProps) {
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) {
-        toast({ variant: 'danger', title: 'Suppression impossible', description: data?.error });
+        toast({ variant: 'danger', title: t('toast.deleteFailedTitle'), description: errorMessage(data, tApiError) });
         return;
       }
-      toast({ variant: 'success', title: 'Compte supprimé', description: 'Toutes vos données ont été effacées.' });
+      toast({ variant: 'success', title: t('toast.accountDeletedTitle'), description: t('toast.accountDeletedDescription') });
       await signOut({ redirect: false });
       router.push('/');
     } catch {
-      toast({ variant: 'danger', title: 'Erreur réseau', description: 'Serveur injoignable.' });
+      toast({ variant: 'danger', title: t('toast.networkErrorTitle'), description: t('toast.networkErrorDescription') });
     } finally {
       setDeleting(false);
     }
@@ -93,18 +97,16 @@ export function AccountManager({ email }: AccountManagerProps) {
         <CardHeader className="gap-2">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Download className="size-5 text-accent" aria-hidden="true" />
-            Exporter mes données
+            {t('export.title')}
           </CardTitle>
           <p className="text-sm text-muted">
-            Téléchargez une archive ZIP contenant votre profil, vos cours, vos plateformes
-            connectées (métadonnées uniquement, jamais les secrets) et votre historique
-            d’utilisation.
+            {t('export.description')}
           </p>
         </CardHeader>
         <CardContent>
           <Button variant="secondary" loading={exporting} onClick={() => void handleExport()}>
             {!exporting && <Download aria-hidden="true" />}
-            Télécharger mes données (.zip)
+            {t('export.button')}
           </Button>
         </CardContent>
       </Card>
@@ -113,17 +115,16 @@ export function AccountManager({ email }: AccountManagerProps) {
         <CardHeader className="gap-2">
           <CardTitle className="flex items-center gap-2 text-lg text-danger">
             <Trash2 className="size-5" aria-hidden="true" />
-            Supprimer mon compte
+            {t('delete.title')}
           </CardTitle>
           <p className="text-sm text-muted">
-            Suppression définitive et immédiate de votre compte, de tous vos cours, de leurs
-            médias et de vos connexions plateformes. Cette action est irréversible.
+            {t('delete.description')}
           </p>
         </CardHeader>
         <CardContent>
           <Button variant="danger" onClick={() => setDeleteOpen(true)}>
             <Trash2 aria-hidden="true" />
-            Supprimer définitivement mon compte
+            {t('delete.button')}
           </Button>
         </CardContent>
       </Card>
@@ -139,16 +140,14 @@ export function AccountManager({ email }: AccountManagerProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-danger">
               <AlertTriangle className="size-5" aria-hidden="true" />
-              Confirmer la suppression
+              {t('dialog.title')}
             </DialogTitle>
             <DialogDescription>
-              Cette action supprime définitivement votre compte, vos cours, vos médias et vos
-              connexions plateformes. Aucune restauration n’est possible. Pour confirmer, retapez
-              votre email : <span className="font-medium text-foreground">{email}</span>
+              {t('dialog.description')} <span className="font-medium text-foreground">{email}</span>
             </DialogDescription>
           </DialogHeader>
           <Input
-            label="Confirmez votre email"
+            label={t('dialog.emailLabel')}
             value={confirmValue}
             onChange={(e) => setConfirmValue(e.target.value)}
             placeholder={email}
@@ -156,7 +155,7 @@ export function AccountManager({ email }: AccountManagerProps) {
           />
           <DialogFooter>
             <Button variant="secondary" onClick={() => setDeleteOpen(false)} disabled={deleting}>
-              Annuler
+              {t('dialog.cancel')}
             </Button>
             <Button
               variant="danger"
@@ -164,7 +163,7 @@ export function AccountManager({ email }: AccountManagerProps) {
               loading={deleting}
               onClick={() => void handleDelete()}
             >
-              Supprimer définitivement
+              {t('dialog.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { connectDb, DeployPreset } from '@sallycourse/db';
+import { getTranslations } from 'next-intl/server';
 import { requireUser } from '@/lib/session';
 import { DeployPresetsManager, type PresetSummary } from './deploy-presets-manager';
 
@@ -9,16 +10,20 @@ import { DeployPresetsManager, type PresetSummary } from './deploy-presets-manag
  * clic sur n'importe quel cours prêt.
  */
 
-export const metadata: Metadata = {
-  title: 'Presets de déploiement — SallyCourse',
-  description: 'Enregistrez une configuration de déploiement et appliquez-la en un clic.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('settings.deployPresetsPage');
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  };
+}
 
 // Données par utilisateur : rendu à la requête.
 export const dynamic = 'force-dynamic';
 
 export default async function DeployPresetsSettingsPage() {
   const user = await requireUser();
+  const t = await getTranslations('settings.deployPresetsPage');
 
   await connectDb();
 
@@ -52,14 +57,9 @@ export default async function DeployPresetsSettingsPage() {
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-2">
         <h1 className="font-display text-3xl font-semibold text-foreground">
-          Mes presets de déploiement
+          {t('heading')}
         </h1>
-        <p className="max-w-2xl text-muted">
-          Enregistrez une combinaison de plateformes, de modes et de comptes, puis appliquez-la
-          en un clic à n&apos;importe quel autre cours prêt. Partagez un preset publiquement pour
-          que d&apos;autres utilisateurs en profitent (jamais vos identifiants, seulement la
-          configuration).
-        </p>
+        <p className="max-w-2xl text-muted">{t('intro')}</p>
       </header>
 
       <DeployPresetsManager

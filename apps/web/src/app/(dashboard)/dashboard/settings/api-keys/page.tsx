@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { connectDb, ApiKey, Webhook } from '@sallycourse/db';
 import { requireUser } from '@/lib/session';
 import { ApiKeysManager, type ApiKeyView, type WebhookView } from './api-keys-manager';
@@ -9,14 +10,18 @@ import { ApiKeysManager, type ApiKeyView, type WebhookView } from './api-keys-ma
  * la clé en clair ni le secret de webhook (renvoyés une seule fois à la création).
  */
 
-export const metadata: Metadata = {
-  title: 'API & Webhooks — SallyCourse',
-  description: 'Gérez vos clés API et vos webhooks pour intégrer SallyCourse.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('settings.apiKeysPage');
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  };
+}
 
 export const dynamic = 'force-dynamic';
 
 export default async function ApiKeysSettingsPage() {
+  const t = await getTranslations('settings.apiKeysPage');
   const user = await requireUser();
 
   await connectDb();
@@ -49,12 +54,8 @@ export default async function ApiKeysSettingsPage() {
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-2">
-        <h1 className="font-display text-3xl font-semibold text-foreground">API &amp; Webhooks</h1>
-        <p className="max-w-2xl text-muted">
-          Intégrez SallyCourse à vos outils : créez des clés pour l&apos;API publique et abonnez des
-          webhooks aux événements de vos cours. Les clés et secrets ne sont affichés qu&apos;une
-          seule fois à leur création.
-        </p>
+        <h1 className="font-display text-3xl font-semibold text-foreground">{t('heading')}</h1>
+        <p className="max-w-2xl text-muted">{t('intro')}</p>
       </header>
 
       <ApiKeysManager initialKeys={initialKeys} initialWebhooks={initialWebhooks} />
