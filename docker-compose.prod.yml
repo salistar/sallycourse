@@ -59,7 +59,7 @@ services:
         limits:
           memory: 6g
           cpus: "2"
-    networks: [internal]
+    networks: [internal, edge]
 
   piper:
     restart: unless-stopped
