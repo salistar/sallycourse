@@ -54,6 +54,13 @@ export interface ContentJobData {
    * ajustement (régénération standard).
    */
   instruction?: string;
+  /**
+   * Provider LLM à forcer pour CETTE régénération (« éditer avec l'IA »,
+   * 2026-07-26) — ex. l'auteur choisit un modèle plus puissant pour une leçon
+   * précise. Absent → provider du cours (course.llmProvider). Doit être un id
+   * de LLM_PROVIDER_CATALOG.
+   */
+  llmProviderId?: string;
 }
 
 export interface TtsJobData {
@@ -91,12 +98,35 @@ export interface SubtitleJobData {
 export interface PackagingJobData {
   courseId: string;
   /**
-   * Mode de packaging (Prompt 142) : 'zip' (défaut) = pack Udemy historique
-   * (vidéos/articles/quiz CSV/PDF solutions/marketing). 'portable' = mini-site
-   * HTML/CSS/JS autonome utilisable en file:// (clé USB, hors ligne) — mêmes
-   * assets copiés localement, quiz en JS pur, progression en localStorage.
+   * Mode de packaging : 'zip' (défaut) = pack Udemy historique
+   * (vidéos/articles/quiz CSV/PDF solutions/marketing). 'portable' (Prompt 142)
+   * = mini-site HTML/CSS/JS autonome utilisable en file:// (clé USB, hors ligne)
+   * — mêmes assets copiés localement, quiz en JS pur, progression en
+   * localStorage. 'manual-guide' (Prompt 176) = artefact d'aide au téléversement
+   * MANUEL sur une plateforme (guide HTML interactif + PDF + articles/quiz +
+   * blocs copier-coller), destiné aux plateformes en mode manuel. 'archive'
+   * (Prompt 182) = archive « maître » anti-lock-in : toutes les sources JSON
+   * (course/sections/lessons AVEC script/quizzes) + TOUS les médias sous
+   * media/, documentée et RE-IMPORTABLE (cf. media/master-archive.ts +
+   * lib/import-archive.ts côté web). 'scorm' (Prompt 42) = paquet SCORM 1.2
+   * (imsmanifest + ressources HTML/vidéo) importable dans un LMS tiers
+   * (Moodle, TalentLMS…) — cf. deploy/scorm-export.ts.
    */
-  mode?: 'zip' | 'portable';
+  mode?: 'zip' | 'portable' | 'manual-guide' | 'archive' | 'scorm';
+  /**
+   * Plateforme cible du pack (Prompt 176, mode='manual-guide' uniquement) —
+   * détermine le format d'import (Udemy : CSV bulk natif ; autres : générique)
+   * et le libellé du guide. Ignoré pour les autres modes. Champ ADDITIF.
+   */
+  platform?: string;
+  /**
+   * Reprise (Prompt 179, mode='manual-guide' uniquement) : point de reprise d'un
+   * déploiement AUTO/ASSISTÉ interrompu (captcha, sélecteur cassé). Présent → le
+   * guide ne couvre que les étapes RESTANTES à partir de ce checkpoint, avec le
+   * déjà-fait indiqué, et le ZIP porte un nom distinct (…-resume.zip) pour ne pas
+   * écraser le guide complet. Absent → guide complet (P176). Champ ADDITIF.
+   */
+  resume?: { lessonIndex: number; step: string };
 }
 
 export interface DeploymentJobData {

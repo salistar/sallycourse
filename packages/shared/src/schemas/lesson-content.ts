@@ -103,6 +103,47 @@ export const slideSchema = z.object({
       }),
     )
     .optional(),
+  /**
+   * Image SDXL PAR SLIDE (Lot 3, plan 2026-07-20) — additif, distincte de
+   * l'illustration de leçon existante (une seule, réutilisée par la slide
+   * "title"). Champs optionnels : une slide sans ces champs se comporte
+   * EXACTEMENT comme avant (motif géométrique par défaut).
+   *
+   * ⚠️ CRITIQUE (zod strip) : `PATCH /api/lessons/[id]` valide le script
+   * entrant avec CE schéma avant de le persister — tout champ de slide non
+   * déclaré ici est SILENCIEUSEMENT effacé à la sauvegarde de l'éditeur de
+   * script. Ces 5 champs doivent donc vivre ICI, jamais seulement côté
+   * worker/UI.
+   */
+  imageKey: z.string().min(1).optional(),
+  /** Prompt éditable par l'auteur (sinon dérivé automatiquement du titre + puces). */
+  imagePrompt: z.string().min(1).optional(),
+  /** Seed SDXL (reproductibilité) — dérivé de `${lessonId}:${index}` si absent. */
+  imageSeed: z.number().int().optional(),
+  /** 'generated' (SDXL) ou 'uploaded' (remplacement manuel par l'auteur). */
+  imageSource: z.enum(['generated', 'uploaded']).optional(),
+  /** Statut de (re)génération — permet au client de suivre une régénération SDXL asynchrone. */
+  imageStatus: z.enum(['idle', 'pending', 'ready', 'failed']).optional(),
+  /**
+   * Moteur ayant produit l'image ACTUELLE de cette slide (audit qualité
+   * modèles 2026-07-22, additif) : posé lors d'une régénération explicite via
+   * le bouton « essayer l'autre moteur ». Absent = 'sdxl' (défaut historique,
+   * comportement inchangé pour toute slide générée avant cet ajout).
+   */
+  imageEngine: z.enum(['sdxl', 'zimage']).optional(),
+  /**
+   * Audio manuel PAR SLIDE (Lot 4, plan 2026-07-20) — additif, même logique
+   * de zod strip que l'image (ci-dessus) : ces champs doivent vivre ICI.
+   * 'tts' (par défaut implicite, absent = comportement inchangé) ou 'manual'
+   * (l'auteur a enregistré/uploadé sa propre narration pour cette slide —
+   * `tts-generation` copie alors `manualAudioKey` au lieu de resynthétiser,
+   * l'enregistrement survit donc à toute régénération de la leçon).
+   */
+  audioSource: z.enum(['tts', 'manual']).optional(),
+  /** Clé S3 du mp3 normalisé (loudnorm -16 LUFS, 48 kHz) issu de l'enregistrement/upload manuel. */
+  manualAudioKey: z.string().min(1).optional(),
+  /** Statut de la prise manuelle — permet au client de suivre la normalisation asynchrone. */
+  audioStatus: z.enum(['idle', 'pending', 'ready', 'failed']).optional(),
 });
 export type Slide = z.infer<typeof slideSchema>;
 
@@ -395,6 +436,20 @@ export const courseResourcesContentSchema = z.object({
   furtherResources: z.array(furtherResourceSchema).min(3).max(20),
 });
 export type CourseResourcesContent = z.infer<typeof courseResourcesContentSchema>;
+
+// ── Flashcards & répétition espacée (Prompt 203) ────────────────────
+/** Une flashcard : recto (question/concept) → verso (réponse/définition). */
+export const flashcardSchema = z.object({
+  front: z.string().min(1).max(300),
+  back: z.string().min(1).max(600),
+});
+export type Flashcard = z.infer<typeof flashcardSchema>;
+
+/** Jeu de flashcards généré pour un cours (30-80 recommandé). */
+export const courseFlashcardsSchema = z.object({
+  cards: z.array(flashcardSchema).min(10).max(120),
+});
+export type CourseFlashcards = z.infer<typeof courseFlashcardsSchema>;
 
 // ── Score de qualité pédagogique (Prompt 94) ────────────────────────
 /** Un axe de la rubrique (0 à RUBRIC_MAX_PER_CRITERION points, cf. constants.ts). */

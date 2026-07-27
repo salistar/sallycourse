@@ -3,8 +3,11 @@
 // mets-les à jour ici quand un provider change sa grille. Aucune dépendance :
 // ce module est importé côté worker (calcul) ET côté web (dashboard marges).
 
-/** Type de coût enregistré (aligné sur CostRecord.kind côté db). */
-export type CostKind = 'claude' | 'tts' | 'render' | 'image';
+/**
+ * Type de coût enregistré (aligné sur CostRecord.kind côté db).
+ * 'transcribe' (Whisper) et 'avatar' ajoutés par l'audit coûts 2026-07-26.
+ */
+export type CostKind = 'claude' | 'tts' | 'render' | 'image' | 'transcribe' | 'avatar';
 
 /**
  * Tarifs Claude par modèle, en USD par MILLION de tokens (in / out).
@@ -22,11 +25,65 @@ export const CLAUDE_PRICING_USD_PER_MTOK: Record<string, { input: number; output
 export const CLAUDE_FALLBACK_MODEL = 'claude-sonnet-5';
 
 /**
+ * Tarifs des LLM CLOUD OpenAI-compatibles (Gemini, DeepSeek, Qwen, Kimi, Grok,
+ * GLM, MiniMax, Cloudflare Workers AI), en USD par MILLION de tokens (in/out).
+ * Clés = identifiants de MODÈLE réellement facturés (alignés sur le catalogue
+ * worker cloud-llm.ts). Les offres à quota gratuit sont à 0 — l'auteur choisit
+ * son provider à la création du cours, l'ordre par défaut privilégie le gratuit.
+ * Ordres de grandeur des grilles publiques, 2026-07 — éditable.
+ */
+export const CLOUD_LLM_PRICING_USD_PER_MTOK: Record<string, { input: number; output: number }> = {
+  // Gratuits (quota offert) — coût comptabilisé 0.
+  'gemini-flash-latest': { input: 0, output: 0 },
+  'gemini-2.5-flash': { input: 0, output: 0 },
+  'glm-4.5-flash': { input: 0, output: 0 },
+  'glm-4-flash': { input: 0, output: 0 },
+  'glm-4.6': { input: 0.6, output: 2.2 },
+  // Très bon marché.
+  'deepseek-chat': { input: 0.27, output: 1.1 },
+  'grok-3-mini': { input: 0.3, output: 0.5 },
+  'qwen-plus': { input: 0.4, output: 1.2 },
+  'qwen-flash': { input: 0.05, output: 0.4 },
+  'qwen-turbo': { input: 0.05, output: 0.2 },
+  'moonshot-v1-8k': { input: 0.5, output: 2.0 },
+  'kimi-k2-0711-preview': { input: 0.6, output: 2.5 },
+  'MiniMax-M2': { input: 0.3, output: 1.2 },
+  'MiniMax-Text-01': { input: 0.2, output: 1.1 },
+  '@cf/meta/llama-3.3-70b-instruct-fp8-fast': { input: 0.3, output: 0.6 },
+};
+
+/**
  * Tarif ElevenLabs : facturation au caractère synthétisé.
  * Réf. plan Creator ≈ 22 USD / 100 000 crédits (1 crédit ≈ 1 caractère),
  * soit 0,00022 USD/caractère. 2026-07 — ajuster selon le plan réel.
  */
 export const TTS_USD_PER_CHAR = 0.00022;
+
+/**
+ * Estimation GPU de la voix premium Chatterbox sur Modal (L4 ≈ 0,80 USD/h,
+ * synthèse ~temps réel + un peu). On modélise ~0,04 s de GPU par caractère,
+ * soit ≈ 0,0000089 USD/caractère — bien moins que le forfait ElevenLabs, mais
+ * non nul (contrairement aux voix locales/Edge). 2026-07 — éditable.
+ */
+export const TTS_MODAL_USD_PER_CHAR = (0.8 / 3600) * 0.04;
+
+/** Providers TTS GRATUITS (voix neuronales Edge, Piper/Kokoro locaux, silence/mock). */
+export const FREE_TTS_PROVIDERS: readonly string[] = ['edge', 'piper', 'kokoro', 'silence', 'mock', 'cache'];
+
+/**
+ * Coût USD d'une synthèse vocale selon le PROVIDER réellement utilisé :
+ *  - providers gratuits (Edge/Piper/Kokoro/silence) → 0 ;
+ *  - Modal GPU : Chatterbox ('modal') ET Qwen3-TTS ('qwen3' — correctif audit
+ *    coûts 2026-07-26 : qwen3 était facturé par erreur au tarif ElevenLabs,
+ *    ~25× son coût GPU réel) → estimation GPU au caractère ;
+ *  - sinon (ElevenLabs/OpenAI) → tarif au caractère ElevenLabs.
+ */
+export function ttsCostUsdForProvider(provider: string | undefined, chars: number): number {
+  const c = Math.max(0, chars);
+  if (provider && FREE_TTS_PROVIDERS.includes(provider)) return 0;
+  if (provider === 'modal' || provider === 'qwen3') return c * TTS_MODAL_USD_PER_CHAR;
+  return c * TTS_USD_PER_CHAR;
+}
 
 /**
  * Estimation compute du rendu vidéo (ffmpeg) : coût machine par seconde de
@@ -61,9 +118,17 @@ export const COURSE_COST_ALERT_USD = 2;
 
 // ── Fonctions de calcul ─────────────────────────────────────────────
 
-/** Coût USD d'un appel Claude, à partir des tokens in/out et du modèle. */
+/**
+ * Coût USD d'un appel LLM, à partir des tokens in/out et du modèle. Couvre
+ * Claude (SDK) ET les modèles cloud OpenAI-compatibles (Gemini/DeepSeek/Qwen…) :
+ * un modèle cloud gratuit revient à 0, un modèle inconnu retombe sur la grille
+ * Claude par défaut (majore plutôt que sous-estimer).
+ */
 export function claudeCostUsd(model: string, tokensIn: number, tokensOut: number): number {
-  const price = CLAUDE_PRICING_USD_PER_MTOK[model] ?? CLAUDE_PRICING_USD_PER_MTOK[CLAUDE_FALLBACK_MODEL]!;
+  const price =
+    CLAUDE_PRICING_USD_PER_MTOK[model] ??
+    CLOUD_LLM_PRICING_USD_PER_MTOK[model] ??
+    CLAUDE_PRICING_USD_PER_MTOK[CLAUDE_FALLBACK_MODEL]!;
   return (tokensIn * price.input + tokensOut * price.output) / 1_000_000;
 }
 
@@ -80,6 +145,28 @@ export function renderCostUsd(seconds: number): number {
 /** Coût USD d'une génération d'image (par défaut : 1 image). */
 export function imageCostUsd(units = 1): number {
   return Math.max(0, units) * IMAGE_USD_PER_UNIT;
+}
+
+/**
+ * Transcription Whisper (Modal GPU, audit coûts 2026-07-26) : ~10× temps réel
+ * sur L4 (0,80 USD/h) → ~0,000022 USD par seconde d'audio transcrit.
+ */
+export const TRANSCRIBE_USD_PER_AUDIO_SECOND = (0.8 / 3600) / 10;
+
+/** Coût USD d'une transcription, à partir de la durée audio en secondes. */
+export function transcribeCostUsd(audioSeconds: number): number {
+  return Math.max(0, audioSeconds) * TRANSCRIBE_USD_PER_AUDIO_SECOND;
+}
+
+/**
+ * Segment avatar Ditto (Modal GPU A10G ≈ 1,10 USD/h, génération ≈ 4× temps
+ * réel, audit coûts 2026-07-26) → ~0,00122 USD par seconde de vidéo produite.
+ */
+export const AVATAR_USD_PER_VIDEO_SECOND = (1.1 / 3600) * 4;
+
+/** Coût USD d'un segment avatar, à partir de sa durée en secondes. */
+export function avatarCostUsd(videoSeconds: number): number {
+  return Math.max(0, videoSeconds) * AVATAR_USD_PER_VIDEO_SECOND;
 }
 
 /**
