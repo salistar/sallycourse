@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import { connectDb, AgencyClient, PlatformCredential } from '@sallycourse/db';
@@ -28,20 +29,20 @@ export async function PATCH(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Client introuvable.' }, { status: 404 });
+    return apiError('clientNotFound');
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Données invalides.', details: parsed.error.flatten().fieldErrors },
+      { error: 'Données invalides.', code: 'invalidData', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }
@@ -49,14 +50,18 @@ export async function PATCH(
   await connectDb();
 
   if (parsed.data.platformCredentials) {
+    // Ownership : les credentials référencés doivent appartenir à l'agence
+    // (userId), sinon un client pourrait pointer l'ObjectId d'un credential
+    // d'un autre tenant (faille cross-tenant de publication). Cf. route POST.
     const found = await PlatformCredential.find({
       _id: { $in: parsed.data.platformCredentials },
+      userId: user.id,
     })
       .select('_id')
       .lean();
     if (found.length !== parsed.data.platformCredentials.length) {
       return NextResponse.json(
-        { error: 'Un ou plusieurs comptes plateforme référencés sont introuvables.' },
+        { error: 'Un ou plusieurs comptes plateforme référencés sont introuvables.', code: 'platformAccountsNotFound' },
         { status: 404 },
       );
     }
@@ -69,7 +74,7 @@ export async function PATCH(
   ).lean();
 
   if (!updated) {
-    return NextResponse.json({ error: 'Client introuvable.' }, { status: 404 });
+    return apiError('clientNotFound');
   }
 
   return NextResponse.json({
@@ -93,14 +98,14 @@ export async function DELETE(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Client introuvable.' }, { status: 404 });
+    return apiError('clientNotFound');
   }
 
   await connectDb();
 
   const deleted = await AgencyClient.findOneAndDelete({ _id: id, agencyUserId: user.id });
   if (!deleted) {
-    return NextResponse.json({ error: 'Client introuvable.' }, { status: 404 });
+    return apiError('clientNotFound');
   }
 
   return NextResponse.json({ ok: true });

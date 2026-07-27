@@ -1,4 +1,5 @@
 import { isValidObjectId } from 'mongoose';
+import { apiError } from '@/lib/api-error';
 import { connectDb, Invoice, User as UserModel } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
 import { renderInvoiceHtml } from '@/lib/payments/invoice';
@@ -21,14 +22,14 @@ export async function GET(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return Response.json({ error: 'Facture introuvable.' }, { status: 404 });
+    return apiError('invoiceNotFound');
   }
 
   await connectDb();
 
   const invoice = await Invoice.findById(id).lean();
   if (!invoice || String(invoice.userId) !== user.id) {
-    return Response.json({ error: 'Facture introuvable.' }, { status: 404 });
+    return apiError('invoiceNotFound');
   }
 
   const owner = await UserModel.findById(invoice.userId).select('name email billingCompanyName').lean();

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import {
@@ -6,6 +7,7 @@ import {
   QUEUES,
   checkApprovalGate,
   defaultJobOptions,
+  initManualChecklist,
   makeJobId,
   resolveAgencyDeployCredentials,
 } from '@sallycourse/shared';
@@ -39,6 +41,12 @@ const deploySchema = z.object({
   platforms: z.array(z.string()).min(1).max(9),
   mode: z.enum(DEPLOYMENT_MODES as unknown as [string, ...string[]]).default('auto'),
   /**
+   * Mode PAR plateforme (P175) : { [platform]: mode }. Optionnel et
+   * rétrocompatible — plateforme absente → repli sur le champ `mode` global.
+   * Le mode effectif reste rabattu sur les capacités de l'adapter plus bas.
+   */
+  modes: z.record(z.string(), z.enum(DEPLOYMENT_MODES as unknown as [string, ...string[]])).optional(),
+  /**
    * Compte à utiliser par plateforme (multi-comptes, P49) : { [platform]: credentialId }.
    * Optionnel — plateforme absente → le worker retient le compte le plus récent.
    */
@@ -60,20 +68,20 @@ export async function POST(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = deploySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Données invalides.', details: parsed.error.flatten().fieldErrors },
+      { error: 'Données invalides.', code: 'invalidData', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }
@@ -83,7 +91,7 @@ export async function POST(
   const unknown = requested.filter((p) => !isKnownPlatform(p));
   if (unknown.length > 0) {
     return NextResponse.json(
-      { error: `Plateforme(s) inconnue(s) : ${unknown.join(', ')}.` },
+      { error: `Plateforme(s) inconnue(s) : ${unknown.join(', ')}.`, code: 'deployUnknownPlatforms', params: { platforms: unknown.join(', ') } },
       { status: 400 },
     );
   }
@@ -100,6 +108,7 @@ export async function POST(
             ? `Le plan ${gate.plan} ne déploie qu'une plateforme à la fois. Passez à un plan supérieur pour déployer partout.`
             : `Le plan ${gate.plan} limite le déploiement à ${gate.limit} plateforme(s) par lot.`,
         code: 'deploy_plan_limit',
+        params: { plan: gate.plan, limit: gate.limit },
       },
       { status: 403 },
     );
@@ -111,7 +120,7 @@ export async function POST(
     .select('_id status aiDisclosureAccepted qualityScore workspaceId approvedBy agencyClientId')
     .lean();
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   // Mode agence (P150) : les credentials autorisés pour ce cours sont ceux du
@@ -165,7 +174,7 @@ export async function POST(
   // Le cours doit être abouti pour être déployé.
   if (course.status !== 'ready' && course.status !== 'published') {
     return NextResponse.json(
-      { error: 'Le cours doit être généré (prêt) avant tout déploiement.' },
+      { error: 'Le cours doit être généré (prêt) avant tout déploiement.', code: 'courseNotReadyForDeploy' },
       { status: 409 },
     );
   }
@@ -197,6 +206,7 @@ export async function POST(
           `${QUALITY_SCORE.MIN_DEPLOY_THRESHOLD}/100. Améliorez le cours avant publication, ` +
           `ou confirmez explicitement pour publier malgré tout.`,
         code: 'quality_score_below_threshold',
+        params: { score, threshold: QUALITY_SCORE.MIN_DEPLOY_THRESHOLD },
         score,
         threshold: QUALITY_SCORE.MIN_DEPLOY_THRESHOLD,
       },
@@ -215,14 +225,14 @@ export async function POST(
     if (!credentialId) continue;
     if (!isValidObjectId(credentialId)) {
       return NextResponse.json(
-        { error: `Compte invalide pour ${platform}.` },
+        { error: `Compte invalide pour ${platform}.`, code: 'deployInvalidCredential', params: { platform } },
         { status: 400 },
       );
     }
     if (agencyAllowedCredentialIds !== null) {
       if (!agencyAllowedCredentialIds.includes(credentialId)) {
         return NextResponse.json(
-          { error: `Compte introuvable pour ${platform} (hors périmètre du client).` },
+          { error: `Compte introuvable pour ${platform} (hors périmètre du client).`, code: 'deployCredentialNotFoundAgency', params: { platform } },
           { status: 404 },
         );
       }
@@ -236,7 +246,7 @@ export async function POST(
         .lean();
       if (!cred) {
         return NextResponse.json(
-          { error: `Compte introuvable pour ${platform}.` },
+          { error: `Compte introuvable pour ${platform}.`, code: 'deployCredentialNotFound', params: { platform } },
           { status: 404 },
         );
       }
@@ -247,16 +257,60 @@ export async function POST(
   const queue = getDeploymentQueue();
   const enqueued: { platform: string; mode: string }[] = [];
 
+  const modesByPlatform = parsed.data.modes ?? {};
   for (const platform of requested) {
+    // Mode demandé : par plateforme (P175) si fourni, sinon repli global.
+    const requestedMode = modesByPlatform[platform] ?? parsed.data.mode;
     // Mode effectif : rabattu sur un mode supporté par l'adapter.
     const caps = getCapabilities(platform);
-    const mode = caps.modes.includes(parsed.data.mode as never)
-      ? parsed.data.mode
+    const mode = caps.modes.includes(requestedMode as never)
+      ? requestedMode
       : (caps.modes[0] ?? 'auto');
+
+    const chosenCredentialId = selectedByPlatform[platform];
+
+    // ── Mode MANUEL (P178) : l'auteur publie lui-même (aucune automatisation
+    // navigateur). On matérialise le Deployment avec une checklist initialisée
+    // (status 'running' = publication en cours côté auteur) et on N'ENFILE AUCUN
+    // job. La bascule en 'published' se fait via la route .../status quand la
+    // checklist est complète et l'URL fournie. La checklist existante (cases déjà
+    // cochées) est préservée sur relance ; on ne l'initialise qu'à l'insertion ou
+    // si elle est absente (déploiement issu d'un autre mode).
+    if (mode === 'manual') {
+      const existing = await Deployment.findOne({ courseId: id, platform })
+        .select('checklist')
+        .lean();
+      const checklist =
+        existing?.checklist && existing.checklist.length > 0
+          ? existing.checklist
+          : initManualChecklist(platform);
+      await Deployment.findOneAndUpdate(
+        { courseId: id, platform },
+        {
+          $set: {
+            status: 'running',
+            mode,
+            checklist,
+            ...(chosenCredentialId ? { credentialId: chosenCredentialId } : {}),
+          },
+          $setOnInsert: {
+            courseId: id,
+            userId: user.id,
+            platform,
+            checkpoint: { lessonIndex: 0, step: '' },
+            logs: [],
+          },
+        },
+        { upsert: true, new: true },
+      );
+      // jobId déterministe libéré au cas où un déploiement auto/assisté traînait.
+      await queue.remove(makeJobId(id, QUEUES.deployment, platform)).catch(() => undefined);
+      enqueued.push({ platform, mode });
+      continue;
+    }
 
     // Pré-création/mise à jour du Deployment (affichage immédiat côté client).
     // On mémorise le compte retenu (P49) pour que les relances le réutilisent.
-    const chosenCredentialId = selectedByPlatform[platform];
     await Deployment.findOneAndUpdate(
       { courseId: id, platform },
       {
@@ -305,7 +359,7 @@ export async function POST(
     targetId: id,
     ip: extractClientIp(request),
     userAgent: request.headers.get('user-agent') ?? undefined,
-    metadata: { platforms: requested, mode: parsed.data.mode },
+    metadata: { platforms: requested, mode: parsed.data.mode, modes: enqueued },
   });
 
   return NextResponse.json({ courseId: id, deployments: enqueued }, { status: 202 });

@@ -24,12 +24,12 @@ export async function POST(
 
   const access = await requireCourseAccess(id, user.id, 'approve_deploy', 'title');
   if (!access) {
-    return NextResponse.json({ error: 'Cours introuvable ou action non autorisée.' }, { status: 404 });
+    return NextResponse.json({ error: 'Cours introuvable ou action non autorisée.', code: 'courseNotFoundOrUnauthorized' }, { status: 404 });
   }
 
   if (!access.course.workspaceId) {
     return NextResponse.json(
-      { error: "Ce cours n'appartient à aucune équipe — aucune approbation requise." },
+      { error: "Ce cours n'appartient à aucune équipe — aucune approbation requise.", code: 'courseHasNoTeamNoApproval' },
       { status: 409 },
     );
   }

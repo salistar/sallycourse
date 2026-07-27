@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import {
@@ -49,20 +50,20 @@ export async function POST(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = derivePayloadSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Paramètres de déclinaison invalides.', details: parsed.error.flatten() },
+      { error: 'Paramètres de déclinaison invalides.', code: 'invalidVariantParameters', details: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -72,14 +73,14 @@ export async function POST(
   // Ownership : 404 (pas 403) pour ne pas révéler les cours des autres.
   const source = await CourseModel.findOne({ _id: id, userId: user.id }).lean();
   if (!source) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   // On ne décline qu'un cours dont le plan est validé (outline présent).
   const sourceOutline = outlineSchema.safeParse(source.outline);
   if (!sourceOutline.success) {
     return NextResponse.json(
-      { error: 'Ce cours n’a pas encore de plan validé à décliner.' },
+      { error: 'Ce cours n’a pas encore de plan validé à décliner.', code: 'noValidatedPlanToVary' },
       { status: 409 },
     );
   }
@@ -90,7 +91,7 @@ export async function POST(
   // La cible doit différer de la source sur au moins un axe.
   if (targetLocale === source.locale && targetDifficulty === source.difficulty) {
     return NextResponse.json(
-      { error: 'La déclinaison doit changer la langue ou le niveau de difficulté.' },
+      { error: 'La déclinaison doit changer la langue ou le niveau de difficulté.', code: 'variantMustChangeLanguageOrLevel' },
       { status: 400 },
     );
   }
@@ -99,11 +100,11 @@ export async function POST(
   const reservation = await checkAndReserveCourseQuota(user.id!);
   if (!reservation.ok) {
     if (reservation.reason === 'user_not_found') {
-      return NextResponse.json({ error: 'Utilisateur introuvable.' }, { status: 404 });
+      return apiError('userNotFound');
     }
     return NextResponse.json(
       {
-        error: `Quota mensuel atteint (${reservation.limit} cours/mois du plan ${reservation.plan}).`,
+        error: `Quota mensuel atteint (${reservation.limit} cours/mois du plan ${reservation.plan}).`, code: 'deriveMonthlyQuotaReached', params: { limit: reservation.limit, plan: reservation.plan },
         plan: reservation.plan,
         limit: reservation.limit,
       },
@@ -133,7 +134,7 @@ export async function POST(
     });
   } catch {
     await releaseQuota(user.id!);
-    return NextResponse.json({ error: 'Création de la déclinaison impossible.' }, { status: 500 });
+    return NextResponse.json({ error: 'Création de la déclinaison impossible.', code: 'variantCreationFailed' }, { status: 500 });
   }
 
   const derivedId = derived._id.toString();
@@ -154,7 +155,7 @@ export async function POST(
       () => undefined,
     );
     return NextResponse.json(
-      { error: 'Impossible de lancer la déclinaison, réessayez plus tard.' },
+      { error: 'Impossible de lancer la déclinaison, réessayez plus tard.', code: 'variantLaunchFailed' },
       { status: 503 },
     );
   }

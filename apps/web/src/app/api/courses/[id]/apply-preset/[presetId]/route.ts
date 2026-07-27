@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { QUEUES, defaultJobOptions, makeJobId } from '@sallycourse/shared';
 import {
@@ -30,7 +31,7 @@ export async function POST(
 
   const { id, presetId } = await params;
   if (!isValidObjectId(id) || !isValidObjectId(presetId)) {
-    return NextResponse.json({ error: 'Identifiant invalide.' }, { status: 404 });
+    return NextResponse.json({ error: 'Identifiant invalide.', code: 'invalidId' }, { status: 404 });
   }
 
   await connectDb();
@@ -39,11 +40,11 @@ export async function POST(
     .select('_id status')
     .lean();
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
   if (course.status !== 'ready' && course.status !== 'published') {
     return NextResponse.json(
-      { error: 'Le cours doit être généré (prêt) avant tout déploiement.' },
+      { error: 'Le cours doit être généré (prêt) avant tout déploiement.', code: 'courseNotReadyForDeploy' },
       { status: 409 },
     );
   }
@@ -54,7 +55,7 @@ export async function POST(
     $or: [{ userId: user.id }, { isPublic: true }],
   }).lean();
   if (!preset) {
-    return NextResponse.json({ error: 'Preset introuvable.' }, { status: 404 });
+    return apiError('presetNotFound');
   }
 
   // Comptes connectés de l'utilisateur COURANT (résolution accountLabel → id).
@@ -77,7 +78,7 @@ export async function POST(
 
   if (jobs.length === 0) {
     return NextResponse.json(
-      { error: 'Aucune plateforme applicable dans ce preset.', skipped },
+      { error: 'Aucune plateforme applicable dans ce preset.', code: 'noApplicablePlatformInPreset', skipped },
       { status: 400 },
     );
   }

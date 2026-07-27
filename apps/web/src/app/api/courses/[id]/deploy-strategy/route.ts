@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { getConfig } from '@sallycourse/shared';
 import { Course as CourseModel, connectDb } from '@sallycourse/db';
@@ -140,7 +141,7 @@ export async function POST(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   await connectDb();
@@ -149,7 +150,7 @@ export async function POST(
     .select('_id title difficulty locale outline')
     .lean();
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   const description = (course.outline as { description?: string } | null | undefined)?.description ?? '';

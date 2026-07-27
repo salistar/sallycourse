@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { QUEUES, defaultJobOptions, makeJobId, priorityForPlan } from '@sallycourse/shared';
 import {
@@ -28,20 +29,20 @@ export async function POST(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = approveOutlinePayloadSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Plan invalide.', details: parsed.error.flatten() },
+      { error: 'Plan invalide.', code: 'invalidPlan2', details: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -50,13 +51,13 @@ export async function POST(
 
   const course = await CourseModel.findOne({ _id: id, userId: user.id });
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   // Le plan n'est validable que pendant la revue (évite les doubles soumissions).
   if (course.status !== 'outline-review') {
     return NextResponse.json(
-      { error: `Le plan n'est pas en attente de validation (statut : ${course.status}).` },
+      { error: `Le plan n'est pas en attente de validation (statut : ${course.status}).`, code: 'approveOutlinePlanNotUnderReview', params: { status: course.status } },
       { status: 409 },
     );
   }
@@ -126,7 +127,7 @@ export async function POST(
   } catch {
     // Redis indisponible : le cours reste en revue, l'utilisateur peut réessayer.
     return NextResponse.json(
-      { error: 'Impossible de lancer la génération, réessayez plus tard.' },
+      { error: 'Impossible de lancer la génération, réessayez plus tard.', code: 'cannotStartGeneration2' },
       { status: 503 },
     );
   }

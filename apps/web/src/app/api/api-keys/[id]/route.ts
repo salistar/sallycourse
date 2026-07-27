@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { connectDb, ApiKey } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
@@ -20,13 +21,13 @@ export async function DELETE(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Clé introuvable.' }, { status: 404 });
+    return apiError('keyNotFound');
   }
 
   await connectDb();
   const res = await ApiKey.deleteOne({ _id: id, userId: user.id });
   if (res.deletedCount === 0) {
-    return NextResponse.json({ error: 'Clé introuvable.' }, { status: 404 });
+    return apiError('keyNotFound');
   }
 
   return NextResponse.json({ ok: true });

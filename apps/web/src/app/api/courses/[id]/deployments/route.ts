@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import {
   Course as CourseModel,
@@ -28,7 +29,7 @@ export async function GET(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   await connectDb();
@@ -37,7 +38,7 @@ export async function GET(
     .select('_id')
     .lean();
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   const [deployments, lessonCount] = await Promise.all([
@@ -53,6 +54,15 @@ export async function GET(
       status: d.status,
       mode: d.mode,
       externalUrl: d.externalUrl ?? null,
+      // Suivi de publication manuelle (P178) : checklist + horodatage de bascule.
+      checklist: (d.checklist ?? []).map((c) => ({
+        key: c.key,
+        label: c.label,
+        done: Boolean(c.done),
+      })),
+      publishedManuallyAt: d.publishedManuallyAt
+        ? new Date(d.publishedManuallyAt).getTime()
+        : null,
       checkpoint: {
         lessonIndex: d.checkpoint?.lessonIndex ?? 0,
         step: d.checkpoint?.step ?? '',

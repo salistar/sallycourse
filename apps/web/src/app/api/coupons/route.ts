@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import {
@@ -6,7 +7,7 @@ import {
   hasValidDiscountShape,
   isValidCouponCodeShape,
 } from '@sallycourse/shared';
-import { connectDb, Coupon, COUPON_PLATFORMS } from '@sallycourse/db';
+import { connectDb, Coupon, Course, COUPON_PLATFORMS } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
 
 /**
@@ -83,31 +84,42 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Données invalides.', details: parsed.error.flatten().fieldErrors },
+      { error: 'Données invalides.', code: 'invalidData', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }
 
   if (parsed.data.courseId && !isValidObjectId(parsed.data.courseId)) {
-    return NextResponse.json({ error: 'courseId invalide.' }, { status: 400 });
+    return apiError('invalidCourseId');
   }
 
   await connectDb();
 
+  // Durcissement (L3 audit) : un coupon ciblant un cours ne peut viser QUE l'un
+  // des cours du créateur. Sans ce contrôle, on pourrait créer un coupon sur le
+  // cours d'un autre auteur (courseId arbitraire). On répond « introuvable »
+  // (jamais 403) pour ne pas divulguer l'existence des cours d'autrui.
+  if (parsed.data.courseId) {
+    const owns = await Course.exists({ _id: parsed.data.courseId, userId: user.id });
+    if (!owns) {
+      return apiError('courseNotFound');
+    }
+  }
+
   let code = parsed.data.code?.trim().toUpperCase();
   if (code) {
     if (!isValidCouponCodeShape(code)) {
-      return NextResponse.json({ error: 'Format de code promo invalide.' }, { status: 400 });
+      return NextResponse.json({ error: 'Format de code promo invalide.', code: 'invalidPromoCodeFormat' }, { status: 400 });
     }
     const exists = await Coupon.exists({ code });
     if (exists) {
-      return NextResponse.json({ error: 'Ce code promo existe déjà.' }, { status: 409 });
+      return NextResponse.json({ error: 'Ce code promo existe déjà.', code: 'promoCodeAlreadyExists' }, { status: 409 });
     }
   } else {
     code = await generateUniqueCouponCode(async (candidate) => Boolean(await Coupon.exists({ code: candidate })));

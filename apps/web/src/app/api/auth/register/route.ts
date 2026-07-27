@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { hash } from 'bcryptjs';
 import { z } from 'zod';
 import { connectDb, recordAudit, User as UserModel } from '@sallycourse/db';
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
   const ipLimit = await rateLimit(`register:ip:${ip}`, REGISTER_IP_LIMIT);
   if (!ipLimit.allowed) {
     return NextResponse.json(
-      { error: "Trop de tentatives d'inscription depuis cette adresse, réessayez plus tard." },
+      { error: "Trop de tentatives d'inscription depuis cette adresse, réessayez plus tard.", code: 'tooManySignupAttempts' },
       { status: 429, headers: { 'Retry-After': String(Math.ceil((ipLimit.resetAt.getTime() - Date.now()) / 1000)) } },
     );
   }
@@ -38,13 +39,13 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = registerSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Données invalides.', details: parsed.error.flatten().fieldErrors },
+      { error: 'Données invalides.', code: 'invalidData', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
 
   const exists = await UserModel.exists({ email });
   if (exists) {
-    return NextResponse.json({ error: 'Un compte existe déjà avec cet email.' }, { status: 409 });
+    return apiError('emailAlreadyExists');
   }
 
   const passwordHash = await hash(password, 12);
@@ -85,8 +86,8 @@ export async function POST(request: Request) {
   } catch (err) {
     // Course entre le exists() et le create() : l'index unique tranche.
     if (err && typeof err === 'object' && 'code' in err && (err as { code?: number }).code === 11000) {
-      return NextResponse.json({ error: 'Un compte existe déjà avec cet email.' }, { status: 409 });
+      return apiError('emailAlreadyExists');
     }
-    return NextResponse.json({ error: 'Erreur interne, réessayez plus tard.' }, { status: 500 });
+    return apiError('internalError');
   }
 }

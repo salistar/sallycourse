@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { QUEUES, defaultJobOptions, makeJobId } from '@sallycourse/shared';
 import {
@@ -28,10 +29,10 @@ export async function POST(
 
   const { id, platform } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
   if (!isKnownPlatform(platform)) {
-    return NextResponse.json({ error: 'Plateforme inconnue.' }, { status: 400 });
+    return apiError('unknownPlatform');
   }
 
   await connectDb();
@@ -40,19 +41,19 @@ export async function POST(
     .select('_id')
     .lean();
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   const deployment = await Deployment.findOne({ courseId: id, platform });
   if (!deployment) {
-    return NextResponse.json({ error: 'Déploiement introuvable.' }, { status: 404 });
+    return apiError('deploymentNotFound');
   }
 
   // Une mise à jour n'a de sens que si le cours a déjà été déployé une fois.
   const deployedCount = deployment.deployedVersions?.length ?? 0;
   if (deployedCount === 0) {
     return NextResponse.json(
-      { error: 'Aucun déploiement de référence : déployez d’abord le cours sur cette plateforme.' },
+      { error: 'Aucun déploiement de référence : déployez d’abord le cours sur cette plateforme.', code: 'noReferenceDeployment' },
       { status: 409 },
     );
   }

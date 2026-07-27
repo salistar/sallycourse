@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { connectDb, Coupon } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
@@ -18,14 +19,14 @@ export async function DELETE(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Coupon introuvable.' }, { status: 404 });
+    return apiError('couponNotFound');
   }
 
   await connectDb();
 
   const deleted = await Coupon.findOneAndDelete({ _id: id, userId: user.id });
   if (!deleted) {
-    return NextResponse.json({ error: 'Coupon introuvable.' }, { status: 404 });
+    return apiError('couponNotFound');
   }
 
   return NextResponse.json({ ok: true });

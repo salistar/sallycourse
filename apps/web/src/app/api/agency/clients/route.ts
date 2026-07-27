@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { z } from 'zod';
 import { connectDb, AgencyClient, PlatformCredential, User } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
@@ -58,7 +59,7 @@ export async function GET() {
   await connectDb();
 
   if (!(await requireAgencyUser(user.id))) {
-    return NextResponse.json({ error: 'Réservé aux comptes agence.' }, { status: 403 });
+    return apiError('agencyOnly');
   }
 
   const clients = await AgencyClient.find({ agencyUserId: user.id })
@@ -77,13 +78,13 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Données invalides.', details: parsed.error.flatten().fieldErrors },
+      { error: 'Données invalides.', code: 'invalidData', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }
@@ -91,21 +92,24 @@ export async function POST(request: Request) {
   await connectDb();
 
   if (!(await requireAgencyUser(user.id))) {
-    return NextResponse.json({ error: 'Réservé aux comptes agence.' }, { status: 403 });
+    return apiError('agencyOnly');
   }
 
-  // Les credentials déclarés doivent exister — on ne vérifie PAS ici qu'ils
-  // appartiennent à l'agence : ce sont les comptes DU CLIENT (compte technique
-  // dédié, distinct du userId de l'agence). Seule leur existence est vérifiée.
+  // Les credentials déclarés doivent exister ET appartenir à l'agence : un
+  // PlatformCredential est toujours possédé par le userId qui l'a créé (ici
+  // l'agence gère les comptes de ses clients sous SON userId). Filtrer par
+  // userId ferme une faille cross-tenant (référencer l'ObjectId d'un credential
+  // d'un autre compte pour publier via son compte plateforme connecté).
   if (parsed.data.platformCredentials.length > 0) {
     const found = await PlatformCredential.find({
       _id: { $in: parsed.data.platformCredentials },
+      userId: user.id,
     })
       .select('_id')
       .lean();
     if (found.length !== parsed.data.platformCredentials.length) {
       return NextResponse.json(
-        { error: 'Un ou plusieurs comptes plateforme référencés sont introuvables.' },
+        { error: 'Un ou plusieurs comptes plateforme référencés sont introuvables.', code: 'platformAccountsNotFound' },
         { status: 404 },
       );
     }
