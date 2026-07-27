@@ -2,18 +2,24 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { motion } from 'framer-motion';
 import { Wand2 } from 'lucide-react';
 // Sous-modules directs (et non le barrel @sallycourse/shared) : le barrel
 // réexporte crypto.ts (node:crypto), incompatible avec le bundle client.
-import { createCourseInputSchema, type Difficulty } from '@sallycourse/shared/schemas/course';
+import { createCourseInputSchema, type Difficulty, type AdvancedParams } from '@sallycourse/shared/schemas/course';
+import type { DictationBrief } from '@sallycourse/shared/voice-intent';
+import { estimateCourseVolume, estimateCourseCost } from '@sallycourse/shared/course-estimate';
+import { LLM_PROVIDER_CATALOG } from '@sallycourse/shared/llm-providers';
 import { getCourseTemplate, type CourseTemplate } from '@sallycourse/shared/course-templates';
 import { Button, useToast } from '@/components/ui';
+import { errorMessage } from '@/lib/error-message';
 import { transitions } from '@/components/motion/motion-config';
 import { TitleField } from './title-field';
 import { TitleSuggestions } from './title-suggestions';
 import { buildTitleSuggestions } from './mock-title-suggestions';
 import { LevelSelector } from './level-selector';
+import { VoiceDictation } from './voice-dictation';
 import {
   AdvancedOptionsPanel,
   DEFAULT_ADVANCED_OPTIONS,
@@ -45,19 +51,16 @@ interface FieldErrors {
   difficulty?: string;
 }
 
-/** Traduit les issues zod du schéma partagé en messages français ciblés. */
+/** Mappe les issues zod du schéma partagé vers des CLÉS i18n (résolues au rendu). */
 function toFieldErrors(error: import('zod').ZodError): FieldErrors {
   const errors: FieldErrors = {};
   for (const issue of error.issues) {
     const field = issue.path[0];
     if (field === 'title' && !errors.title) {
-      errors.title =
-        issue.code === 'too_big'
-          ? 'Le titre ne peut pas dépasser 120 caractères.'
-          : 'Donnez un titre d’au moins 3 caractères — c’est la couverture de votre cours.';
+      errors.title = issue.code === 'too_big' ? 'errorTitleTooLong' : 'errorTitleTooShort';
     }
     if (field === 'difficulty' && !errors.difficulty) {
-      errors.difficulty = 'Choisissez un niveau : il calibre le ton, le rythme et les quiz.';
+      errors.difficulty = 'errorLevelRequired';
     }
   }
   return errors;
@@ -92,9 +95,204 @@ function deriveInitialBrief(props: CreateCourseExperienceProps): {
   return { title, difficulty: template?.difficulty ?? null, options, template };
 }
 
+/** Formatte un USD compact (2 décimales, ou le libellé « gratuit » traduit si ~0). */
+function formatUsd(v: number, freeLabel: string): string {
+  if (v < 0.005) return freeLabel;
+  return `~${v.toFixed(2)} $`;
+}
+
+/**
+ * Modèle LLM représentatif par provider choisi (pour le DEVIS coût). Les
+ * gratuits (Gemini, GLM Flash) et l'OSS local reviennent à 0 ; les payants
+ * pointent sur un modèle facturé de leur famille (voir pricing-table).
+ */
+const ESTIMATE_LLM_MODEL: Record<string, string> = {
+  auto: 'gemini-flash-latest',
+  gemini: 'gemini-flash-latest',
+  zhipu: 'glm-4.5-flash',
+  ollama: 'gemini-flash-latest',
+  oss: 'gemini-flash-latest',
+  deepseek: 'deepseek-chat',
+  cloudflare: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+  xai: 'grok-3-mini',
+  dashscope: 'qwen-plus',
+  moonshot: 'moonshot-v1-8k',
+  minimax: 'MiniMax-M2',
+  anthropic: 'claude-sonnet-5',
+};
+
+/**
+ * Récap devis AVANT génération (Phase 10, P173) : volume estimé (leçons/vidéos/
+ * durée) + coût estimé (selon le provider choisi vs OSS). 100 % client (pur),
+ * recalculé sur les paramètres — le temps précis (historique) n'est pas inclus ici.
+ */
+function GenerationEstimateLine({
+  approxSections,
+  advancedParams,
+  llmProvider,
+}: {
+  approxSections: number | undefined;
+  advancedParams: AdvancedParams;
+  llmProvider: string;
+}) {
+  const t = useTranslations('create.experience');
+  const { volume, cost } = React.useMemo(() => {
+    const v = estimateCourseVolume({
+      approxSections,
+      targetHours: advancedParams.targetHours,
+      avgVideoLength: advancedParams.avgVideoLength,
+      contentRatio: advancedParams.contentRatio,
+      narrationSpeed: advancedParams.narrationSpeed,
+    });
+    // Modèle LLM représentatif du provider choisi (défaut : Gemini gratuit).
+    const llmModel = ESTIMATE_LLM_MODEL[llmProvider] ?? 'gemini-flash-latest';
+    const c = estimateCourseCost(v, { llmModel, ttsProvider: 'edge' });
+    return { volume: v, cost: c };
+  }, [approxSections, advancedParams, llmProvider]);
+
+  return (
+    <p className="text-center text-2xs text-muted sm:text-start" aria-live="polite">
+      {t.rich('estimate', {
+        lessons: volume.lessons,
+        videos: volume.videos,
+        minutes: volume.totalVideoMinutes,
+        cloudCost: formatUsd(cost.cloudUsd, t('free')),
+        ossCost: formatUsd(cost.ossUsd, t('free')),
+        strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+      })}
+    </p>
+  );
+}
+
+/** Un preset de génération (forme exposée par /api/generation-presets). */
+interface GenerationPreset {
+  id: string;
+  name: string;
+  params: Record<string, unknown>;
+}
+
+/**
+ * Barre de presets de génération (Phase 10, P163/174) : charge un jeu de
+ * paramètres sauvegardé (« mes réglages DevOps ») en un clic, ou enregistre la
+ * configuration courante sous un nom. 100 % client, API /api/generation-presets.
+ */
+function GenerationPresetBar({
+  buildParams,
+  onApply,
+}: {
+  buildParams: () => Record<string, unknown>;
+  onApply: (params: Record<string, unknown>) => void;
+}) {
+  const { toast } = useToast();
+  const t = useTranslations('create.experience');
+  const [presets, setPresets] = React.useState<GenerationPreset[]>([]);
+  const [saving, setSaving] = React.useState(false);
+  // Dernier preset appliqué — cible du bouton de suppression (DELETE
+  // /api/generation-presets/[id], route sans appelant avant l'audit 2026-07-17).
+  const [lastApplied, setLastApplied] = React.useState<GenerationPreset | null>(null);
+
+  const reload = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/generation-presets');
+      const data = (await res.json().catch(() => null)) as
+        | { presets?: GenerationPreset[]; publicPresets?: GenerationPreset[] }
+        | null;
+      if (data) setPresets([...(data.presets ?? []), ...(data.publicPresets ?? [])]);
+    } catch {
+      /* réseau indisponible — barre simplement vide */
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const save = async () => {
+    const name = window.prompt(t('presetNamePrompt'))?.trim();
+    if (!name) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/generation-presets', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name, params: buildParams() }),
+      });
+      if (res.ok) {
+        toast({ title: t('presetSaved'), description: name, variant: 'success' });
+        await reload();
+      } else {
+        toast({ title: t('presetSaveFailed'), variant: 'danger' });
+      }
+    } catch {
+      toast({ title: t('networkError'), variant: 'danger' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex w-full flex-wrap items-center justify-center gap-2 text-xs sm:justify-start">
+      {presets.length > 0 && (
+        <select
+          aria-label={t('loadPresetAriaLabel')}
+          defaultValue=""
+          onChange={(e) => {
+            const p = presets.find((x) => x.id === e.target.value);
+            if (p) {
+              onApply(p.params);
+              setLastApplied(p);
+              toast({ title: t('presetApplied'), description: p.name, variant: 'success' });
+            }
+            e.target.value = '';
+          }}
+          className="rounded-sm border border-input bg-surface px-2 py-1 text-xs text-foreground"
+        >
+          <option value="">{t('loadPresetOption')}</option>
+          {presets.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      )}
+      <Button variant="ghost" size="sm" loading={saving} onClick={() => void save()}>
+        {t('saveAsPreset')}
+      </Button>
+      {lastApplied && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-danger hover:bg-danger/10"
+          onClick={() => {
+            void (async () => {
+              if (!window.confirm(t('deletePresetConfirm', { name: lastApplied.name }))) return;
+              try {
+                const res = await fetch(`/api/generation-presets/${lastApplied.id}`, { method: 'DELETE' });
+                if (!res.ok) {
+                  toast({ title: t('presetDeleteFailed'), variant: 'danger' });
+                  return;
+                }
+                toast({ title: t('presetDeleted'), description: lastApplied.name, variant: 'success' });
+                setLastApplied(null);
+                await reload();
+              } catch {
+                toast({ title: t('networkError'), variant: 'danger' });
+              }
+            })();
+          }}
+        >
+          {t('deletePresetButton', { name: lastApplied.name.slice(0, 24) })}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) {
   const router = useRouter();
   const { toast } = useToast();
+  const t = useTranslations('create.experience');
+  const tApiError = useTranslations('apiErrors');
   const [phase, setPhase] = React.useState<Phase>('compose');
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -105,6 +303,12 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
   const [title, setTitle] = React.useState(initial.title);
   const [difficulty, setDifficulty] = React.useState<Difficulty | null>(initial.difficulty);
   const [options, setOptions] = React.useState<AdvancedOptions>(initial.options);
+  // Mode d'enchaînement de la génération : automatique (défaut) ou validé
+  // leçon par leçon (la chaîne attend la relecture de l'auteur).
+  const [generationMode, setGenerationMode] = React.useState<'auto' | 'validated'>('auto');
+  // Provider LLM (moteur de rédaction) — 'auto' = cascade coût optimisée
+  // (cloud gratuit d'abord). Voir worker/providers/cloud-llm.ts.
+  const [llmProvider, setLlmProvider] = React.useState('auto');
   const [errors, setErrors] = React.useState<FieldErrors>({});
 
   // Un titre pré-rempli par template ne doit pas déclencher de suggestions
@@ -189,6 +393,66 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
   };
 
   /**
+   * Applique un brief DICTÉ (Prompt 210) au formulaire : pré-remplit titre,
+   * niveau, locale et — si exprimés — nombre de sections et public visé.
+   * L'auteur reste libre de tout ajuster ensuite (la dictée n'auto-soumet pas).
+   */
+  const applyDictationBrief = (brief: DictationBrief) => {
+    suppressSuggestionsRef.current = true;
+    setTitle(brief.title);
+    setDifficulty(brief.difficulty);
+    setOptions((prev) => ({
+      ...prev,
+      locale: brief.locale,
+      ...(brief.approxSections ? { approxSections: brief.approxSections } : {}),
+      advancedParams: brief.audience
+        ? { ...prev.advancedParams, audience: brief.audience }
+        : prev.advancedParams,
+    }));
+    setErrors({});
+  };
+
+  // ── Presets de génération (P163/174) — capture / application des paramètres ──
+  const buildPresetParams = (): Record<string, unknown> => ({
+    ...(difficulty ? { difficulty } : {}),
+    generationMode,
+    ...(llmProvider !== 'auto' ? { llmProvider } : {}),
+    locale: options.locale,
+    ttsVoice: options.ttsVoice,
+    ttsEngine: options.ttsEngine,
+    voiceId: options.voiceId,
+    themeId: options.themeId,
+    imageEngine: options.imageEngine,
+    targetPlatforms: options.targetPlatforms,
+    approxSections: options.approxSections,
+    avatarEnabled: options.avatarEnabled,
+    avatarId: options.avatarId,
+    useCustomVoice: options.useCustomVoice,
+    ...(Object.keys(options.advancedParams).length > 0 ? { advancedParams: options.advancedParams } : {}),
+  });
+
+  const applyPreset = (p: Record<string, unknown>) => {
+    if (p.difficulty) setDifficulty(p.difficulty as Difficulty);
+    if (p.generationMode === 'auto' || p.generationMode === 'validated') setGenerationMode(p.generationMode);
+    if (typeof p.llmProvider === 'string') setLlmProvider(p.llmProvider);
+    setOptions((prev) => ({
+      ...prev,
+      locale: (p.locale as AdvancedOptions['locale']) ?? prev.locale,
+      ttsVoice: (p.ttsVoice as string) ?? prev.ttsVoice,
+      ttsEngine: (p.ttsEngine as AdvancedOptions['ttsEngine']) ?? prev.ttsEngine,
+      voiceId: (p.voiceId as string) ?? prev.voiceId,
+      themeId: (p.themeId as string) ?? prev.themeId,
+      imageEngine: (p.imageEngine as AdvancedOptions['imageEngine']) ?? prev.imageEngine,
+      targetPlatforms: (p.targetPlatforms as string[]) ?? prev.targetPlatforms,
+      approxSections: (p.approxSections as number) ?? prev.approxSections,
+      avatarEnabled: (p.avatarEnabled as boolean) ?? prev.avatarEnabled,
+      avatarId: (p.avatarId as string) ?? prev.avatarId,
+      useCustomVoice: (p.useCustomVoice as boolean) ?? prev.useCustomVoice,
+      advancedParams: (p.advancedParams as AdvancedParams) ?? prev.advancedParams,
+    }));
+  };
+
+  /**
    * Validation zod (schéma partagé), POST /api/courses, puis transition
    * cinématique vers l'acte génération et redirection vers la page du cours.
    */
@@ -198,13 +462,25 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
     const result = createCourseInputSchema.safeParse({
       title: title.trim(),
       difficulty: difficulty ?? undefined,
+      generationMode,
+      ...(llmProvider !== 'auto' ? { llmProvider } : {}),
       locale: options.locale,
       ttsVoice: options.ttsVoice,
+      ttsEngine: options.ttsEngine,
+      // Voix du catalogue : '' = défaut de la langue → on omet (zod enum).
+      ...(options.voiceId ? { voiceId: options.voiceId } : {}),
+      // Thème : '' = défaut « salistar » → on omet (zod enum).
+      ...(options.themeId ? { themeId: options.themeId } : {}),
+      imageEngine: options.imageEngine,
       targetPlatforms: options.targetPlatforms,
       approxSections: options.approxSections,
       avatarEnabled: options.avatarEnabled,
       avatarId: options.avatarEnabled ? options.avatarId : undefined,
+      useCustomVoice: options.useCustomVoice,
       scheduleOffPeak: options.scheduleOffPeak,
+      // Paramètres de génération avancés (Phase 10) — envoyés seulement si l'auteur
+      // en a renseigné au moins un (sinon comportement simple par défaut).
+      ...(Object.keys(options.advancedParams).length > 0 ? { advancedParams: options.advancedParams } : {}),
     });
 
     if (!result.success) {
@@ -236,29 +512,46 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
         }),
       });
       const data = (await response.json().catch(() => null)) as
-        | { id?: string; error?: string; code?: string; scheduledFor?: string }
+        | {
+            id?: string;
+            error?: string;
+            code?: string;
+            scheduledFor?: string;
+            similarityWarning?: { courseTitle: string; score: number };
+          }
         | null;
 
       // Quota du plan atteint : toast avec CTA vers les offres.
       if (response.status === 402 || data?.code === 'quota_exceeded') {
         toast({
-          title: 'Quota mensuel atteint',
-          description:
-            data?.error ?? 'Passez à un plan supérieur pour créer davantage de cours.',
+          title: t('quotaTitle'),
+          description: errorMessage(data, tApiError),
           variant: 'warning',
           duration: 8000,
-          action: { label: 'Voir les offres', onClick: () => router.push('/pricing') },
+          action: { label: t('viewPlans'), onClick: () => router.push('/pricing') },
         });
         return;
       }
 
       if (!response.ok || !data?.id) {
         toast({
-          title: 'La création a échoué',
-          description: data?.error ?? 'Réessayez dans un instant.',
+          title: t('createFailedTitle'),
+          description: errorMessage(data, tApiError),
           variant: 'danger',
         });
         return;
+      }
+
+      // Déduplication (P115) : un cours très proche existe déjà. Informatif —
+      // la génération continue, mais on prévient (le backend le renvoyait sans
+      // que rien ne l'affiche jusqu'ici).
+      if (data.similarityWarning) {
+        toast({
+          title: t('similarCourseTitle'),
+          description: t('similarCourseDescription', { courseTitle: data.similarityWarning.courseTitle }),
+          variant: 'warning',
+          duration: 8000,
+        });
       }
 
       // Import de contenu existant (P90) : le cours vient d'obtenir un id,
@@ -274,15 +567,15 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
           });
           if (!materialResponse.ok) {
             toast({
-              title: 'Support source non importé',
-              description: 'Le cours a été créé, mais le fichier n’a pas pu être importé.',
+              title: t('materialNotImportedTitle'),
+              description: t('materialNotImportedDescription'),
               variant: 'warning',
             });
           }
         } catch {
           toast({
-            title: 'Support source non importé',
-            description: 'Le cours a été créé, mais le fichier n’a pas pu être importé.',
+            title: t('materialNotImportedTitle'),
+            description: t('materialNotImportedDescription'),
             variant: 'warning',
           });
         }
@@ -296,8 +589,8 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
           minute: '2-digit',
         });
         toast({
-          title: 'Génération programmée',
-          description: `Votre cours démarrera en heures creuses, vers ${hhmm}.`,
+          title: t('scheduledTitle'),
+          description: t('scheduledDescription', { time: hhmm }),
           variant: 'success',
         });
       }
@@ -309,8 +602,8 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
       }, REDIRECT_AFTER_MS);
     } catch {
       toast({
-        title: 'Connexion impossible',
-        description: 'Vérifiez votre réseau puis réessayez.',
+        title: t('connectionFailedTitle'),
+        description: t('connectionFailedDescription'),
         variant: 'danger',
       });
     } finally {
@@ -355,7 +648,7 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
           transition={transitions.enter}
           className="text-2xs font-semibold uppercase tracking-widest text-muted"
         >
-          Nouveau cours — écrivez la couverture
+          {t('eyebrow')}
         </motion.p>
 
         {/* Le titre : très grande typographie display, layoutId partagé */}
@@ -363,12 +656,22 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
           <TitleField
             value={title}
             onChange={handleTitleChange}
-            error={errors.title}
+            error={errors.title ? t(errors.title) : undefined}
             onEnter={handleSubmit}
           />
         </motion.div>
 
         <TitleSuggestions suggestions={suggestions} onPick={handlePickSuggestion} />
+
+        {/* Dictée vocale (P210) — décrire le cours à l'oral (fr/darija/arabe). */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...transitions.enter, delay: 0.1 }}
+          className="w-full"
+        >
+          <VoiceDictation onBrief={applyDictationBrief} />
+        </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -377,10 +680,84 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
           className="w-full"
         >
           <p className="mb-4 text-center text-2xs font-semibold uppercase tracking-widest text-muted">
-            Pour quel niveau ?
+            {t('whichLevel')}
           </p>
-          <LevelSelector value={difficulty} onChange={handleLevelChange} error={errors.difficulty} />
+          <LevelSelector value={difficulty} onChange={handleLevelChange} error={errors.difficulty ? t(errors.difficulty) : undefined} />
         </motion.div>
+
+        {/* Mode d'enchaînement : tout générer d'un coup, ou valider chaque leçon. */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...transitions.enter, delay: 0.2 }}
+          className="w-full"
+        >
+          <div
+            role="radiogroup"
+            aria-label={t('generationModeAriaLabel')}
+            className="mx-auto flex w-full max-w-xl flex-col gap-2 sm:flex-row"
+          >
+            {(
+              [
+                {
+                  id: 'auto' as const,
+                  label: t('autoModeLabel'),
+                  hint: t('autoModeHint'),
+                },
+                {
+                  id: 'validated' as const,
+                  label: t('validatedModeLabel'),
+                  hint: t('validatedModeHint'),
+                },
+              ]
+            ).map((mode) => (
+              <button
+                key={mode.id}
+                type="button"
+                role="radio"
+                aria-checked={generationMode === mode.id}
+                onClick={() => setGenerationMode(mode.id)}
+                className={`flex-1 rounded-lg border px-4 py-3 text-left transition-colors ${
+                  generationMode === mode.id
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border bg-surface hover:border-primary/50'
+                }`}
+              >
+                <span className="block text-sm font-semibold text-foreground">{mode.label}</span>
+                <span className="mt-0.5 block text-xs text-muted">{mode.hint}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Moteur de rédaction (provider LLM) — 'auto' = cascade coût optimisée. */}
+          <div className="mx-auto mt-3 flex w-full max-w-xl items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-2.5">
+            <label htmlFor="llm-provider" className="text-sm text-muted">
+              {t('writingEngine')}
+            </label>
+            <select
+              id="llm-provider"
+              value={llmProvider}
+              onChange={(e) => setLlmProvider(e.target.value)}
+              className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground"
+            >
+              {LLM_PROVIDER_CATALOG.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </motion.div>
+
+        {/* Presets de génération (Phase 10, P163/174) */}
+        <GenerationPresetBar buildParams={buildPresetParams} onApply={applyPreset} />
+
+        {/* Devis avant génération (Phase 10, P173) */}
+        <GenerationEstimateLine
+          approxSections={options.approxSections}
+          advancedParams={options.advancedParams}
+          llmProvider={llmProvider}
+        />
 
         {/* Pied de scène : options discrètes + moment premium (CTA or) */}
         <motion.div
@@ -398,7 +775,7 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
             className="w-full sm:w-auto"
           >
             {!submitting && <Wand2 aria-hidden="true" />}
-            {submitting ? 'Création du cours…' : 'Générer mon cours'}
+            {submitting ? t('submitting') : t('submit')}
           </Button>
         </motion.div>
       </div>

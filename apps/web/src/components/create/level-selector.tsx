@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 import type { Difficulty } from '@sallycourse/shared';
@@ -20,35 +21,32 @@ import {
 
 interface LevelDefinition {
   value: Difficulty;
-  label: string;
-  tagline: string;
-  description: string;
+  labelKey: string;
+  taglineKey: string;
+  descriptionKey: string;
   Illustration: (props: React.SVGProps<SVGSVGElement>) => React.JSX.Element;
 }
 
 const LEVELS: readonly LevelDefinition[] = [
   {
     value: 'beginner',
-    label: 'Débutant',
-    tagline: 'Partir de zéro',
-    description:
-      'Aucun prérequis : chaque notion est posée pas à pas, avec des exemples très concrets.',
+    labelKey: 'beginnerLabel',
+    taglineKey: 'beginnerTagline',
+    descriptionKey: 'beginnerDescription',
     Illustration: BeginnerIllustration,
   },
   {
     value: 'intermediate',
-    label: 'Intermédiaire',
-    tagline: 'Passer un cap',
-    description:
-      'Les bases sont acquises — cap sur la pratique, les cas réels et les bons réflexes.',
+    labelKey: 'intermediateLabel',
+    taglineKey: 'intermediateTagline',
+    descriptionKey: 'intermediateDescription',
     Illustration: IntermediateIllustration,
   },
   {
     value: 'advanced',
-    label: 'Avancé',
-    tagline: 'Viser le sommet',
-    description:
-      'Architecture, performance, cas limites : un parcours exigeant, sans détour.',
+    labelKey: 'advancedLabel',
+    taglineKey: 'advancedTagline',
+    descriptionKey: 'advancedDescription',
     Illustration: AdvancedIllustration,
   },
 ];
@@ -61,6 +59,7 @@ export interface LevelSelectorProps {
 }
 
 export function LevelSelector({ value, onChange, error }: LevelSelectorProps) {
+  const t = useTranslations('create.level');
   const itemRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
   const errorId = React.useId();
 
@@ -88,7 +87,7 @@ export function LevelSelector({ value, onChange, error }: LevelSelectorProps) {
     <div className="w-full">
       <div
         role="radiogroup"
-        aria-label="Niveau du cours"
+        aria-label={t('groupLabel')}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
         className="grid w-full gap-4 sm:grid-cols-3"
@@ -155,14 +154,14 @@ export function LevelSelector({ value, onChange, error }: LevelSelectorProps) {
                       selected ? 'text-foreground' : 'text-foreground/90',
                     )}
                   >
-                    {level.label}
+                    {t(level.labelKey)}
                   </p>
                   <p className="mt-0.5 text-2xs font-semibold uppercase tracking-widest text-accent-400/90">
-                    {level.tagline}
+                    {t(level.taglineKey)}
                   </p>
                 </div>
 
-                <p className="text-xs leading-relaxed text-muted">{level.description}</p>
+                <p className="text-xs leading-relaxed text-muted">{t(level.descriptionKey)}</p>
               </button>
             </div>
           );

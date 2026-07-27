@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Tabs, TabsList, TabsTrigger, EmptyState, buttonVariants } from '@/components/ui';
 import { StaggerItem, StaggerList } from '@/components/motion';
 import { cn } from '@/lib/cn';
@@ -29,6 +30,7 @@ export interface CourseGridProps {
 
 export function CourseGrid({ courses, activeFilter = 'all', className }: CourseGridProps) {
   const router = useRouter();
+  const t = useTranslations('dashboard.courseGrid');
   // État local pour un feedback instantané ; l'URL reste la source de vérité.
   const [filter, setFilter] = React.useState<CourseFilterId>(activeFilter);
 
@@ -51,16 +53,16 @@ export function CourseGrid({ courses, activeFilter = 'all', className }: CourseG
   const visible = active.statuses ? courses.filter((c) => active.statuses!.includes(c.status)) : courses;
 
   return (
-    <section className={cn('flex flex-col gap-5', className)} aria-label="Mes cours">
+    <section className={cn('flex flex-col gap-5', className)} aria-label={t('title')}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-xl font-semibold text-foreground">Mes cours</h2>
+        <h2 className="font-display text-xl font-semibold text-foreground">{t('title')}</h2>
         <span className="text-xs tabular-nums text-muted">
-          {visible.length} / {courses.length} cours
+          {t('countLabel', { visible: visible.length, total: courses.length })}
         </span>
       </div>
 
       <Tabs value={filter} onValueChange={(v) => selectFilter(parseCourseFilter(v))}>
-        <TabsList aria-label="Filtrer les cours par statut">
+        <TabsList aria-label={t('filterAria')}>
           {FILTERS.map((f) => (
             <TabsTrigger key={f.id} value={f.id}>
               {f.label}
@@ -71,12 +73,12 @@ export function CourseGrid({ courses, activeFilter = 'all', className }: CourseG
 
       {visible.length === 0 ? (
         <EmptyState
-          title="Rien dans ce filtre"
-          description="Aucun cours ne correspond à ce statut pour le moment — lancez une génération pour alimenter cette vue."
+          title={t('emptyFilterTitle')}
+          description={t('emptyFilterDescription')}
           action={
             <Link href="/dashboard/new" className={buttonVariants({ variant: 'primary', size: 'md' })}>
               <Plus aria-hidden="true" />
-              Nouveau cours
+              {t('newCourse')}
             </Link>
           }
         />

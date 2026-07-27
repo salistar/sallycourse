@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles } from 'lucide-react';
@@ -80,9 +81,10 @@ export interface FirstCourseEmptyProps {
 }
 
 export function FirstCourseEmpty({ className }: FirstCourseEmptyProps) {
+  const t = useTranslations('dashboard.firstCourse');
   return (
     <section
-      aria-label="Créer votre premier cours"
+      aria-label={t('sectionLabel')}
       className={cn(
         'relative overflow-hidden rounded-lg border border-dashed border-border bg-surface-subtle/50',
         'px-6 py-14 text-center sm:px-12 sm:py-20',
@@ -92,26 +94,25 @@ export function FirstCourseEmpty({ className }: FirstCourseEmptyProps) {
       <AnimatedIllustration />
 
       <h2 className="mx-auto mt-6 max-w-2xl font-display text-2xl font-semibold text-foreground sm:text-3xl">
-        Votre premier cours n’attend qu’un titre
+        {t('title')}
       </h2>
       <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted sm:text-base">
-        Donnez un sujet et un niveau — SallyCourse rédige le plan, écrit les leçons, enregistre la
-        narration, monte les vidéos et assemble les quiz. Un cours complet, prêt à publier.
+        {t('description')}
       </p>
 
       <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
         <Link href="/dashboard/onboarding" className={buttonVariants({ variant: 'gold', size: 'lg' })}>
           <Sparkles aria-hidden="true" />
-          Créer mon premier cours
+          {t('ctaPrimary')}
           <ArrowRight aria-hidden="true" className="rtl:rotate-180" />
         </Link>
         <Link href="/dashboard/new" className={buttonVariants({ variant: 'ghost', size: 'lg' })}>
-          Partir d’une page blanche
+          {t('ctaSecondary')}
         </Link>
       </div>
 
       <p className="mt-5 text-2xs uppercase tracking-wide text-muted">
-        ≈ 25 minutes de génération pour un cours de 5 heures
+        {t('estimate')}
       </p>
     </section>
   );

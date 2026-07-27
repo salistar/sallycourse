@@ -1,9 +1,11 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Copy,
   Eye,
   Globe,
   GraduationCap,
@@ -28,6 +30,7 @@ import {
 } from '@/components/ui';
 import { transitions } from '@/components/motion';
 import { cn } from '@/lib/cn';
+import { errorMessage } from '@/lib/error-message';
 import { deleteCourse, renameCourse } from '@/app/actions/courses';
 import { CourseThumbnail } from './course-thumbnail';
 import { ProgressRing } from './progress-ring';
@@ -41,21 +44,21 @@ import type { CourseStatus, Difficulty } from '@sallycourse/shared';
  */
 
 /** Statut métier → variante de Badge + libellé français. */
-const STATUS_BADGE: Record<CourseStatus, { variant: 'draft' | 'generating' | 'ready' | 'failed' | 'published'; label: string }> = {
-  draft: { variant: 'draft', label: 'Brouillon' },
-  generating: { variant: 'generating', label: 'Génération' },
-  'outline-review': { variant: 'draft', label: 'Plan à valider' },
-  ready: { variant: 'ready', label: 'Prêt' },
-  published: { variant: 'published', label: 'Publié' },
-  failed: { variant: 'failed', label: 'Échec' },
+const STATUS_BADGE: Record<CourseStatus, { variant: 'draft' | 'generating' | 'ready' | 'failed' | 'published'; labelKey: string }> = {
+  draft: { variant: 'draft', labelKey: 'status.draft' },
+  generating: { variant: 'generating', labelKey: 'status.generating' },
+  'outline-review': { variant: 'draft', labelKey: 'status.outlineReview' },
+  ready: { variant: 'ready', labelKey: 'status.ready' },
+  published: { variant: 'published', labelKey: 'status.published' },
+  failed: { variant: 'failed', labelKey: 'status.failed' },
   // Annulation (P73) — pas de variante Badge dédiée, réutilise 'failed' (arrêt).
-  cancelled: { variant: 'failed', label: 'Annulé' },
+  cancelled: { variant: 'failed', labelKey: 'status.cancelled' },
 };
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {
-  beginner: 'Débutant',
-  intermediate: 'Intermédiaire',
-  advanced: 'Avancé',
+  beginner: 'difficulty.beginner',
+  intermediate: 'difficulty.intermediate',
+  advanced: 'difficulty.advanced',
 };
 
 const PLATFORM_ICONS: Record<PlatformId, React.ComponentType<{ className?: string }>> = {
@@ -64,11 +67,11 @@ const PLATFORM_ICONS: Record<PlatformId, React.ComponentType<{ className?: strin
   site: Globe,
 };
 
-type MenuActionId = 'open' | 'rename' | 'duplicate' | 'retry' | 'delete';
+type MenuActionId = 'open' | 'rename' | 'retry' | 'delete';
 
 interface MenuAction {
   id: MenuActionId;
-  label: string;
+  labelKey: string;
   icon: React.ComponentType<{ className?: string }>;
   danger?: boolean;
 }
@@ -76,12 +79,11 @@ interface MenuAction {
 /** Actions proposées selon le statut (relancer uniquement après un échec). */
 function menuActionsFor(status: CourseStatus): MenuAction[] {
   const base: MenuAction[] = [
-    { id: 'open', label: 'Ouvrir le cours', icon: Eye },
-    { id: 'rename', label: 'Renommer', icon: PencilLine },
-    { id: 'duplicate', label: 'Dupliquer', icon: Copy },
+    { id: 'open', labelKey: 'menu.open', icon: Eye },
+    { id: 'rename', labelKey: 'menu.rename', icon: PencilLine },
   ];
-  if (status === 'failed') base.push({ id: 'retry', label: 'Relancer la génération', icon: RefreshCw });
-  base.push({ id: 'delete', label: 'Supprimer', icon: Trash2, danger: true });
+  if (status === 'failed') base.push({ id: 'retry', labelKey: 'menu.retry', icon: RefreshCw });
+  base.push({ id: 'delete', labelKey: 'menu.delete', icon: Trash2, danger: true });
   return base;
 }
 
@@ -97,6 +99,7 @@ function CourseContextMenu({
   const rootRef = React.useRef<HTMLDivElement>(null);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
   const actions = menuActionsFor(course.status);
+  const t = useTranslations('dashboard.courseCard');
 
   React.useEffect(() => {
     if (!open) return;
@@ -124,7 +127,7 @@ function CourseContextMenu({
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`Actions pour « ${course.title} »`}
+        aria-label={t('menuAriaLabel', { title: course.title })}
         onClick={() => setOpen((v) => !v)}
         className={cn(
           'flex h-8 w-8 items-center justify-center rounded-sm text-muted',
@@ -140,7 +143,7 @@ function CourseContextMenu({
         {open && (
           <motion.div
             role="menu"
-            aria-label={`Actions — ${course.title}`}
+            aria-label={t('menuLabel', { title: course.title })}
             initial={{ opacity: 0, scale: 0.95, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: -2 }}
@@ -168,7 +171,7 @@ function CourseContextMenu({
                 )}
               >
                 <action.icon className="size-4 shrink-0 opacity-70" aria-hidden="true" />
-                {action.label}
+                {t(action.labelKey)}
               </button>
             ))}
           </motion.div>
@@ -187,15 +190,39 @@ export function CourseCard({ course, className }: CourseCardProps) {
   const status = STATUS_BADGE[course.status];
   const hasContent = course.lessonsCount > 0;
 
+  const router = useRouter();
   const { toast } = useToast();
+  const tApiError = useTranslations('apiErrors');
+  const t = useTranslations('dashboard.courseCard');
   const [renameOpen, setRenameOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
 
-  const handleAction = (id: string): void => {
-    if (id === 'rename') setRenameOpen(true);
+  const coursePath = `/dashboard/courses/${course.id}`;
+
+  const handleAction = (id: MenuActionId): void => {
+    if (id === 'open') router.push(coursePath);
+    else if (id === 'rename') setRenameOpen(true);
     else if (id === 'delete') setDeleteOpen(true);
-    else toast({ title: 'Bientôt disponible', description: 'Cette action arrive dans une prochaine version.' });
+    else if (id === 'retry') handleRetry();
+  };
+
+  /** Relance d'un cours en échec — repart de la génération du plan (regenerate-outline). */
+  const handleRetry = (): void => {
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/courses/${course.id}/regenerate-outline`, { method: 'POST' });
+        if (res.ok) {
+          toast({ title: t('toast.retryStarted.title'), description: t('toast.retryStarted.description'), variant: 'success' });
+          router.refresh();
+        } else {
+          const data = (await res.json().catch(() => null)) as { error?: string } | null;
+          toast({ title: t('toast.retryFailed.title'), description: errorMessage(data, tApiError), variant: 'danger' });
+        }
+      } catch {
+        toast({ title: t('toast.networkError.title'), description: t('toast.networkError.description'), variant: 'danger' });
+      }
+    });
   };
 
   /** Renommage — action serveur puis toast ; la liste est revalidée côté serveur. */
@@ -210,9 +237,9 @@ export function CourseCard({ course, className }: CourseCardProps) {
       const result = await renameCourse(course.id, title);
       if (result.ok) {
         setRenameOpen(false);
-        toast({ title: 'Cours renommé', description: `« ${title} »`, variant: 'success' });
+        toast({ title: t('toast.renamed.title'), description: t('toast.renamed.description', { title }), variant: 'success' });
       } else {
-        toast({ title: 'Renommage impossible', description: result.error, variant: 'danger' });
+        toast({ title: t('toast.renameFailed.title'), description: result.error, variant: 'danger' });
       }
     });
   };
@@ -223,9 +250,9 @@ export function CourseCard({ course, className }: CourseCardProps) {
       const result = await deleteCourse(course.id);
       if (result.ok) {
         setDeleteOpen(false);
-        toast({ title: 'Cours supprimé', description: `« ${course.title} » et son contenu ont été supprimés.`, variant: 'success' });
+        toast({ title: t('toast.deleted.title'), description: t('toast.deleted.description', { title: course.title }), variant: 'success' });
       } else {
-        toast({ title: 'Suppression impossible', description: result.error, variant: 'danger' });
+        toast({ title: t('toast.deleteFailed.title'), description: result.error, variant: 'danger' });
       }
     });
   };
@@ -233,19 +260,59 @@ export function CourseCard({ course, className }: CourseCardProps) {
   // Pas d'overflow-hidden sur la carte : le menu contextuel dépasse du cadre.
   return (
     <Card interactive wrapperClassName={cn('h-full', className)} className="flex flex-col p-0">
-      {/* Miniature générée + overlays */}
+      {/* Miniature générée (cliquable → page cours) + overlays */}
       <div className="relative aspect-video w-full overflow-hidden rounded-t-[calc(1rem-1px)]">
-        <CourseThumbnail
-          title={course.title}
-          className="transition-transform duration-slow ease-standard group-hover/card:scale-105"
-        />
+        <Link
+          href={coursePath}
+          aria-label={t('openCourseAria', { title: course.title })}
+          className="block h-full w-full rounded-t-[calc(1rem-1px)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/80"
+        >
+          {course.coverUrl ? (
+            // Couverture réelle générée (SDXL/Z-Image) ou uploadée. URL S3
+            // présignée → <img> natif (hors optimiseur Next).
+            <img
+              src={course.coverUrl}
+              alt={t('openCourseAria', { title: course.title })}
+              className="h-full w-full object-cover transition-transform duration-slow ease-standard group-hover/card:scale-105"
+            />
+          ) : (
+            <CourseThumbnail
+              title={course.title}
+              seedKey={course.id}
+              className="transition-transform duration-slow ease-standard group-hover/card:scale-105"
+            />
+          )}
+        </Link>
         {/* Statut — coin haut fin de ligne */}
-        <div className="absolute end-2.5 top-2.5">
-          <Badge variant={status.variant}>{status.label}</Badge>
+        <div className="absolute end-2.5 top-2.5 z-10 flex items-center gap-1.5">
+          {/* Rétention P79 : cours archivé (médias purgés) — réactivable. */}
+          {course.archived && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void (async () => {
+                  if (!window.confirm(t('reactivateConfirm'))) return;
+                  try {
+                    const res = await fetch(`/api/courses/${course.id}/reactivate`, { method: 'POST' });
+                    if (res.ok) window.location.reload();
+                    else window.alert(t('reactivateError'));
+                  } catch {
+                    window.alert(t('serverUnreachable'));
+                  }
+                })();
+              }}
+              className="rounded-full border border-border bg-surface px-2 py-0.5 text-2xs font-medium text-foreground hover:border-ring/60"
+            >
+              {t('archivedReactivate')}
+            </button>
+          )}
+          <Badge variant={status.variant}>{t(status.labelKey)}</Badge>
         </div>
         {/* Plateformes ciblées — coin haut début de ligne */}
         {course.platforms.length > 0 && (
-          <div className="absolute start-2.5 top-2.5 flex items-center gap-1.5">
+          <div className="absolute start-2.5 top-2.5 z-10 flex items-center gap-1.5">
             {course.platforms.map((platform) => {
               const Icon = PLATFORM_ICONS[platform];
               return (
@@ -266,27 +333,32 @@ export function CourseCard({ course, className }: CourseCardProps) {
       {/* Corps */}
       <div className="flex flex-1 flex-col gap-3 p-5">
         <h3 className="line-clamp-2 font-display text-lg font-semibold leading-snug text-foreground">
-          {course.title}
+          <Link
+            href={coursePath}
+            className="rounded-sm transition-colors hover:text-accent-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/80"
+          >
+            {course.title}
+          </Link>
         </h3>
 
         <p className="text-xs text-muted">
-          <span className="font-medium text-foreground/80">{DIFFICULTY_LABELS[course.difficulty]}</span>
+          <span className="font-medium text-foreground/80">{t(DIFFICULTY_LABELS[course.difficulty])}</span>
           {hasContent && (
             <>
               {' · '}
-              {course.sectionsCount} sections · {course.lessonsCount} leçons ·{' '}
-              <span className="tabular-nums">{Math.floor(course.durationMin / 60)} h {course.durationMin % 60} min</span>
+              {t('sectionsCount', { count: course.sectionsCount })} · {t('lessonsCount', { count: course.lessonsCount })} ·{' '}
+              <span className="tabular-nums">{t('duration', { hours: Math.floor(course.durationMin / 60), minutes: course.durationMin % 60 })}</span>
             </>
           )}
-          {!hasContent && course.sectionsCount > 0 && <> · {course.sectionsCount} sections planifiées</>}
+          {!hasContent && course.sectionsCount > 0 && <> · {t('sectionsPlanned', { count: course.sectionsCount })}</>}
         </p>
 
         {/* Pied : anneau de progression + fraîcheur + menu contextuel */}
         <div className="mt-auto flex items-center gap-3 border-t border-border pt-3.5">
-          <ProgressRing value={course.progress} label={`Génération de « ${course.title} »`} />
+          <ProgressRing value={course.progress} label={t('progressRingLabel', { title: course.title })} />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium text-foreground">
-              {course.progress === 100 ? 'Génération terminée' : `Généré à ${course.progress} %`}
+              {course.progress === 100 ? t('progressComplete') : t('progressPercent', { progress: course.progress })}
             </p>
             <p className="truncate text-2xs text-muted">{course.updatedAtLabel}</p>
           </div>
@@ -299,11 +371,11 @@ export function CourseCard({ course, className }: CourseCardProps) {
         <DialogContent>
           <form onSubmit={handleRename} className="flex flex-col gap-5">
             <DialogHeader>
-              <DialogTitle>Renommer le cours</DialogTitle>
-              <DialogDescription>Le nouveau titre sera utilisé partout (dashboard, exports, publication).</DialogDescription>
+              <DialogTitle>{t('renameDialog.title')}</DialogTitle>
+              <DialogDescription>{t('renameDialog.description')}</DialogDescription>
             </DialogHeader>
             <Input
-              label="Titre du cours"
+              label={t('renameDialog.inputLabel')}
               name="title"
               defaultValue={course.title}
               minLength={3}
@@ -313,10 +385,10 @@ export function CourseCard({ course, className }: CourseCardProps) {
             />
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setRenameOpen(false)} disabled={pending}>
-                Annuler
+                {t('cancel')}
               </Button>
               <Button type="submit" loading={pending}>
-                Renommer
+                {t('renameDialog.submit')}
               </Button>
             </DialogFooter>
           </form>
@@ -327,19 +399,18 @@ export function CourseCard({ course, className }: CourseCardProps) {
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Supprimer ce cours ?</DialogTitle>
+            <DialogTitle>{t('deleteDialog.title')}</DialogTitle>
             <DialogDescription>
-              « {course.title} » ainsi que toutes ses sections, leçons, quiz et jobs de génération seront
-              définitivement supprimés. Cette action est irréversible.
+              {t('deleteDialog.description', { title: course.title })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setDeleteOpen(false)} disabled={pending}>
-              Annuler
+              {t('cancel')}
             </Button>
             <Button type="button" variant="danger" loading={pending} onClick={handleDelete}>
               <Trash2 aria-hidden="true" />
-              Supprimer définitivement
+              {t('deleteDialog.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>

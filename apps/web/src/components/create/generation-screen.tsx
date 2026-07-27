@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Globe2, Layers, Mic2, Share2 } from 'lucide-react';
 import type { Difficulty } from '@sallycourse/shared';
@@ -11,13 +12,14 @@ import {
   type GenerationTimelineStatus,
 } from '@/components/motion/generation-timeline';
 import { transitions } from '@/components/motion/motion-config';
-import { TARGET_PLATFORMS, TTS_VOICES, type AdvancedOptions } from './advanced-options-panel';
+import { TARGET_PLATFORMS, type AdvancedOptions } from './advanced-options-panel';
 
 /**
- * Écran de génération — MAQUETTE : la progression avance sur un simple
- * minuteur en attendant le worker IA. Le titre saisi devient l'en-tête de
- * la timeline via un layoutId partagé avec l'écran de composition
- * (transition cinématique Framer Motion).
+ * Écran de transition post-création : le cours est DÉJÀ créé côté serveur et sa
+ * génération a démarré. Cet écran est une courte transition cinématique (le
+ * titre saisi se morphe en en-tête via un layoutId partagé) avant la redirection
+ * automatique vers la page du cours, qui affiche le VRAI suivi de progression
+ * (ProgressBanner, statut réel du job).
  */
 
 /** layoutId partagé — le champ « couverture » se morphe en en-tête. */
@@ -34,12 +36,6 @@ const GENERATION_STEPS: GenerationStep[] = [
 /** Cadence de la maquette — une étape « aboutit » toutes les 2,4 s. */
 const MOCK_STEP_INTERVAL_MS = 2400;
 
-const DIFFICULTY_LABELS: Record<Difficulty, string> = {
-  beginner: 'Débutant',
-  intermediate: 'Intermédiaire',
-  advanced: 'Avancé',
-};
-
 const LOCALE_LABELS: Record<string, string> = {
   fr: 'Français',
   en: 'English',
@@ -55,6 +51,7 @@ export interface GenerationScreenProps {
 }
 
 export function GenerationScreen({ title, difficulty, options, onBack }: GenerationScreenProps) {
+  const t = useTranslations('create.generation');
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const [status, setStatus] = React.useState<GenerationTimelineStatus>('running');
 
@@ -76,10 +73,20 @@ export function GenerationScreen({ title, difficulty, options, onBack }: Generat
   const completed = status === 'done' ? GENERATION_STEPS.length : currentIndex;
   const progressValue = Math.round((completed / GENERATION_STEPS.length) * 100);
 
-  const voiceLabel = TTS_VOICES.find((voice) => voice.id === options.ttsVoice)?.label ?? options.ttsVoice;
+  const voiceLabel = options.useCustomVoice ? t('voice.custom') : t('voice.synthetic');
   const platformLabels = options.targetPlatforms
     .map((id) => TARGET_PLATFORMS.find((platform) => platform.id === id)?.label ?? id)
     .join(', ');
+
+  const generationSteps = React.useMemo(
+    () =>
+      GENERATION_STEPS.map((step) => ({
+        ...step,
+        label: t(`steps.${step.id}.label`),
+        description: t(`steps.${step.id}.description`),
+      })),
+    [t],
+  );
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-6 py-12 sm:py-16">
@@ -87,10 +94,10 @@ export function GenerationScreen({ title, difficulty, options, onBack }: Generat
       <header className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <Badge variant={status === 'done' ? 'ready' : 'generating'}>
-            {status === 'done' ? 'Prêt' : 'Génération'}
+            {status === 'done' ? t('badge.ready') : t('badge.generating')}
           </Badge>
           <span className="text-2xs font-semibold uppercase tracking-widest text-muted">
-            Maquette — le worker IA prendra le relais
+            {t('subtitle')}
           </span>
         </div>
 
@@ -111,7 +118,7 @@ export function GenerationScreen({ title, difficulty, options, onBack }: Generat
         >
           <li className="flex items-center gap-1.5">
             <Layers className="size-3.5 text-primary-400" aria-hidden="true" />
-            {DIFFICULTY_LABELS[difficulty]} · ≈ {options.approxSections} sections
+            {t(`difficulty.${difficulty}`)} · {t('sectionsCount', { count: options.approxSections })}
           </li>
           <li className="flex items-center gap-1.5">
             <Globe2 className="size-3.5 text-primary-400" aria-hidden="true" />
@@ -136,19 +143,19 @@ export function GenerationScreen({ title, difficulty, options, onBack }: Generat
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...transitions.enter, delay: 0.35 }}
         className="flex flex-col gap-8"
-        aria-label="Avancement de la génération"
+        aria-label={t('progressRegionLabel')}
       >
         <div className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between text-xs">
             <span className="font-semibold text-foreground">
-              {status === 'done' ? 'Cours généré' : GENERATION_STEPS[currentIndex]?.label}
+              {status === 'done' ? t('courseGenerated') : generationSteps[currentIndex]?.label}
             </span>
             <span className="tabular-nums text-muted">{progressValue}%</span>
           </div>
-          <Progress value={progressValue} aria-label="Progression globale" />
+          <Progress value={progressValue} aria-label={t('globalProgressLabel')} />
         </div>
 
-        <GenerationTimeline steps={GENERATION_STEPS} currentIndex={currentIndex} status={status} />
+        <GenerationTimeline steps={generationSteps} currentIndex={currentIndex} status={status} />
       </motion.section>
 
       <motion.footer
@@ -157,13 +164,16 @@ export function GenerationScreen({ title, difficulty, options, onBack }: Generat
         transition={{ ...transitions.enter, delay: 0.5 }}
         className="flex items-center justify-between border-t border-border pt-5"
       >
+        {/* Le cours est déjà créé : « Modifier le brief » serait trompeur. On
+            propose plutôt de composer un AUTRE cours (celui-ci continue en
+            arrière-plan, visible sur le dashboard). */}
         <Button variant="ghost" size="sm" onClick={onBack}>
           <ArrowLeft className="rtl:rotate-180" aria-hidden="true" />
-          Modifier le brief
+          {t('createAnother')}
         </Button>
         {status === 'done' && (
           <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={transitions.springSnappy}>
-            <Badge variant="ready">Plan prêt à relire</Badge>
+            <Badge variant="ready">{t('planReady')}</Badge>
           </motion.div>
         )}
       </motion.footer>

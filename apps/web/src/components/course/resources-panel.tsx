@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { BookOpen, ChevronDown, ExternalLink, FileText, NotebookPen } from 'lucide-react';
 import { buttonVariants } from '@/components/ui';
 import { cn } from '@/lib/cn';
@@ -18,6 +19,7 @@ export interface ResourcesPanelProps {
 }
 
 export function ResourcesPanel({ resources }: ResourcesPanelProps) {
+  const t = useTranslations('course.resources');
   const [open, setOpen] = React.useState(false);
   const contentId = React.useId();
 
@@ -37,10 +39,9 @@ export function ResourcesPanel({ resources }: ResourcesPanelProps) {
         <span className="flex min-w-0 items-center gap-3">
           <BookOpen className="size-5 shrink-0 text-primary" aria-hidden="true" />
           <span className="min-w-0">
-            <span className="block font-medium text-foreground">Ressources</span>
+            <span className="block font-medium text-foreground">{t('title')}</span>
             <span className="block text-xs text-muted">
-              Aide-mémoire, workbook, glossaire ({glossary.length}) et liens utiles (
-              {furtherResources.length})
+              {t('subtitle', { glossaryCount: glossary.length, furtherCount: furtherResources.length })}
             </span>
           </span>
         </span>
@@ -64,7 +65,7 @@ export function ResourcesPanel({ resources }: ResourcesPanelProps) {
                 className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }))}
               >
                 <FileText aria-hidden="true" />
-                Aide-mémoire (PDF)
+                {t('cheatsheetPdf')}
               </a>
             ) : null}
             {workbookUrl ? (
@@ -74,7 +75,7 @@ export function ResourcesPanel({ resources }: ResourcesPanelProps) {
                 className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }))}
               >
                 <NotebookPen aria-hidden="true" />
-                Workbook des TP (PDF)
+                {t('workbookPdf')}
               </a>
             ) : null}
           </div>
@@ -82,7 +83,7 @@ export function ResourcesPanel({ resources }: ResourcesPanelProps) {
           {/* ── Glossaire ────────────────────────────────────────── */}
           {glossary.length > 0 && (
             <div>
-              <h3 className="mb-2 text-sm font-semibold text-foreground">Glossaire</h3>
+              <h3 className="mb-2 text-sm font-semibold text-foreground">{t('glossary')}</h3>
               <dl className="grid gap-3 sm:grid-cols-2">
                 {glossary.map((entry) => (
                   <div key={entry.term} className="rounded-md border border-border bg-background p-3">
@@ -97,7 +98,7 @@ export function ResourcesPanel({ resources }: ResourcesPanelProps) {
           {/* ── Pour aller plus loin ─────────────────────────────── */}
           {furtherResources.length > 0 && (
             <div>
-              <h3 className="mb-2 text-sm font-semibold text-foreground">Pour aller plus loin</h3>
+              <h3 className="mb-2 text-sm font-semibold text-foreground">{t('furtherReading')}</h3>
               <ul className="flex flex-col gap-2">
                 {furtherResources.map((resource) => (
                   <li
@@ -119,7 +120,7 @@ export function ResourcesPanel({ resources }: ResourcesPanelProps) {
                         target="_blank"
                         rel="noreferrer noopener"
                         className="shrink-0 text-muted transition-colors duration-fast hover:text-primary"
-                        aria-label={`Ouvrir « ${resource.title} »`}
+                        aria-label={t('openResource', { title: resource.title })}
                       >
                         <ExternalLink className="size-4" aria-hidden="true" />
                       </a>

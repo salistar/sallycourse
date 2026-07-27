@@ -4,6 +4,8 @@ import * as React from 'react';
 import { Layers } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, useToast } from '@/components/ui';
 import type { DeploymentMode } from '@sallycourse/db';
+import { useTranslations } from 'next-intl';
+import { errorMessage } from '@/lib/error-message';
 
 /**
  * Bouton « Enregistrer comme preset » (P109) — capture la sélection courante
@@ -19,6 +21,8 @@ export interface SavePresetButtonProps {
 }
 
 export function SavePresetButton({ platforms, mode, disabled = false }: SavePresetButtonProps) {
+  const t = useTranslations('course.savePreset');
+  const tApiError = useTranslations('apiErrors');
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState('');
@@ -39,14 +43,14 @@ export function SavePresetButton({ platforms, mode, disabled = false }: SavePres
       });
       const json = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) {
-        toast({ variant: 'danger', title: 'Enregistrement impossible', description: json?.error });
+        toast({ variant: 'danger', title: t('toastSaveErrorTitle'), description: errorMessage(json, tApiError) });
         return;
       }
-      toast({ variant: 'success', title: 'Preset enregistré', description: name.trim() });
+      toast({ variant: 'success', title: t('toastSavedTitle'), description: name.trim() });
       setOpen(false);
       setName('');
     } catch {
-      toast({ variant: 'danger', title: 'Erreur réseau', description: 'Serveur injoignable.' });
+      toast({ variant: 'danger', title: t('toastNetworkErrorTitle'), description: t('toastNetworkErrorBody') });
     } finally {
       setSaving(false);
     }
@@ -55,28 +59,26 @@ export function SavePresetButton({ platforms, mode, disabled = false }: SavePres
   return (
     <>
       <Button variant="secondary" size="sm" disabled={disabled} onClick={() => setOpen(true)}>
-        <Layers aria-hidden="true" /> Enregistrer comme preset
+        <Layers aria-hidden="true" /> {t('button')}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Enregistrer cette configuration comme preset</DialogTitle>
+            <DialogTitle>{t('dialogTitle')}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSave} className="mt-4 flex flex-col gap-4">
             <Input
-              label="Nom du preset"
+              label={t('nameLabel')}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ex. Combo YouTube + Udemy FR"
+              placeholder={t('namePlaceholder')}
             />
             <p className="text-xs text-muted">
-              {platforms.length} plateforme{platforms.length > 1 ? 's' : ''} sélectionnée
-              {platforms.length > 1 ? 's' : ''}, mode « {mode} ». Retrouvable ensuite dans
-              Réglages → Mes presets de déploiement.
+              {t('summary', { count: platforms.length, mode })}
             </p>
             <DialogFooter>
               <Button type="submit" variant="primary" loading={saving} disabled={!name.trim()}>
-                Enregistrer
+                {t('submit')}
               </Button>
             </DialogFooter>
           </form>

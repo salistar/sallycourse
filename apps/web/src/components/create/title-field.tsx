@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/cn';
 
 /**
@@ -23,6 +24,7 @@ const TITLE_MAX = 120;
 export function TitleField({ value, onChange, error, onEnter }: TitleFieldProps) {
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const errorId = React.useId();
+  const t = useTranslations('create.titleField');
 
   // Auto-redimensionnement : la hauteur suit le contenu, jamais de scroll interne.
   React.useLayoutEffect(() => {
@@ -47,10 +49,10 @@ export function TitleField({ value, onChange, error, onEnter }: TitleFieldProps)
           }
         }}
         autoFocus
-        aria-label="Titre du cours"
+        aria-label={t('titleAriaLabel')}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
-        placeholder="Ex. Maîtriser Docker en 7 jours"
+        placeholder={t('placeholder')}
         spellCheck={false}
         className={cn(
           'w-full resize-none overflow-hidden bg-transparent text-center',

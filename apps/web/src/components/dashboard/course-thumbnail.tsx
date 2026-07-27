@@ -1,9 +1,16 @@
+'use client';
+
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/cn';
 
 /**
- * Miniature générée — placeholder SVG géométrique DÉTERMINISTE, seedé par le
- * titre du cours : même titre → même composition (stable entre SSR et client).
+ * Miniature générée — placeholder SVG géométrique DÉTERMINISTE. Le seed vient
+ * de `seedKey` (l'id du cours, chaîne ASCII stable) si fourni, sinon du titre.
+ * On normalise le seed en NFC : un titre arabe/accentué peut arriver en NFC
+ * côté serveur et NFD côté client (ou l'inverse) → sinon hash différent →
+ * erreur d'hydratation React sur le `d` du path. Seeder par l'id évite aussi
+ * de changer la miniature quand on renomme le cours.
  * Toutes les couleurs passent par des classes de tokens (aucun hex inline).
  */
 
@@ -116,13 +123,28 @@ function WavesMotif({ rnd, palette }: { rnd: () => number; palette: Palette }) {
 const MOTIFS = [OrbitsMotif, PeaksMotif, DiamondsMotif, WavesMotif] as const;
 
 export interface CourseThumbnailProps {
-  /** Titre du cours — sert de seed visuel. */
+  /** Titre du cours — utilisé pour l'aria-label et comme seed de repli. */
   title: string;
+  /** Seed visuel stable (id du cours). À privilégier au titre : ASCII, stable
+   *  entre SSR/client et inchangé au renommage. */
+  seedKey?: string;
   className?: string;
 }
 
-export function CourseThumbnail({ title, className }: CourseThumbnailProps) {
-  const seed = hashTitle(title);
+export function CourseThumbnail({ title, seedKey, className }: CourseThumbnailProps) {
+  const t = useTranslations('dashboard.thumbnail');
+
+  // Le motif est dérivé d'un PRNG seedé. En théorie identique SSR/client, mais
+  // TOUTE dérive (recompilation dev/hot-reload, normalisation Unicode d'un
+  // titre, build serveur ≠ client) casserait l'hydratation sur les coordonnées
+  // du SVG. On ne rend donc AUCUN élément dérivé du seed dans le HTML serveur :
+  // fond neutre statique au SSR + premier rendu client, motif seedé injecté
+  // seulement APRÈS montage. Le premier rendu client est identique au serveur
+  // → zéro erreur d'hydratation, en dev comme en prod, quelle que soit la langue.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+
+  const seed = hashTitle((seedKey ?? title).normalize('NFC'));
   const rnd = mulberry32(seed);
   const palette = PALETTES[seed % PALETTES.length]!;
   const Motif = MOTIFS[(seed >>> 8) % MOTIFS.length]!;
@@ -131,13 +153,15 @@ export function CourseThumbnail({ title, className }: CourseThumbnailProps) {
     <svg
       viewBox="0 0 200 112"
       role="img"
-      aria-label={`Miniature générée pour « ${title} »`}
+      aria-label={t('ariaLabel', { title })}
       className={cn('block h-full w-full', className)}
       xmlns="http://www.w3.org/2000/svg"
       preserveAspectRatio="xMidYMid slice"
     >
-      <rect width="200" height="112" className={palette.bg} />
-      <Motif rnd={rnd} palette={palette} />
+      {/* Fond : neutre STATIQUE au SSR (aucun dérivé du seed), palette seedée
+          après montage. */}
+      <rect width="200" height="112" className={mounted ? palette.bg : 'fill-primary-950'} />
+      {mounted && <Motif rnd={rnd} palette={palette} />}
       {/* Voile bas — assoit les badges posés en overlay */}
       <rect width="200" height="112" className="fill-neutral-950/20" />
     </svg>

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations, useFormatter } from 'next-intl';
 import { AnimatePresence, motion } from 'framer-motion';
 import { TerminalSquare, MonitorPlay } from 'lucide-react';
 import { Badge, Card, CardContent, CardHeader, Progress } from '@/components/ui';
@@ -29,20 +30,24 @@ import type { SlidePreview } from './mock-data';
 
 // NB : baril @sallycourse/shared non importable côté client (node:crypto,
 // @aws-sdk) — les noms de queues sont donc répliqués ici via `key`.
-interface PipelineStepDef extends GenerationStep {
+interface PipelineStepDef {
+  id: string;
   /** Fragment identifiant l'étape dans ProgressEvent.step / GenerationJob.step. */
   key: string;
+  /** Clés i18n du libellé et de la description (résolues au rendu). */
+  labelKey: string;
+  descriptionKey: string;
 }
 
 const PIPELINE_STEPS: PipelineStepDef[] = [
-  { id: 'outline', key: 'outline', label: 'Plan du cours', description: 'Sections, leçons et objectifs' },
-  { id: 'content', key: 'content', label: 'Rédaction des leçons', description: 'Scripts, articles et TPs' },
-  { id: 'tts', key: 'tts', label: 'Narration audio', description: 'Voix de synthèse et mixage' },
-  { id: 'screenshot', key: 'screenshot', label: 'Captures & visuels', description: 'Illustrations des slides' },
-  { id: 'video', key: 'video', label: 'Rendu des vidéos', description: 'Slides animées 1080p' },
-  { id: 'subtitle', key: 'subtitle', label: 'Sous-titres', description: 'SRT / VTT synchronisés' },
-  { id: 'packaging', key: 'packaging', label: 'Quiz & export', description: 'Questions, corrigés et paquets' },
-  { id: 'deployment', key: 'deploy', label: 'Publication', description: 'Déploiement plateformes' },
+  { id: 'outline', key: 'outline', labelKey: 'steps.outline.label', descriptionKey: 'steps.outline.description' },
+  { id: 'content', key: 'content', labelKey: 'steps.content.label', descriptionKey: 'steps.content.description' },
+  { id: 'tts', key: 'tts', labelKey: 'steps.tts.label', descriptionKey: 'steps.tts.description' },
+  { id: 'screenshot', key: 'screenshot', labelKey: 'steps.screenshot.label', descriptionKey: 'steps.screenshot.description' },
+  { id: 'video', key: 'video', labelKey: 'steps.video.label', descriptionKey: 'steps.video.description' },
+  { id: 'subtitle', key: 'subtitle', labelKey: 'steps.subtitle.label', descriptionKey: 'steps.subtitle.description' },
+  { id: 'packaging', key: 'packaging', labelKey: 'steps.packaging.label', descriptionKey: 'steps.packaging.description' },
+  { id: 'deployment', key: 'deploy', labelKey: 'steps.deployment.label', descriptionKey: 'steps.deployment.description' },
 ];
 
 /** Index de l'étape courante d'après son nom (tolérant : queue ou libellé court). */
@@ -71,13 +76,11 @@ const LOG_TEXT_STYLES: Record<LineLevel, string> = {
   muted: 'text-neutral-500 italic',
 };
 
-/** Heure locale hh:mm:ss — rendue uniquement côté client (pas de SSR des logs). */
-function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString('fr-FR', { hour12: false });
-}
+/* Horodatage des logs : formaté via useFormatter (locale active de l'app). */
 
 /** Terminal stylé — chrome macOS discret, fond quasi noir, fonte mono. */
 function LogTerminal({ lines }: { lines: TerminalLine[] }) {
+  const t = useTranslations('dashboard.generationPanel');
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const reduced = usePrefersReducedMotion();
 
@@ -99,7 +102,7 @@ function LogTerminal({ lines }: { lines: TerminalLine[] }) {
         </span>
         <span className="ms-1 flex items-center gap-1.5 text-2xs font-medium uppercase tracking-wide text-neutral-400">
           <TerminalSquare className="size-3.5" aria-hidden="true" />
-          worker · génération
+          {t('terminalTitle')}
         </span>
       </div>
 
@@ -107,7 +110,7 @@ function LogTerminal({ lines }: { lines: TerminalLine[] }) {
       <div
         ref={scrollRef}
         aria-live="polite"
-        aria-label="Journal de génération"
+        aria-label={t('logAriaLabel')}
         dir="ltr"
         className="h-56 overflow-y-auto p-3.5 font-mono text-xs leading-relaxed"
       >
@@ -139,11 +142,12 @@ function LogTerminal({ lines }: { lines: TerminalLine[] }) {
 
 /** Aperçu de la slide en cours — cadre 16:9 façon rendu vidéo. */
 function SlidePreviewPane({ slide }: { slide: SlidePreview }) {
+  const t = useTranslations('dashboard.generationPanel');
   return (
     <div className="flex flex-col gap-2">
       <p className="flex items-center gap-1.5 text-2xs font-medium uppercase tracking-wide text-muted">
         <MonitorPlay className="size-3.5 text-accent-400" aria-hidden="true" />
-        Aperçu du rendu
+        {t('renderPreview')}
       </p>
       <div className="relative aspect-video overflow-hidden rounded-md border border-border bg-gradient-to-br from-primary-950 to-neutral-950 shadow-md">
         {/* Décor géométrique fixe de la slide */}
@@ -208,6 +212,8 @@ export function GenerationPanel({
   className,
 }: GenerationPanelProps) {
   const { step, progress, logs, connected } = useCourseProgress(courseId);
+  const t = useTranslations('dashboard.generationPanel');
+  const format = useFormatter();
 
   // Le flux prime ; l'état serveur (snapshot DB) sert de première peinture.
   const effectiveStep = step ?? initialStep;
@@ -228,7 +234,12 @@ export function GenerationPanel({
   const lines: TerminalLine[] =
     logs.length > 0
       ? logs.map((log) => ({
-          time: formatTime(log.ts),
+          time: format.dateTime(new Date(log.ts), {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+          }),
           level: log.level,
           text: log.msg,
         }))
@@ -237,8 +248,8 @@ export function GenerationPanel({
             time: '--:--:--',
             level: 'muted',
             text: connected
-              ? 'Connecté — en attente des événements du worker…'
-              : 'Connexion au flux de progression…',
+              ? t('waitingConnected')
+              : t('connecting'),
           },
         ];
 
@@ -246,28 +257,32 @@ export function GenerationPanel({
   const recentMessages = logs.slice(-3).map((log) => log.msg);
   const slide: SlidePreview = {
     stepIndex: currentIndex,
-    kicker: currentStep.label,
+    kicker: t(currentStep.labelKey),
     title: courseTitle,
-    bullets: recentMessages.length > 0 ? recentMessages : [currentStep.description ?? 'Préparation…'],
-    slideNumber: `Étape ${currentIndex + 1} / ${PIPELINE_STEPS.length}`,
+    bullets: recentMessages.length > 0 ? recentMessages : [t(currentStep.descriptionKey)],
+    slideNumber: t('slideNumber', { current: currentIndex + 1, total: PIPELINE_STEPS.length }),
   };
 
   // GenerationTimeline attend un tableau mutable de GenerationStep.
-  const steps: GenerationStep[] = PIPELINE_STEPS.map(({ id, label, description }) => ({ id, label, description }));
+  const steps: GenerationStep[] = PIPELINE_STEPS.map(({ id, labelKey, descriptionKey }) => ({
+    id,
+    label: t(labelKey),
+    description: t(descriptionKey),
+  }));
 
   return (
     <Card wrapperClassName={className}>
       <CardHeader className="gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-2xs font-semibold uppercase tracking-wide text-muted">Génération en direct</p>
+            <p className="text-2xs font-semibold uppercase tracking-wide text-muted">{t('liveGeneration')}</p>
             <h2 className="mt-0.5 truncate font-display text-xl font-semibold text-foreground">{courseTitle}</h2>
           </div>
           <Badge variant={failed ? 'failed' : done ? 'ready' : 'generating'}>
-            {failed ? 'Échec' : done ? 'Terminé' : 'En cours'}
+            {failed ? t('status.failed') : done ? t('status.done') : t('status.running')}
           </Badge>
         </div>
-        <Progress value={globalProgress} label="Avancement global" showLabel />
+        <Progress value={globalProgress} label={t('globalProgress')} showLabel />
       </CardHeader>
 
       <CardContent>

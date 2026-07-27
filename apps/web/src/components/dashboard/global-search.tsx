@@ -6,6 +6,7 @@ import { BookOpen, FileText, Layers, Search } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui';
 import { highlightMatches, type SearchResultGroup, type SearchResultItem } from '@/lib/search';
 import { cn } from '@/lib/cn';
+import { useTranslations } from 'next-intl';
 
 /**
  * Recherche globale du dashboard (P132) — modal ouvrable via Cmd/Ctrl+K,
@@ -27,9 +28,9 @@ const KIND_ICON: Record<SearchResultItem['kind'], React.ComponentType<{ classNam
 };
 
 const KIND_LABEL: Record<SearchResultItem['kind'], string> = {
-  course: 'Cours',
-  section: 'Section',
-  lesson: 'Leçon',
+  course: 'kind.course',
+  section: 'kind.section',
+  lesson: 'kind.lesson',
 };
 
 /**
@@ -70,6 +71,7 @@ export interface GlobalSearchProps {
 
 export function GlobalSearch({ iconOnly = false }: GlobalSearchProps) {
   const router = useRouter();
+  const t = useTranslations('dashboard.search');
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
   const [groups, setGroups] = React.useState<SearchResultGroup[]>([]);
@@ -170,7 +172,7 @@ export function GlobalSearch({ iconOnly = false }: GlobalSearchProps) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          aria-label="Recherche globale"
+          aria-label={t('triggerAriaLabel')}
           className="flex h-10 w-10 items-center justify-center rounded-sm text-muted transition-colors duration-fast hover:bg-primary-soft hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/80"
         >
           <Search className="size-5" aria-hidden="true" />
@@ -179,7 +181,7 @@ export function GlobalSearch({ iconOnly = false }: GlobalSearchProps) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          aria-label="Recherche globale"
+          aria-label={t('triggerAriaLabel')}
           className={cn(
             'flex items-center gap-2 rounded-md border border-border bg-surface-subtle/60 px-3 py-2 text-sm text-muted',
             'transition-colors duration-fast hover:border-ring/50 hover:bg-surface-subtle hover:text-foreground',
@@ -187,7 +189,7 @@ export function GlobalSearch({ iconOnly = false }: GlobalSearchProps) {
           )}
         >
           <Search className="size-4 shrink-0" aria-hidden="true" />
-          <span className="hidden sm:inline">Rechercher…</span>
+          <span className="hidden sm:inline">{t('placeholderShort')}</span>
           <kbd className="ms-1 hidden items-center gap-0.5 rounded-sm border border-border bg-surface px-1.5 py-0.5 text-2xs font-medium text-muted sm:flex">
             Ctrl K
           </kbd>
@@ -195,7 +197,7 @@ export function GlobalSearch({ iconOnly = false }: GlobalSearchProps) {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent hideClose className="max-w-xl p-0" aria-label="Recherche globale">
+        <DialogContent hideClose className="max-w-xl p-0" aria-label={t('triggerAriaLabel')}>
           <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
             <Search className="size-4 shrink-0 text-muted" aria-hidden="true" />
             <input
@@ -204,8 +206,8 @@ export function GlobalSearch({ iconOnly = false }: GlobalSearchProps) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="Rechercher un cours, une section, une leçon…"
-              aria-label="Terme de recherche"
+              placeholder={t('searchPlaceholder')}
+              aria-label={t('inputAriaLabel')}
               role="combobox"
               aria-expanded={flatItems.length > 0}
               aria-controls="global-search-results"
@@ -217,12 +219,12 @@ export function GlobalSearch({ iconOnly = false }: GlobalSearchProps) {
           <div id="global-search-results" role="listbox" className="max-h-[min(60vh,420px)] overflow-y-auto p-2">
             {query.trim().length < 2 ? (
               <p className="px-3 py-8 text-center text-sm text-muted">
-                Tapez au moins 2 caractères pour lancer la recherche.
+                {t('minChars')}
               </p>
             ) : loading && groups.length === 0 ? (
-              <p className="px-3 py-8 text-center text-sm text-muted">Recherche…</p>
+              <p className="px-3 py-8 text-center text-sm text-muted">{t('searching')}</p>
             ) : groups.length === 0 ? (
-              <p className="px-3 py-8 text-center text-sm text-muted">Aucun résultat pour « {query} ».</p>
+              <p className="px-3 py-8 text-center text-sm text-muted">{t('noResults', { query })}</p>
             ) : (
               groups.map((group) => (
                 <div key={group.courseId} className="mb-2 last:mb-0">
@@ -257,7 +259,7 @@ export function GlobalSearch({ iconOnly = false }: GlobalSearchProps) {
                               <Highlighted text={item.excerpt} query={query} />
                             </span>
                           )}
-                          <span className="mt-0.5 block text-2xs text-muted/70">{KIND_LABEL[item.kind]}</span>
+                          <span className="mt-0.5 block text-2xs text-muted/70">{t(KIND_LABEL[item.kind])}</span>
                         </span>
                       </button>
                     );

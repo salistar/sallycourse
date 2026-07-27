@@ -2,7 +2,9 @@
 
 import * as React from 'react';
 import { Languages, Loader2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, useToast, type BadgeProps } from '@/components/ui';
+import { errorMessage } from '@/lib/error-message';
 import type { DubbedVersionView, Locale } from './types';
 
 /**
@@ -27,15 +29,17 @@ const LOCALE_LABELS: Record<Locale, string> = {
   ar: 'العربية',
 };
 
-const STATUS_BADGE: Record<DubbedVersionView['status'], { variant: NonNullable<BadgeProps['variant']>; label: string }> = {
-  pending: { variant: 'draft', label: 'En file' },
-  generating: { variant: 'generating', label: 'En cours' },
-  ready: { variant: 'ready', label: 'Prêt' },
-  failed: { variant: 'failed', label: 'Échec partiel' },
+const STATUS_BADGE: Record<DubbedVersionView['status'], { variant: NonNullable<BadgeProps['variant']>; labelKey: string }> = {
+  pending: { variant: 'draft', labelKey: 'statusPending' },
+  generating: { variant: 'generating', labelKey: 'statusGenerating' },
+  ready: { variant: 'ready', labelKey: 'statusReady' },
+  failed: { variant: 'failed', labelKey: 'statusFailed' },
 };
 
 export function TranslatePanel({ courseId, sourceLocale, dubbedVersions: initial }: TranslatePanelProps) {
   const { toast } = useToast();
+  const t = useTranslations('course.translate');
+  const tApiError = useTranslations('apiErrors');
   const [selected, setSelected] = React.useState<Set<Locale>>(new Set());
   const [dub, setDub] = React.useState(false);
   const [launching, setLaunching] = React.useState(false);
@@ -77,18 +81,18 @@ export function TranslatePanel({ courseId, sourceLocale, dubbedVersions: initial
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) {
-        toast({ variant: 'danger', title: 'Traduction impossible', description: data?.error });
+        toast({ variant: 'danger', title: t('translateErrorTitle'), description: errorMessage(data, tApiError) });
         return;
       }
       toast({
         variant: 'success',
-        title: 'Traduction lancée',
-        description: `${selected.size} langue(s)${dub ? ' avec doublage' : ' (sous-titres uniquement)'}.`,
+        title: t('launchedTitle'),
+        description: t('launchSuccessDescription', { count: selected.size, mode: dub ? 'dub' : 'subtitles' }),
       });
       setSelected(new Set());
       await refresh();
     } catch {
-      toast({ variant: 'danger', title: 'Erreur réseau', description: 'Serveur injoignable.' });
+      toast({ variant: 'danger', title: t('networkErrorTitle'), description: t('networkErrorDescription') });
     } finally {
       setLaunching(false);
     }
@@ -100,15 +104,17 @@ export function TranslatePanel({ courseId, sourceLocale, dubbedVersions: initial
     <Card>
       <CardHeader className="gap-3">
         <div>
-          <p className="text-2xs font-semibold uppercase tracking-wide text-muted">Localisation</p>
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted">{t('sectionLabel')}</p>
           <CardTitle className="mt-0.5 flex items-center gap-2 text-lg">
             <Languages className="size-5 text-accent" aria-hidden="true" />
-            Traduire ce cours
+            {t('title')}
           </CardTitle>
         </div>
         <p className="text-sm text-muted">
-          Traduit les sous-titres existants dans les langues sélectionnées et met à jour les
-          plateformes déjà déployées. Le doublage régénère aussi l'audio et la vidéo (plus long).
+          {t('description')}
+        </p>
+        <p className="text-2xs text-muted">
+          {t('prerequisite')}
         </p>
       </CardHeader>
 
@@ -142,9 +148,9 @@ export function TranslatePanel({ courseId, sourceLocale, dubbedVersions: initial
             onChange={(e) => setDub(e.target.checked)}
           />
           <span>
-            <span className="font-medium text-foreground">Doubler les vidéos (audio + montage régénérés).</span>{' '}
+            <span className="font-medium text-foreground">{t('dubOptionTitle')}</span>{' '}
             <span className="text-muted">
-              Sans cette option, seuls les sous-titres sont traduits (plus rapide, moins coûteux).
+              {t('dubOptionHint')}
             </span>
           </span>
         </label>
@@ -157,13 +163,13 @@ export function TranslatePanel({ courseId, sourceLocale, dubbedVersions: initial
             onClick={() => void launch()}
           >
             {!launching && <Languages aria-hidden="true" />}
-            Traduire ({selected.size || 0})
+            {t('translateButton', { count: selected.size || 0 })}
           </Button>
         </div>
 
         {versions.length > 0 && (
           <div className="flex flex-col gap-2 border-t border-border pt-4">
-            <p className="text-2xs font-semibold uppercase tracking-wide text-muted">Versions existantes</p>
+            <p className="text-2xs font-semibold uppercase tracking-wide text-muted">{t('existingVersions')}</p>
             {versions.map((v) => {
               const badge = STATUS_BADGE[v.status];
               return (
@@ -176,10 +182,10 @@ export function TranslatePanel({ courseId, sourceLocale, dubbedVersions: initial
                       <Loader2 className="size-4 shrink-0 animate-spin text-info" aria-hidden="true" />
                     )}
                     <span className="font-medium text-foreground">{LOCALE_LABELS[v.locale] ?? v.locale}</span>
-                    <Badge variant={badge.variant}>{badge.label}</Badge>
+                    <Badge variant={badge.variant}>{t(badge.labelKey)}</Badge>
                   </div>
                   <p className="text-2xs text-muted">
-                    {v.lessonsWithSubtitles} sous-titre(s) · {v.lessonsWithVideo} vidéo(s) doublée(s)
+                    {t('versionStats', { subs: v.lessonsWithSubtitles, videos: v.lessonsWithVideo })}
                   </p>
                 </div>
               );
