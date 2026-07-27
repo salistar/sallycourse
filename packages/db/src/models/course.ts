@@ -11,7 +11,7 @@ import mongoose, {
 // fichier est consommé en source par le worker (NodeNext) ; typage intact ici (Bundler).
 // prettier-ignore
 // @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext)
-import { LOCALES, courseStatusSchema, difficultySchema, outlineSchema, type CourseStatus, type Difficulty, type Locale, type Outline } from '@sallycourse/shared';
+import { LOCALES, courseStatusSchema, difficultySchema, outlineSchema, type CourseStatus, type Difficulty, type Locale, type Outline, type AdvancedParams } from '@sallycourse/shared';
 
 export interface ICourse {
   userId: Types.ObjectId;
@@ -26,16 +26,67 @@ export interface ICourse {
   watermark: boolean;
   ttsVoice?: string;
   /**
+   * Moteur de voix premium préféré (audit qualité modèles 2026-07-22, additif) :
+   * 'chatterbox' (Resemble AI, défaut historique) ou 'qwen3' (Qwen3-TTS,
+   * Alibaba — surpasse Chatterbox sur les benchmarks publics et n'a pas
+   * reproduit les défauts constatés en réel sur ce dernier). Absent = défaut
+   * 'chatterbox', comportement INCHANGÉ pour tous les cours existants — voir
+   * media/tts.ts (SynthesizeSlideParams.ttsEngine).
+   */
+  ttsEngine?: 'chatterbox' | 'qwen3';
+  /**
+   * Voix de narration du catalogue (fix « voix multiples » 2026-07-26) : id
+   * d'une voix de VOICE_CATALOG (@sallycourse/shared). L'identité vocale est
+   * ÉPINGLÉE sur tout le cours : échantillon de référence cloné par les
+   * moteurs premium + voix Edge source en repli — une seule voix dans chaque
+   * vidéo et dans tout le cours. Absent = voix par défaut de la langue
+   * (identique aux défauts historiques, comportement inchangé).
+   */
+  voiceId?: string;
+  /**
+   * Thème visuel des slides vidéo et des articles (catalogue de thèmes
+   * 2026-07-26) : id de THEME_CATALOG (@sallycourse/shared). Absent = thème
+   * par défaut « salistar » (valeurs identiques aux gabarits historiques —
+   * comportement inchangé). Modifiable après génération : le changement
+   * re-rend les slides et ré-encode les vidéos du cours.
+   */
+  themeId?: string;
+  /**
+   * Moteur d'image premium préféré (audit qualité modèles 2026-07-22, additif) :
+   * 'sdxl' (Stability AI, défaut historique) ou 'zimage' (Z-Image Turbo,
+   * Tongyi-MAI — n°1 open-weights Artificial Analysis Image Arena, ~3x moins
+   * d'étapes que SDXL). Absent = défaut 'sdxl', comportement INCHANGÉ pour
+   * tous les cours existants — voir media/image-generation.ts.
+   */
+  imageEngine?: 'sdxl' | 'zimage';
+  /**
    * Vitesse de narration configurable (Prompt 137, accessibilité) : 1 =
    * débit standard (AUDIO.NARRATION_WORDS_PER_MINUTE), plage 0.75–1.25
    * répercutée sur le TTS (media/tts.ts). Additif, undefined = défaut 1
    * (comportement inchangé pour tous les cours existants).
    */
   narrationSpeed?: number;
+  /**
+   * Nombre de sections souhaité par l'auteur (stepper 3–30 à la création).
+   * Additif : undefined = l'IA décide (plancher UDEMY.MIN_SECTIONS). Injecté
+   * dans le prompt de plan (outlineUserPrompt) par outline-generation.
+   */
+  approxSections?: number;
+  /**
+   * Mode d'enchaînement de la génération (validation étape par étape) :
+   * 'validated' arrête la chaîne après chaque leçon générée jusqu'au clic
+   * « Valider et continuer » de l'auteur. Additif, undefined = 'auto'
+   * (chaînage historique, comportement inchangé pour les cours existants).
+   */
+  generationMode?: 'auto' | 'validated';
+  /** Provider LLM choisi pour la rédaction (id catalogue cloud / anthropic / ollama). */
+  llmProvider?: string;
   coverImageUrl?: string;
   /** Clé S3 de la vidéo d'intro webcam (~60 s) — mode compliance max Udemy (P48). */
   introVideoKey?: string;
   qaReport?: unknown;
+  /** Rapport de révision automatique (2026-07-26) — CourseReviewReport côté worker. */
+  reviewReport?: unknown;
   /**
    * Score de qualité pédagogique (Prompt 94) : {score:0-100, rubric:{clarity,
    * progression, examples, engagement}, feedback:string[], evaluatedAt}.
@@ -66,6 +117,19 @@ export interface ICourse {
    */
   resources?: unknown;
   /**
+   * Réutilisation du contenu (P197/201/202/203) — sorties dérivées du cours
+   * générées en fin de pipeline : { flashcards?: {count, jsonKey, ankiKey},
+   * podcast?: {feedKey, episodes}, ebook?: {epubKey?, pdfKey?}, trailer?:
+   * {videoKey} }. Mixed en base (clés S3 + compteurs) ; absent tant qu'aucune
+   * génération n'a tourné. Additif.
+   */
+  repurposing?: {
+    flashcards?: { count: number; jsonKey: string; ankiKey: string };
+    podcast?: { feedKey: string; episodes: number };
+    ebook?: { epubKey?: string; pdfKey?: string };
+    trailer?: { videoKey: string };
+  };
+  /**
    * Archivage à froid (P79) : true si le cours est inactif depuis 90+ jours
    * (voir lib/retention.ts côté worker). Un cours archivé reste consultable
    * mais est exclu des listings actifs ; réactivable via
@@ -85,6 +149,19 @@ export interface ICourse {
   avatarEnabled?: boolean;
   /** Identifiant d'avatar HeyGen choisi (ignoré si avatarEnabled=false). */
   avatarId?: string;
+  /**
+   * Voix clonée personnalisée (Chatterbox/Modal) : si true ET que le
+   * propriétaire a un échantillon vocal prêt (User.voiceCloneStatus='ready' +
+   * consentement), la narration TTS utilise sa voix clonée (audio_prompt Modal)
+   * au lieu de la voix standard. Additif, défaut false.
+   */
+  useCustomVoice?: boolean;
+  /**
+   * Paramètres de génération avancés (Phase 10, P163-174) — Mixed en base,
+   * validé par advancedParamsSchema (Zod) côté @sallycourse/shared. Injectés
+   * dans les prompts de plan/scripts/articles. Additif, undefined par défaut.
+   */
+  advancedParams?: AdvancedParams;
   /**
    * Opt-in explicite de l'auteur (Prompt 89) : autorise l'affichage de ce
    * cours sur la vitrine publique /showcase (titre, difficulté, éventuel
@@ -220,19 +297,32 @@ const courseSchema = new Schema<ICourse>(
     locale: { type: String, enum: [...LOCALES], default: 'fr' },
     watermark: { type: Boolean, default: true },
     ttsVoice: { type: String },
+    ttsEngine: { type: String, enum: ['chatterbox', 'qwen3'] },
+    voiceId: { type: String },
+    themeId: { type: String },
+    imageEngine: { type: String, enum: ['sdxl', 'zimage'] },
     narrationSpeed: { type: Number, min: 0.75, max: 1.25 },
+    approxSections: { type: Number, min: 3, max: 30 },
+    generationMode: { type: String, enum: ['auto', 'validated'] },
+    llmProvider: { type: String },
     coverImageUrl: { type: String },
     introVideoKey: { type: String },
     qaReport: { type: Schema.Types.Mixed, default: null },
+    // Rapport de révision automatique (2026-07-26) — voir worker
+    // processors/course-review.ts (CourseReviewReport).
+    reviewReport: { type: Schema.Types.Mixed, default: null },
     qualityScore: { type: Schema.Types.Mixed, default: null },
     marketing: { type: Schema.Types.Mixed, default: null },
     improvementSuggestions: { type: Schema.Types.Mixed, default: null },
     aiDisclosureAccepted: { type: Boolean, default: false },
     resources: { type: Schema.Types.Mixed, default: null },
+    repurposing: { type: Schema.Types.Mixed },
     archived: { type: Boolean, default: false },
     archivedAt: { type: Date, default: null },
     avatarEnabled: { type: Boolean, default: false },
     avatarId: { type: String },
+    useCustomVoice: { type: Boolean, default: false },
+    advancedParams: { type: Schema.Types.Mixed },
     showcaseOptIn: { type: Boolean, default: false },
     sourceMaterial: { type: Boolean, default: false },
     sourceMaterialFiles: { type: Schema.Types.Mixed, default: null },

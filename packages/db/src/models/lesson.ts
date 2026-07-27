@@ -33,8 +33,18 @@ export interface ISandboxLinks {
 
 export interface ILessonAssets {
   videoUrl?: string;
+  /** Version verticale 9:16 (P167) — présente si advancedParams.generateVertical. */
+  videoVerticalUrl?: string;
   articleMd?: string;
   screenshots: string[];
+  /**
+   * Index (dans `screenshots[]`) des captures produites en mode DÉGRADÉ —
+   * carton de repli, PAS une vraie capture (correctif N2, audit 2026-07-20 :
+   * ce flag existait déjà côté worker mais n'était jamais persisté nulle
+   * part, rendant l'ampleur du problème invisible côté QA/UI). Additif, vide
+   * par défaut.
+   */
+  screenshotsDegraded?: number[];
   /** Clés S3 des slides vidéo rendues en PNG (gabarits D7, ordre du script). */
   slides: string[];
   srtUrl?: string;
@@ -50,7 +60,59 @@ export interface ILessonAssets {
    * Additif — absent/vide pour toute leçon sans étape en mode screencast.
    */
   screencasts?: string[];
+  /**
+   * Rendu d'une capture d'écran UPLOADÉE par l'auteur (Feature B) : statut du
+   * pipeline asynchrone (upload → narration TTS → composition ffmpeg). 'idle'
+   * (défaut) tant qu'aucun rendu n'a été demandé ; 'pending'/'rendering' pendant
+   * le traitement ; 'ready' avec `screencastRenderKey` posé ; 'failed' sinon.
+   * Additif — distinct du flux screencast AUTOMATIQUE (`screencasts[]`).
+   */
+  screencastStatus?: ScreencastRenderStatus;
+  /** Clé S3 du MP4 final narré+légendé (présent quand screencastStatus='ready'). */
+  screencastRenderKey?: string;
+  /** Copie des légendes horodatées saisies par l'auteur (pour rechargement UI). */
+  screencastOverlays?: unknown;
+  /**
+   * Statut du bouton « Réparer l'audio » (Lot 2, plan 2026-07-20) : 'idle'
+   * (défaut) tant qu'aucune réparation n'a été demandée ; 'pending'/'running'
+   * pendant le traitement (diagnostic + resynthèse ciblée ou débruitage) ;
+   * 'ready' avec `audioRepairReport` posé ; 'failed' sinon. Additif.
+   */
+  audioRepairStatus?: AudioRepairStatus;
+  /** Dernier rapport de réparation audio (résumé humain + détail machine). */
+  audioRepairReport?: IAudioRepairReport;
+  /**
+   * Moteur de voix ayant produit la narration ACTUELLE de cette leçon (audit
+   * qualité modèles 2026-07-22, additif) : posé au premier rendu (copie de
+   * Course.ttsEngine) puis mis à jour par le bouton « switch » de audio-repair
+   * (mode 'switch-voice') — peut donc diverger du défaut du cours si l'auteur
+   * a basculé CETTE leçon vers l'autre moteur. Absent = 'chatterbox' (défaut
+   * historique, comportement inchangé pour toute leçon générée avant cet ajout).
+   */
+  ttsEngine?: 'chatterbox' | 'qwen3';
 }
+
+/** Statuts du pipeline de réparation audio (Lot 2). */
+export const AUDIO_REPAIR_STATUSES = ['idle', 'pending', 'running', 'ready', 'failed'] as const;
+export type AudioRepairStatus = (typeof AUDIO_REPAIR_STATUSES)[number];
+
+/** Rapport d'une exécution de réparation audio (Lot 2, plan 2026-07-20 ; 'switch-voice' additif 2026-07-22). */
+export interface IAudioRepairReport {
+  mode: 'resynth' | 'denoise' | 'switch-voice';
+  ranAt: Date;
+  /** Nombre de trous de silence internes détectés (mode resynth uniquement). */
+  gapsFound?: number;
+  /** Index (0-based) des slides effectivement re-synthétisées (mode resynth/switch-voice). */
+  slidesRepaired?: number[];
+  /** Message d'erreur si audioRepairStatus='failed'. */
+  error?: string;
+  /** Moteur cible du basculement (mode 'switch-voice' uniquement). */
+  targetEngine?: 'chatterbox' | 'qwen3';
+}
+
+/** Statuts du rendu de capture uploadée (Feature B). */
+export const SCREENCAST_RENDER_STATUSES = ['idle', 'pending', 'rendering', 'ready', 'failed'] as const;
+export type ScreencastRenderStatus = (typeof SCREENCAST_RENDER_STATUSES)[number];
 
 /**
  * Entrée d'historique de version d'une leçon (P46) : trace chaque contenu
@@ -137,8 +199,10 @@ const lessonSchema = new Schema<ILesson>({
   script: { type: Schema.Types.Mixed, default: null },
   assets: {
     videoUrl: { type: String },
+    videoVerticalUrl: { type: String },
     articleMd: { type: String },
     screenshots: { type: [String], default: [] },
+    screenshotsDegraded: { type: [Number], default: undefined },
     slides: { type: [String], default: [] },
     srtUrl: { type: String },
     vttUrl: { type: String },
@@ -163,6 +227,25 @@ const lessonSchema = new Schema<ILesson>({
       default: undefined,
     },
     screencasts: { type: [String], default: undefined },
+    screencastStatus: { type: String, enum: [...SCREENCAST_RENDER_STATUSES], default: undefined },
+    screencastRenderKey: { type: String },
+    screencastOverlays: { type: Schema.Types.Mixed, default: undefined },
+    audioRepairStatus: { type: String, enum: [...AUDIO_REPAIR_STATUSES], default: undefined },
+    audioRepairReport: {
+      type: new Schema<IAudioRepairReport>(
+        {
+          mode: { type: String, enum: ['resynth', 'denoise', 'switch-voice'], required: true },
+          ranAt: { type: Date, required: true },
+          gapsFound: { type: Number },
+          slidesRepaired: { type: [Number], default: undefined },
+          error: { type: String },
+          targetEngine: { type: String, enum: ['chatterbox', 'qwen3'] },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
+    ttsEngine: { type: String, enum: ['chatterbox', 'qwen3'] },
   },
   contentHash: { type: String },
   versions: {

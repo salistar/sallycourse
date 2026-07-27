@@ -7,6 +7,7 @@ import { Lesson } from './lesson';
 import { Quiz } from './quiz';
 import { GenerationJob } from './generation-job';
 import { Deployment } from './deployment';
+import { DeploymentSchedule } from './deployment-schedule';
 import { SchoolBranding } from './school-branding';
 
 // Validation pure (validateSync) — aucune connexion Mongo requise.
@@ -183,6 +184,32 @@ describe('Deployment', () => {
       mode: 'yolo',
     });
     expect(doc.validateSync()?.errors['mode']).toBeDefined();
+  });
+});
+
+describe('DeploymentSchedule', () => {
+  it('accepte un plan drip valide avec défauts (cursor 0, status active)', () => {
+    const doc = new DeploymentSchedule({
+      courseId: oid(),
+      userId: oid(),
+      entries: [
+        { platform: 'udemy', cadence: { kind: 'immediate' } },
+        { platform: 'tiktok', cadence: { kind: 'per-day', count: 1, days: 30 } },
+      ],
+    });
+    expect(doc.validateSync()).toBeUndefined();
+    expect(doc.status).toBe('active');
+    expect(doc.entries[0]!.cursor).toBe(0);
+    expect(doc.entries[1]!.cadence.days).toBe(30);
+  });
+
+  it('rejette une nature de cadence inconnue', () => {
+    const doc = new DeploymentSchedule({
+      courseId: oid(),
+      userId: oid(),
+      entries: [{ platform: 'udemy', cadence: { kind: 'hourly' } }],
+    });
+    expect(doc.validateSync()?.errors['entries.0.cadence.kind']).toBeDefined();
   });
 });
 

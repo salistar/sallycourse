@@ -56,6 +56,15 @@ export interface IDeployment {
   };
   /** Instantané des leçons déployées — base du diff de mise à jour (P46). */
   deployedVersions: IDeployedLesson[];
+  /**
+   * Checklist de publication MANUELLE (P178) : en mode `manual`, l'auteur coche
+   * chaque étape franchie sur la plateforme puis colle l'URL finale. Vide ([])
+   * pour les modes auto/assisté. Additif — aucun impact sur les déploiements
+   * existants.
+   */
+  checklist: { key: string; label: string; done: boolean }[];
+  /** Horodatage du basculement en `published` par publication manuelle (P178). */
+  publishedManuallyAt?: Date;
   logs: LogEntry[];
   createdAt: Date;
   updatedAt: Date;
@@ -91,6 +100,20 @@ const deploymentSchema = new Schema<IDeployment>(
       ],
       default: [],
     },
+    checklist: {
+      type: [
+        new Schema<{ key: string; label: string; done: boolean }>(
+          {
+            key: { type: String, required: true },
+            label: { type: String, required: true },
+            done: { type: Boolean, default: false },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
+    publishedManuallyAt: { type: Date },
     logs: { type: [logEntrySchema], default: [] },
   },
   { timestamps: true },

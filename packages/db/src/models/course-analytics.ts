@@ -33,6 +33,8 @@ export interface ICourseAnalytics {
   revenue: number;
   /** Nombre de vues (YouTube) — 0 si non applicable. */
   views: number;
+  /** true si les métriques sont SIMULÉES (aucun token API configuré). */
+  simulated?: boolean;
   /** Instant de récupération des métriques. */
   fetchedAt: Date;
   createdAt: Date;
@@ -50,6 +52,7 @@ const courseAnalyticsSchema = new Schema<ICourseAnalytics>(
     rating: { type: Number, default: 0, min: 0, max: 5 },
     revenue: { type: Number, default: 0, min: 0 },
     views: { type: Number, default: 0, min: 0 },
+    simulated: { type: Boolean, default: false },
     fetchedAt: { type: Date, default: Date.now },
   },
   { timestamps: true },

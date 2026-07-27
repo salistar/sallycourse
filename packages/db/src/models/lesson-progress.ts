@@ -63,7 +63,7 @@ const wrongAnswerSchema = new Schema<IWrongAnswer>(
 const lessonProgressSchema = new Schema<ILessonProgress>(
   {
     enrollmentId: { type: Schema.Types.ObjectId, ref: 'Enrollment', required: true, index: true },
-    courseId: { type: Schema.Types.ObjectId, ref: 'Course', required: true, index: true },
+    courseId: { type: Schema.Types.ObjectId, ref: 'Course', required: true },
     lessonId: { type: Schema.Types.ObjectId, ref: 'Lesson', required: true, index: true },
     studentId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     startedAt: { type: Date },
