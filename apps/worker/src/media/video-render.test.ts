@@ -12,14 +12,17 @@ import {
   PRESET_CONFIG,
   PRESET_SPEED_FACTOR,
   VIDEO_FPS,
+  KEN_BURNS_ZOOM,
   buildConcatArgs,
   buildConcatFile,
+  buildKenBurnsFilter,
   buildSegmentArgs,
   buildTwoPassSegmentArgs,
   detectNvencEncoder,
   estimateRenderDuration,
   expectedDurationSeconds,
   resetNvencCacheForTests,
+  resetQsvCacheForTests,
   resolveEffectivePreset,
   slideSeconds,
   verifyProbe,
@@ -76,9 +79,10 @@ describe('buildSegmentArgs', () => {
     expect(args).toContain('aac');
     expect(args).toContain(AUDIO_BITRATE);
     expect(args).toContain(String(VIDEO_FPS));
-    // Le scale/pad cible la résolution cible.
+    // Le vf cible la résolution finale (scale statique `W:H` en draft, ou
+    // zoompan `s=WxH` en final/nvenc — mouvement Ken Burns).
     const vf = args[args.indexOf('-vf') + 1] ?? '';
-    expect(vf).toContain(`${VIDEO.WIDTH}:${VIDEO.HEIGHT}`);
+    expect(vf).toMatch(new RegExp(`${VIDEO.WIDTH}[x:]${VIDEO.HEIGHT}`));
     // Sortie en dernier argument.
     expect(args[args.length - 1]).toBe('/tmp/seg0.mp4');
   });
@@ -90,6 +94,39 @@ describe('buildSegmentArgs', () => {
     expect(args.some((a) => a.startsWith('anullsrc='))).toBe(true);
     // Même sortie audio AAC : layout de flux homogène pour le concat.
     expect(args).toContain('aac');
+  });
+});
+
+describe('buildKenBurnsFilter (mouvement des slides, audit #1)', () => {
+  it('zoom lent centré : suréchantillonne, cible la résolution finale, plafonne le zoom', () => {
+    const vf = buildKenBurnsFilter(4);
+    // Suréchantillonnage ×2 (lanczos) avant zoompan.
+    expect(vf).toContain(`${VIDEO.WIDTH * 2}:${VIDEO.HEIGHT * 2}`);
+    expect(vf).toContain('flags=lanczos');
+    // Sortie zoompan à la résolution + cadence cibles.
+    expect(vf).toContain(`s=${VIDEO.WIDTH}x${VIDEO.HEIGHT}`);
+    expect(vf).toContain(`fps=${VIDEO.FPS}`);
+    // Rampe bornée à +KEN_BURNS_ZOOM ; centrage horizontal/vertical.
+    expect(vf).toContain((1 + KEN_BURNS_ZOOM).toFixed(4));
+    expect(vf).toContain("x='iw/2-(iw/zoom/2)'");
+    // Nombre de frames = durée × fps.
+    expect(vf).toContain(`d=${4 * VIDEO.FPS}`);
+  });
+
+  it('durée nulle ou négative : au moins une frame (pas de division par zéro)', () => {
+    expect(buildKenBurnsFilter(0)).toContain('d=1');
+    expect(buildKenBurnsFilter(-3)).toContain('d=1');
+  });
+
+  it('final applique le mouvement, draft reste statique (rapide)', () => {
+    const seg: VideoSegment = { imagePath: '/tmp/s.png', audioPath: '/tmp/a.mp3', seconds: 4 };
+    const finalVf = buildSegmentArgs(seg, '/tmp/o.mp4', 'final')[
+      buildSegmentArgs(seg, '/tmp/o.mp4', 'final').indexOf('-vf') + 1
+    ];
+    const draftArgs = buildSegmentArgs(seg, '/tmp/o.mp4', 'draft');
+    const draftVf = draftArgs[draftArgs.indexOf('-vf') + 1] ?? '';
+    expect(finalVf).toContain('zoompan');
+    expect(draftVf).not.toContain('zoompan');
   });
 });
 
@@ -170,11 +207,18 @@ describe('buildSegmentArgs — presets nommés', () => {
     expect(args[args.indexOf('-crf') + 1]).toBe('21');
   });
 
-  it('final : x264 slow CRF 19', () => {
+  it('final : x264 medium CRF 19 (audit vitesse 2026-07-25 : slow → medium, ~2× plus rapide à qualité perçue égale sur des slides)', () => {
     const args = buildSegmentArgs(seg, '/tmp/out.mp4', 'final');
     expect(args).toContain('libx264');
-    expect(args[args.indexOf('-preset') + 1]).toBe('slow');
+    expect(args[args.indexOf('-preset') + 1]).toBe('medium');
     expect(args[args.indexOf('-crf') + 1]).toBe('19');
+  });
+
+  it('qsv : h264_qsv avec -global_quality (ICQ), pas de -crf', () => {
+    const args = buildSegmentArgs(seg, '/tmp/out.mp4', 'qsv');
+    expect(args).toContain('h264_qsv');
+    expect(args).toContain('-global_quality');
+    expect(args).not.toContain('-crf');
   });
 
   it('nvenc : h264_nvenc avec -rc/-cq, pas de -crf', () => {
@@ -185,11 +229,12 @@ describe('buildSegmentArgs — presets nommés', () => {
     expect(args).not.toContain('-crf');
   });
 
-  it('PRESET_CONFIG couvre les 3 presets attendus par la spec (draft/final/nvenc)', () => {
-    expect(Object.keys(PRESET_CONFIG).sort()).toEqual(['draft', 'final', 'nvenc']);
+  it('PRESET_CONFIG couvre les 4 presets attendus par la spec (draft/final/nvenc/qsv)', () => {
+    expect(Object.keys(PRESET_CONFIG).sort()).toEqual(['draft', 'final', 'nvenc', 'qsv']);
     expect(PRESET_CONFIG.draft).toMatchObject({ codec: 'libx264', x264Preset: 'veryfast', crf: 21 });
-    expect(PRESET_CONFIG.final).toMatchObject({ codec: 'libx264', x264Preset: 'slow', crf: 19 });
+    expect(PRESET_CONFIG.final).toMatchObject({ codec: 'libx264', x264Preset: 'medium', crf: 19 });
     expect(PRESET_CONFIG.nvenc.codec).toBe('h264_nvenc');
+    expect(PRESET_CONFIG.qsv.codec).toBe('h264_qsv');
   });
 });
 
@@ -239,20 +284,20 @@ describe('detectNvencEncoder', () => {
     vi.resetAllMocks();
   });
 
-  it('détecte NVENC quand h264_nvenc figure dans la sortie ffmpeg -encoders', async () => {
+  it('détecte NVENC quand le mini-encodage de test réussit (test RÉEL, plus un grep de -encoders : un build ffmpeg peut inclure h264_nvenc sans aucun GPU NVIDIA — durci à l’audit vitesse 2026-07-25)', async () => {
     const { execa } = await import('execa');
-    vi.mocked(execa).mockResolvedValue({
-      stdout: 'V..... h264_nvenc  NVIDIA NVENC H.264 encoder\nV..... libx264    libx264 H.264',
-    } as never);
+    vi.mocked(execa).mockResolvedValue({ stdout: '' } as never);
 
     await expect(detectNvencEncoder()).resolves.toBe(true);
+    // Le test doit être un ENCODAGE (h264_nvenc dans les args), pas -encoders.
+    const args = vi.mocked(execa).mock.calls[0]?.[1] as string[];
+    expect(args).toContain('h264_nvenc');
+    expect(args).not.toContain('-encoders');
   });
 
-  it('renvoie false quand h264_nvenc est absent de la sortie', async () => {
+  it('renvoie false quand le mini-encodage échoue (pas de GPU NVIDIA)', async () => {
     const { execa } = await import('execa');
-    vi.mocked(execa).mockResolvedValue({
-      stdout: 'V..... libx264    libx264 H.264',
-    } as never);
+    vi.mocked(execa).mockRejectedValue(new Error('Cannot load nvcuda.dll'));
 
     await expect(detectNvencEncoder()).resolves.toBe(false);
   });
@@ -266,7 +311,7 @@ describe('detectNvencEncoder', () => {
 
   it('met le résultat en cache (un seul appel execa pour deux détections)', async () => {
     const { execa } = await import('execa');
-    vi.mocked(execa).mockResolvedValue({ stdout: 'h264_nvenc' } as never);
+    vi.mocked(execa).mockResolvedValue({ stdout: '' } as never);
 
     await detectNvencEncoder();
     await detectNvencEncoder();
@@ -277,24 +322,59 @@ describe('detectNvencEncoder', () => {
 describe('resolveEffectivePreset', () => {
   afterEach(async () => {
     resetNvencCacheForTests();
+    resetQsvCacheForTests();
     vi.resetAllMocks();
+    delete process.env.VIDEO_HW_ENCODER;
   });
 
-  it('draft/final : retournés tels quels, sans détection GPU', async () => {
+  it('draft : retourné tel quel, sans détection matérielle', async () => {
     await expect(resolveEffectivePreset('draft')).resolves.toBe('draft');
+    const { execa } = await import('execa');
+    expect(execa).not.toHaveBeenCalled();
+  });
+
+  it('final : monte automatiquement vers le matériel disponible (audit vitesse 2026-07-25)', async () => {
+    const { execa } = await import('execa');
+    vi.mocked(execa).mockResolvedValue({ stdout: '' } as never); // mini-encodage nvenc OK
+
+    await expect(resolveEffectivePreset('final')).resolves.toBe('nvenc');
+  });
+
+  it('final : retombe sur qsv si nvenc échoue mais que QuickSync marche', async () => {
+    const { execa } = await import('execa');
+    vi.mocked(execa)
+      .mockRejectedValueOnce(new Error('no nvidia device')) // nvenc KO
+      .mockResolvedValueOnce({ stdout: '' } as never); // qsv OK
+
+    await expect(resolveEffectivePreset('final')).resolves.toBe('qsv');
+  });
+
+  it('final : reste final quand aucun encodeur matériel ne fonctionne', async () => {
+    const { execa } = await import('execa');
+    vi.mocked(execa).mockRejectedValue(new Error('hw indisponible'));
+
     await expect(resolveEffectivePreset('final')).resolves.toBe('final');
+  });
+
+  it('VIDEO_HW_ENCODER=off : final reste CPU sans aucune détection', async () => {
+    process.env.VIDEO_HW_ENCODER = 'off';
+    const { execa } = await import('execa');
+
+    await expect(resolveEffectivePreset('final')).resolves.toBe('final');
+    await expect(resolveEffectivePreset('nvenc')).resolves.toBe('final');
+    expect(execa).not.toHaveBeenCalled();
   });
 
   it('nvenc : conservé si le GPU est disponible', async () => {
     const { execa } = await import('execa');
-    vi.mocked(execa).mockResolvedValue({ stdout: 'h264_nvenc' } as never);
+    vi.mocked(execa).mockResolvedValue({ stdout: '' } as never);
 
     await expect(resolveEffectivePreset('nvenc')).resolves.toBe('nvenc');
   });
 
-  it('nvenc : retombe sur final si le GPU est indisponible', async () => {
+  it('nvenc : retombe sur qsv puis final selon le matériel réellement présent', async () => {
     const { execa } = await import('execa');
-    vi.mocked(execa).mockResolvedValue({ stdout: 'libx264' } as never);
+    vi.mocked(execa).mockRejectedValue(new Error('hw indisponible'));
 
     await expect(resolveEffectivePreset('nvenc')).resolves.toBe('final');
   });
@@ -359,6 +439,8 @@ describe('FFMPEG_SEGMENT_TIMEOUT_MS (Prompt 128 — chaos testing)', () => {
     // un PNG corrompu en entrée de `-loop 1` fait boucler ffmpeg indéfiniment
     // (jamais de sortie) au lieu d'échouer. Ce timeout est l'unique garde-fou.
     expect(FFMPEG_SEGMENT_TIMEOUT_MS).toBeGreaterThan(0);
-    expect(FFMPEG_SEGMENT_TIMEOUT_MS).toBeLessThanOrEqual(5 * 60_000); // pas absurdement long
+    // 8 min depuis l'audit vitesse 2026-07-25 (5 min tuait des segments x264
+    // légitimes sous forte charge → toute la leçon rejouée par BullMQ).
+    expect(FFMPEG_SEGMENT_TIMEOUT_MS).toBeLessThanOrEqual(10 * 60_000); // pas absurdement long
   });
 });

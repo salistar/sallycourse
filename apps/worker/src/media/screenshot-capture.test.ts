@@ -1,9 +1,11 @@
 // Tests unitaires du cœur de capture : garde SSRF (assertUrlAllowed/isBlockedIp)
 // et lecture d'en-tête PNG. Aucune dépendance réseau ni navigateur réel.
 import { describe, expect, it } from 'vitest';
+import type { Page, Response as PlaywrightResponse } from 'playwright';
 import {
   ScreenshotCaptureError,
   assertUrlAllowed,
+  assessPageContent,
   buildScreencastPostProcessArgs,
   buildZoompanFilter,
   hashScreenshotSpec,
@@ -12,6 +14,18 @@ import {
   readPngSize,
 } from './screenshot-capture.js';
 import type { TpScreenshotSpec } from '../shared.js';
+
+/** Double minimal de Page — seuls title()/evaluate() sont consultés par assessPageContent. */
+function fakePage(title: string, bodyText: string): Page {
+  return {
+    title: async () => title,
+    evaluate: async () => bodyText,
+  } as unknown as Page;
+}
+
+function fakeResponse(status: number): PlaywrightResponse {
+  return { status: () => status } as unknown as PlaywrightResponse;
+}
 
 describe('isBlockedIp', () => {
   it('bloque les IPv4 privées, loopback, lien-local et métadonnées', () => {
@@ -64,6 +78,45 @@ describe('assertUrlAllowed', () => {
   it('court-circuite la garde pour une URL de loopback de confiance', async () => {
     const trusted = new Set(['http://127.0.0.1:3000/']);
     await expect(assertUrlAllowed('http://127.0.0.1:3000/', trusted)).resolves.toBeUndefined();
+  });
+});
+
+describe('assessPageContent (correctif N2, audit 2026-07-20)', () => {
+  it('accepte une page saine (statut 200, contenu normal)', async () => {
+    const result = await assessPageContent(fakePage('MetalloGreen — audit', 'Bienvenue sur le portail.'), fakeResponse(200));
+    expect(result.suspicious).toBe(false);
+  });
+
+  it('rejette une réponse HTTP en erreur (404)', async () => {
+    const result = await assessPageContent(fakePage('Page not found', ''), fakeResponse(404));
+    expect(result.suspicious).toBe(true);
+    expect(result.reason).toMatch(/404/);
+  });
+
+  it('rejette une page 404 même sans objet Response (ex. après un clic, pas une navigation directe)', async () => {
+    const result = await assessPageContent(fakePage('404 - Page non trouvée', 'Erreur'), null);
+    expect(result.suspicious).toBe(true);
+  });
+
+  it("rejette l'état par défaut connu d'un éditeur tiers (StackEdit, Mermaid Live)", async () => {
+    const stackedit = await assessPageContent(fakePage('StackEdit', 'Welcome to StackEdit!'), fakeResponse(200));
+    expect(stackedit.suspicious).toBe(true);
+
+    const mermaid = await assessPageContent(fakePage('Mermaid Live Editor', ''), fakeResponse(200));
+    expect(mermaid.suspicious).toBe(true);
+  });
+
+  it("n'échoue jamais si title()/evaluate() jettent (best-effort)", async () => {
+    const page = {
+      title: async () => {
+        throw new Error('page fermée');
+      },
+      evaluate: async () => {
+        throw new Error('page fermée');
+      },
+    } as unknown as Page;
+    const result = await assessPageContent(page, fakeResponse(200));
+    expect(result.suspicious).toBe(false);
   });
 });
 

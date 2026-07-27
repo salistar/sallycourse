@@ -14,11 +14,47 @@
 // consultable dans le rapport de conformité admin. Documenté ici pour éviter
 // toute confusion avec un watermark inaudible embarqué dans le fichier mp3.
 import { createHash } from 'node:crypto';
-import { getConfig } from '../shared.js';
+import { User, getConfig, getObjectStream, storageKeys } from '../shared.js';
 import { logger } from '../queues/index.js';
 
 /** Durée minimale recommandée pour un clonage de qualité correcte (secondes). */
 export const MIN_SAMPLE_SECONDS = 60;
+
+/** Vue minimale d'un cours pour charger la voix clonée de son propriétaire. */
+export interface VoiceCloneCourseRef {
+  userId: unknown;
+  useCustomVoice?: boolean;
+}
+
+/**
+ * Charge l'échantillon de voix clonée du propriétaire du cours (base64) si le
+ * cours l'active ET que le consentement + l'échantillon existent — sinon
+ * undefined (→ voix standard). Helper PARTAGÉ (dubbing P92, screencast, etc.)
+ * pour ne pas dupliquer la règle de consentement. `id` = userId:timestamp,
+ * utilisé comme clé de cache TTS de la voix clonée.
+ */
+export async function loadCourseVoiceSample(
+  course: VoiceCloneCourseRef,
+): Promise<{ b64: string; id: string } | undefined> {
+  if (!course.useCustomVoice) return undefined;
+  const owner = await User.findById(String(course.userId))
+    .select('voiceSampleUploadedAt voiceCloneConsent')
+    .lean();
+  if (!owner?.voiceSampleUploadedAt || !owner.voiceCloneConsent) return undefined;
+  try {
+    const chunks: Buffer[] = [];
+    for await (const chunk of await getObjectStream(storageKeys.voiceSample(String(course.userId)))) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    return {
+      b64: Buffer.concat(chunks).toString('base64'),
+      id: `${String(course.userId)}:${new Date(owner.voiceSampleUploadedAt).getTime()}`,
+    };
+  } catch (err) {
+    logger.warn({ userId: String(course.userId), err }, 'voix clonée introuvable — voix standard');
+    return undefined;
+  }
+}
 
 /** URL de base ElevenLabs, surchargeable (mock-server / proxy local en test). */
 function elevenLabsBaseUrl(): string {

@@ -25,17 +25,19 @@ function slide(partial: Partial<Slide>): Slide {
 
 describe('buildSlideTemplate — mapping template', () => {
   it('mappe chaque template de script sur son gabarit D7', () => {
-    const cases: Array<[Slide['template'], string]> = [
+    const cases: Array<[Slide['template'], string, Partial<Slide>?]> = [
       ['title', SlideTemplateEnum.Title],
       ['content', SlideTemplateEnum.Content],
       ['code', SlideTemplateEnum.Code],
       ['quote', SlideTemplateEnum.Quote],
-      ['diagram', SlideTemplateEnum.Diagram],
+      // 'diagram' sans schéma Mermaid dégrade en 'content' (E3) — le gabarit
+      // Diagram n'est atteint qu'avec un slide.mermaid exploitable.
+      ['diagram', SlideTemplateEnum.Diagram, { mermaid: { source: 'flowchart TD\nA-->B' } }],
       ['recap', SlideTemplateEnum.Recap],
       ['section-transition', SlideTemplateEnum.SectionTransition],
     ];
-    for (const [template, expected] of cases) {
-      const built = buildSlideTemplate(slide({ template }), ctxFr);
+    for (const [template, expected, extra] of cases) {
+      const built = buildSlideTemplate(slide({ template, ...extra }), ctxFr);
       expect(built.name).toBe(expected);
     }
   });
@@ -158,15 +160,19 @@ describe('buildSlideTemplate — contenu enrichi (Prompt 83)', () => {
     expect(html).toContain('Début');
   });
 
-  it('reste en liste à puces si aucun champ enrichi (comportement inchangé)', () => {
+  it('dégrade en "content" si aucun champ enrichi ni schéma Mermaid (E3, audit ESG 2026-07-19)', () => {
+    // Avant E3 : le gabarit Diagram (cadre à coins vides pensé pour un SVG)
+    // affichait 2-3 puces éparses dans un grand cadre quasi vide — visuellement
+    // pauvre et quasi figé (Ken Burns sans effet mesurable sur un fond uni).
+    // Le gabarit "content" (typographie dense) est la dégradation propre,
+    // cohérente avec le cas 'comparison' à une seule colonne (test ci-dessus).
     const built = buildSlideTemplate(
       slide({ template: 'diagram', bullets: ['Étape 1', 'Étape 2'] }),
       ctxFr,
     );
-    expect(built.name).toBe(SlideTemplateEnum.Diagram);
-    const html = (built.data as { diagramHtml: string }).diagramHtml;
-    expect(html).toContain('<ul');
-    expect(html).not.toContain('<svg');
+    expect(built.name).toBe(SlideTemplateEnum.Content);
+    const data = built.data as { bullets: string[] };
+    expect(data.bullets).toEqual(['Étape 1', 'Étape 2']);
   });
 
   it('surligne les lignes actives du dernier pas de codeHighlightSteps', () => {

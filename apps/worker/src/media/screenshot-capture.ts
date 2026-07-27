@@ -23,8 +23,15 @@ import { mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { execa } from 'execa';
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type Page,
+  type Response as PlaywrightResponse,
+} from 'playwright';
 import type { TpScreenshotAction, TpScreenshotSpec } from '../shared.js';
+import { logger } from '../queues/index.js';
 
 /**
  * Hash déterministe d'une TpScreenshotSpec (Prompt 72) : deux leçons — dans le
@@ -170,52 +177,149 @@ function toPositiveInt(value: string | undefined, fallback: number): number {
  * (une spec peut naviguer plusieurs fois). `perActionTimeout` borne chaque
  * attente Playwright pour ne jamais dépasser le budget global.
  */
+/**
+ * Rejoue une action de spec. Retourne la Response Playwright pour une action
+ * `goto` (correctif N2, audit 2026-07-20 : le statut HTTP de cette réponse
+ * alimente `assessPageContent` ci-dessous — AVANT ce correctif, il n'était
+ * jamais consulté et une page 404 était capturée comme un succès), `undefined`
+ * pour les autres types d'action (aucune navigation, rien à évaluer).
+ */
+/**
+ * Plafond de temps des actions d'INTERACTION (click/fill/wait/scroll — pas
+ * goto). Constaté en réel le 2026-07-25 : les specs générées par le LLM
+ * ciblent des sélecteurs d'outils TIERS (ex. `.code .CodeMirror` sur un
+ * éditeur type StackEdit) qui peuvent disparaître quand le site change son
+ * DOM — chaque clic brûlait alors TOUT le budget restant (~40 s) avant
+ * d'échouer. 15 s suffisent largement à un élément réellement présent pour
+ * devenir interactif après `domcontentloaded`.
+ */
+const INTERACTION_TIMEOUT_MS = 15_000;
+
 async function runAction(
   page: Page,
   action: TpScreenshotAction,
   perActionTimeout: number,
   trustedLoopback?: ReadonlySet<string>,
-): Promise<void> {
+): Promise<PlaywrightResponse | null | undefined> {
+  // Les interactions sont BEST-EFFORT (constaté en réel le 2026-07-25, cours
+  // due diligence régénéré : 5 TP en carton dégradé parce qu'un sélecteur
+  // d'outil tiers n'existait plus). Un clic/remplissage qui échoue ne doit
+  // JAMAIS faire échouer toute la capture : la page est chargée, et une vraie
+  // capture de l'outil dans son état courant vaut toujours mieux que le carton
+  // de repli. `goto` reste fatal (sans page, rien à capturer) et le garde-fou
+  // assessPageContent rejette toujours les pages réellement inexploitables
+  // (404, état par défaut d'un outil tiers).
+  const interactionTimeout = Math.min(perActionTimeout, INTERACTION_TIMEOUT_MS);
+  const bestEffort = async (label: string, run: () => Promise<void>): Promise<undefined> => {
+    try {
+      await run();
+    } catch (err) {
+      logger.warn(
+        { action: label, selector: action.selector, err: err instanceof Error ? err.message.split('\n')[0] : String(err) },
+        'capture : action d’interaction échouée — poursuite sans elle (best-effort)',
+      );
+    }
+    return undefined;
+  };
+
   switch (action.type) {
     case 'goto': {
       const url = action.value as string; // garanti par le schéma (goto ⇒ value)
       await assertUrlAllowed(url, trustedLoopback);
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: perActionTimeout });
-      break;
+      return page.goto(url, { waitUntil: 'domcontentloaded', timeout: perActionTimeout });
     }
-    case 'click': {
-      await page.click(action.selector as string, { timeout: perActionTimeout });
-      break;
-    }
-    case 'fill': {
-      await page.fill(action.selector as string, action.value as string, { timeout: perActionTimeout });
-      break;
-    }
-    case 'scroll': {
-      const px = toPositiveInt(action.value, 300);
-      // Le callback est sérialisé et exécuté DANS le contexte navigateur : il ne
-      // peut capturer aucune variable Node. `scrollBy` y existe (globalThis du
-      // navigateur), typé localement pour satisfaire tsc sans lib DOM.
-      await page.evaluate((y) => {
-        (globalThis as unknown as { scrollBy(x: number, yy: number): void }).scrollBy(0, y);
-      }, px);
-      break;
-    }
-    case 'wait': {
-      if (action.selector) {
-        await page.waitForSelector(action.selector, { timeout: perActionTimeout });
-      } else {
-        const ms = Math.min(toPositiveInt(action.value, 1000), perActionTimeout);
-        await page.waitForTimeout(ms);
-      }
-      break;
-    }
+    case 'click':
+      return bestEffort('click', async () => {
+        await page.click(action.selector as string, { timeout: interactionTimeout });
+      });
+    case 'fill':
+      return bestEffort('fill', async () => {
+        await page.fill(action.selector as string, action.value as string, { timeout: interactionTimeout });
+      });
+    case 'scroll':
+      return bestEffort('scroll', async () => {
+        const px = toPositiveInt(action.value, 300);
+        // Le callback est sérialisé et exécuté DANS le contexte navigateur : il ne
+        // peut capturer aucune variable Node. `scrollBy` y existe (globalThis du
+        // navigateur), typé localement pour satisfaire tsc sans lib DOM.
+        await page.evaluate((y) => {
+          (globalThis as unknown as { scrollBy(x: number, yy: number): void }).scrollBy(0, y);
+        }, px);
+      });
+    case 'wait':
+      return bestEffort('wait', async () => {
+        if (action.selector) {
+          await page.waitForSelector(action.selector, { timeout: interactionTimeout });
+        } else {
+          const ms = Math.min(toPositiveInt(action.value, 1000), interactionTimeout);
+          await page.waitForTimeout(ms);
+        }
+      });
     default: {
       // Exhaustivité : tout nouveau type d'action doit être géré explicitement.
       const never: never = action.type;
       throw new ScreenshotCaptureError(`action de capture inconnue : « ${String(never)} »`);
     }
   }
+}
+
+/**
+ * Contenu manifestement inexploitable — correctif N2 (audit 2026-07-20) :
+ * l'audit a trouvé des captures « réussies » montrant en réalité une page
+ * d'erreur 404 (INERIS) ou l'état par défaut, jamais configuré, d'un éditeur
+ * tiers (Mermaid Live avec son diagramme d'exemple « Christmas → Go
+ * shopping », StackEdit avec son tutoriel de bienvenue) — le pipeline ne
+ * vérifiait JAMAIS le contenu réellement rendu. Liste volontairement
+ * NON-EXHAUSTIVE (best-effort, dérivée des cas réellement rencontrés) : un
+ * faux négatif retombe sur l'ancien comportement (capture acceptée) ; un faux
+ * positif dégrade vers le carton de repli explicite — coût asymétrique
+ * délibéré, un carton « à réaliser » vaut mieux qu'un contenu erroné présenté
+ * comme fiable.
+ */
+const SUSPICIOUS_CONTENT_PATTERNS: readonly RegExp[] = [
+  /\b404\b/i,
+  /page (not found|non trouv[ée]e|introuvable)/i,
+  /welcome to stackedit/i,
+  /mermaid live editor/i,
+];
+
+export interface PageContentCheck {
+  suspicious: boolean;
+  reason?: string;
+}
+
+/**
+ * Évalue si la page rendue est manifestement inexploitable : statut HTTP en
+ * erreur sur la dernière navigation, ou titre/texte correspondant à une page
+ * d'erreur/état par défaut connu d'un outil tiers. Best-effort — ne jette
+ * jamais (une évaluation impossible n'est pas en soi un signal de défaut).
+ */
+export async function assessPageContent(
+  page: Page,
+  lastResponse: PlaywrightResponse | null,
+): Promise<PageContentCheck> {
+  if (lastResponse && lastResponse.status() >= 400) {
+    return { suspicious: true, reason: `réponse HTTP ${lastResponse.status()}` };
+  }
+  try {
+    const title = await page.title();
+    const bodyText = await page.evaluate(
+      () =>
+        (globalThis as unknown as { document: { body?: { innerText?: string } } }).document.body?.innerText?.slice(
+          0,
+          500,
+        ) ?? '',
+    );
+    const haystack = `${title}\n${bodyText}`;
+    for (const pattern of SUSPICIOUS_CONTENT_PATTERNS) {
+      if (pattern.test(haystack)) {
+        return { suspicious: true, reason: `contenu suspect détecté (motif « ${pattern.source} »)` };
+      }
+    }
+  } catch {
+    // page.title()/evaluate indisponible (fermeture en cours…) — non bloquant.
+  }
+  return { suspicious: false };
 }
 
 /** Attend la stabilité de la page : networkidle (best-effort) + délai de repos. */
@@ -285,21 +389,39 @@ export async function captureFromSpec(
     const page = await context.newPage();
 
     // Page de départ : url explicite (validée) ou première action goto (validée).
+    let lastResponse: PlaywrightResponse | null = null;
     if (spec.url) {
       await assertUrlAllowed(spec.url, trustedLoopback);
-      await page.goto(spec.url, { waitUntil: 'domcontentloaded', timeout: perActionTimeout() });
+      lastResponse = await page.goto(spec.url, { waitUntil: 'domcontentloaded', timeout: perActionTimeout() });
     }
 
     for (const action of spec.actions) {
       if (Date.now() >= deadline) {
         throw new ScreenshotCaptureError('budget de capture épuisé pendant le rejeu des actions', spec.url);
       }
-      await runAction(page, action, perActionTimeout(), trustedLoopback);
+      const result = await runAction(page, action, perActionTimeout(), trustedLoopback);
+      if (result !== undefined) lastResponse = result;
     }
 
     await waitForStability(page, deadline);
 
-    // Capture ciblée sur focusSelector s'il est présent et visible, sinon pleine page.
+    // Correctif N2 : rejette explicitement une page manifestement inexploitable
+    // (404, état par défaut d'un outil tiers) AVANT de la capturer — sans ce
+    // contrôle, la capture était acceptée telle quelle (voir commentaire de
+    // assessPageContent).
+    const contentCheck = await assessPageContent(page, lastResponse);
+    if (contentCheck.suspicious) {
+      throw new ScreenshotCaptureError(`page rejetée — ${contentCheck.reason}`, spec.url);
+    }
+
+    // Capture ciblée sur focusSelector s'il est présent et visible, sinon
+    // VIEWPORT (audit ESG 2026-07-19, E5) : `fullPage: true` sur une page
+    // longue (ex. article scrollable) produisait des captures démesurées
+    // (mesuré jusqu'à 2048×7115 px) — illisibles une fois intégrées en pleine
+    // largeur dans un article, et pénalisées par clampCapturedScreenshot (borne
+    // 8192 px) sans jamais retrouver une lisibilité correcte. Le viewport
+    // 1920×1080 (CAPTURE_VIEWPORT, aligné D7/D8) donne un cadrage cohérent
+    // avec le reste du design system.
     let buffer: Buffer;
     if (spec.focusSelector) {
       const locator = page.locator(spec.focusSelector).first();
@@ -307,10 +429,10 @@ export async function captureFromSpec(
       if (count > 0) {
         buffer = await locator.screenshot({ timeout: perActionTimeout() });
       } else {
-        buffer = await page.screenshot({ fullPage: true, timeout: perActionTimeout() });
+        buffer = await page.screenshot({ fullPage: false, timeout: perActionTimeout() });
       }
     } else {
-      buffer = await page.screenshot({ fullPage: true, timeout: perActionTimeout() });
+      buffer = await page.screenshot({ fullPage: false, timeout: perActionTimeout() });
     }
 
     const { width, height } = readPngSize(buffer);
@@ -491,19 +613,30 @@ export async function captureScreencastFromSpec(
     context.setDefaultTimeout(CAPTURE_TIMEOUT_MS);
     const page = await context.newPage();
 
+    let lastResponse: PlaywrightResponse | null = null;
     if (spec.url) {
       await assertUrlAllowed(spec.url, trustedLoopback);
-      await page.goto(spec.url, { waitUntil: 'domcontentloaded', timeout: perActionTimeout() });
+      lastResponse = await page.goto(spec.url, { waitUntil: 'domcontentloaded', timeout: perActionTimeout() });
     }
 
     for (const action of spec.actions) {
       if (Date.now() >= deadline) {
         throw new ScreenshotCaptureError('budget de capture épuisé pendant le rejeu des actions', spec.url);
       }
-      await runAction(page, action, perActionTimeout(), trustedLoopback);
+      const result = await runAction(page, action, perActionTimeout(), trustedLoopback);
+      if (result !== undefined) lastResponse = result;
     }
 
     await waitForStability(page, deadline);
+
+    // Correctif N2 : même contrôle que captureFromSpec — un screencast qui
+    // filme une 404 ou un état par défaut d'outil tiers n'est pas plus
+    // exploitable qu'une capture image du même contenu.
+    const contentCheck = await assessPageContent(page, lastResponse);
+    if (contentCheck.suspicious) {
+      throw new ScreenshotCaptureError(`page rejetée — ${contentCheck.reason}`, spec.url);
+    }
+
     const focusRect = await measureFocusRect(page, spec.focusSelector);
 
     const video = page.video();

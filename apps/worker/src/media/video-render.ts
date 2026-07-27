@@ -53,31 +53,81 @@ import { pipeline } from 'node:stream/promises';
 import type { Readable } from 'node:stream';
 import { execa } from 'execa';
 import {
+  AUDIO,
   AVATAR,
   Course,
   Lesson,
   Section,
+  User,
   VIDEO,
+  getCatalogAvatar,
   getObjectStream,
+  objectExists,
+  presignedGetUrl,
   slideScriptSchema,
   storageKeys,
   uploadObject,
   type SlideScript,
 } from '../shared.js';
 import { generateAvatarSegment } from './avatar.js';
+import { ensureCatalogAvatarPhoto } from './avatar-catalog-photos.js';
+import { synthesizeSlide } from './tts.js';
+import { isModalAvatarConfigured } from '../providers/modal-avatar-provider.js';
 import { buildMusicMixArgs, resolveMusicTrack } from './background-music.js';
 import { buildFfmetadataChapters, buildChapterMuxArgs, lessonChaptersFromScript } from './video-chapters.js';
 import { logger } from '../queues/index.js';
 import { planForCourse } from '../queues/plan-lookup.js';
-import { recordRenderCost } from '../lib/cost.js';
+import { recordAvatarCost, recordRenderCost } from '../lib/cost.js';
 import { checkCancelled, killIfActive } from '../lib/cancellation.js';
 // @ts-ignore TS6059/TS2305 — consommé en source par le worker (NodeNext)
 import { type PlanId } from '@sallycourse/shared';
 
 /** Cadence de sortie du MP4 (images/seconde) — alignée sur MOTION_FPS (D8). */
-export const VIDEO_FPS = 30;
+export const VIDEO_FPS = VIDEO.FPS;
 /** Débit audio AAC de la piste finale. */
 export const AUDIO_BITRATE = '192k';
+
+/** Amplitude du zoom lent « Ken Burns » sur chaque slide (fraction, ex. 0.04 = +4 %). */
+export const KEN_BURNS_ZOOM = 0.04;
+/** Suréchantillonnage du canvas avant zoompan (garde le texte net, limite le tremblement 1 px). */
+const KEN_BURNS_SUPERSAMPLE = 2;
+
+/**
+ * Filtre vidéo d'une slide FIXE : suréchantillonne (lanczos ×2), applique un
+ * zoom AVANT lent et centré, puis redescend à la résolution cible. Casse
+ * l'aspect « diaporama figé » (audit #1 : 0 changement de plan) sans faire
+ * « nager » le texte — le zoom reste centré (pas de panoramique) et le
+ * suréchantillonnage absorbe le tremblement entier de pixel propre à zoompan.
+ * Fonction PURE (testable). `seconds` borne le nombre de frames de la rampe.
+ */
+export function buildKenBurnsFilter(seconds: number): string {
+  const total = Math.max(1, Math.round(Math.max(0, seconds) * VIDEO.FPS));
+  const ss = KEN_BURNS_SUPERSAMPLE;
+  const w = VIDEO.WIDTH;
+  const h = VIDEO.HEIGHT;
+  const zEnd = (1 + KEN_BURNS_ZOOM).toFixed(4);
+  return (
+    `scale=${w * ss}:${h * ss}:force_original_aspect_ratio=decrease:flags=lanczos,` +
+    `pad=${w * ss}:${h * ss}:(ow-iw)/2:(oh-ih)/2,setsar=1,` +
+    `zoompan=z='min(1+${KEN_BURNS_ZOOM}*on/${total},${zEnd})':` +
+    `x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${total}:s=${w}x${h}:fps=${VIDEO.FPS}`
+  );
+}
+
+/**
+ * Chaîne de mise en forme vidéo d'une slide : mouvement Ken Burns (hors 'draft',
+ * qui reste statique pour aller vite) OU mise à l'échelle statique. Toujours
+ * suivie de `format=yuv420p`. Les fondus sont ajoutés PAR l'appelant.
+ */
+function buildSlideBaseVf(seconds: number, preset: RenderPreset): string {
+  if (preset === 'draft') {
+    return (
+      `scale=${VIDEO.WIDTH}:${VIDEO.HEIGHT}:force_original_aspect_ratio=decrease,` +
+      `pad=${VIDEO.WIDTH}:${VIDEO.HEIGHT}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p`
+    );
+  }
+  return `${buildKenBurnsFilter(seconds)},format=yuv420p`;
+}
 /** Tolérance de la vérification de durée (somme audio ±TOLERANCE s). */
 export const DURATION_TOLERANCE_SECONDS = 2;
 
@@ -91,7 +141,7 @@ export const DURATION_TOLERANCE_SECONDS = 2;
  * délègue l'encodage au GPU NVIDIA quand disponible (cf. detectNvencEncoder).
  * CRF plus bas = meilleure qualité (x264 uniquement, non applicable à NVENC).
  */
-export type RenderPreset = 'draft' | 'final' | 'nvenc';
+export type RenderPreset = 'draft' | 'final' | 'nvenc' | 'qsv';
 
 interface PresetConfig {
   /** Codec vidéo ffmpeg (-c:v). */
@@ -105,13 +155,26 @@ interface PresetConfig {
   nvencRateControl?: string;
   /** Débit cible NVENC (pas de CRF sur ce codec, -cq utilisé à la place). */
   nvencCq?: number;
+  /** QSV (Intel QuickSync) : preset vitesse + qualité ICQ (-global_quality, ~CRF). */
+  qsvPreset?: string;
+  qsvGlobalQuality?: number;
 }
 
 /** Configuration par preset — SEULE source de vérité des paramètres d'encodage. */
 export const PRESET_CONFIG: Record<RenderPreset, PresetConfig> = {
   draft: { codec: 'libx264', x264Preset: 'veryfast', crf: 21 },
-  final: { codec: 'libx264', x264Preset: 'slow', crf: 19 },
+  // Audit vitesse 2026-07-25 (mesuré en réel : ~4,5-5,5 min d'encodage x264
+  // PAR leçon de ~5 min — quasi temps réel) : 'slow' → 'medium'. À CRF égal,
+  // medium est ~2× plus rapide pour une différence visuelle imperceptible sur
+  // ce contenu (slides quasi statiques + zoom lent, très faciles à encoder) ;
+  // le CRF 19 inchangé reste la vraie borne de qualité.
+  final: { codec: 'libx264', x264Preset: 'medium', crf: 19 },
   nvenc: { codec: 'h264_nvenc', nvencPreset: 'p5', nvencRateControl: 'vbr', nvencCq: 19 },
+  // QSV (Intel QuickSync, audit vitesse 2026-07-25) : encodage MATÉRIEL des
+  // iGPU Intel (ex. Iris Xe de la machine de dev) — plusieurs fois plus rapide
+  // que x264 logiciel, qualité ICQ 21 ≈ CRF 19-21 sur du contenu slide.
+  // Sélectionné automatiquement par resolveEffectivePreset quand disponible.
+  qsv: { codec: 'h264_qsv', qsvPreset: 'medium', qsvGlobalQuality: 21 },
 };
 
 /** Preset appliqué par défaut quand l'appelant n'en précise pas (qualité de livraison). */
@@ -173,8 +236,10 @@ export function expectedDurationSeconds(segments: readonly VideoSegment[]): numb
  */
 export const PRESET_SPEED_FACTOR: Record<RenderPreset, number> = {
   draft: 3,
-  final: 1,
+  // 'final' est passé de x264 slow à medium (audit vitesse 2026-07-25) : ~2×.
+  final: 2,
   nvenc: 4.5,
+  qsv: 4,
 };
 
 /** Un échantillon d'historique : durée de rendu observée pour N slides et un preset. */
@@ -251,6 +316,17 @@ function codecArgs(preset: RenderPreset): string[] {
       String(cfg.nvencCq ?? 19),
     ];
   }
+  if (cfg.codec === 'h264_qsv') {
+    // ICQ (Intelligent Constant Quality) : -global_quality joue le rôle du CRF.
+    return [
+      '-c:v',
+      cfg.codec,
+      '-preset',
+      cfg.qsvPreset ?? 'medium',
+      '-global_quality',
+      String(cfg.qsvGlobalQuality ?? 21),
+    ];
+  }
   return ['-c:v', cfg.codec, '-preset', cfg.x264Preset ?? 'medium', '-crf', String(cfg.crf ?? 21)];
 }
 
@@ -275,27 +351,36 @@ export function buildSegmentArgs(
     args.push('-i', segment.audioPath);
   } else {
     // Piste silencieuse synthétique : même codec/canaux que les vraies pistes.
-    args.push('-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100');
+    args.push('-f', 'lavfi', '-i', `anullsrc=channel_layout=stereo:sample_rate=${AUDIO.SAMPLE_RATE}`);
   }
+
+  // Transition douce : fondu d'entrée + de sortie (~0,35 s) sur CHAQUE segment
+  // — le concat demuxer fait une coupe franche entre slides, visuellement
+  // brutale ; le double fondu produit un « dip to black » discret. Vidéo
+  // uniquement : la narration (piste continue, cf. buildLessonAudioArgs)
+  // n'est jamais interrompue.
+  const fadeD = Math.min(0.35, segment.seconds / 4);
+  const fadeOutStart = Math.max(0, segment.seconds - fadeD);
+  const fades = `,fade=t=in:st=0:d=${fadeD.toFixed(2)},fade=t=out:st=${fadeOutStart.toFixed(2)}:d=${fadeD.toFixed(2)}`;
 
   args.push(
     '-t',
     segment.seconds.toFixed(3),
-    // Vidéo : pixels compatibles lecteurs, dimensions paires garanties.
+    // Vidéo : mouvement Ken Burns (hors draft) + fondus, dimensions paires garanties.
     '-vf',
-    `scale=${VIDEO.WIDTH}:${VIDEO.HEIGHT}:force_original_aspect_ratio=decrease,pad=${VIDEO.WIDTH}:${VIDEO.HEIGHT}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p`,
+    `${buildSlideBaseVf(segment.seconds, preset)}${fades}`,
     '-r',
     String(VIDEO_FPS),
     ...codecArgs(preset),
     '-pix_fmt',
     'yuv420p',
-    // Audio : AAC stéréo 44.1k, coupé à la durée vidéo.
+    // Audio : AAC stéréo 48 kHz (standard vidéo), coupé à la durée vidéo.
     '-c:a',
     'aac',
     '-b:a',
     AUDIO_BITRATE,
     '-ar',
-    '44100',
+    String(AUDIO.SAMPLE_RATE),
     '-ac',
     '2',
     '-shortest',
@@ -328,14 +413,16 @@ export function buildTwoPassSegmentArgs(
   if (pass === 2 && segment.audioPath) {
     args.push('-i', segment.audioPath);
   } else if (pass === 2) {
-    args.push('-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100');
+    args.push('-f', 'lavfi', '-i', `anullsrc=channel_layout=stereo:sample_rate=${AUDIO.SAMPLE_RATE}`);
   }
 
   args.push(
     '-t',
     segment.seconds.toFixed(3),
     '-vf',
-    `scale=${VIDEO.WIDTH}:${VIDEO.HEIGHT}:force_original_aspect_ratio=decrease,pad=${VIDEO.WIDTH}:${VIDEO.HEIGHT}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p`,
+    // Le vf doit être IDENTIQUE entre passe 1 (analyse) et passe 2 (encodage)
+    // pour que les stats 2-pass restent valides — buildSlideBaseVf est pur.
+    buildSlideBaseVf(segment.seconds, preset),
     '-r',
     String(VIDEO_FPS),
     ...codecArgs(preset),
@@ -357,7 +444,7 @@ export function buildTwoPassSegmentArgs(
       '-b:a',
       AUDIO_BITRATE,
       '-ar',
-      '44100',
+      String(AUDIO.SAMPLE_RATE),
       '-ac',
       '2',
       '-shortest',
@@ -365,6 +452,99 @@ export function buildTwoPassSegmentArgs(
     );
   }
   return args;
+}
+
+/**
+ * Arguments ffmpeg construisant la piste audio CONTINUE de la leçon : les
+ * MP3 des slides (et des silences pour les segments muets — intro, slides
+ * sans audio) concaténés en UN SEUL flux AAC encodé une seule fois.
+ *
+ * Pourquoi : encoder l'audio PAR SEGMENT puis concaténer en copie (pipeline
+ * historique) accumule l'amorce silencieuse de l'encodeur AAC (~2×1024
+ * échantillons ≈ 46 ms) À CHAQUE segment — sur 20+ slides, l'audio glisse
+ * d'une seconde par rapport à l'image et aux sous-titres (constaté en réel).
+ * Une piste unique n'a qu'une amorce, donc aucune dérive cumulative.
+ */
+export function buildLessonAudioArgs(segments: VideoSegment[], output: string): string[] {
+  const args: string[] = ['-y'];
+  for (const seg of segments) {
+    if (seg.audioPath) {
+      args.push('-i', seg.audioPath);
+    } else {
+      args.push('-f', 'lavfi', '-t', seg.seconds.toFixed(3), '-i', `anullsrc=channel_layout=stereo:sample_rate=${AUDIO.SAMPLE_RATE}`);
+    }
+  }
+  // Micro-fondu 20 ms en entrée ET en sortie de chaque segment NARRÉ : un mp3
+  // TTS qui se termine sur un échantillon non nul produit un « clic » audible
+  // au joint de concaténation (discontinuité d'onde) — constaté en réel le
+  // 2026-07-21 (petit bruit à la couture 1:58, persistant à travers deux
+  // resynthèses de la slide : le défaut venait de l'ASSEMBLAGE, pas de la
+  // voix). 20 ms est inaudible à l'oreille mais force un passage par zéro à
+  // chaque bord. Le début du fade-out est calé sur seg.seconds (durée ffprobe
+  // du mp3, écart réel < 5 ms). Les segments silencieux (anullsrc) restent
+  // bruts : déjà à zéro numérique.
+  const normalized = segments
+    .map((seg, i) => {
+      const base = `[${i}:a]aresample=${AUDIO.SAMPLE_RATE},aformat=sample_fmts=fltp:channel_layouts=stereo`;
+      if (!seg.audioPath) return `${base}[a${i}]`;
+      const outStart = Math.max(0, seg.seconds - 0.02).toFixed(3);
+      return `${base},afade=t=in:st=0:d=0.02,afade=t=out:st=${outStart}:d=0.02[a${i}]`;
+    })
+    .join(';');
+  const concatInputs = segments.map((_, i) => `[a${i}]`).join('');
+  // Room tone continu sous TOUTE la narration (~-64 dBFS, bruit rose filtré,
+  // seed fixe → rendu déterministe/idempotent). Efface la signature « TTS » du
+  // signal : silences à zéro numérique absolu (amorce anullsrc + joints de
+  // concaténation Chatterbox) et plancher de bruit bimodal — un micro réel a
+  // toujours un lit d'air continu (~-65/-70 dB mesuré sur des cours humains).
+  // amix normalize=0 : la narration garde exactement son niveau (-16.7 LUFS).
+  // amplitude=0.0025 ≈ RMS -66 dBFS après filtrage (mesuré) — calé sur le lit
+  // d'air des enregistrements micro humains de référence (-67/-70 dB).
+  const roomTone =
+    `anoisesrc=colour=pink:sample_rate=${AUDIO.SAMPLE_RATE}:amplitude=0.0025:seed=42[rt0];` +
+    '[rt0]aformat=sample_fmts=fltp:channel_layouts=stereo,highpass=f=50,lowpass=f=8000[rt]';
+  args.push(
+    '-filter_complex',
+    `${normalized};${concatInputs}concat=n=${segments.length}:v=0:a=1[narr];${roomTone};[narr][rt]amix=inputs=2:duration=first:normalize=0[out]`,
+    '-map',
+    '[out]',
+    '-c:a',
+    'aac',
+    '-b:a',
+    AUDIO_BITRATE,
+    '-ar',
+    String(AUDIO.SAMPLE_RATE),
+    '-ac',
+    '2',
+    output,
+  );
+  return args;
+}
+
+/**
+ * Remplace la piste audio d'une vidéo par la piste continue (copie vidéo,
+ * copie audio — aucun réencodage, opération quasi instantanée).
+ */
+export function buildAudioReplaceArgs(videoPath: string, audioPath: string, output: string): string[] {
+  return [
+    '-y',
+    '-i',
+    videoPath,
+    '-i',
+    audioPath,
+    '-map',
+    '0:v:0',
+    '-map',
+    '1:a:0',
+    '-c:v',
+    'copy',
+    '-c:a',
+    'copy',
+    '-movflags',
+    '+faststart',
+    '-shortest',
+    output,
+  ];
 }
 
 /**
@@ -469,16 +649,21 @@ async function downloadToFile(key: string, dest: string): Promise<boolean> {
  * preset 'final' sous charge) — la borne ne vise que les VRAIES boucles
  * infinies, pas les encodages légitimement lents.
  */
-export const FFMPEG_SEGMENT_TIMEOUT_MS = 5 * 60_000;
+// 5 → 8 min (audit vitesse 2026-07-25) : sous forte charge machine, un segment
+// x264 légitime dépassait les 5 min → timeout → toute la leçon rejouée par
+// BullMQ (10+ min perdues). Avec l'encodeur matériel/medium le cas devient
+// rare, mais la marge évite le pire scénario (retry complet) quand il survient.
+export const FFMPEG_SEGMENT_TIMEOUT_MS = 8 * 60_000;
 
 /**
- * Lance ffmpeg avec les arguments donnés, borné par un timeout dur (voir
- * FFMPEG_SEGMENT_TIMEOUT_MS), tue le process encore actif si l'invocation
- * échoue ou expire (évite les processus fantômes), puis propage l'erreur.
- * Factorisation du pattern répété par les étapes segment/2-pass/concat.
+ * Lance ffmpeg avec les arguments donnés, borné par un timeout dur (par défaut
+ * FFMPEG_SEGMENT_TIMEOUT_MS), tue le process encore actif si l'invocation échoue
+ * ou expire (évite les processus fantômes), puis propage l'erreur. Le timeout
+ * est surchargeable pour les rendus longs (ex. screencast uploadé, ré-encodage
+ * pleine longueur d'un enregistrement de plusieurs minutes).
  */
-async function runFfmpeg(args: string[]): Promise<void> {
-  const child = execa('ffmpeg', args, { timeout: FFMPEG_SEGMENT_TIMEOUT_MS });
+export async function runFfmpeg(args: string[], timeoutMs: number = FFMPEG_SEGMENT_TIMEOUT_MS): Promise<void> {
+  const child = execa('ffmpeg', args, { timeout: timeoutMs });
   try {
     await child;
   } catch (err) {
@@ -491,17 +676,24 @@ async function runFfmpeg(args: string[]): Promise<void> {
 let nvencAvailableCache: boolean | undefined;
 
 /**
- * Détecte si l'encodeur GPU NVENC (h264_nvenc) est disponible dans le binaire
- * ffmpeg du PATH, via `ffmpeg -encoders`. Fallback SILENCIEUX vers x264 si
- * absent, si ffmpeg n'est pas installé, ou si la commande échoue pour toute
- * autre raison (aucune erreur ne doit interrompre le pipeline de rendu pour
- * cette simple détection de capacité). Résultat mis en cache pour le process.
+ * Détecte si l'encodage GPU NVENC (h264_nvenc) FONCTIONNE réellement sur cette
+ * machine. Durci à l'audit vitesse 2026-07-25 : l'ancienne détection (grep de
+ * `ffmpeg -encoders`) répondait true dès que le BUILD ffmpeg incluait
+ * l'encodeur — y compris sans aucun GPU NVIDIA (cas de la machine de dev,
+ * iGPU Intel seul), ce qui aurait fait échouer tous les encodages depuis que
+ * resolveEffectivePreset monte automatiquement vers le matériel. Comme pour
+ * QSV : UN mini-encodage réel (0,1 s de mire lavfi), une fois par process.
+ * Fallback SILENCIEUX (false) sur toute erreur.
  */
 export async function detectNvencEncoder(): Promise<boolean> {
   if (nvencAvailableCache !== undefined) return nvencAvailableCache;
   try {
-    const { stdout } = await execa('ffmpeg', ['-hide_banner', '-encoders']);
-    nvencAvailableCache = /h264_nvenc/.test(stdout);
+    await execa(
+      'ffmpeg',
+      ['-y', '-f', 'lavfi', '-i', 'testsrc=duration=0.1:size=320x240:rate=30', '-c:v', 'h264_nvenc', '-f', 'null', process.platform === 'win32' ? 'NUL' : '/dev/null'],
+      { timeout: 20_000 },
+    );
+    nvencAvailableCache = true;
   } catch {
     nvencAvailableCache = false;
   }
@@ -513,6 +705,38 @@ export function resetNvencCacheForTests(): void {
   nvencAvailableCache = undefined;
 }
 
+/** Cache mémoire process de la détection QSV (un seul test d'encodage par run). */
+let qsvAvailableCache: boolean | undefined;
+
+/**
+ * Détecte si l'encodage MATÉRIEL Intel QuickSync (h264_qsv) fonctionne
+ * réellement sur cette machine (audit vitesse 2026-07-25). Contrairement à
+ * NVENC, la simple présence de l'encodeur dans `ffmpeg -encoders` ne suffit
+ * pas (le build l'inclut même sans iGPU Intel) : on fait UN mini-encodage
+ * réel (0,1 s de mire lavfi, sortie jetée) — ~1 s, une seule fois par process.
+ * Fallback SILENCIEUX (false) sur toute erreur : la détection ne doit jamais
+ * faire échouer un rendu.
+ */
+export async function detectQsvEncoder(): Promise<boolean> {
+  if (qsvAvailableCache !== undefined) return qsvAvailableCache;
+  try {
+    await execa(
+      'ffmpeg',
+      ['-y', '-f', 'lavfi', '-i', 'testsrc=duration=0.1:size=320x240:rate=30', '-c:v', 'h264_qsv', '-f', 'null', process.platform === 'win32' ? 'NUL' : '/dev/null'],
+      { timeout: 20_000 },
+    );
+    qsvAvailableCache = true;
+  } catch {
+    qsvAvailableCache = false;
+  }
+  return qsvAvailableCache;
+}
+
+/** Réinitialise le cache de détection QSV (tests). */
+export function resetQsvCacheForTests(): void {
+  qsvAvailableCache = undefined;
+}
+
 /**
  * Récupère (cache S3) ou génère puis met en cache le segment avatar 'intro'
  * ou 'outro' d'une SECTION (Prompt 82). Généré une seule fois par section :
@@ -521,6 +745,88 @@ export function resetNvencCacheForTests(): void {
  * Le texte narré est minimal (titre de section) — un texte plus riche pourrait
  * être injecté plus tard sans changer la signature (paramètre `text`).
  */
+/** Options d'activation de l'avatar RÉEL (Ditto) : photo présentateur + voix. */
+interface AvatarSegmentInputs {
+  /** Clé S3 de la photo de visage (storageKeys.avatarFace) — active Ditto. */
+  photoKey?: string;
+  /** Langue de la narration intro/outro (voix + audio_prompt). */
+  locale: string;
+  /** Voix forcée (Course.ttsVoice) pour la narration du segment. */
+  voice?: string;
+  /** Vitesse de narration (Course.narrationSpeed). */
+  narrationSpeed?: number;
+}
+
+/**
+ * Cadre/étire un clip avatar (durée variable côté Ditto) à EXACTEMENT `seconds`
+ * et au format vidéo cible : le montage suppose une durée fixe par segment
+ * (offsets chapitres + vérification de durée). tpad clone la dernière image si
+ * trop court, `-t` coupe si trop long ; apad complète l'audio en silence.
+ */
+/**
+ * Export vertical 9:16 (1080×1920, P167 — format shorts) : la vidéo 16:9 est
+ * centrée sur un fond flou d'elle-même (rendu « reels » propre, sans bandes
+ * noires). Audio copié. Fonction PURE (arguments ffmpeg) — testable.
+ */
+export function buildVerticalExportArgs(src: string, dest: string): string[] {
+  return [
+    '-y',
+    '-i',
+    src,
+    '-filter_complex',
+    '[0:v]split=2[bg][fg];' +
+      '[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=24:2[bgb];' +
+      '[fg]scale=1080:-2[fgs];' +
+      '[bgb][fgs]overlay=(W-w)/2:(H-h)/2,format=yuv420p[v]',
+    '-map',
+    '[v]',
+    '-map',
+    '0:a?',
+    '-c:v',
+    'libx264',
+    '-preset',
+    'veryfast',
+    '-crf',
+    '23',
+    '-pix_fmt',
+    'yuv420p',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '128k',
+    '-movflags',
+    '+faststart',
+    dest,
+  ];
+}
+
+export function buildAvatarNormalizeArgs(src: string, dest: string, seconds: number): string[] {
+  return [
+    '-y',
+    '-i',
+    src,
+    '-vf',
+    `tpad=stop_mode=clone:stop_duration=${seconds.toFixed(3)},scale=${VIDEO.WIDTH}:${VIDEO.HEIGHT}:force_original_aspect_ratio=decrease,pad=${VIDEO.WIDTH}:${VIDEO.HEIGHT}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p`,
+    '-af',
+    'apad',
+    '-t',
+    seconds.toFixed(3),
+    '-c:v',
+    'libx264',
+    '-preset',
+    'veryfast',
+    '-crf',
+    '21',
+    '-pix_fmt',
+    'yuv420p',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '128k',
+    dest,
+  ];
+}
+
 async function getOrGenerateAvatarSegment(
   courseId: string,
   lessonId: string,
@@ -530,25 +836,83 @@ async function getOrGenerateAvatarSegment(
   kind: 'intro' | 'outro',
   dest: string,
   plan: PlanId,
+  inputs: AvatarSegmentInputs,
 ): Promise<void> {
   const key = storageKeys.course(courseId).avatarSegment(sectionOrder, kind);
   const cached = await downloadToFile(key, dest);
   if (cached) return;
 
-  const text =
-    kind === 'intro'
-      ? `Bienvenue dans la section ${sectionTitle}.`
-      : `Nous arrivons à la fin de la section ${sectionTitle}. À bientôt pour la suite !`;
-  // Photo source/audio narré SadTalker non câblés ici (aucun upload dédié
-  // aujourd'hui, cf. avatar.ts en-tête) : generateAvatarSegment retombe donc
-  // sur HeyGen (si le plan l'autorise) ou le mock — `plan` reste transmis
-  // pour que le gate HeyGen premium soit correctement appliqué.
-  const result = await generateAvatarSegment(text, avatarId, { courseId, lessonId, plan });
-  await uploadObject(key, await readFile(result.filePath), 'video/mp4');
+  // Texte LOCALISÉ selon la langue du cours (audit hardcoding 2026-07-26 :
+  // un cours en/ar recevait une intro avatar parlée en français).
+  const AVATAR_TEXTS: Record<string, { intro: (s: string) => string; outro: (s: string) => string }> = {
+    fr: {
+      intro: (s) => `Bienvenue dans la section ${s}.`,
+      outro: (s) => `Nous arrivons à la fin de la section ${s}. À bientôt pour la suite !`,
+    },
+    en: {
+      intro: (s) => `Welcome to the section ${s}.`,
+      outro: (s) => `We have reached the end of the section ${s}. See you soon for the next one!`,
+    },
+    ar: {
+      intro: (s) => `مرحبا بكم في قسم ${s}.`,
+      outro: (s) => `وصلنا إلى نهاية قسم ${s}. إلى اللقاء في القسم القادم!`,
+    },
+  };
+  const texts = AVATAR_TEXTS[inputs.locale] ?? AVATAR_TEXTS.fr!;
+  const text = kind === 'intro' ? texts.intro(sectionTitle) : texts.outro(sectionTitle);
+
+  // Avatar RÉEL (Ditto/Modal) : nécessite une photo de présentateur + un audio
+  // narré. On synthétise le texte (voix du cours, éventuellement clonée) et on
+  // presigne la photo. Sans photo (ou Modal indisponible), generateAvatarSegment
+  // retombe sur SadTalker/HeyGen (selon le plan) puis sur le mock — jamais d'échec.
+  let photoUrl: string | undefined;
+  let narratedAudioBuffer: Buffer | undefined;
+  if (isModalAvatarConfigured() && inputs.photoKey && (await objectExists(inputs.photoKey))) {
+    try {
+      photoUrl = await presignedGetUrl(inputs.photoKey);
+      const { cacheKey } = await synthesizeSlide({
+        text,
+        locale: inputs.locale,
+        voice: inputs.voice,
+        speed: inputs.narrationSpeed,
+        plan,
+      });
+      const audioTmp = `${dest}.narration.mp3`;
+      if (await downloadToFile(cacheKey, audioTmp)) narratedAudioBuffer = await readFile(audioTmp);
+    } catch (err) {
+      logger.warn({ err, sectionOrder }, 'avatar : préparation photo/audio échouée — repli providers');
+      photoUrl = undefined;
+      narratedAudioBuffer = undefined;
+    }
+  }
+
+  const result = await generateAvatarSegment(text, avatarId, {
+    courseId,
+    lessonId,
+    plan,
+    ...(photoUrl ? { photoUrl } : {}),
+    ...(narratedAudioBuffer ? { narratedAudioBuffer } : {}),
+  });
+
+  // Coût avatar instrumenté (audit coûts 2026-07-26) : uniquement les
+  // providers GPU/payants — le mock (carte titre) est gratuit. Best-effort.
+  if (result.provider !== 'mock') {
+    await recordAvatarCost({ courseId }, result.seconds, result.provider).catch(() => undefined);
+  }
+
+  // Normalise à AVATAR.SEGMENT_SECONDS avant mise en cache (durée fixe attendue
+  // par le montage). Repli : uploade le clip brut si la normalisation échoue.
+  const normalized = `${result.filePath}.norm.mp4`;
+  try {
+    await runFfmpeg(buildAvatarNormalizeArgs(result.filePath, normalized, AVATAR.SEGMENT_SECONDS));
+    await uploadObject(key, await readFile(normalized), 'video/mp4');
+  } catch (err) {
+    logger.warn({ err, sectionOrder }, 'avatar : normalisation durée échouée — clip brut conservé');
+    await uploadObject(key, await readFile(result.filePath), 'video/mp4');
+  }
   await rm(path.dirname(result.filePath), { recursive: true, force: true }).catch(() => undefined);
-  // Copie locale pour l'assemblage de CETTE leçon (le fichier généré a déjà
-  // été supprimé avec son dossier temporaire ci-dessus) : on re-télécharge
-  // depuis le cache S3 qu'on vient d'écrire, chemin le plus simple et robuste.
+  // Copie locale pour l'assemblage de CETTE leçon : on re-télécharge depuis le
+  // cache S3 qu'on vient d'écrire, chemin le plus simple et robuste.
   const ok = await downloadToFile(key, dest);
   if (!ok) throw new AvatarSegmentError(kind, 'échec de relecture du segment avatar juste uploadé');
 }
@@ -562,15 +926,31 @@ class AvatarSegmentError extends Error {
 }
 
 /**
- * Résout le preset EFFECTIVEMENT applicable : si l'appelant demande 'nvenc'
- * mais que le GPU n'est pas disponible, retombe silencieusement sur 'final'
- * (x264 slow/CRF19, la meilleure qualité CPU) plutôt que de faire échouer le
- * rendu. Pour draft/final, retourne le preset demandé tel quel (pas de détection).
+ * Résout le preset EFFECTIVEMENT applicable.
+ * - 'nvenc' demandé : NVENC si dispo, sinon repli QSV, sinon 'final' (CPU).
+ * - 'qsv' demandé : QSV si dispo, sinon 'final'.
+ * - 'final' demandé (le défaut de tous les rendus de livraison) : BASCULE
+ *   AUTOMATIQUE vers un encodeur MATÉRIEL disponible (nvenc → qsv) — audit
+ *   vitesse 2026-07-25 : l'encodage x264 logiciel prenait ~5 min PAR leçon de
+ *   5 min alors que la machine de dev a un iGPU Intel QSV inutilisé.
+ *   Débrayable via VIDEO_HW_ENCODER=off (retour au x264 CPU pur).
+ * - 'draft' : inchangé (veryfast CPU, déjà rapide et sans détection à payer).
  */
 export async function resolveEffectivePreset(requested: RenderPreset): Promise<RenderPreset> {
-  if (requested !== 'nvenc') return requested;
-  const available = await detectNvencEncoder();
-  return available ? 'nvenc' : 'final';
+  const hwDisabled = process.env.VIDEO_HW_ENCODER?.trim().toLowerCase() === 'off';
+  if (requested === 'draft') return 'draft';
+  if (hwDisabled) return requested === 'nvenc' || requested === 'qsv' ? 'final' : requested;
+  if (requested === 'nvenc') {
+    if (await detectNvencEncoder()) return 'nvenc';
+    return (await detectQsvEncoder()) ? 'qsv' : 'final';
+  }
+  if (requested === 'qsv') {
+    return (await detectQsvEncoder()) ? 'qsv' : 'final';
+  }
+  // 'final' : monte automatiquement vers le matériel disponible.
+  if (await detectNvencEncoder()) return 'nvenc';
+  if (await detectQsvEncoder()) return 'qsv';
+  return 'final';
 }
 
 /** Sonde un MP4 via ffprobe (streams v/a + durée format) → ProbeSummary. */
@@ -679,7 +1059,25 @@ export async function renderLessonVideo(
   // Sert à décider l'insertion des segments avatarSegment 'intro'/'outro' —
   // no-op complet (aucune requête ni changement de comportement) si
   // Course.avatarEnabled est false (défaut).
-  const avatarEnabled = Boolean(course.avatarEnabled && course.avatarId);
+  // Avatar activé si le cours le demande ET qu'on a de quoi le produire : une
+  // photo de présentateur (Ditto/Modal, préféré) OU un avatarId HeyGen.
+  let avatarFaceKey: string | undefined;
+  if (course.avatarEnabled) {
+    const owner = await User.findById(course.userId).select('avatarFaceUploadedAt').lean();
+    if (owner?.avatarFaceUploadedAt) avatarFaceKey = storageKeys.avatarFace(String(course.userId));
+    // Avatar du CATALOGUE (2026-07-26) : sans photo uploadée par l'auteur, un
+    // avatarId du catalogue fournit son portrait généré (cache storage) — le
+    // chemin Ditto s'active donc aussi pour les avatars « prêts à l'emploi ».
+    // La photo de l'auteur garde la priorité (c'est SON cours).
+    if (!avatarFaceKey) {
+      const catalogAvatar = getCatalogAvatar(course.avatarId);
+      if (catalogAvatar) {
+        const key = await ensureCatalogAvatarPhoto(catalogAvatar);
+        if (key) avatarFaceKey = key;
+      }
+    }
+  }
+  const avatarEnabled = Boolean(course.avatarEnabled) && Boolean(course.avatarId || avatarFaceKey);
   let isFirstLessonOfSection = false;
   let isLastLessonOfSection = false;
   let avatarPlan: PlanId = 'free';
@@ -703,19 +1101,29 @@ export async function renderLessonVideo(
     ];
 
     // 2) Une slide = un segment (image + audio). Slide sans audio → durée plancher.
-    for (let i = 0; i < script.slides.length; i += 1) {
-      const slide = script.slides[i]!;
-      const imagePath = path.join(dir, `slide-${i}.png`);
-      const okImage = await downloadToFile(keys.slide(i), imagePath);
-      if (!okImage) {
-        throw new VideoRenderError('download', lessonId, `slide PNG absente : ${keys.slide(i)} (lance le rendu des slides)`);
+    // Téléchargements EN PARALLÈLE (audit optimisations 2026-07-26, item #4 :
+    // PNG+MP3 par slide et toutes les slides étaient tirées en série) — temps de
+    // préparation ∝ nb de slides divisé. L'ordre des segments est préservé
+    // (construction dans l'ordre après collecte).
+    const downloads = await Promise.all(
+      script.slides.map(async (_slide, i) => {
+        const imagePath = path.join(dir, `slide-${i}.png`);
+        const audioPath = path.join(dir, `audio-${i}.mp3`);
+        const [okImage, okAudio] = await Promise.all([
+          downloadToFile(keys.slide(i), imagePath),
+          downloadToFile(keys.audio(i), audioPath),
+        ]);
+        return { i, imagePath, audioPath, okImage, okAudio };
+      }),
+    );
+    for (const d of downloads) {
+      if (!d.okImage) {
+        throw new VideoRenderError('download', lessonId, `slide PNG absente : ${keys.slide(d.i)} (lance le rendu des slides)`);
       }
-      const audioPath = path.join(dir, `audio-${i}.mp3`);
-      const okAudio = await downloadToFile(keys.audio(i), audioPath);
       segments.push({
-        imagePath,
-        audioPath: okAudio ? audioPath : null,
-        seconds: slideSeconds(slide.audioSeconds),
+        imagePath: d.imagePath,
+        audioPath: d.okAudio ? d.audioPath : null,
+        seconds: slideSeconds(script.slides[d.i]!.audioSeconds),
       });
     }
 
@@ -760,10 +1168,11 @@ export async function renderLessonVideo(
           lessonId,
           sectionOrder,
           section?.title ?? course.title,
-          course.avatarId!,
+          course.avatarId ?? '',
           'intro',
           introPath,
           avatarPlan,
+          { photoKey: avatarFaceKey, locale: course.locale, voice: course.ttsVoice, narrationSpeed: course.narrationSpeed },
         );
         segmentPaths.unshift(introPath);
         avatarExtraSeconds += AVATAR.SEGMENT_SECONDS;
@@ -783,10 +1192,11 @@ export async function renderLessonVideo(
           lessonId,
           sectionOrder,
           section?.title ?? course.title,
-          course.avatarId!,
+          course.avatarId ?? '',
           'outro',
           outroPath,
           avatarPlan,
+          { photoKey: avatarFaceKey, locale: course.locale, voice: course.ttsVoice, narrationSpeed: course.narrationSpeed },
         );
         segmentPaths.push(outroPath);
         avatarExtraSeconds += AVATAR.SEGMENT_SECONDS;
@@ -808,12 +1218,32 @@ export async function renderLessonVideo(
       throw new VideoRenderError('concat', lessonId, detail);
     }
 
+    // 4ter) Piste audio CONTINUE (anti-dérive) : remplace l'audio concaténé
+    // par segments (amorces AAC cumulées → décalage audio/vidéo/sous-titres
+    // croissant) par un flux unique construit depuis les MP3 originaux — voir
+    // buildLessonAudioArgs. Réservé au flux standard : les segments avatar
+    // (P82) embarquent leur PROPRE narration, incompatible avec ce remplacement.
+    let syncedPath = finalPath;
+    if (avatarExtraSeconds === 0) {
+      try {
+        const narrationPath = path.join(dir, 'narration.m4a');
+        await runFfmpeg(buildLessonAudioArgs(segments, narrationPath));
+        const remuxed = path.join(dir, 'lesson-sync.mp4');
+        await runFfmpeg(buildAudioReplaceArgs(finalPath, narrationPath, remuxed));
+        syncedPath = remuxed;
+      } catch (err) {
+        // Best-effort : en cas d'échec on garde le montage historique (léger
+        // décalage) plutôt que d'échouer tout le rendu.
+        logger.warn({ err, lessonId }, 'piste audio continue indisponible — audio par segments conservé');
+      }
+    }
+
     // 4bis) Musique de fond (Prompt 135, additif) : ne s'applique QUE si
     // Course.backgroundMusicId (ou jingleEnabled, cf. plus bas) référence une
     // piste dont le MP3 est RÉELLEMENT présent dans le stockage — sinon skip
     // silencieux (comportement historique inchangé). Sidechaincompress : la
     // narration reste le signal de contrôle, la musique « ducke » dessous.
-    let mixedPath = finalPath;
+    let mixedPath = syncedPath;
     const resolvedMusic = await resolveMusicTrack(course.backgroundMusicId).catch(() => null);
     if (resolvedMusic) {
       const musicLocalPath = path.join(dir, 'music.mp3');
@@ -863,10 +1293,18 @@ export async function renderLessonVideo(
       }
     }
 
-    // 5) Vérification ffprobe (durée / résolution / audio).
+    // 5) Vérification ffprobe (durée / résolution / audio). La durée ATTENDUE
+    // est une ESTIMATION (somme des durées de segment). Avec des segments avatar
+    // (bêta), la narration incrustée introduit une variance que l'estimation ne
+    // capture pas (clips normalisés + intro/outro de section) : on élargit alors
+    // la tolérance de durée, tout en gardant STRICTS les contrôles résolution +
+    // présence audio (les vrais indicateurs d'un rendu cassé). Sans avatar,
+    // tolérance historique inchangée.
     const probe = await probeVideo(chapteredPath);
     const expected = expectedDurationSeconds(segments) + avatarExtraSeconds;
-    const problems = verifyProbe(probe, expected);
+    const durationTolerance =
+      avatarExtraSeconds > 0 ? DURATION_TOLERANCE_SECONDS + AVATAR.SEGMENT_SECONDS * 6 : DURATION_TOLERANCE_SECONDS;
+    const problems = verifyProbe(probe, expected, durationTolerance);
     if (problems.length > 0) {
       throw new VideoRenderError('verify', lessonId, problems.join(' ; '));
     }
@@ -880,6 +1318,22 @@ export async function renderLessonVideo(
     await uploadObject(videoKey, await readFile(chapteredPath), 'video/mp4');
     lesson.assets.videoUrl = videoKey;
     lesson.durationMin = Math.max(1, Math.round((probe.durationSec / 60) * 10) / 10);
+
+    // Version verticale 9:16 (P167, format shorts) — additive, best-effort : une
+    // panne d'export ne bloque jamais la leçon (la vidéo 16:9 reste la sortie
+    // principale). Uniquement si Course.advancedParams.generateVertical.
+    if (course.advancedParams?.generateVertical) {
+      try {
+        const verticalPath = path.join(dir, 'lesson-vertical.mp4');
+        await runFfmpeg(buildVerticalExportArgs(chapteredPath, verticalPath));
+        await uploadObject(keys.videoVertical(), await readFile(verticalPath), 'video/mp4');
+        lesson.assets.videoVerticalUrl = keys.videoVertical();
+        logger.info({ lessonId }, 'export vertical 9:16 généré');
+      } catch (err) {
+        logger.warn({ err, lessonId }, 'export vertical 9:16 indisponible — rendu sans version verticale');
+      }
+    }
+
     lesson.status = 'ready';
     await lesson.save();
 

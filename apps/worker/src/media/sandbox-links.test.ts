@@ -118,6 +118,7 @@ describe('createSandboxLinks — mode MOCK_PROVIDERS', () => {
       starterFiles: files,
       solutionFiles: files,
     });
+    if (!result) throw new Error('createSandboxLinks a renvoyé null en mode mock');
 
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(result.starter.stackblitzUrl).toMatch(/^https:\/\/stackblitz\.com\/edit\/mock-/);
@@ -131,6 +132,7 @@ describe('createSandboxLinks — mode MOCK_PROVIDERS', () => {
       starterFiles: files,
       solutionFiles: files,
     });
+    if (!again) throw new Error('createSandboxLinks a renvoyé null en mode mock');
     expect(again.starter.stackblitzUrl).toBe(result.starter.stackblitzUrl);
   });
 
@@ -142,6 +144,7 @@ describe('createSandboxLinks — mode MOCK_PROVIDERS', () => {
       starterFiles: { 'main.js': '// TODO' },
       solutionFiles: { 'main.js': 'console.log("done")' },
     });
+    if (!result) throw new Error('createSandboxLinks a renvoyé null en mode mock');
     expect(result.starter.stackblitzUrl).not.toBe(result.solution.stackblitzUrl);
   });
 });
@@ -171,13 +174,18 @@ describe('createSandboxLinks — mode réel (fetch mocké)', () => {
       starterFiles: { 'main.js': '// TODO' },
       solutionFiles: { 'main.js': 'console.log(1)' },
     });
+    if (!result) throw new Error('createSandboxLinks a renvoyé null en mode mock');
 
     expect(fetchSpy).toHaveBeenCalledTimes(4); // 2 IDE × (starter + solution)
     expect(result.starter.stackblitzUrl).toBe('https://stackblitz.com/edit/abc123');
     expect(result.starter.codesandboxUrl).toBe('https://codesandbox.io/s/xyz789');
   });
 
-  it('bascule sur les URLs mock si le réseau échoue (best-effort, ne jette jamais)', async () => {
+  it('renvoie null si le réseau échoue hors mode mock (jamais d’URL fictive persistable)', async () => {
+    // Intégrité (audit 2026-07-17) : hors MOCK_PROVIDERS, un échec de création
+    // ne fabrique PLUS d'URL mock — des liens morts finiraient dans le cours
+    // livré. null → l'appelant (attachSandboxLinksBestEffort) saute la
+    // persistance, la leçon reste simplement sans sandbox. Ne jette jamais.
     vi.stubGlobal('fetch', vi.fn(async () => {
       throw new Error('network down');
     }));
@@ -189,6 +197,6 @@ describe('createSandboxLinks — mode réel (fetch mocké)', () => {
       solutionFiles: { 'main.py': 'print(1)' },
     });
 
-    expect(result.starter.stackblitzUrl).toMatch(/^https:\/\/stackblitz\.com\/edit\/mock-/);
+    expect(result).toBeNull();
   });
 });

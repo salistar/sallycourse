@@ -45,6 +45,14 @@ describe('ttsCacheKey', () => {
     expect(ttsCacheKey('Salut', 'v', 'fr', 1.15)).not.toBe(ttsCacheKey('Salut', 'v', 'fr', 1));
     expect(ttsCacheKey('Salut', 'v', 'fr', 0.85)).not.toBe(ttsCacheKey('Salut', 'v', 'fr', 1.15));
   });
+
+  it("2026-07-22 (Qwen3-TTS, additif) — un engineTag absent produit la clé HISTORIQUE inchangée", () => {
+    expect(ttsCacheKey('Salut', 'v', 'fr', 1, undefined)).toBe(ttsCacheKey('Salut', 'v', 'fr'));
+  });
+
+  it("2026-07-22 — un engineTag ('qwen3') produit une clé SÉPARÉE du chemin Chatterbox par défaut", () => {
+    expect(ttsCacheKey('Salut', 'v', 'fr', 1, 'qwen3')).not.toBe(ttsCacheKey('Salut', 'v', 'fr'));
+  });
 });
 
 describe('clampNarrationSpeed (P137)', () => {

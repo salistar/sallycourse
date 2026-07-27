@@ -28,6 +28,11 @@ import { generateQuiz } from '../generators/quiz.js';
 import { generateTp } from '../generators/tp.js';
 import { generateCourseMarketing } from '../generators/marketing.js';
 import { generateCourseResources } from '../generators/resources.js';
+import { generateCourseFlashcardsBestEffort } from '../generators/flashcards.js';
+import { generateCoursePodcastBestEffort } from '../generators/podcast.js';
+import { generateCourseEbookBestEffort } from '../generators/ebook.js';
+import { generateCourseTrailerBestEffort } from '../generators/trailer.js';
+import { purgeCourseIntermediateAssets } from '../lib/retention.js';
 import { runCourseQa } from '../lib/qa.js';
 import { evaluateAndStoreCourseQuality } from '../lib/quality-score.js';
 import { buildContinuityContext, summarizeLesson } from '../lib/continuity.js';
@@ -260,6 +265,33 @@ export async function finalizeCourseIfComplete(courseId: string): Promise<void> 
     await report(courseId, 97, 'Génération des ressources téléchargeables (cheat sheet, workbook, glossaire)');
     await generateCourseResourcesBestEffort(courseId);
 
+    // 4bis) Réutilisation du contenu (P203) : flashcards + export Anki, bonus
+    // best-effort dérivé du plan/résumés (n'invalide jamais la finalisation).
+    await report(courseId, 98, 'Génération des flashcards (révision espacée + export Anki)');
+    await generateCourseFlashcardsBestEffort(courseId);
+
+    // 4ter) Podcast (P202) : narrations concaténées par section + flux RSS.
+    await report(courseId, 99, 'Génération de la version podcast (audio + flux RSS)');
+    await generateCoursePodcastBestEffort(courseId);
+
+    // 4quater) Ebook (P201) : articles + transcriptions compilés en EPUB + PDF.
+    await report(courseId, 99, 'Génération de l’ebook (EPUB + PDF)');
+    await generateCourseEbookBestEffort(courseId);
+
+    // 4quinquies) Bande-annonce (P197) : script d'accroche + narration + montage
+    // sur les slides déjà rendues (obligatoire sur Udemy, décisif à la conversion).
+    await report(courseId, 99, 'Génération de la bande-annonce du cours');
+    await generateCourseTrailerBestEffort(courseId);
+
+    // 5) Rétention (P79) : DERNIER consommateur servi — les slides PNG et l'audio
+    // par slide ne servent plus à rien. On purge ICI et pas dans le job de
+    // sous-titres : celui-ci tourne par leçon, en parallèle, et purgeait donc les
+    // slides/audios AVANT que le podcast (P202) et la bande-annonce (P197) ne
+    // puissent les lire — les deux features ne produisaient jamais rien.
+    await purgeCourseIntermediateAssets(courseId).catch((err) =>
+      logger.warn({ courseId, err }, 'retention : purge des assets intermédiaires ignorée'),
+    );
+
     await Course.updateOne({ _id: courseId }, { $set: { status: 'ready' } });
     await report(
       courseId,
@@ -392,7 +424,7 @@ function mergeInstruction(context: string | undefined, instruction: string | und
 }
 
 export async function processContentGeneration(job: Job<ContentJobData>): Promise<ContentGenerationResult> {
-  const { courseId, lessonId, instruction, mode } = job.data;
+  const { courseId, lessonId, instruction, mode, llmProviderId } = job.data;
 
   const lesson = await Lesson.findById(lessonId);
   if (!lesson) throw new Error(`leçon introuvable : ${lessonId}`);
@@ -422,18 +454,20 @@ export async function processContentGeneration(job: Job<ContentJobData>): Promis
     // injecté dans le prompt des générateurs pour éviter les répétitions.
     const context = mergeInstruction(await buildContinuityContext(courseId, lesson), instruction);
 
+    // Override de provider LLM pour cette régénération (« éditer avec l'IA ») —
+    // sinon les générateurs retombent sur course.llmProvider.
     switch (lesson.type) {
       case 'video':
-        await generateVideoScript({ courseId, lessonId, context });
+        await generateVideoScript({ courseId, lessonId, context, llmProviderId });
         break;
       case 'article':
-        await generateArticle({ courseId, lessonId, context });
+        await generateArticle({ courseId, lessonId, context, llmProviderId });
         break;
       case 'quiz':
-        await generateQuiz({ courseId, lessonId, context });
+        await generateQuiz({ courseId, lessonId, context, llmProviderId });
         break;
       case 'tp':
-        await generateTp({ courseId, lessonId, context });
+        await generateTp({ courseId, lessonId, context, llmProviderId });
         break;
       default:
         throw new Error(`aucun générateur enregistré pour le type de leçon « ${lesson.type} »`);
@@ -459,14 +493,46 @@ export async function processContentGeneration(job: Job<ContentJobData>): Promis
     // Pipeline média : le texte seul ne suffit pas au QA final — une leçon
     // vidéo doit encore passer par TTS → rendu → sous-titres, un TP par la
     // capture d'écran (qui remplit aussi les placeholders de l'article voisin).
-    await enqueueLessonMedia(courseId, lesson);
+    //
+    // P170 — point de validation « après les scripts » : si activé, on NE lance
+    // PAS la voix/le rendu d'une leçon VIDÉO ici ; le script est prêt et attend
+    // la relecture. La route continue-generation enfile alors la voix (économise
+    // les régénérations audio). Sans effet pour article/TP/quiz.
+    const gen = await Course.findById(courseId).select('advancedParams').lean();
+    const vp = gen?.advancedParams?.validationPoints;
+    const afterScripts = Boolean(vp?.afterScripts);
+    // P170 — point de validation « après le brouillon » : symétrique d'afterScripts
+    // mais pour les TP. Le texte du TP est prêt ; on NE lance PAS la capture d'écran
+    // (Playwright/Docker, coûteuse) — l'auteur relit/édite le brouillon puis
+    // continue-generation enfile la capture. Sans effet pour video/article/quiz.
+    const afterDraft = Boolean(vp?.afterDraft);
+    const heldForScripts = lesson.type === 'video' && afterScripts;
+    const heldForDraft = lesson.type === 'tp' && afterDraft;
+    if (!heldForScripts && !heldForDraft) {
+      await enqueueLessonMedia(courseId, lesson);
+    } else if (heldForScripts) {
+      await report(courseId, 100, `Script « ${lesson.title} » prêt — en attente de votre relecture avant la voix.`);
+    } else {
+      await report(courseId, 100, `TP « ${lesson.title} » rédigé — en attente de votre relecture avant les captures.`);
+    }
 
     // Chaînage séquentiel (P19) : la leçon enfile la suivante du cours, de sorte
     // que chaque génération dispose du contexte des précédentes. Réservé au flux
     // de génération de cours ('lesson-content') ; une régénération unitaire ne
-    // relance pas les voisines.
+    // relance pas les voisines. Mode « validation étape par étape » : la chaîne
+    // S'ARRÊTE ici — l'auteur relit la leçon puis clique « Valider et
+    // continuer » (route continue-generation) pour enfiler la suivante.
     if (job.name === LESSON_CONTENT_JOB) {
-      await enqueueNextLesson(courseId, lessonId);
+      const courseMode = await Course.findById(courseId).select('generationMode').lean();
+      if (courseMode?.generationMode === 'validated') {
+        await report(
+          courseId,
+          100,
+          `Leçon « ${lesson.title} » prête — en attente de votre validation pour générer la suivante.`,
+        );
+      } else {
+        await enqueueNextLesson(courseId, lessonId);
+      }
     }
 
     // Dernière leçon prête → marketing + bascule Course.status='ready' (n'échoue jamais la leçon).
