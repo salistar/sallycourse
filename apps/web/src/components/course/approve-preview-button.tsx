@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { errorMessage } from '@/lib/error-message';
 import { CheckCircle2 } from 'lucide-react';
 import { Badge, Button, useToast } from '@/components/ui';
 import type { VideoQualityStatus } from './types';
@@ -18,6 +20,8 @@ export interface ApprovePreviewButtonProps {
 
 export function ApprovePreviewButton({ lessonId, videoQualityStatus }: ApprovePreviewButtonProps) {
   const router = useRouter();
+  const t = useTranslations('course.approvePreview');
+  const tApiError = useTranslations('apiErrors');
   const { toast } = useToast();
   const [loading, setLoading] = React.useState(false);
 
@@ -29,18 +33,18 @@ export function ApprovePreviewButton({ lessonId, videoQualityStatus }: ApprovePr
     try {
       const res = await fetch(`/api/lessons/${lessonId}/approve-preview`, { method: 'POST' });
       if (res.ok) {
-        toast({ title: 'Aperçu approuvé', description: 'Prêt pour la version finale HD.', variant: 'success' });
+        toast({ title: t('approvedToastTitle'), description: t('approvedToastDescription'), variant: 'success' });
         router.refresh();
       } else {
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
         toast({
-          title: 'Approbation impossible',
-          description: data?.error ?? 'Une erreur est survenue, réessayez plus tard.',
+          title: t('errorTitle'),
+          description: errorMessage(data, tApiError),
           variant: 'danger',
         });
       }
     } catch {
-      toast({ title: 'Erreur réseau', description: 'Impossible de joindre le serveur.', variant: 'danger' });
+      toast({ title: t('networkErrorTitle'), description: t('networkErrorDescription'), variant: 'danger' });
     } finally {
       setLoading(false);
     }
@@ -50,17 +54,17 @@ export function ApprovePreviewButton({ lessonId, videoQualityStatus }: ApprovePr
     return (
       <Button variant="secondary" size="sm" loading={loading} onClick={approve}>
         <CheckCircle2 aria-hidden="true" />
-        Approuver l&apos;aperçu
+        {t('approveButton')}
       </Button>
     );
   }
 
   if (status === 'approved') {
-    return <Badge variant="draft">Aperçu approuvé</Badge>;
+    return <Badge variant="draft">{t('approvedBadge')}</Badge>;
   }
 
   if (status === 'final-ready') {
-    return <Badge variant="ready">HD livrée</Badge>;
+    return <Badge variant="ready">{t('hdDeliveredBadge')}</Badge>;
   }
 
   return null;

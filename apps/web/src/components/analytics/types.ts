@@ -11,6 +11,8 @@ export interface PlatformRow {
   views: number;
   /** ISO 8601 du dernier rafraîchissement, ou null si inconnu. */
   fetchedAt: string | null;
+  /** true si les métriques sont SIMULÉES (aucun token API — badge dédié). */
+  simulated?: boolean;
 }
 
 /** Libellés humains par plateforme. */

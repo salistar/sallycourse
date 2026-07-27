@@ -14,8 +14,10 @@ import {
   EmptyState,
   useToast,
 } from '@/components/ui';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/cn';
 import { parseBatchCsv, type ParsedBatch } from '@/lib/batch-csv';
+import { errorMessage } from '@/lib/error-message';
 
 /**
  * Expérience de génération en batch (P63) — import CSV → aperçu → lancement →
@@ -51,20 +53,23 @@ function statusBadgeVariant(status: string): 'generating' | 'ready' | 'failed' |
     case 'failed':
       return 'failed';
     case 'generating':
-    case 'outline-review':
       return 'generating';
+    // 'outline-review' = le plan attend une action de l'auteur : badge neutre
+    // (pas la pastille pulsée « en cours ») pour signaler qu'il faut agir.
+    case 'outline-review':
+      return 'draft';
     default:
       return 'draft';
   }
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: 'Brouillon',
-  generating: 'Génération',
-  'outline-review': 'Plan à valider',
-  ready: 'Prêt',
-  published: 'Publié',
-  failed: 'Échec',
+  draft: 'status.draft',
+  generating: 'status.generating',
+  'outline-review': 'status.outlineReview',
+  ready: 'status.ready',
+  published: 'status.published',
+  failed: 'status.failed',
 };
 
 /** Exemple de CSV proposé au téléchargement (gabarit). */
@@ -77,6 +82,8 @@ const SAMPLE_CSV = [
 
 export function BatchExperience({ remaining, planLabel }: BatchExperienceProps) {
   const { toast } = useToast();
+  const t = useTranslations('batch');
+  const tApiError = useTranslations('apiErrors');
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [preview, setPreview] = React.useState<ParsedBatch | null>(null);
   const [rawCsv, setRawCsv] = React.useState<string>('');
@@ -98,7 +105,7 @@ export function BatchExperience({ remaining, planLabel }: BatchExperienceProps) 
       setPreview(result);
       setTracked([]);
       if (result.fatal) {
-        toast({ title: 'CSV invalide', description: result.fatal, variant: 'danger' });
+        toast({ title: t('toast.invalidCsv'), description: result.fatal, variant: 'danger' });
       }
     },
     [toast],
@@ -134,8 +141,8 @@ export function BatchExperience({ remaining, planLabel }: BatchExperienceProps) 
 
       if (!res.ok) {
         toast({
-          title: 'Lot refusé',
-          description: data?.error ?? 'Erreur lors du lancement.',
+          title: t('toast.rejected'),
+          description: errorMessage(data, tApiError),
           variant: 'danger',
         });
         return;
@@ -157,13 +164,15 @@ export function BatchExperience({ remaining, planLabel }: BatchExperienceProps) 
 
       const failedCount = (data.failed?.length ?? 0) + (data.invalid?.length ?? 0);
       toast({
-        title: `${created.length} cours lancé${created.length > 1 ? 's' : ''}`,
+        title: t('toast.launched.title', { count: created.length }),
         description:
-          failedCount > 0 ? `${failedCount} ligne(s) ignorée(s).` : 'Génération en cours…',
+          failedCount > 0
+            ? t('toast.launched.skipped', { count: failedCount })
+            : t('toast.launched.inProgress'),
         variant: created.length > 0 ? 'success' : 'warning',
       });
     } catch {
-      toast({ title: 'Erreur réseau', description: 'Réessayez plus tard.', variant: 'danger' });
+      toast({ title: t('toast.networkError.title'), description: t('toast.networkError.description'), variant: 'danger' });
     } finally {
       setLaunching(false);
     }
@@ -206,15 +215,16 @@ export function BatchExperience({ remaining, planLabel }: BatchExperienceProps) 
     <div className="space-y-8">
       <header className="space-y-2">
         <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-          Génération en batch
+          {t('title')}
         </h1>
         <p className="max-w-2xl text-sm text-muted">
-          Importez un CSV (titre, niveau, langue, plateformes) pour lancer plusieurs cours d’un
-          coup. Plan {planLabel} —{' '}
+          {t('intro.description', { planLabel })}{' '}
           {unlimited ? (
-            <span className="font-medium text-foreground">cours illimités</span>
+            <span className="font-medium text-foreground">{t('intro.unlimited')}</span>
           ) : (
-            <span className="font-medium text-foreground">{remaining} crédit(s) restant(s)</span>
+            <span className="font-medium text-foreground">
+              {t('intro.remaining', { count: remaining ?? 0 })}
+            </span>
           )}
           .
         </p>
@@ -224,12 +234,13 @@ export function BatchExperience({ remaining, planLabel }: BatchExperienceProps) 
       {tracked.length === 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>1 · Importer le fichier</CardTitle>
+            <CardTitle>{t('import.title')}</CardTitle>
             <CardDescription>
-              Colonnes : <code className="text-foreground">title</code> (obligatoire),{' '}
+              {t('import.columnsLabel')} <code className="text-foreground">title</code>{' '}
+              {t('import.required')},{' '}
               <code className="text-foreground">level</code>,{' '}
               <code className="text-foreground">language</code>,{' '}
-              <code className="text-foreground">platforms</code> (séparées par « ; »).
+              <code className="text-foreground">platforms</code> {t('import.platformsHint')}.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -243,10 +254,10 @@ export function BatchExperience({ remaining, planLabel }: BatchExperienceProps) 
               />
               <Button type="button" variant="secondary" onClick={() => inputRef.current?.click()}>
                 <FileUp aria-hidden="true" />
-                Choisir un CSV
+                {t('import.chooseFile')}
               </Button>
               <Button type="button" variant="ghost" onClick={downloadSample}>
-                Télécharger un gabarit
+                {t('import.downloadTemplate')}
               </Button>
               {fileName && <span className="text-sm text-muted">{fileName}</span>}
             </div>
@@ -263,13 +274,10 @@ export function BatchExperience({ remaining, planLabel }: BatchExperienceProps) 
         <div className="flex flex-wrap items-center gap-3">
           <Button type="button" onClick={launch} loading={launching} disabled={overQuota}>
             <Play aria-hidden="true" />
-            Lancer {validCount} cours
+            {t('launch.button', { count: validCount })}
           </Button>
           {overQuota && (
-            <span className="text-sm text-danger">
-              Le lot dépasse votre quota restant ({remaining}). Réduisez le fichier ou passez à un
-              plan supérieur.
-            </span>
+            <span className="text-sm text-danger">{t('launch.overQuota', { remaining: remaining ?? 0 })}</span>
           )}
         </div>
       )}
@@ -280,9 +288,9 @@ export function BatchExperience({ remaining, planLabel }: BatchExperienceProps) 
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <CardTitle>Suivi du lot</CardTitle>
+                <CardTitle>{t('tracking.title')}</CardTitle>
                 <CardDescription>
-                  {doneCount}/{tracked.length} terminé(s) — actualisation automatique.
+                  {t('tracking.progress', { done: doneCount, total: tracked.length })}
                 </CardDescription>
               </div>
               {doneCount < tracked.length && (
@@ -301,15 +309,24 @@ export function BatchExperience({ remaining, planLabel }: BatchExperienceProps) 
                     >
                       {c.title}
                     </Link>
-                    {!TERMINAL_STATUSES.has(c.status) && (
-                      <span className="text-2xs text-muted">
-                        {c.step ? `${c.step} · ` : ''}
-                        {c.progress}%
-                      </span>
+                    {c.status === 'outline-review' ? (
+                      <Link
+                        href={`/dashboard/courses/${c.id}`}
+                        className="text-2xs font-medium text-accent-300 hover:underline"
+                      >
+                        {t('tracking.validateOutline')}
+                      </Link>
+                    ) : (
+                      !TERMINAL_STATUSES.has(c.status) && (
+                        <span className="text-2xs text-muted">
+                          {c.step ? `${c.step} · ` : ''}
+                          {c.progress}%
+                        </span>
+                      )
                     )}
                   </div>
                   <Badge variant={statusBadgeVariant(c.status)}>
-                    {STATUS_LABELS[c.status] ?? c.status}
+                    {STATUS_LABELS[c.status] ? t(STATUS_LABELS[c.status]) : c.status}
                   </Badge>
                 </li>
               ))}
@@ -320,8 +337,8 @@ export function BatchExperience({ remaining, planLabel }: BatchExperienceProps) 
 
       {tracked.length === 0 && !preview && (
         <EmptyState
-          title="Aucun fichier importé"
-          description="Choisissez un CSV pour prévisualiser puis lancer votre lot de cours."
+          title={t('empty.title')}
+          description={t('empty.description')}
         />
       )}
     </div>
@@ -339,15 +356,16 @@ function PreviewTable({
   remaining: number | null;
 }) {
   const { valid, invalid } = preview;
+  const t = useTranslations('batch');
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="font-medium text-foreground">{valid.length} valide(s)</span>
+        <span className="font-medium text-foreground">{t('preview.valid', { count: valid.length })}</span>
         {invalid.length > 0 && (
-          <span className="text-danger">· {invalid.length} rejetée(s)</span>
+          <span className="text-danger">· {t('preview.rejected', { count: invalid.length })}</span>
         )}
         {overQuota && remaining !== null && (
-          <span className="text-warning">· quota restant : {remaining}</span>
+          <span className="text-warning">· {t('preview.quotaRemaining', { remaining })}</span>
         )}
       </div>
 
@@ -357,10 +375,10 @@ function PreviewTable({
             <thead className="bg-surface-subtle text-start text-2xs uppercase tracking-wide text-muted">
               <tr>
                 <th className="px-3 py-2 text-start font-semibold">#</th>
-                <th className="px-3 py-2 text-start font-semibold">Titre</th>
-                <th className="px-3 py-2 text-start font-semibold">Niveau</th>
-                <th className="px-3 py-2 text-start font-semibold">Langue</th>
-                <th className="px-3 py-2 text-start font-semibold">Plateformes</th>
+                <th className="px-3 py-2 text-start font-semibold">{t('preview.colTitle')}</th>
+                <th className="px-3 py-2 text-start font-semibold">{t('preview.colLevel')}</th>
+                <th className="px-3 py-2 text-start font-semibold">{t('preview.colLanguage')}</th>
+                <th className="px-3 py-2 text-start font-semibold">{t('preview.colPlatforms')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -387,15 +405,15 @@ function PreviewTable({
 
       {invalid.length > 0 && (
         <div className="rounded-md border border-danger/30 bg-danger/5 p-3">
-          <p className="mb-2 text-xs font-semibold text-danger">Lignes rejetées</p>
+          <p className="mb-2 text-xs font-semibold text-danger">{t('preview.rejectedTitle')}</p>
           <ul className="space-y-1 text-xs text-muted">
             {invalid.slice(0, 20).map((row) => (
               <li key={row.line}>
-                <span className="font-medium text-foreground">Ligne {row.line} :</span>{' '}
+                <span className="font-medium text-foreground">{t('preview.lineLabel', { line: row.line })}</span>{' '}
                 {row.errors.join(' ')}
               </li>
             ))}
-            {invalid.length > 20 && <li>… et {invalid.length - 20} autre(s).</li>}
+            {invalid.length > 20 && <li>{t('preview.moreRows', { count: invalid.length - 20 })}</li>}
           </ul>
         </div>
       )}

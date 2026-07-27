@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/cn';
 
 /**
@@ -12,16 +13,16 @@ import { cn } from '@/lib/cn';
  */
 
 const TABS = [
-  { href: '/admin', label: 'Vue d’ensemble' },
-  { href: '/admin/users', label: 'Utilisateurs' },
-  { href: '/admin/courses', label: 'Cours' },
-  { href: '/admin/costs', label: 'Coûts' },
-  { href: '/admin/revenue', label: 'Revenus' },
-  { href: '/admin/payments/manual', label: 'Paiements manuels' },
-  { href: '/admin/jobs', label: 'Jobs' },
-  { href: '/admin/resilience', label: 'Résilience' },
-  { href: '/admin/prompts', label: 'Prompts' },
-  { href: '/admin/audit', label: 'Audit' },
+  { href: '/admin', labelKey: 'tabs.overview' },
+  { href: '/admin/users', labelKey: 'tabs.users' },
+  { href: '/admin/courses', labelKey: 'tabs.courses' },
+  { href: '/admin/costs', labelKey: 'tabs.costs' },
+  { href: '/admin/revenue', labelKey: 'tabs.revenue' },
+  { href: '/admin/payments/manual', labelKey: 'tabs.manualPayments' },
+  { href: '/admin/jobs', labelKey: 'tabs.jobs' },
+  { href: '/admin/resilience', labelKey: 'tabs.resilience' },
+  { href: '/admin/prompts', labelKey: 'tabs.prompts' },
+  { href: '/admin/audit', labelKey: 'tabs.audit' },
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {
@@ -31,8 +32,9 @@ function isActive(pathname: string, href: string): boolean {
 
 export function AdminNav() {
   const pathname = usePathname();
+  const t = useTranslations('admin.nav');
   return (
-    <nav aria-label="Sections admin" className="flex flex-wrap gap-2 border-b border-border pb-3">
+    <nav aria-label={t('ariaLabel')} className="flex flex-wrap gap-2 border-b border-border pb-3">
       {TABS.map((tab) => {
         const active = isActive(pathname, tab.href);
         return (
@@ -48,7 +50,7 @@ export function AdminNav() {
                 : 'text-muted hover:bg-surface hover:text-foreground',
             )}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </Link>
         );
       })}

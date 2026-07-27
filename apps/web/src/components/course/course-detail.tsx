@@ -1,14 +1,21 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations, useFormatter } from 'next-intl';
 import Link from 'next/link';
-import { ArrowLeft, CalendarDays, Download, Eye, GraduationCap, Languages, Rocket } from 'lucide-react';
+import { ArrowLeft, BarChart3, CalendarDays, Download, Eye, GraduationCap, Languages, Rocket } from 'lucide-react';
 import { Badge, Button, EmptyState, ToastProvider, Toaster, buttonVariants, type BadgeProps } from '@/components/ui';
 import { LessonTree } from './lesson-tree';
 import { LessonPanel } from './lesson-panel';
+import { AddLessonButton } from './add-lesson-button';
+import { ThemeSwitcherPanel } from './theme-switcher-panel';
+import { CoverPanel } from './cover-panel';
+import { ReviewPanel } from './review-panel';
 import { ProgressBanner } from './progress-banner';
 import { DownloadPackButton } from './download-pack-button';
 import { DownloadPortableButton } from './download-portable-button';
+import { DownloadMasterArchiveButton } from './download-master-archive-button';
+import { DownloadScormButton } from './download-scorm-button';
 import { DeriveButton } from './derive-button';
 import { IntroVideoUpload } from './intro-video-upload';
 import { DeployPanel } from './deploy-panel';
@@ -16,9 +23,17 @@ import { QaReportPanel } from './qa-report-panel';
 import { QualityScorePanel } from './quality-score-panel';
 import { FeedbackPanel } from './feedback-panel';
 import { ResourcesPanel } from './resources-panel';
+import { RepurposingPanel } from './repurposing-panel';
+import { MarketingKitPanel } from './marketing-kit-panel';
+import { ArchivedBanner } from './archived-banner';
+import { BlogPanel } from './blog-panel';
 import { TranslatePanel } from './translate-panel';
 import { QuickPreviewPanel } from './quick-preview-panel';
 import { TeamApprovalBanner } from './team-approval-banner';
+import { CancelGenerationButton } from './cancel-generation-button';
+import { SellCourseButton } from './sell-course-button';
+import { ShareWorkspaceButton } from './share-workspace-button';
+import { ValidationContinueBanner } from './validation-continue-banner';
 import type { CourseDetailView, CourseStatus, Difficulty, Locale } from './types';
 
 /**
@@ -27,25 +42,25 @@ import type { CourseDetailView, CourseStatus, Difficulty, Locale } from './types
  * des leçons à gauche et panneau de prévisualisation à droite.
  */
 
-/** Statut de cours → variante Badge + libellé (aligné sur la carte dashboard). */
+/** Statut de cours → variante Badge + clé de libellé (aligné sur la carte dashboard). */
 const COURSE_STATUS_BADGE: Record<
   CourseStatus,
-  { variant: NonNullable<BadgeProps['variant']>; label: string }
+  { variant: NonNullable<BadgeProps['variant']>; labelKey: string }
 > = {
-  draft: { variant: 'draft', label: 'Brouillon' },
-  generating: { variant: 'generating', label: 'Génération' },
-  'outline-review': { variant: 'draft', label: 'Plan à valider' },
-  ready: { variant: 'ready', label: 'Prêt' },
-  published: { variant: 'published', label: 'Publié' },
-  failed: { variant: 'failed', label: 'Échec' },
+  draft: { variant: 'draft', labelKey: 'statusDraft' },
+  generating: { variant: 'generating', labelKey: 'statusGenerating' },
+  'outline-review': { variant: 'draft', labelKey: 'statusOutlineReview' },
+  ready: { variant: 'ready', labelKey: 'statusReady' },
+  published: { variant: 'published', labelKey: 'statusPublished' },
+  failed: { variant: 'failed', labelKey: 'statusFailed' },
   // Annulation (P73) — pas de variante Badge dédiée, réutilise 'failed' (arrêt).
-  cancelled: { variant: 'failed', label: 'Annulé' },
+  cancelled: { variant: 'failed', labelKey: 'statusCancelled' },
 };
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {
-  beginner: 'Débutant',
-  intermediate: 'Intermédiaire',
-  advanced: 'Avancé',
+  beginner: 'difficultyBeginner',
+  intermediate: 'difficultyIntermediate',
+  advanced: 'difficultyAdvanced',
 };
 
 const LOCALE_LABELS: Record<Locale, string> = {
@@ -54,11 +69,11 @@ const LOCALE_LABELS: Record<Locale, string> = {
   ar: 'العربية',
 };
 
-/** Libellés des familles de providers affichées sur la fiche du cours (P160). */
+/** Clés de libellé des familles de providers affichées sur la fiche du cours (P160). */
 const PROVIDER_MIX_FAMILY_LABELS = {
-  llm: 'Plan/scripts',
-  tts: 'Voix',
-  image: 'Images',
+  llm: 'providerFamilyLlm',
+  tts: 'providerFamilyTts',
+  image: 'providerFamilyImage',
 } as const;
 
 export interface CourseDetailProps {
@@ -66,6 +81,9 @@ export interface CourseDetailProps {
 }
 
 export function CourseDetail({ course }: CourseDetailProps) {
+  const t = useTranslations('course.detail');
+  const format = useFormatter();
+
   const allLessons = React.useMemo(
     () => course.sections.flatMap((section) => section.lessons),
     [course.sections],
@@ -91,7 +109,7 @@ export function CourseDetail({ course }: CourseDetailProps) {
             className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted transition-colors duration-fast hover:text-foreground"
           >
             <ArrowLeft className="size-4" aria-hidden="true" />
-            Retour au dashboard
+            {t('backToDashboard')}
           </Link>
 
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -100,12 +118,12 @@ export function CourseDetail({ course }: CourseDetailProps) {
                 <h1 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">
                   {course.title}
                 </h1>
-                <Badge variant={badge.variant}>{badge.label}</Badge>
+                <Badge variant={badge.variant}>{t(badge.labelKey)}</Badge>
               </div>
               <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
                 <span className="inline-flex items-center gap-1.5">
                   <GraduationCap className="size-4" aria-hidden="true" />
-                  {DIFFICULTY_LABELS[course.difficulty]}
+                  {t(DIFFICULTY_LABELS[course.difficulty])}
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <Languages className="size-4" aria-hidden="true" />
@@ -113,23 +131,26 @@ export function CourseDetail({ course }: CourseDetailProps) {
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarDays className="size-4" aria-hidden="true" />
-                  Créé le{' '}
-                  {createdAt.toLocaleDateString('fr-FR', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
+                  {t('createdOn', {
+                    date: format.dateTime(createdAt, {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    }),
                   })}
                 </span>
                 {lessonCount > 0 && (
                   <span className="tabular-nums">
-                    {course.sections.length} section{course.sections.length > 1 ? 's' : ''} ·{' '}
-                    {lessonCount} leçon{lessonCount > 1 ? 's' : ''}
+                    {t('sectionsAndLessons', {
+                      sectionCount: course.sections.length,
+                      lessonCount,
+                    })}
                   </span>
                 )}
               </p>
               {/* Mix de providers réellement utilisé (P160) — défaut OSS si jamais enregistré. */}
               <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-muted">
-                <span>Génération :</span>
+                <span>{t('generationLabel')}</span>
                 {(['llm', 'tts', 'image'] as const).map((family) => {
                   const choice = course.providerMix?.[family] ?? 'oss';
                   return (
@@ -137,7 +158,7 @@ export function CourseDetail({ course }: CourseDetailProps) {
                       key={family}
                       className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5"
                     >
-                      {PROVIDER_MIX_FAMILY_LABELS[family]} : {choice === 'cloud' ? 'Cloud' : 'OSS'}
+                      {t(PROVIDER_MIX_FAMILY_LABELS[family])} : {choice === 'cloud' ? 'Cloud' : 'OSS'}
                     </span>
                   );
                 })}
@@ -146,6 +167,20 @@ export function CourseDetail({ course }: CourseDetailProps) {
 
             {/* Actions cours — pack export actif une fois le cours abouti. */}
             <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {/* Annulation propre (P73) — pendant la génération uniquement. */}
+              {(course.status === 'generating' || course.status === 'outline-review') && (
+                <CancelGenerationButton courseId={course.id} />
+              )}
+              {/* Analytics du cours (dashboard + A/B + heatmap) — dès qu'il a des leçons. */}
+              {lessonCount > 0 && (
+                <Link
+                  href={`/dashboard/courses/${course.id}/analytics`}
+                  className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+                >
+                  <BarChart3 aria-hidden="true" />
+                  {t('analytics')}
+                </Link>
+              )}
               {/* Aperçu « mode étudiant » (P60) — dès qu'il y a des leçons. */}
               {lessonCount > 0 ? (
                 <Link
@@ -153,13 +188,13 @@ export function CourseDetail({ course }: CourseDetailProps) {
                   className={buttonVariants({ variant: 'secondary', size: 'sm' })}
                 >
                   <Eye aria-hidden="true" />
-                  Aperçu étudiant
+                  {t('studentPreview')}
                 </Link>
               ) : (
-                <span title="Disponible dès que le cours contient des leçons" className="inline-flex">
+                <span title={t('availableWhenHasLessons')} className="inline-flex">
                   <Button variant="secondary" size="sm" disabled aria-disabled="true">
                     <Eye aria-hidden="true" />
-                    Aperçu étudiant
+                    {t('studentPreview')}
                   </Button>
                 </span>
               )}
@@ -171,23 +206,33 @@ export function CourseDetail({ course }: CourseDetailProps) {
                   sourceDifficulty={course.difficulty}
                 />
               )}
+              {/* Mise en vente marketplace (P147) — cours abouti uniquement. */}
+              {(course.status === 'ready' || course.status === 'published') && (
+                <SellCourseButton courseId={course.id} />
+              )}
+              {/* Validation d'équipe (P138) — partage si pas déjà dans un workspace. */}
+              {!course.workspace && (
+                <ShareWorkspaceButton courseId={course.id} courseTitle={course.title} />
+              )}
               {course.status === 'ready' || course.status === 'published' ? (
                 <>
                   <DownloadPackButton courseId={course.id} />
                   <DownloadPortableButton courseId={course.id} />
+                  <DownloadMasterArchiveButton courseId={course.id} />
+                  <DownloadScormButton courseId={course.id} />
                 </>
               ) : (
                 <>
-                  <span title="Disponible une fois le cours généré" className="inline-flex">
+                  <span title={t('availableOnceGenerated')} className="inline-flex">
                     <Button variant="secondary" size="sm" disabled aria-disabled="true">
                       <Download aria-hidden="true" />
-                      Télécharger le pack
+                      {t('downloadPack')}
                     </Button>
                   </span>
-                  <span title="Disponible une fois le cours généré" className="inline-flex">
+                  <span title={t('availableOnceGenerated')} className="inline-flex">
                     <Button variant="secondary" size="sm" disabled aria-disabled="true">
                       <Download aria-hidden="true" />
-                      Exporter en mode portable
+                      {t('exportPortable')}
                     </Button>
                   </span>
                 </>
@@ -200,19 +245,22 @@ export function CourseDetail({ course }: CourseDetailProps) {
                   onClick={() => setDeployOpen((v) => !v)}
                 >
                   <Rocket aria-hidden="true" />
-                  Déployer
+                  {t('deploy')}
                 </Button>
               ) : (
-                <span title="Disponible une fois le cours généré" className="inline-flex">
+                <span title={t('availableOnceGenerated')} className="inline-flex">
                   <Button variant="gold" size="sm" disabled aria-disabled="true">
                     <Rocket aria-hidden="true" />
-                    Déployer
+                    {t('deploy')}
                   </Button>
                 </span>
               )}
             </div>
           </div>
         </header>
+
+        {/* ── Cours archivé (rétention P79) : bandeau + réactivation ─── */}
+        {course.archived && <ArchivedBanner courseId={course.id} />}
 
         {/* ── Validation d'équipe (P138), workspace avec reviewer(s) ─── */}
         {course.workspace && course.workspace.hasReviewer && (
@@ -227,6 +275,11 @@ export function CourseDetail({ course }: CourseDetailProps) {
         {/* ── Timeline de génération (cours en production) ─────── */}
         {course.status === 'generating' && <ProgressBanner courseId={course.id} />}
 
+        {/* ── Mode validation étape par étape : relire puis continuer ── */}
+        {course.status === 'generating' && course.generationMode === 'validated' && (
+          <ValidationContinueBanner courseId={course.id} sections={course.sections} />
+        )}
+
         {/* ── Vidéo d'intro webcam (compliance max Udemy, P48) ─── */}
         {deployable && <IntroVideoUpload courseId={course.id} />}
 
@@ -239,6 +292,15 @@ export function CourseDetail({ course }: CourseDetailProps) {
           />
         )}
 
+        {/* ── Révision / correction automatique du cours (2026-07-26) :
+            placée en tête pour être immédiatement visible (détecte + répare
+            leçons, images, audio, captures). ─ */}
+        <ReviewPanel
+          courseId={course.id}
+          report={course.reviewReport}
+          disabled={course.status !== 'ready' && course.status !== 'published'}
+        />
+
         {/* ── Rapport de contrôle qualité (P26), une fois exécuté ─ */}
         {course.qaReport && <QaReportPanel report={course.qaReport} />}
 
@@ -250,6 +312,25 @@ export function CourseDetail({ course }: CourseDetailProps) {
 
         {/* ── Ressources téléchargeables (P65), une fois générées ─ */}
         <ResourcesPanel resources={course.resources} />
+
+        {/* ── Réutilisation du contenu (P197/201/202/203) ─ */}
+        <RepurposingPanel repurposing={course.repurposing} />
+
+        {/* ── Image de couverture (2026-07-26) : hero généré ou upload ─ */}
+        <CoverPanel courseId={course.id} initialUrl={course.marketing?.heroCoverUrl} />
+
+        {/* ── Thème visuel (catalogue 2026-07-26) : pastilles + re-rendu ─ */}
+        <ThemeSwitcherPanel
+          courseId={course.id}
+          themeId={course.themeId}
+          disabled={course.status === 'generating' || course.status === 'outline-review'}
+        />
+
+        {/* ── Kit marketing (Prompt 28) : textes SEO + visuels générés ─ */}
+        <MarketingKitPanel marketing={course.marketing} />
+
+        {/* ── Blog SEO (P204), cours publié sur le LMS ─ */}
+        <BlogPanel courseId={course.id} blog={course.blog} />
 
         {/* ── Prévisualisation vidéo rapide (P133), leçons vidéo générées ─ */}
         <QuickPreviewPanel
@@ -271,15 +352,15 @@ export function CourseDetail({ course }: CourseDetailProps) {
           <EmptyState
             title={
               course.status === 'generating'
-                ? 'Le plan du cours se construit…'
-                : 'Aucune section pour le moment'
+                ? t('emptyGeneratingTitle')
+                : t('emptyNoSectionTitle')
             }
             description={
               course.status === 'generating'
-                ? 'Sections et leçons apparaîtront ici dès que le plan sera généré.'
+                ? t('emptyGeneratingDescription')
                 : course.status === 'failed'
-                  ? 'La génération a échoué avant la création du plan. Relancez-la depuis le dashboard.'
-                  : 'Ce cours ne contient pas encore de plan de leçons.'
+                  ? t('emptyFailedDescription')
+                  : t('emptyDefaultDescription')
             }
           />
         ) : (
@@ -290,8 +371,23 @@ export function CourseDetail({ course }: CourseDetailProps) {
                 selectedId={selected?.id ?? null}
                 onSelect={setSelectedId}
               />
+              {/* Ajout de contenu à un cours DÉJÀ généré (2026-07-26) : une
+                  nouvelle vidéo/article/TP/quiz en fin de section, générée par
+                  le pipeline sans toucher au reste. */}
+              <div className="mt-3 border-t border-border pt-3">
+                <AddLessonButton
+                  courseId={course.id}
+                  sections={course.sections.map((s) => ({ id: s.id, title: s.title }))}
+                  disabled={course.status === 'generating' || course.status === 'outline-review'}
+                />
+              </div>
             </div>
-            <LessonPanel lesson={selected} locale={course.locale} showComments={Boolean(course.workspace)} />
+            <LessonPanel
+              lesson={selected}
+              locale={course.locale}
+              courseId={course.id}
+              showComments={Boolean(course.workspace)}
+            />
           </div>
         )}
       </div>

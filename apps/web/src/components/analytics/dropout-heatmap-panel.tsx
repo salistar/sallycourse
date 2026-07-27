@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui';
 import { EmptyState } from '@/components/ui';
 import type { DropoutHeatmapPoint } from '@/lib/dropout-heatmap';
+import { getTranslations } from 'next-intl/server';
 
 /**
  * Heatmap d'abandon (Prompt 144) — présentation pure (Server Component).
@@ -16,29 +17,30 @@ function dropoutColor(rate: number): string {
   return 'rgb(var(--sc-success))';
 }
 
-export function DropoutHeatmapPanel({
+export async function DropoutHeatmapPanel({
   points,
   suggestion,
 }: {
   points: DropoutHeatmapPoint[];
   suggestion: string;
 }) {
+  const t = await getTranslations('analytics.heatmap');
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Heatmap d’abandon par leçon</CardTitle>
+        <CardTitle>{t('title')}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 p-6 pt-0">
         {points.length === 0 ? (
           <EmptyState
-            title="Pas encore de leçons"
-            description="La heatmap apparaîtra une fois le cours doté de leçons et d'inscrits."
+            title={t('empty.title')}
+            description={t('empty.description')}
           />
         ) : (
           <>
             {suggestion && (
               <div className="flex items-start gap-2 rounded-md border border-border bg-surface-subtle p-3 text-sm text-foreground">
-                <Badge variant="draft">Suggestion</Badge>
+                <Badge variant="draft">{t('suggestion')}</Badge>
                 <span>{suggestion}</span>
               </div>
             )}
@@ -49,7 +51,7 @@ export function DropoutHeatmapPanel({
                     <span className="font-medium text-foreground">
                       {p.label} — {p.title}
                     </span>
-                    <span className="text-muted">{p.dropoutRate}% d’abandon</span>
+                    <span className="text-muted">{t('dropoutRate', { rate: p.dropoutRate })}</span>
                   </div>
                   <div className="h-3 w-full overflow-hidden rounded-full bg-surface-subtle">
                     <div

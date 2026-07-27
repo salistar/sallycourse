@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
+import { useTranslations } from 'next-intl';
 import { UserPlus } from 'lucide-react';
 import {
   Button,
@@ -33,6 +34,7 @@ interface FieldErrors {
 
 /** Formulaire d'inscription — POST /api/auth/register puis connexion auto. */
 export function RegisterForm({ googleEnabled }: RegisterFormProps) {
+  const t = useTranslations('auth.registerForm');
   const router = useRouter();
   const { toast } = useToast();
   const [name, setName] = React.useState('');
@@ -46,10 +48,10 @@ export function RegisterForm({ googleEnabled }: RegisterFormProps) {
   /** Validation locale rapide avant l'appel réseau. */
   function validate(): FieldErrors {
     const next: FieldErrors = {};
-    if (name.trim().length < 2) next.name = 'Le nom doit contenir au moins 2 caractères.';
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) next.email = 'Adresse email invalide.';
-    if (password.length < 8) next.password = 'Au moins 8 caractères.';
-    if (confirm !== password) next.confirm = 'Les mots de passe ne correspondent pas.';
+    if (name.trim().length < 2) next.name = t('errorNameTooShort');
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) next.email = t('errorEmailInvalid');
+    if (password.length < 8) next.password = t('errorPasswordTooShort');
+    if (confirm !== password) next.confirm = t('errorPasswordMismatch');
     return next;
   }
 
@@ -60,8 +62,8 @@ export function RegisterForm({ googleEnabled }: RegisterFormProps) {
     if (Object.keys(fieldErrors).length > 0) return;
     if (!altcha) {
       toast({
-        title: 'Vérification anti-robot en cours',
-        description: 'Patientez quelques instants puis réessayez.',
+        title: t('toastCaptchaTitle'),
+        description: t('toastCaptchaDescription'),
         variant: 'warning',
       });
       return;
@@ -76,18 +78,18 @@ export function RegisterForm({ googleEnabled }: RegisterFormProps) {
       });
 
       if (response.status === 409) {
-        setErrors({ email: 'Un compte existe déjà avec cet email.' });
+        setErrors({ email: t('errorEmailTaken') });
         toast({
-          title: 'Email déjà utilisé',
-          description: 'Connectez-vous ou utilisez une autre adresse.',
+          title: t('toastEmailTakenTitle'),
+          description: t('toastEmailTakenDescription'),
           variant: 'warning',
         });
         return;
       }
       if (!response.ok) {
         toast({
-          title: 'Inscription impossible',
-          description: 'Vérifiez vos informations puis réessayez.',
+          title: t('toastRegisterFailedTitle'),
+          description: t('toastRegisterFailedDescription'),
           variant: 'danger',
         });
         return;
@@ -97,20 +99,20 @@ export function RegisterForm({ googleEnabled }: RegisterFormProps) {
       const result = await signIn('credentials', { email, password, redirect: false });
       if (result?.error) {
         toast({
-          title: 'Compte créé',
-          description: 'Connectez-vous avec vos nouveaux identifiants.',
+          title: t('toastAccountCreatedTitle'),
+          description: t('toastAccountCreatedDescription'),
           variant: 'success',
         });
         router.push('/login');
         return;
       }
-      toast({ title: 'Bienvenue sur SallyCourse !', variant: 'success' });
+      toast({ title: t('toastWelcome'), variant: 'success' });
       router.push('/dashboard');
       router.refresh();
     } catch {
       toast({
-        title: 'Erreur inattendue',
-        description: 'Réessayez dans un instant.',
+        title: t('toastUnexpectedErrorTitle'),
+        description: t('toastUnexpectedErrorDescription'),
         variant: 'danger',
       });
     } finally {
@@ -121,13 +123,13 @@ export function RegisterForm({ googleEnabled }: RegisterFormProps) {
   return (
     <Card>
       <CardHeader className="text-center">
-        <CardTitle>Créer un compte</CardTitle>
-        <CardDescription>Votre premier cours généré en quelques minutes.</CardDescription>
+        <CardTitle>{t('title')}</CardTitle>
+        <CardDescription>{t('description')}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
           <Input
-            label="Nom complet"
+            label={t('labelName')}
             name="name"
             autoComplete="name"
             required
@@ -136,7 +138,7 @@ export function RegisterForm({ googleEnabled }: RegisterFormProps) {
             error={errors.name}
           />
           <Input
-            label="Adresse email"
+            label={t('labelEmail')}
             type="email"
             name="email"
             autoComplete="email"
@@ -146,7 +148,7 @@ export function RegisterForm({ googleEnabled }: RegisterFormProps) {
             error={errors.email}
           />
           <Input
-            label="Mot de passe"
+            label={t('labelPassword')}
             type="password"
             name="password"
             autoComplete="new-password"
@@ -154,10 +156,10 @@ export function RegisterForm({ googleEnabled }: RegisterFormProps) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             error={errors.password}
-            hint="8 caractères minimum."
+            hint={t('hintPassword')}
           />
           <Input
-            label="Confirmer le mot de passe"
+            label={t('labelConfirmPassword')}
             type="password"
             name="confirm"
             autoComplete="new-password"
@@ -169,24 +171,24 @@ export function RegisterForm({ googleEnabled }: RegisterFormProps) {
           <AltchaWidget onSolved={setAltcha} />
           <Button type="submit" className="w-full" loading={loading} disabled={!altcha}>
             {!loading && <UserPlus aria-hidden="true" />}
-            Créer mon compte
+            {t('submit')}
           </Button>
         </form>
 
         {googleEnabled && (
           <>
             <AuthDivider />
-            <GoogleButton callbackUrl="/dashboard" label="S'inscrire avec Google" />
+            <GoogleButton callbackUrl="/dashboard" label={t('googleLabel')} />
           </>
         )}
 
         <p className="text-center text-sm text-muted">
-          Déjà inscrit ?{' '}
+          {t('alreadyRegistered')}{' '}
           <Link
             href="/login"
             className="font-semibold text-primary underline-offset-4 hover:underline"
           >
-            Se connecter
+            {t('loginLink')}
           </Link>
         </p>
       </CardContent>

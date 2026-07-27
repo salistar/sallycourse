@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { signIn } from 'next-auth/react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui';
 
 /** Glyphe « G » monochrome (currentColor — aucune couleur inline). */
@@ -20,7 +21,8 @@ interface GoogleButtonProps {
 }
 
 /** Bouton de connexion Google — déclenche le flux OAuth Auth.js. */
-export function GoogleButton({ callbackUrl, label = 'Continuer avec Google' }: GoogleButtonProps) {
+export function GoogleButton({ callbackUrl, label }: GoogleButtonProps) {
+  const t = useTranslations('auth.google');
   const [loading, setLoading] = React.useState(false);
 
   return (
@@ -34,7 +36,7 @@ export function GoogleButton({ callbackUrl, label = 'Continuer avec Google' }: G
       }}
     >
       {!loading && <GoogleGlyph />}
-      {label}
+      {label ?? t('continueWithGoogle')}
     </Button>
   );
 }

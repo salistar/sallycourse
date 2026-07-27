@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
+import { useTranslations } from 'next-intl';
 import { LogIn } from 'lucide-react';
 import {
   Button,
@@ -27,6 +28,7 @@ interface LoginFormProps {
 
 /** Formulaire de connexion — Credentials Auth.js + Google optionnel. */
 export function LoginForm({ googleEnabled, callbackUrl }: LoginFormProps) {
+  const t = useTranslations('auth.loginForm');
   const router = useRouter();
   const { toast } = useToast();
   const [email, setEmail] = React.useState('');
@@ -41,21 +43,21 @@ export function LoginForm({ googleEnabled, callbackUrl }: LoginFormProps) {
     try {
       const result = await signIn('credentials', { email, password, redirect: false });
       if (result?.error) {
-        setError('Email ou mot de passe incorrect.');
+        setError(t('errorInvalidCredentials'));
         toast({
-          title: 'Connexion refusée',
-          description: 'Vérifiez vos identifiants puis réessayez.',
+          title: t('toastRefusedTitle'),
+          description: t('toastRefusedDescription'),
           variant: 'danger',
         });
         return;
       }
-      toast({ title: 'Bon retour !', variant: 'success' });
+      toast({ title: t('toastWelcomeBackTitle'), variant: 'success' });
       router.push(callbackUrl);
       router.refresh();
     } catch {
       toast({
-        title: 'Erreur inattendue',
-        description: 'Impossible de vous connecter, réessayez dans un instant.',
+        title: t('toastUnexpectedTitle'),
+        description: t('toastUnexpectedDescription'),
         variant: 'danger',
       });
     } finally {
@@ -66,13 +68,13 @@ export function LoginForm({ googleEnabled, callbackUrl }: LoginFormProps) {
   return (
     <Card>
       <CardHeader className="text-center">
-        <CardTitle>Connexion</CardTitle>
-        <CardDescription>Retrouvez vos cours et vos générations en un clic.</CardDescription>
+        <CardTitle>{t('title')}</CardTitle>
+        <CardDescription>{t('description')}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
           <Input
-            label="Adresse email"
+            label={t('emailLabel')}
             type="email"
             name="email"
             autoComplete="email"
@@ -81,7 +83,7 @@ export function LoginForm({ googleEnabled, callbackUrl }: LoginFormProps) {
             onChange={(e) => setEmail(e.target.value)}
           />
           <Input
-            label="Mot de passe"
+            label={t('passwordLabel')}
             type="password"
             name="password"
             autoComplete="current-password"
@@ -92,7 +94,7 @@ export function LoginForm({ googleEnabled, callbackUrl }: LoginFormProps) {
           />
           <Button type="submit" className="w-full" loading={loading}>
             {!loading && <LogIn aria-hidden="true" />}
-            Se connecter
+            {t('submit')}
           </Button>
         </form>
 
@@ -104,12 +106,12 @@ export function LoginForm({ googleEnabled, callbackUrl }: LoginFormProps) {
         )}
 
         <p className="text-center text-sm text-muted">
-          Pas encore de compte ?{' '}
+          {t('noAccountPrompt')}{' '}
           <Link
             href="/register"
             className="font-semibold text-primary underline-offset-4 hover:underline"
           >
-            Créer un compte
+            {t('createAccount')}
           </Link>
         </p>
       </CardContent>

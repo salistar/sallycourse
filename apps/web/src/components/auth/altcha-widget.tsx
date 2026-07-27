@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { ShieldCheck } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { solveAltchaChallenge, type AltchaSolvedPayload } from '@/lib/altcha-client';
 
 interface AltchaWidgetProps {
@@ -20,6 +21,7 @@ type AltchaState = 'loading' | 'solving' | 'solved' | 'error';
  */
 export function AltchaWidget({ onSolved }: AltchaWidgetProps) {
   const [state, setState] = React.useState<AltchaState>('loading');
+  const t = useTranslations('auth.altcha');
 
   React.useEffect(() => {
     let cancelled = false;
@@ -63,10 +65,10 @@ export function AltchaWidget({ onSolved }: AltchaWidgetProps) {
         aria-hidden="true"
         className={state === 'solved' ? 'text-success' : 'text-muted'}
       />
-      {state === 'loading' && 'Chargement de la vérification anti-robot…'}
-      {state === 'solving' && 'Vérification anti-robot en cours…'}
-      {state === 'solved' && 'Vérification anti-robot réussie.'}
-      {state === 'error' && 'Vérification anti-robot indisponible, réessayez.'}
+      {state === 'loading' && t('loading')}
+      {state === 'solving' && t('solving')}
+      {state === 'solved' && t('solved')}
+      {state === 'error' && t('error')}
     </div>
   );
 }

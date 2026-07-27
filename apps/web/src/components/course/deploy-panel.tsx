@@ -1,8 +1,11 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations, useFormatter } from 'next-intl';
 import {
+  AlertTriangle,
   CalendarClock,
+  Check,
   ChevronDown,
   ExternalLink,
   Globe,
@@ -11,6 +14,7 @@ import {
   RefreshCw,
   Rocket,
   Sparkles,
+  Table2,
   UploadCloud,
   Zap,
 } from 'lucide-react';
@@ -21,19 +25,32 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Input,
   Select,
   useToast,
   type BadgeProps,
 } from '@/components/ui';
 import { cn } from '@/lib/cn';
+import { errorMessage } from '@/lib/error-message';
 import { DownloadReportButton } from './download-report-button';
+import { DownloadGuideButton } from './download-guide-button';
+import { SavePresetButton } from './save-preset-button';
+import { DripSchedulePanel } from './drip-schedule-panel';
 import { useCourseProgress } from '@/hooks/use-course-progress';
 import {
   estimateBatchSeconds,
   formatDuration,
   MAX_CONCURRENT_DEPLOYMENTS,
+  type DeployRisk,
 } from '@/lib/deploy-catalog';
 import type { DeploymentMode } from '@sallycourse/db';
+// Sous-module PUR (P178) : jamais le barrel côté client (node:crypto casserait
+// le bundle). Sert à jauger localement si la publication manuelle est possible.
+import {
+  canPublishManually,
+  initManualChecklist,
+  type DeployChecklistItem,
+} from '@sallycourse/shared/deploy-checklist';
 
 /**
  * Orchestrateur multi-déploiement (P44) — sélection de plateformes, estimation
@@ -56,6 +73,8 @@ interface CatalogEntry {
   description: string;
   kind: string;
   capabilities: { modes: DeploymentMode[]; needsBrowser: boolean };
+  /** Risque CGU dérivé par mode (P175) — badge d'avertissement, jamais bloquant. */
+  risks: Partial<Record<DeploymentMode, DeployRisk>>;
   connected: boolean;
   accountLabel?: string;
 }
@@ -72,6 +91,10 @@ interface DeploymentRow {
   status: DeployStatus;
   mode: string;
   externalUrl: string | null;
+  /** Checklist de publication manuelle (P178) — vide hors mode manuel. */
+  checklist: DeployChecklistItem[];
+  /** Horodatage (ms) de la bascule en publié par publication manuelle (P178). */
+  publishedManuallyAt: number | null;
   checkpoint: { lessonIndex: number; step: string };
   logs: DeploymentLog[];
   updatedAt: number;
@@ -130,30 +153,71 @@ const QUALITY_THRESHOLD = 60;
 /* Correspondances d'affichage                                          */
 /* ------------------------------------------------------------------ */
 
-const STATUS_BADGE: Record<DeployStatus, { variant: NonNullable<BadgeProps['variant']>; label: string }> = {
-  pending: { variant: 'draft', label: 'En file' },
-  running: { variant: 'generating', label: 'En cours' },
-  paused: { variant: 'draft', label: 'En pause' },
-  failed: { variant: 'failed', label: 'Échec' },
-  published: { variant: 'published', label: 'Publié' },
+const STATUS_BADGE: Record<DeployStatus, { variant: NonNullable<BadgeProps['variant']>; labelKey: string }> = {
+  pending: { variant: 'draft', labelKey: 'statusPending' },
+  running: { variant: 'generating', labelKey: 'statusRunning' },
+  paused: { variant: 'draft', labelKey: 'statusPaused' },
+  failed: { variant: 'failed', labelKey: 'statusFailed' },
+  published: { variant: 'published', labelKey: 'statusPublished' },
 };
 
 const MODE_LABEL: Record<string, string> = {
-  auto: 'Automatique',
-  assisted: 'Assisté',
-  manual: 'Manuel',
+  auto: 'modeAuto',
+  assisted: 'modeAssisted',
+  manual: 'modeManual',
 };
+
+/** Ordre canonique des modes (colonnes de la matrice des capacités). */
+const ALL_MODES: DeploymentMode[] = ['auto', 'assisted', 'manual'];
+
+/**
+ * Plateformes de clips courts (P106/P181) proposables au drip mais absentes du
+ * catalogue de déploiement classique (elles ne publient pas un cours entier mais
+ * des ShortClip). Ajoutées à la liste du planificateur programmé.
+ */
+const CLIP_DRIP_PLATFORMS: { id: string; label: string }[] = [
+  { id: 'tiktok', label: 'TikTok' },
+  { id: 'instagram', label: 'Instagram' },
+];
+
+/** Préfixe de clé localStorage pour mémoriser le mode choisi par plateforme (P175). */
+const MODE_STORAGE_PREFIX = 'sallycourse:deploy-mode:';
+
+/** Modes supportés par une plateforme (repli prudent sur `auto`). */
+function modesOf(entry: CatalogEntry | undefined): DeploymentMode[] {
+  return entry && entry.capabilities.modes.length > 0 ? entry.capabilities.modes : ['auto'];
+}
+
+/** Lit le mode mémorisé pour une plateforme (best-effort, jamais throw). */
+function readStoredMode(platform: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(MODE_STORAGE_PREFIX + platform);
+  } catch {
+    return null;
+  }
+}
+
+/** Mémorise le mode choisi pour une plateforme (best-effort). */
+function storeMode(platform: string, mode: DeploymentMode): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(MODE_STORAGE_PREFIX + platform, mode);
+  } catch {
+    // Stockage indisponible (mode privé, quota) : mémorisation ignorée.
+  }
+}
 
 /** Étape du checkpoint → libellé lisible. */
 const STEP_LABEL: Record<string, string> = {
-  '': 'Initialisation',
-  authenticate: 'Authentification',
-  createCourse: 'Création du cours',
-  upload: 'Téléversement des leçons',
-  update: 'Mise à jour des leçons',
-  landing: 'Page de présentation',
-  review: 'Soumission à la revue',
-  done: 'Terminé',
+  '': 'stepInit',
+  authenticate: 'stepAuthenticate',
+  createCourse: 'stepCreateCourse',
+  upload: 'stepUpload',
+  update: 'stepUpdate',
+  landing: 'stepLanding',
+  review: 'stepReview',
+  done: 'stepDone',
 };
 
 /** Un déploiement est-il en cours (occupe une place de concurrence) ? */
@@ -167,17 +231,26 @@ function isActive(status: DeployStatus): boolean {
 
 export function DeployPanel({ courseId, lessonCount, qualityScore = null }: DeployPanelProps) {
   const { toast } = useToast();
+  const t = useTranslations('course.deploy');
+  const tApiError = useTranslations('apiErrors');
   const [catalog, setCatalog] = React.useState<CatalogEntry[]>([]);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
-  const [mode, setMode] = React.useState<DeploymentMode>('auto');
+  // Mode PAR plateforme (P175) : un choix indépendant par plateforme, contraint
+  // aux capacités de CHACUNE, mémorisé en localStorage. Remplace le mode global.
+  const [modesByPlatform, setModesByPlatform] = React.useState<Record<string, DeploymentMode>>({});
   const [deployments, setDeployments] = React.useState<DeploymentRow[]>([]);
   const [launching, setLaunching] = React.useState(false);
   const [retrying, setRetrying] = React.useState<string | null>(null);
+  // Bascule de mode d'un déploiement bloqué (P179) — clé `${platform}:${mode}`.
+  const [switching, setSwitching] = React.useState<string | null>(null);
   // Mises à jour ciblées disponibles par plateforme déployée (P46).
   const [platformUpdates, setPlatformUpdates] = React.useState<PlatformUpdates[]>([]);
   const [updating, setUpdating] = React.useState<string | null>(null);
-  // Mention « contenu généré par IA » (P66) — obligatoire pour publier sur Udemy.
-  const [aiDisclosureAccepted, setAiDisclosureAccepted] = React.useState(false);
+  // Mention « contenu généré par IA » (P66) — obligatoire pour publier sur
+  // Udemy. Pré-cochée par défaut : tout cours SallyCourse EST généré par IA,
+  // la transparence est donc toujours due — l'auteur peut décocher (et bloquer
+  // Udemy) mais n'a pas à re-cocher à chaque déploiement.
+  const [aiDisclosureAccepted, setAiDisclosureAccepted] = React.useState(true);
   const [savingDisclosure, setSavingDisclosure] = React.useState(false);
   // Confirmation explicite (P94) — score de qualité sous le seuil, contournement volontaire.
   const [confirmLowQuality, setConfirmLowQuality] = React.useState(false);
@@ -268,17 +341,23 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
       const published = deployments.filter((d) => d.status === 'published').length;
       toast({
         variant: failed > 0 ? 'danger' : 'success',
-        title: failed > 0 ? 'Déploiement terminé avec des échecs' : 'Déploiement terminé',
+        title: failed > 0 ? t('toastDeployDoneWithFailuresTitle') : t('toastDeployDoneTitle'),
         description:
-          `${published} plateforme(s) publiée(s)` +
-          (failed > 0 ? `, ${failed} en échec (relançables).` : '.'),
+          t('toastDeployDoneCount', { count: published }) +
+          (failed > 0 ? t('toastDeployDoneFailedSuffix', { count: failed }) : '.'),
       });
     }
     prevActiveRef.current = activeCount;
   }, [activeCount, deployments, toast]);
 
-  const selectableCount = catalog.length;
   const selectedList = React.useMemo(() => [...selected], [selected]);
+
+  // Plateformes proposables au planificateur drip (P181) : catalogue de
+  // déploiement + plateformes de clips courts (TikTok/Instagram).
+  const dripPlatforms = React.useMemo(
+    () => [...catalog.map((c) => ({ id: c.id, label: c.label })), ...CLIP_DRIP_PLATFORMS],
+    [catalog],
+  );
 
   // Estimation de durée du lot sélectionné (concurrence prise en compte).
   const estimateSeconds = React.useMemo(
@@ -286,22 +365,49 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
     [selectedList, lessonCount],
   );
 
-  /** Modes communs à toutes les plateformes sélectionnées (intersection). */
-  const availableModes = React.useMemo<DeploymentMode[]>(() => {
-    if (!selectedList.length) return ['auto', 'assisted', 'manual'];
-    const sets = selectedList
-      .map((id) => catalog.find((c) => c.id === id)?.capabilities.modes ?? [])
-      .filter((m) => m.length > 0);
-    if (!sets.length) return ['auto'];
-    return sets.reduce((acc, m) => acc.filter((x) => m.includes(x)), sets[0]!);
-  }, [selectedList, catalog]);
-
-  // Rabat le mode sur un mode disponible si l'intersection l'exclut.
+  // Pré-remplit le mode de chaque plateforme au chargement du catalogue :
+  // valeur mémorisée (localStorage) si encore supportée, sinon 1er mode supporté.
+  // Ne touche pas les plateformes déjà choisies dans la session (choix utilisateur).
   React.useEffect(() => {
-    if (availableModes.length && !availableModes.includes(mode)) {
-      setMode(availableModes[0]!);
-    }
-  }, [availableModes, mode]);
+    if (catalog.length === 0) return;
+    setModesByPlatform((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const entry of catalog) {
+        if (next[entry.id]) continue;
+        const modes = modesOf(entry);
+        const stored = readStoredMode(entry.id);
+        next[entry.id] = stored && modes.includes(stored as DeploymentMode)
+          ? (stored as DeploymentMode)
+          : modes[0]!;
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [catalog]);
+
+  /** Mode effectif d'une plateforme (repli sur le 1er mode supporté). */
+  const modeFor = React.useCallback(
+    (id: string): DeploymentMode =>
+      modesByPlatform[id] ?? modesOf(catalog.find((c) => c.id === id))[0]!,
+    [modesByPlatform, catalog],
+  );
+
+  /** Change + mémorise le mode d'une plateforme. */
+  const setModeFor = React.useCallback((id: string, next: DeploymentMode): void => {
+    setModesByPlatform((prev) => ({ ...prev, [id]: next }));
+    storeMode(id, next);
+  }, []);
+
+  // Plateformes sélectionnées dont le mode courant porte un risque CGU (P175).
+  const riskySelected = React.useMemo(
+    () =>
+      selectedList.filter((id) => {
+        const entry = catalog.find((c) => c.id === id);
+        return entry ? Boolean(entry.risks[modeFor(id)]) : false;
+      }),
+    [selectedList, catalog, modeFor],
+  );
 
   function toggle(id: string): void {
     setSelected((prev) => {
@@ -353,22 +459,28 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
       const res = await fetch(`/api/courses/${courseId}/deploy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platforms: selectedList, mode, confirmLowQuality }),
+        body: JSON.stringify({
+          platforms: selectedList,
+          // Mode PAR plateforme (P175) + `mode` global conservé pour rétro-compat.
+          modes: Object.fromEntries(selectedList.map((id) => [id, modeFor(id)])),
+          mode: modeFor(selectedList[0]!),
+          confirmLowQuality,
+        }),
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) {
-        toast({ variant: 'danger', title: 'Lancement impossible', description: data?.error });
+        toast({ variant: 'danger', title: t('toastLaunchFailedTitle'), description: errorMessage(data, tApiError) });
         return;
       }
       toast({
         variant: 'success',
-        title: 'Déploiement lancé',
-        description: `${selectedList.length} plateforme(s) en file (max ${MAX_CONCURRENT_DEPLOYMENTS} en parallèle).`,
+        title: t('toastLaunchedTitle'),
+        description: t('toastLaunchedDesc', { count: selectedList.length, max: MAX_CONCURRENT_DEPLOYMENTS }),
       });
       setSelected(new Set());
       await refresh();
     } catch {
-      toast({ variant: 'danger', title: 'Erreur réseau', description: 'Serveur injoignable.' });
+      toast({ variant: 'danger', title: t('toastNetworkErrorTitle'), description: t('toastNetworkErrorDesc') });
     } finally {
       setLaunching(false);
     }
@@ -389,21 +501,25 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
         | (DeployStrategyResponse & { error?: string })
         | null;
       if (!res.ok || !data) {
-        toast({ variant: 'danger', title: 'Suggestion indisponible', description: data?.error });
+        toast({ variant: 'danger', title: t('toastSuggestUnavailableTitle'), description: errorMessage(data, tApiError) });
         return;
       }
       setStrategy(data);
       const catalogIds = new Set(catalog.map((c) => c.id));
       const recommendedInCatalog = data.recommendedPlatforms.filter((p) => catalogIds.has(p.platform));
       setSelected(new Set(recommendedInCatalog.map((p) => p.platform)));
-      if (recommendedInCatalog[0]) setMode(recommendedInCatalog[0].mode);
+      // Applique le mode recommandé PAR plateforme (P175), s'il est supporté.
+      for (const p of recommendedInCatalog) {
+        const modes = modesOf(catalog.find((c) => c.id === p.platform));
+        if (modes.includes(p.mode)) setModeFor(p.platform, p.mode);
+      }
       toast({
         variant: 'success',
-        title: 'Stratégie suggérée',
-        description: `${data.recommendedPlatforms.length} plateforme(s) recommandée(s).`,
+        title: t('toastStrategySuggestedTitle'),
+        description: t('toastStrategySuggestedDesc', { count: data.recommendedPlatforms.length }),
       });
     } catch {
-      toast({ variant: 'danger', title: 'Erreur réseau', description: 'Serveur injoignable.' });
+      toast({ variant: 'danger', title: t('toastNetworkErrorTitle'), description: t('toastNetworkErrorDesc') });
     } finally {
       setSuggesting(false);
     }
@@ -418,15 +534,52 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
       );
       if (!res.ok) {
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast({ variant: 'danger', title: 'Relance impossible', description: data?.error });
+        toast({ variant: 'danger', title: t('toastRetryFailedTitle'), description: errorMessage(data, tApiError) });
         return;
       }
-      toast({ variant: 'success', title: 'Déploiement relancé', description: platformLabel(platform) });
+      toast({ variant: 'success', title: t('toastRetriedTitle'), description: platformLabel(platform) });
       await refresh();
     } catch {
-      toast({ variant: 'danger', title: 'Erreur réseau', description: 'Serveur injoignable.' });
+      toast({ variant: 'danger', title: t('toastNetworkErrorTitle'), description: t('toastNetworkErrorDesc') });
     } finally {
       setRetrying(null);
+    }
+  }
+
+  /**
+   * Bascule un déploiement bloqué (paused/failed) vers un autre mode (P179), en
+   * REPRENANT depuis le checkpoint : `assisted` ré-enfile le job deploy, `manual`
+   * bascule le suivi manuel + prépare le pack des étapes restantes.
+   */
+  async function switchMode(platform: string, mode: 'assisted' | 'manual'): Promise<void> {
+    setSwitching(`${platform}:${mode}`);
+    try {
+      const res = await fetch(
+        `/api/courses/${courseId}/deployments/${encodeURIComponent(platform)}/switch-mode`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode }),
+        },
+      );
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) {
+        toast({ variant: 'danger', title: t('toastSwitchFailedTitle'), description: errorMessage(data, tApiError) });
+        return;
+      }
+      toast({
+        variant: 'success',
+        title: mode === 'assisted' ? t('toastSwitchAssistedTitle') : t('toastSwitchManualTitle'),
+        description:
+          mode === 'assisted'
+            ? t('toastSwitchAssistedDesc', { platform: platformLabel(platform) })
+            : t('toastSwitchManualDesc', { platform: platformLabel(platform) }),
+      });
+      await refresh();
+    } catch {
+      toast({ variant: 'danger', title: t('toastNetworkErrorTitle'), description: t('toastNetworkErrorDesc') });
+    } finally {
+      setSwitching(null);
     }
   }
 
@@ -440,17 +593,17 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
       );
       if (!res.ok) {
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast({ variant: 'danger', title: 'Mise à jour impossible', description: data?.error });
+        toast({ variant: 'danger', title: t('toastUpdateFailedTitle'), description: errorMessage(data, tApiError) });
         return;
       }
       toast({
         variant: 'success',
-        title: 'Mise à jour lancée',
-        description: `${platformLabel(platform)} — leçons modifiées en cours de re-publication.`,
+        title: t('toastUpdateStartedTitle'),
+        description: t('toastUpdateStartedDesc', { platform: platformLabel(platform) }),
       });
       await Promise.all([refresh(), refreshUpdates()]);
     } catch {
-      toast({ variant: 'danger', title: 'Erreur réseau', description: 'Serveur injoignable.' });
+      toast({ variant: 'danger', title: t('toastNetworkErrorTitle'), description: t('toastNetworkErrorDesc') });
     } finally {
       setUpdating(null);
     }
@@ -472,10 +625,10 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
       <CardHeader className="gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-2xs font-semibold uppercase tracking-wide text-muted">Publication</p>
+            <p className="text-2xs font-semibold uppercase tracking-wide text-muted">{t('sectionLabel')}</p>
             <CardTitle className="mt-0.5 flex items-center gap-2 text-lg">
               <Rocket className="size-5 text-accent" aria-hidden="true" />
-              Déployer le cours
+              {t('title')}
             </CardTitle>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -487,21 +640,19 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
               onClick={() => void suggestStrategy()}
             >
               {!suggesting && <Sparkles aria-hidden="true" />}
-              Suggérer une stratégie
+              {t('suggestStrategyButton')}
             </Button>
             {deployments.length > 0 && (
               <Badge variant={activeCount > 0 ? 'generating' : 'ready'}>
                 {activeCount > 0
-                  ? `${activeCount} en cours`
-                  : `${deployments.length} déploiement${deployments.length > 1 ? 's' : ''}`}
+                  ? t('badgeActiveCount', { count: activeCount })
+                  : t('badgeDeploymentCount', { count: deployments.length })}
               </Badge>
             )}
           </div>
         </div>
         <p className="text-sm text-muted">
-          Sélectionnez les plateformes cibles, choisissez le mode, puis lancez. Le worker
-          traite au plus {MAX_CONCURRENT_DEPLOYMENTS} déploiements en parallèle ; les autres
-          patientent en file.
+          {t('intro', { max: MAX_CONCURRENT_DEPLOYMENTS })}
         </p>
       </CardHeader>
 
@@ -509,62 +660,114 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
         {/* ── Sélection des plateformes ─────────────────────────── */}
         <div className="grid gap-2.5 sm:grid-cols-2">
           {catalog.length === 0 ? (
-            <p className="text-sm text-muted">Chargement des plateformes…</p>
+            <p className="text-sm text-muted">{t('loadingPlatforms')}</p>
           ) : (
             catalog.map((entry) => {
               const active = selected.has(entry.id);
+              const modes = modesOf(entry);
+              const currentMode = modeFor(entry.id);
+              const risk = entry.risks[currentMode];
               return (
-                <button
+                <div
                   key={entry.id}
-                  type="button"
-                  onClick={() => toggle(entry.id)}
-                  aria-pressed={active}
                   className={cn(
-                    'flex items-start gap-3 rounded-md border p-3 text-start transition-colors duration-fast',
+                    'flex flex-col rounded-md border transition-colors duration-fast',
                     active
                       ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                      : 'border-border bg-surface hover:border-ring/50',
+                      : 'border-border bg-surface',
                   )}
                 >
-                  <span
+                  <button
+                    type="button"
+                    onClick={() => toggle(entry.id)}
+                    aria-pressed={active}
                     className={cn(
-                      'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border',
-                      active ? 'border-primary bg-primary text-primary-foreground' : 'border-input',
+                      'flex items-start gap-3 rounded-md p-3 text-start transition-colors duration-fast',
+                      !active && 'hover:bg-surface-subtle',
                     )}
-                    aria-hidden="true"
                   >
-                    {active && <span className="text-xs font-bold">✓</span>}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-1.5">
-                      <span className="font-medium text-foreground">{entry.label}</span>
-                      {entry.connected ? (
-                        <Badge variant="published" hideDot className="text-2xs">
-                          Connecté
-                        </Badge>
-                      ) : (
-                        <Badge variant="draft" hideDot className="text-2xs">
-                          Mode simulé
+                    <span
+                      className={cn(
+                        'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border',
+                        active ? 'border-primary bg-primary text-primary-foreground' : 'border-input',
+                      )}
+                      aria-hidden="true"
+                    >
+                      {active && <span className="text-xs font-bold">✓</span>}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-medium text-foreground">{entry.label}</span>
+                        {entry.connected ? (
+                          <Badge variant="published" hideDot className="text-2xs">
+                            {t('connected')}
+                          </Badge>
+                        ) : (
+                          <Badge variant="draft" hideDot className="text-2xs">
+                            {t('simulatedMode')}
+                          </Badge>
+                        )}
+                      </span>
+                      <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-2xs text-muted">
+                        <span className="inline-flex items-center gap-1">
+                          {entry.capabilities.needsBrowser ? (
+                            <Monitor className="size-3" aria-hidden="true" />
+                          ) : (
+                            <Zap className="size-3" aria-hidden="true" />
+                          )}
+                          {entry.capabilities.needsBrowser ? t('browser') : t('apiDirect')}
+                        </span>
+                        <span>{modes.map((m) => (MODE_LABEL[m] ? t(MODE_LABEL[m]) : m)).join(' · ')}</span>
+                      </span>
+                    </span>
+                  </button>
+
+                  {/* Mode PAR plateforme (P175) : visible une fois la plateforme cochée,
+                      contraint aux capacités de CETTE plateforme, avec badge de risque CGU. */}
+                  {active && (
+                    <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2.5">
+                      <Select
+                        aria-label={t('modeSelectAria', { platform: entry.label })}
+                        value={currentMode}
+                        onChange={(e) => setModeFor(entry.id, e.target.value as DeploymentMode)}
+                        wrapperClassName="w-40"
+                      >
+                        {modes.map((m) => (
+                          <option key={m} value={m}>
+                            {MODE_LABEL[m] ? t(MODE_LABEL[m]) : m}
+                          </option>
+                        ))}
+                      </Select>
+                      {risk && (
+                        <Badge variant="draft" hideDot className="gap-1 text-2xs" title={risk.detail}>
+                          <AlertTriangle className="size-3 text-accent" aria-hidden="true" />
+                          {risk.label}
                         </Badge>
                       )}
-                    </span>
-                    <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-2xs text-muted">
-                      <span className="inline-flex items-center gap-1">
-                        {entry.capabilities.needsBrowser ? (
-                          <Monitor className="size-3" aria-hidden="true" />
-                        ) : (
-                          <Zap className="size-3" aria-hidden="true" />
-                        )}
-                        {entry.capabilities.needsBrowser ? 'Navigateur' : 'API directe'}
-                      </span>
-                      <span>{entry.capabilities.modes.map((m) => MODE_LABEL[m] ?? m).join(' · ')}</span>
-                    </span>
-                  </span>
-                </button>
+                      {/* Guide d'upload manuel (P176) : en mode manuel, un pack
+                          téléchargeable (guide HTML/PDF + contenu + blocs copier). */}
+                      {currentMode === 'manual' && (
+                        <div className="basis-full pt-0.5">
+                          <DownloadGuideButton
+                            courseId={courseId}
+                            platform={entry.id}
+                            platformLabel={entry.label}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               );
             })
           )}
         </div>
+
+        {/* ── Matrice des capacités (P175) ──────────────────────── */}
+        <CapabilityMatrix catalog={catalog} />
+
+        {/* ── Publication programmée « drip » (P181) ────────────── */}
+        <DripSchedulePanel courseId={courseId} platforms={dripPlatforms} />
 
         {/* ── Stratégie cross-platform suggérée (P110) ──────────────── */}
         {strategy && (
@@ -572,10 +775,10 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Sparkles className="size-4 text-primary" aria-hidden="true" />
-                Stratégie suggérée
+                {t('strategyPanelTitle')}
               </p>
               <Badge variant="draft" hideDot className="text-2xs">
-                {strategy.source === 'claude' ? 'Générée par IA' : 'Suggestion locale'}
+                {strategy.source === 'claude' ? t('strategySourceAi') : t('strategySourceLocal')}
               </Badge>
             </div>
             <ul className="flex flex-col gap-2">
@@ -587,7 +790,7 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
                       {MODE_LABEL[p.mode] ?? p.mode}
                     </Badge>
                     <span className="text-2xs text-muted">
-                      {p.timing === 0 ? 'Jour J' : `J+${p.timing}`}
+                      {p.timing === 0 ? t('dayZero') : t('dayOffset', { days: p.timing })}
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-muted">{p.rationale}</p>
@@ -598,7 +801,7 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
               <div>
                 <p className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wide text-muted">
                   <CalendarClock className="size-3.5" aria-hidden="true" />
-                  Calendrier de publication
+                  {t('calendarTitle')}
                 </p>
                 <ul className="mt-1.5 flex flex-col gap-1">
                   {strategy.calendarPlan
@@ -607,7 +810,7 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
                     .map((entry, i) => (
                       <li key={i} className="flex items-start gap-2 text-xs text-muted">
                         <span className="shrink-0 tabular-nums font-medium text-foreground">
-                          {entry.dayOffset === 0 ? 'J' : `J+${entry.dayOffset}`}
+                          {entry.dayOffset === 0 ? t('calendarDayZero') : t('dayOffset', { days: entry.dayOffset })}
                         </span>
                         <span>
                           <span className="font-medium text-foreground">{platformLabel(entry.platform)}</span>
@@ -641,11 +844,10 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
             />
             <span>
               <span className="font-medium text-foreground">
-                Je confirme que ce cours contient du contenu généré par IA.
+                {t('aiDisclosureConfirm')}
               </span>{' '}
               <span className="text-muted">
-                Udemy exige cette mention de transparence avant toute publication sur sa
-                plateforme. Sans elle, le déploiement vers Udemy sera refusé.
+                {t('aiDisclosureHint')}
               </span>
             </span>
           </label>
@@ -667,11 +869,10 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
             />
             <span>
               <span className="font-medium text-foreground">
-                Je confirme vouloir publier malgré un score de qualité pédagogique de{' '}
-                {qualityScore}/100 (sous le seuil recommandé de {QUALITY_THRESHOLD}/100).
+                {t('qualityConfirm', { score: qualityScore, threshold: QUALITY_THRESHOLD })}
               </span>{' '}
               <span className="text-muted">
-                Consultez le détail de la rubrique et les recommandations plus bas sur la page.
+                {t('qualityConfirmHint')}
               </span>
             </span>
           </label>
@@ -680,47 +881,48 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
         {/* ── Barre de lancement ────────────────────────────────── */}
         <div className="flex flex-wrap items-end justify-between gap-4 rounded-md border border-border bg-surface-subtle p-4">
           <div className="flex flex-wrap items-end gap-4">
-            <Select
-              label="Mode"
-              value={mode}
-              onChange={(e) => setMode(e.target.value as DeploymentMode)}
-              wrapperClassName="w-44"
-              disabled={selectableCount === 0}
-            >
-              {availableModes.map((m) => (
-                <option key={m} value={m}>
-                  {MODE_LABEL[m] ?? m}
-                </option>
-              ))}
-            </Select>
             <div className="text-sm">
-              <p className="text-2xs font-semibold uppercase tracking-wide text-muted">Estimation</p>
+              <p className="text-2xs font-semibold uppercase tracking-wide text-muted">{t('estimationLabel')}</p>
               <p className="mt-1 font-medium text-foreground">
                 {selectedList.length === 0
-                  ? 'Aucune plateforme'
-                  : `${selectedList.length} plateforme${selectedList.length > 1 ? 's' : ''} · ${formatDuration(estimateSeconds)}`}
+                  ? t('estimationNone')
+                  : t('estimationSummary', { count: selectedList.length, duration: formatDuration(estimateSeconds) })}
               </p>
+              <p className="mt-0.5 text-2xs text-muted">
+                {t('modeHint')}
+              </p>
+              {riskySelected.length > 0 && (
+                <p className="mt-1 flex items-start gap-1 text-2xs text-accent">
+                  <AlertTriangle className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+                  {t('riskyWarning', { count: riskySelected.length })}
+                </p>
+              )}
               {needsAiDisclosure && (
                 <p className="mt-1 text-2xs text-accent">
-                  Cochez la mention IA générée ci-dessus pour publier sur Udemy.
+                  {t('needsAiDisclosureHint')}
                 </p>
               )}
               {needsQualityConfirmation && (
                 <p className="mt-1 text-2xs text-danger">
-                  Cochez la confirmation de qualité ci-dessus pour publier malgré tout.
+                  {t('needsQualityHint')}
                 </p>
               )}
             </div>
           </div>
-          <Button
-            variant="gold"
-            loading={launching}
-            disabled={selectedList.length === 0 || needsAiDisclosure || needsQualityConfirmation}
-            onClick={() => void launch()}
-          >
-            {!launching && <Rocket aria-hidden="true" />}
-            Lancer le déploiement
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Enregistrer la sélection en preset (P109) — composant livré mais
+                jamais rendu (audit connectivité 2026-07-17). */}
+            <SavePresetButton platforms={selectedList} mode="auto" disabled={selectedList.length === 0} />
+            <Button
+              variant="gold"
+              loading={launching}
+              disabled={selectedList.length === 0 || needsAiDisclosure || needsQualityConfirmation}
+              onClick={() => void launch()}
+            >
+              {!launching && <Rocket aria-hidden="true" />}
+              {t('launchButton')}
+            </Button>
+          </div>
         </div>
 
         {/* ── Mises à jour ciblées (P46) ────────────────────────── */}
@@ -729,15 +931,14 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <UploadCloud className="size-4 text-accent" aria-hidden="true" />
-                Mettre à jour les plateformes
+                {t('updatePlatformsTitle')}
               </p>
               <Badge variant="draft" hideDot className="text-2xs">
-                {pendingUpdates.reduce((n, p) => n + p.updates.length, 0)} leçon(s) modifiée(s)
+                {t('modifiedLessonsBadge', { count: pendingUpdates.reduce((n, p) => n + p.updates.length, 0) })}
               </Badge>
             </div>
             <p className="text-xs text-muted">
-              Des leçons ont été régénérées depuis le dernier déploiement. Republier ne re-uploade
-              que les leçons impactées.
+              {t('updateIntro')}
             </p>
             <div className="mt-1 flex flex-col gap-2">
               {pendingUpdates.map((p) => (
@@ -749,7 +950,7 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-foreground">{platformLabel(p.platform)}</span>
                       <Badge variant="draft" hideDot className="text-2xs">
-                        {p.updates.length} à mettre à jour
+                        {t('toUpdateBadge', { count: p.updates.length })}
                       </Badge>
                     </div>
                     <ul className="mt-1 flex flex-col gap-0.5 text-2xs text-muted">
@@ -757,12 +958,12 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
                         <li key={u.lessonId} className="truncate">
                           <span className="tabular-nums">#{u.index + 1}</span> {u.title}{' '}
                           <span className="text-accent">
-                            {u.kind === 'new' ? '(nouvelle)' : '(modifiée)'}
+                            {u.kind === 'new' ? t('lessonNew') : t('lessonModified')}
                           </span>
                         </li>
                       ))}
                       {p.updates.length > 5 && (
-                        <li className="text-muted">+ {p.updates.length - 5} autre(s)…</li>
+                        <li className="text-muted">{t('moreLessons', { count: p.updates.length - 5 })}</li>
                       )}
                     </ul>
                   </div>
@@ -773,7 +974,7 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
                     onClick={() => void update(p.platform)}
                   >
                     {updating !== p.platform && <UploadCloud aria-hidden="true" />}
-                    Mettre à jour
+                    {t('updateButton')}
                   </Button>
                 </div>
               ))}
@@ -786,28 +987,36 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-2xs font-semibold uppercase tracking-wide text-muted">
-                Déploiements
+                {t('deploymentsLabel')}
               </p>
               {/* Rapport PDF de synthèse (P50) — toutes plateformes agrégées. */}
               <DownloadReportButton courseId={courseId} />
             </div>
             <div className="flex flex-col gap-2">
-              {deployments.map((row) => (
-                <DeploymentRowView
-                  key={row.id}
-                  row={row}
-                  label={platformLabel(row.platform)}
-                  lessonCount={lessonCount}
-                  liveProgress={liveStep === 'deployment' && isActive(row.status) ? liveProgress : undefined}
-                  liveLog={
-                    liveStep === 'deployment' && isActive(row.status)
-                      ? liveLogs[liveLogs.length - 1]?.msg
-                      : undefined
-                  }
-                  retrying={retrying === row.platform}
-                  onRetry={() => void retry(row.platform)}
-                />
-              ))}
+              {deployments.map((row) => {
+                const rowModes = modesOf(catalog.find((c) => c.id === row.platform));
+                return (
+                  <DeploymentRowView
+                    key={row.id}
+                    courseId={courseId}
+                    row={row}
+                    label={platformLabel(row.platform)}
+                    lessonCount={lessonCount}
+                    platformModes={rowModes}
+                    switching={switching}
+                    onSwitchMode={(mode) => void switchMode(row.platform, mode)}
+                    liveProgress={liveStep === 'deployment' && isActive(row.status) ? liveProgress : undefined}
+                    liveLog={
+                      liveStep === 'deployment' && isActive(row.status)
+                        ? liveLogs[liveLogs.length - 1]?.msg
+                        : undefined
+                    }
+                    retrying={retrying === row.platform}
+                    onRetry={() => void retry(row.platform)}
+                    onChanged={() => void refresh()}
+                  />
+                );
+              })}
             </div>
           </div>
         )}
@@ -821,29 +1030,58 @@ export function DeployPanel({ courseId, lessonCount, qualityScore = null }: Depl
 /* ------------------------------------------------------------------ */
 
 interface DeploymentRowViewProps {
+  courseId: string;
   row: DeploymentRow;
   label: string;
   lessonCount: number;
+  /** Modes supportés par la plateforme (capacités catalogue) — cibles de bascule P179. */
+  platformModes: DeploymentMode[];
+  /** Clé `${platform}:${mode}` en cours de bascule, ou null. */
+  switching: string | null;
+  /** Déclenche la bascule vers un autre mode (P179). */
+  onSwitchMode: (mode: 'assisted' | 'manual') => void;
   liveProgress?: number;
   liveLog?: string;
   retrying: boolean;
   onRetry: () => void;
+  onChanged: () => void;
 }
 
 function DeploymentRowView({
+  courseId,
   row,
   label,
   lessonCount,
+  platformModes,
+  switching,
+  onSwitchMode,
   liveProgress,
   liveLog,
   retrying,
   onRetry,
+  onChanged,
 }: DeploymentRowViewProps) {
+  const t = useTranslations('course.deploy');
+  const format = useFormatter();
   const [open, setOpen] = React.useState(false);
   const badge = STATUS_BADGE[row.status];
   const running = row.status === 'running';
-  const stepLabel = STEP_LABEL[row.checkpoint.step] ?? row.checkpoint.step ?? '—';
+  const stepLabel = STEP_LABEL[row.checkpoint.step] ? t(STEP_LABEL[row.checkpoint.step]) : (row.checkpoint.step || '—');
   const uploaded = Math.min(row.checkpoint.lessonIndex, lessonCount);
+  // Suivi manuel (P178) : un déploiement manuel non encore publié montre la
+  // checklist + l'input URL + le bouton « Marquer comme publié ».
+  const showManualPanel = row.mode === 'manual' && row.status !== 'published';
+  // Bascule de mode (P179) : proposée uniquement sur un déploiement bloqué, vers
+  // un mode différent réellement supporté par la plateforme.
+  const isStuck = row.status === 'paused' || row.status === 'failed';
+  const canSwitchAssisted = isStuck && row.mode !== 'assisted' && platformModes.includes('assisted');
+  const canSwitchManual = isStuck && row.mode !== 'manual' && platformModes.includes('manual');
+  const showSwitchControls = canSwitchAssisted || canSwitchManual;
+  // Reprise partielle (P179) : le pack des étapes restantes est pertinent dès
+  // qu'un déploiement manual-capable est bloqué APRÈS un début de progression.
+  const hasProgress = row.checkpoint.lessonIndex > 0 || Boolean(row.checkpoint.step);
+  const showResumePack =
+    isStuck && platformModes.includes('manual') && hasProgress;
 
   return (
     <div className="rounded-md border border-border bg-surface">
@@ -853,8 +1091,8 @@ function DeploymentRowView({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium text-foreground">{label}</span>
-              <Badge variant={badge.variant}>{badge.label}</Badge>
-              <span className="text-2xs text-muted">{MODE_LABEL[row.mode] ?? row.mode}</span>
+              <Badge variant={badge.variant}>{t(badge.labelKey)}</Badge>
+              <span className="text-2xs text-muted">{MODE_LABEL[row.mode] ? t(MODE_LABEL[row.mode]) : row.mode}</span>
             </div>
             <p className="mt-0.5 truncate text-xs text-muted">
               {stepLabel}
@@ -862,7 +1100,7 @@ function DeploymentRowView({
                 <>
                   {' · '}
                   <span className="tabular-nums">
-                    Leçon {uploaded}/{lessonCount}
+                    {t('lessonProgress', { current: uploaded, total: lessonCount })}
                   </span>
                 </>
               )}
@@ -880,20 +1118,20 @@ function DeploymentRowView({
               className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
             >
               <ExternalLink className="size-3.5" aria-hidden="true" />
-              Voir
+              {t('viewLink')}
             </a>
           )}
           {row.status === 'failed' && (
             <Button variant="secondary" size="sm" loading={retrying} onClick={onRetry}>
               {!retrying && <RefreshCw aria-hidden="true" />}
-              Relancer
+              {t('retryButton')}
             </Button>
           )}
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            aria-label={open ? 'Masquer les logs' : 'Afficher les logs'}
+            aria-label={open ? t('hideLogs') : t('showLogs')}
             className="inline-flex size-8 items-center justify-center rounded-sm text-muted transition-colors hover:bg-surface-subtle hover:text-foreground"
           >
             <ChevronDown
@@ -916,11 +1154,75 @@ function DeploymentRowView({
         </div>
       )}
 
+      {/* Bascule et reprise entre modes (P179) — déploiement bloqué. */}
+      {(showSwitchControls || showResumePack) && (
+        <div className="flex flex-col gap-2.5 border-t border-border bg-surface-subtle p-3">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
+            <RefreshCw className="size-3.5 text-accent" aria-hidden="true" />
+            {t('resumeTitle')}
+          </p>
+          <p className="text-2xs text-muted">
+            {t('resumeStoppedAt', { step: stepLabel })}
+            {lessonCount > 0 && <>{t('resumeLessonSuffix', { current: uploaded, total: lessonCount })}</>}{t('resumeInstructions')}
+          </p>
+          {showSwitchControls && (
+            <div className="flex flex-wrap items-center gap-2">
+              {canSwitchAssisted && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={switching === `${row.platform}:assisted`}
+                  disabled={switching !== null}
+                  onClick={() => onSwitchMode('assisted')}
+                >
+                  {switching !== `${row.platform}:assisted` && <Monitor aria-hidden="true" />}
+                  {t('switchAssistedButton')}
+                </Button>
+              )}
+              {canSwitchManual && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={switching === `${row.platform}:manual`}
+                  disabled={switching !== null}
+                  onClick={() => onSwitchMode('manual')}
+                >
+                  {switching !== `${row.platform}:manual` && <UploadCloud aria-hidden="true" />}
+                  {t('switchManualButton', { step: stepLabel })}
+                </Button>
+              )}
+            </div>
+          )}
+          {showResumePack && (
+            <div>
+              <DownloadGuideButton
+                courseId={courseId}
+                platform={row.platform}
+                platformLabel={label}
+                resume
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Suivi de publication manuelle (P178). */}
+      {showManualPanel && (
+        <ManualPublishPanel
+          courseId={courseId}
+          platform={row.platform}
+          label={label}
+          initialChecklist={row.checklist}
+          initialUrl={row.externalUrl}
+          onChanged={onChanged}
+        />
+      )}
+
       {/* Logs dépliables. */}
       {open && (
         <div className="border-t border-border p-3">
           {row.logs.length === 0 ? (
-            <p className="text-xs text-muted">Aucun log pour le moment.</p>
+            <p className="text-xs text-muted">{t('noLogs')}</p>
           ) : (
             <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto font-mono text-2xs leading-relaxed">
               {row.logs.map((log, i) => (
@@ -936,7 +1238,7 @@ function DeploymentRowView({
                   )}
                 >
                   <span className="shrink-0 tabular-nums text-muted">
-                    {new Date(log.ts).toLocaleTimeString('fr-FR')}
+                    {format.dateTime(new Date(log.ts), { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                   </span>
                   <span className="min-w-0 break-words">{log.msg}</span>
                 </li>
@@ -954,6 +1256,242 @@ function DeploymentRowView({
               {row.externalUrl}
             </a>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Panneau de publication manuelle (P178)                               */
+/* ------------------------------------------------------------------ */
+
+interface ManualPublishPanelProps {
+  courseId: string;
+  platform: string;
+  label: string;
+  initialChecklist: DeployChecklistItem[];
+  initialUrl: string | null;
+  onChanged: () => void;
+}
+
+/**
+ * En mode manuel (P178), l'auteur publie lui-même le cours puis rend compte ici :
+ * il coche chaque étape franchie et colle l'URL publique finale. Les changements
+ * sont persistés à la volée (route .../status) ; dès que TOUT est coché et l'URL
+ * http(s) valide, le déploiement bascule en publié côté serveur (qui reste la
+ * source de vérité — ce composant ne fait que refléter et déclencher).
+ */
+function ManualPublishPanel({
+  courseId,
+  platform,
+  label,
+  initialChecklist,
+  initialUrl,
+  onChanged,
+}: ManualPublishPanelProps) {
+  const { toast } = useToast();
+  const t = useTranslations('course.deploy');
+  const tApiError = useTranslations('apiErrors');
+  const [items, setItems] = React.useState<DeployChecklistItem[]>(
+    initialChecklist.length > 0 ? initialChecklist : initManualChecklist(platform),
+  );
+  const [url, setUrl] = React.useState(initialUrl ?? '');
+  const [saving, setSaving] = React.useState(false);
+
+  const canPublish = canPublishManually(items, url);
+
+  /** Persiste l'état courant ; le serveur bascule en publié si les conditions sont réunies. */
+  const persist = React.useCallback(
+    async (nextItems: DeployChecklistItem[], nextUrl: string): Promise<void> => {
+      setSaving(true);
+      try {
+        const res = await fetch(
+          `/api/courses/${courseId}/deployments/${encodeURIComponent(platform)}/status`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              externalUrl: nextUrl.trim() || undefined,
+              checklist: nextItems.map((i) => ({ key: i.key, done: i.done })),
+            }),
+          },
+        );
+        const data = (await res.json().catch(() => null)) as
+          | { published?: boolean; error?: string }
+          | null;
+        if (!res.ok) {
+          toast({ variant: 'danger', title: t('toastSaveFailedTitle'), description: errorMessage(data, tApiError) });
+          return;
+        }
+        if (data?.published) {
+          toast({
+            variant: 'success',
+            title: t('toastPublishedTitle'),
+            description: t('toastPublishedDesc', { platform: label }),
+          });
+        }
+        onChanged();
+      } catch {
+        toast({ variant: 'danger', title: t('toastNetworkErrorTitle'), description: t('toastNetworkErrorDesc') });
+      } finally {
+        setSaving(false);
+      }
+    },
+    [courseId, platform, label, toast, onChanged],
+  );
+
+  function toggle(key: string): void {
+    const next = items.map((i) => (i.key === key ? { ...i, done: !i.done } : i));
+    setItems(next);
+    void persist(next, url);
+  }
+
+  const doneCount = items.filter((i) => i.done).length;
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-border bg-surface-subtle p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
+          <UploadCloud className="size-3.5 text-accent" aria-hidden="true" />
+          {t('manualPublishTitle')}
+        </p>
+        <Badge variant="draft" hideDot className="text-2xs">
+          {t('stepsBadge', { done: doneCount, total: items.length })}
+        </Badge>
+      </div>
+      <p className="text-2xs text-muted">
+        {t('manualPublishIntro', { platform: label })}
+      </p>
+
+      <ul className="flex flex-col gap-1.5">
+        {items.map((item) => (
+          <li key={item.key}>
+            <label className="flex items-start gap-2.5 text-sm text-foreground">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4 shrink-0 accent-primary"
+                checked={item.done}
+                disabled={saving}
+                onChange={() => toggle(item.key)}
+              />
+              <span className={cn(item.done && 'text-muted line-through')}>{item.label}</span>
+            </label>
+          </li>
+        ))}
+      </ul>
+
+      <div className="flex flex-wrap items-end gap-2">
+        <Input
+          label={t('urlLabel')}
+          type="url"
+          inputMode="url"
+          placeholder="https://…"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onBlur={() => {
+            if (url.trim()) void persist(items, url);
+          }}
+          wrapperClassName="min-w-0 flex-1"
+        />
+        <Button
+          variant="gold"
+          loading={saving}
+          disabled={!canPublish || saving}
+          onClick={() => void persist(items, url)}
+        >
+          {!saving && <UploadCloud aria-hidden="true" />}
+          {t('markPublishedButton')}
+        </Button>
+      </div>
+      {!canPublish && (
+        <p className="text-2xs text-muted">
+          {t('cannotPublishHint')}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Matrice des capacités (plateforme × modes)                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Récapitulatif dépliable plateforme × modes supportés (P175). Chaque cellule
+ * indique si le mode est disponible, et signale d'un triangle les combinaisons
+ * à risque CGU (dérivées, cf. deployRiskFor). Purement informatif.
+ */
+function CapabilityMatrix({ catalog }: { catalog: CatalogEntry[] }) {
+  const t = useTranslations('course.deploy');
+  const [open, setOpen] = React.useState(false);
+  if (catalog.length === 0) return null;
+
+  return (
+    <div className="rounded-md border border-border bg-surface-subtle">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-2 p-3 text-start"
+      >
+        <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <Table2 className="size-4 text-muted" aria-hidden="true" />
+          {t('capabilityMatrixTitle')}
+        </span>
+        <ChevronDown
+          className={cn('size-4 text-muted transition-transform duration-fast', open && 'rotate-180')}
+          aria-hidden="true"
+        />
+      </button>
+      {open && (
+        <div className="overflow-x-auto border-t border-border p-3">
+          <table className="w-full min-w-[26rem] border-collapse text-sm">
+            <thead>
+              <tr className="text-2xs uppercase tracking-wide text-muted">
+                <th className="p-2 text-start font-semibold">{t('colPlatform')}</th>
+                {ALL_MODES.map((m) => (
+                  <th key={m} className="p-2 text-center font-semibold">
+                    {MODE_LABEL[m] ? t(MODE_LABEL[m]) : m}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {catalog.map((entry) => (
+                <tr key={entry.id} className="border-t border-border">
+                  <td className="p-2 font-medium text-foreground">{entry.label}</td>
+                  {ALL_MODES.map((m) => {
+                    const supported = entry.capabilities.modes.includes(m);
+                    const risk = entry.risks[m];
+                    return (
+                      <td key={m} className="p-2 text-center">
+                        {supported ? (
+                          <span className="inline-flex items-center justify-center gap-1">
+                            <Check className="size-3.5 text-success" aria-label={t('supported')} />
+                            {risk && (
+                              <AlertTriangle
+                                className="size-3.5 text-accent"
+                                aria-label={risk.label}
+                              />
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-muted" aria-label={t('notSupported')}>
+                            —
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-2 flex items-center gap-1.5 text-2xs text-muted">
+            <AlertTriangle className="size-3 shrink-0 text-accent" aria-hidden="true" />
+            {t('browserAutomationNote')}
+          </p>
         </div>
       )}
     </div>

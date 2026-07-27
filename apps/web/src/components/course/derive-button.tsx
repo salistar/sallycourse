@@ -2,7 +2,9 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Copy } from 'lucide-react';
+import { errorMessage } from '@/lib/error-message';
 import {
   Button,
   Dialog,
@@ -29,10 +31,10 @@ const LOCALE_OPTIONS: { value: Locale; label: string }[] = [
   { value: 'ar', label: 'العربية' },
 ];
 
-const DIFFICULTY_OPTIONS: { value: Difficulty; label: string }[] = [
-  { value: 'beginner', label: 'Débutant' },
-  { value: 'intermediate', label: 'Intermédiaire' },
-  { value: 'advanced', label: 'Avancé' },
+const DIFFICULTY_OPTIONS: { value: Difficulty; labelKey: string }[] = [
+  { value: 'beginner', labelKey: 'difficultyBeginner' },
+  { value: 'intermediate', labelKey: 'difficultyIntermediate' },
+  { value: 'advanced', labelKey: 'difficultyAdvanced' },
 ];
 
 export interface DeriveButtonProps {
@@ -46,6 +48,8 @@ export interface DeriveButtonProps {
 export function DeriveButton({ courseId, sourceLocale, sourceDifficulty }: DeriveButtonProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const t = useTranslations('course.derive');
+  const tApiError = useTranslations('apiErrors');
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [targetLocale, setTargetLocale] = React.useState<Locale>(sourceLocale);
@@ -66,8 +70,8 @@ export function DeriveButton({ courseId, sourceLocale, sourceDifficulty }: Deriv
       if (res.ok) {
         const data = (await res.json().catch(() => null)) as { id?: string } | null;
         toast({
-          title: 'Déclinaison lancée',
-          description: 'La variante du cours est en cours de génération.',
+          title: t('toastLaunchedTitle'),
+          description: t('toastLaunchedDescription'),
           variant: 'success',
         });
         setOpen(false);
@@ -76,15 +80,15 @@ export function DeriveButton({ courseId, sourceLocale, sourceDifficulty }: Deriv
       } else {
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
         toast({
-          title: 'Déclinaison impossible',
-          description: data?.error ?? 'Une erreur est survenue, réessayez plus tard.',
+          title: t('toastFailedTitle'),
+          description: errorMessage(data, tApiError),
           variant: 'danger',
         });
       }
     } catch {
       toast({
-        title: 'Erreur réseau',
-        description: 'Impossible de joindre le serveur, vérifiez votre connexion.',
+        title: t('toastNetworkTitle'),
+        description: t('toastNetworkDescription'),
         variant: 'danger',
       });
     } finally {
@@ -96,57 +100,53 @@ export function DeriveButton({ courseId, sourceLocale, sourceDifficulty }: Deriv
     <>
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
         <Copy aria-hidden="true" />
-        Décliner ce cours
+        {t('deriveThisCourse')}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Décliner ce cours</DialogTitle>
-            <DialogDescription>
-              Créez une variante en réutilisant le plan validé : une autre langue (traduction,
-              nouvelle voix et slides) ou un autre niveau de difficulté. Un cours est généré et
-              compté dans votre quota mensuel.
-            </DialogDescription>
+            <DialogTitle>{t('deriveThisCourse')}</DialogTitle>
+            <DialogDescription>{t('dialogDescription')}</DialogDescription>
           </DialogHeader>
 
           <div className="mt-6 flex flex-col gap-4">
             <Select
-              label="Langue cible"
+              label={t('targetLanguageLabel')}
               value={targetLocale}
               onChange={(e) => setTargetLocale(e.target.value as Locale)}
             >
               {LOCALE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
-                  {opt.value === sourceLocale ? ' (source)' : ''}
+                  {opt.value === sourceLocale ? t('sourceSuffix') : ''}
                 </option>
               ))}
             </Select>
 
             <Select
-              label="Niveau de difficulté cible"
+              label={t('targetDifficultyLabel')}
               value={targetDifficulty}
               onChange={(e) => setTargetDifficulty(e.target.value as Difficulty)}
             >
               {DIFFICULTY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                  {opt.value === sourceDifficulty ? ' (source)' : ''}
+                  {t(opt.labelKey)}
+                  {opt.value === sourceDifficulty ? t('sourceSuffix') : ''}
                 </option>
               ))}
             </Select>
 
             {unchanged && (
               <p className="px-1 text-xs text-muted">
-                Changez la langue ou le niveau pour créer une variante.
+                {t('changeAxisHint')}
               </p>
             )}
           </div>
 
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={loading}>
-              Annuler
+              {t('cancel')}
             </Button>
             <Button
               variant="gold"
@@ -155,7 +155,7 @@ export function DeriveButton({ courseId, sourceLocale, sourceDifficulty }: Deriv
               disabled={unchanged}
               onClick={submit}
             >
-              Décliner
+              {t('submitButton')}
             </Button>
           </DialogFooter>
         </DialogContent>

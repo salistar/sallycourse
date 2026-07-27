@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui';
+import { getTranslations, getFormatter } from 'next-intl/server';
 import type { AggregatedAnalytics } from './aggregate';
 import type { PlatformRow } from './types';
 
@@ -8,13 +9,6 @@ import type { PlatformRow } from './types';
  *  - barres CSS du revenu par plateforme ;
  *  - jauge circulaire SVG de la note moyenne.
  */
-
-const numberFmt = new Intl.NumberFormat('fr-FR');
-const currencyFmt = new Intl.NumberFormat('fr-FR', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-});
 
 /** Couleur (variable de thème --sc-*, cf. packages/design/src/css-variables.ts) attribuée à une plateforme pour les barres. */
 function platformColor(platform: string): string {
@@ -41,14 +35,14 @@ function StatCard({ label, value }: { label: string; value: string }) {
 }
 
 /** Jauge circulaire SVG (0–5) pour la note moyenne. */
-function RatingGauge({ rating }: { rating: number }) {
+function RatingGauge({ rating, label }: { rating: number; label: string }) {
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
   const ratio = Math.max(0, Math.min(1, rating / 5));
   const dash = ratio * circumference;
 
   return (
-    <svg viewBox="0 0 100 100" className="h-28 w-28" role="img" aria-label={`Note moyenne ${rating} sur 5`}>
+    <svg viewBox="0 0 100 100" className="h-28 w-28" role="img" aria-label={label}>
       <circle cx="50" cy="50" r={radius} fill="none" stroke="rgb(var(--sc-border))" strokeWidth="8" />
       <circle
         cx="50"
@@ -71,37 +65,42 @@ function RatingGauge({ rating }: { rating: number }) {
   );
 }
 
-export function AnalyticsDashboard({
+export async function AnalyticsDashboard({
   rows,
   totals,
 }: {
   rows: PlatformRow[];
   totals: AggregatedAnalytics;
 }) {
+  const t = await getTranslations('analytics.dashboard');
+  const format = await getFormatter();
+  const nf = (value: number) => format.number(value);
+  const cf = (value: number) =>
+    format.number(value, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
   const maxRevenue = Math.max(1, ...rows.map((r) => r.revenue));
 
   return (
     <div className="flex flex-col gap-6">
       {/* KPIs consolidés */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Inscrits" value={numberFmt.format(totals.totalEnrollments)} />
-        <StatCard label="Vues" value={numberFmt.format(totals.totalViews)} />
-        <StatCard label="Revenu" value={currencyFmt.format(totals.totalRevenue)} />
-        <StatCard label="Plateformes" value={numberFmt.format(totals.platformCount)} />
+        <StatCard label={t('kpi.enrollments')} value={nf(totals.totalEnrollments)} />
+        <StatCard label={t('kpi.views')} value={nf(totals.totalViews)} />
+        <StatCard label={t('kpi.revenue')} value={cf(totals.totalRevenue)} />
+        <StatCard label={t('kpi.platforms')} value={nf(totals.platformCount)} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Revenu par plateforme — barres CSS */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Revenu par plateforme</CardTitle>
+            <CardTitle>{t('revenueByPlatform')}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 p-6 pt-0">
             {rows.map((row) => (
               <div key={row.platform} className="flex flex-col gap-1">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium text-foreground">{row.label}</span>
-                  <span className="text-muted">{currencyFmt.format(row.revenue)}</span>
+                  <span className="text-muted">{cf(row.revenue)}</span>
                 </div>
                 <div className="h-3 w-full overflow-hidden rounded-full bg-surface-subtle">
                   <div
@@ -120,10 +119,10 @@ export function AnalyticsDashboard({
         {/* Note moyenne — jauge SVG */}
         <Card>
           <CardHeader>
-            <CardTitle>Note moyenne</CardTitle>
+            <CardTitle>{t('averageRating')}</CardTitle>
           </CardHeader>
           <CardContent className="flex items-center justify-center p-6 pt-0">
-            <RatingGauge rating={totals.averageRating} />
+            <RatingGauge rating={totals.averageRating} label={t('ratingGauge.aria', { rating: totals.averageRating })} />
           </CardContent>
         </Card>
       </div>
@@ -131,19 +130,19 @@ export function AnalyticsDashboard({
       {/* Détail par plateforme */}
       <Card>
         <CardHeader>
-          <CardTitle>Détail par plateforme</CardTitle>
+          <CardTitle>{t('detailByPlatform')}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
-                  <th className="px-6 py-3 font-medium">Plateforme</th>
-                  <th className="px-6 py-3 text-right font-medium">Inscrits</th>
-                  <th className="px-6 py-3 text-right font-medium">Vues</th>
-                  <th className="px-6 py-3 text-right font-medium">Note</th>
-                  <th className="px-6 py-3 text-right font-medium">Revenu</th>
-                  <th className="px-6 py-3 text-right font-medium">Mis à jour</th>
+                  <th className="px-6 py-3 font-medium">{t('table.platform')}</th>
+                  <th className="px-6 py-3 text-right font-medium">{t('table.enrollments')}</th>
+                  <th className="px-6 py-3 text-right font-medium">{t('table.views')}</th>
+                  <th className="px-6 py-3 text-right font-medium">{t('table.rating')}</th>
+                  <th className="px-6 py-3 text-right font-medium">{t('table.revenue')}</th>
+                  <th className="px-6 py-3 text-right font-medium">{t('table.updated')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -153,20 +152,20 @@ export function AnalyticsDashboard({
                       <Badge variant="draft">{row.label}</Badge>
                     </td>
                     <td className="px-6 py-3 text-right text-foreground">
-                      {numberFmt.format(row.enrollments)}
+                      {nf(row.enrollments)}
                     </td>
                     <td className="px-6 py-3 text-right text-foreground">
-                      {numberFmt.format(row.views)}
+                      {nf(row.views)}
                     </td>
                     <td className="px-6 py-3 text-right text-foreground">
                       {row.rating > 0 ? row.rating.toFixed(1) : '—'}
                     </td>
                     <td className="px-6 py-3 text-right text-foreground">
-                      {currencyFmt.format(row.revenue)}
+                      {cf(row.revenue)}
                     </td>
                     <td className="px-6 py-3 text-right text-muted">
                       {row.fetchedAt
-                        ? new Date(row.fetchedAt).toLocaleDateString('fr-FR')
+                        ? format.dateTime(new Date(row.fetchedAt), { dateStyle: 'medium' })
                         : '—'}
                     </td>
                   </tr>
