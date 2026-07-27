@@ -33,6 +33,13 @@ export interface IUser {
   /** Durée (s) de l'échantillon audio ayant servi au clonage — traçabilité. */
   voiceCloneSampleSeconds?: number;
   /**
+   * Horodatage du dernier upload d'un échantillon vocal (stocké à
+   * storageKeys.voiceSample(userId)) pour le clonage Chatterbox/Modal. Sert de
+   * drapeau de présence ET de version (entre dans la clé de cache TTS : une
+   * ré-écoute avec un nouvel échantillon invalide l'ancien audio). Additif.
+   */
+  voiceSampleUploadedAt?: Date;
+  /**
    * Code d'affiliation référent en attente (Prompt 89) : capturé depuis le
    * cookie de tracking (sc_ref) au moment où l'utilisateur initie un paiement
    * (checkout CMI, activation mock). `activatePlan` le consomme pour créditer
@@ -69,6 +76,31 @@ export interface IUser {
    * les utilisateurs existants.
    */
   isAgency?: boolean;
+  /**
+   * Avatar « talking-head » (Ditto/Modal) : horodatage du dernier upload d'une
+   * photo de visage du présentateur (stockée à storageKeys.avatarFace(userId)).
+   * Sert de drapeau de présence — un cours avec avatarEnabled n'active l'avatar
+   * réel que si cette photo existe. Additif, absent par défaut.
+   */
+  avatarFaceUploadedAt?: Date;
+  /**
+   * Page instructeur publique (Prompt 205) — handle unique SANS le « @ »
+   * (format @sallycourse/shared HANDLE_PATTERN : [a-z0-9_-]{3,30}). Tant qu'il
+   * est absent, l'utilisateur n'a AUCUNE page publique (aucune donnée exposée).
+   * Index unique sparse : les comptes sans handle ne se collisionnent pas.
+   */
+  handle?: string;
+  /**
+   * Bio d'instructeur GÉNÉRÉE par LLM depuis le catalogue publié, persistée ici
+   * et régénérable depuis les réglages. Validée par instructorBioSchema (Zod).
+   * Additive : absente = la page publique n'affiche pas de bloc bio.
+   */
+  instructorBio?: {
+    headline: string;
+    bio: string;
+    expertise: string[];
+    generatedAt: Date;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -91,6 +123,7 @@ const userSchema = new Schema<IUser>(
     clonedVoiceId: { type: String },
     voiceCloneStatus: { type: String, enum: ['none', 'pending', 'ready', 'failed'], default: 'none' },
     voiceCloneConsent: { type: Boolean, default: false },
+    voiceSampleUploadedAt: { type: Date },
     voiceCloneSampleSeconds: { type: Number, min: 0 },
     pendingReferralCode: { type: String, default: null },
     preferLargeText: { type: Boolean, default: false },
@@ -104,6 +137,22 @@ const userSchema = new Schema<IUser>(
     billingCompanyName: { type: String, trim: true },
     billingAddress: { type: String, trim: true },
     isAgency: { type: Boolean, default: false },
+    avatarFaceUploadedAt: { type: Date },
+    // unique + sparse : un seul porteur par handle, mais autant de comptes sans
+    // handle que voulu (la majorité des utilisateurs n'a pas de page publique).
+    handle: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
+    instructorBio: {
+      type: new Schema(
+        {
+          headline: { type: String, required: true, trim: true },
+          bio: { type: String, required: true, trim: true },
+          expertise: { type: [String], default: [] },
+          generatedAt: { type: Date, default: Date.now },
+        },
+        { _id: false },
+      ),
+      required: false,
+    },
   },
   { timestamps: true },
 );

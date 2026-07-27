@@ -13,6 +13,10 @@
       /* Gros texte (P137, accessibilité) : 1 par défaut, override injecté par
          renderTemplate({ largeText: true }) — voir render-templates.ts. */
       --text-scale: 1;
+      /* Correctif 1.5 (audit 2026-07-20) : réduit le titre selon sa longueur
+         (titleFontScale, render-templates.ts) — sans ça, un titre long
+         débordait de .hero et était tronqué par overflow:hidden. */
+      --title-scale: {{titleScale}};
       /* Thème sombre — themes.dark */
       --bg: #0D0714;              /* neutral.950 */
       --surface: #171021;         /* themes.dark.surface */
@@ -153,7 +157,7 @@
     html[dir="rtl"] .kicker .lesson-number { font-family: var(--font-arabic); font-weight: 700; }
 
     .title {
-      font-size: calc(116px * var(--text-scale));
+      font-size: calc(116px * var(--text-scale) * var(--title-scale));
       line-height: 1.06;
       letter-spacing: -0.02em;
       background: linear-gradient(135deg, var(--fg) 30%, var(--violet-300) 100%);
@@ -210,6 +214,41 @@
     }
     html[dir="rtl"] .footer-fill { background: linear-gradient(to left, var(--violet-500), var(--violet-400) 55%, var(--gold-400)); }
     .footer-label { font-size: 21px; font-variant-numeric: tabular-nums; }
+
+    /* Illustration générée (SDXL) : remplace visuellement le motif quand
+       présente — panneau arrondi côté fin de lecture, fondu vers le fond
+       pour rester dans l'ambiance sombre du gabarit. */
+    .illustration {
+      position: absolute;
+      inset-inline-end: 96px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 640px;
+      height: 640px;
+      border-radius: 32px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-xl);
+      pointer-events: none;
+    }
+    .illustration img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      filter: saturate(0.92);
+    }
+    .illustration::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(13, 7, 20, 0.55), transparent 45%),
+        radial-gradient(120% 120% at 100% 100%, transparent 60%, rgba(13, 7, 20, 0.5));
+    }
+    /* L'illustration prime sur le motif géométrique (jamais les deux). */
+    .slide:has(.illustration) .motif { display: none; }
+    /* Le héros laisse la place au panneau d'illustration. */
+    .slide:has(.illustration) .hero { max-width: 980px; }
   </style>
 </head>
 <body>
@@ -233,6 +272,8 @@
         <rect x="-13" y="-13" width="26" height="26" transform="rotate(45)" fill="var(--gold-400)"/>
       </g>
     </svg>
+
+    {{illustrationHtml}}
 
     <div class="brand">Salistar</div>
 

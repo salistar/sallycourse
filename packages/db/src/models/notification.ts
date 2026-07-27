@@ -28,6 +28,25 @@ export const NOTIFICATION_TYPES = [
    * mettre à jour (Course.refreshSuggestions). Jamais appliqué seul.
    */
   'course_refresh_available',
+  /** Révision automatique d'un cours (2026-07-26) : diagnostic + réparations lancées. */
+  'course_review_done',
+  /**
+   * Gamification du LMS (P200) : la série quotidienne de l'apprenant est en
+   * danger (actif hier, pas encore aujourd'hui). Émis par le cron du worker
+   * (apps/worker/src/lib/streak-reminder.ts), doublé d'un Web Push quand le
+   * navigateur est abonné — pas d'email (décision produit).
+   */
+  'streak_reminder',
+  /** Gamification (P200) : nouveau badge débloqué (1re leçon, quiz parfait…). */
+  'badge_earned',
+  /** Gamification (P200) : passage au niveau supérieur. */
+  'level_up',
+  /**
+   * Anti-partage de compte (P206) : trop d'appareils simultanés détectés pour un
+   * étudiant. Émis vers l'étudiant (alerte) ET l'auteur du cours (signalement).
+   * In-app uniquement — jamais de blocage automatique du compte (faux positifs).
+   */
+  'account_sharing_suspected',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

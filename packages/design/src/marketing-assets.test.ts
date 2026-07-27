@@ -265,6 +265,29 @@ describe('generateCourseImage — formats et contraintes', () => {
     expect(svg).toContain('&amp;');
   });
 
+  it('empile le badge SOUS la marque en layout centré, sans chevauchement (correctif 1.6, audit 2026-07-20)', () => {
+    // Youtube ET story sont "centered" — brand et badge partagent le même X
+    // (width/2) ; avant le correctif ils partageaient aussi le même Y et se
+    // superposaient/s'entremêlaient visuellement.
+    for (const format of ['youtube', 'story'] as const) {
+      const svg = generateCourseImage(baseSpec({ format, badge: 'Débutant' }));
+      const brandMatch = svg.match(/<text x="[\d.]+" y="([\d.]+)"[^>]*>SALISTAR<\/text>/);
+      const badgeMatch = svg.match(/<rect x="[\d.]+" y="([\d.]+)"[^>]*stroke="[^"]+"[^>]*\/>/);
+      expect(brandMatch, format).not.toBeNull();
+      expect(badgeMatch, format).not.toBeNull();
+      const brandY = Number(brandMatch![1]);
+      const badgeY = Number(badgeMatch![1]);
+      expect(badgeY, `${format}: badgeY doit être sous brandY`).toBeGreaterThan(brandY);
+    }
+  });
+
+  it('badge en layout non centré (udemy) reste au même niveau que la marque — déjà séparés horizontalement', () => {
+    const svg = generateCourseImage(baseSpec({ format: 'udemy', badge: 'Débutant' }));
+    const brandMatch = svg.match(/<text x="[\d.]+" y="([\d.]+)"[^>]*>SALISTAR<\/text>/);
+    const badgeMatch = svg.match(/<rect x="[\d.]+" y="([\d.]+)"[^>]*stroke="[^"]+"[^>]*\/>/);
+    expect(Number(badgeMatch![1])).toBe(Number(brandMatch![1]) - 15); // pad(44) vs brandY=pad+brandSize(15)
+  });
+
   it('bascule en RTL pour l’arabe (ancrage fin + police arabe, jamais de serif)', () => {
     const svg = generateCourseImage(
       baseSpec({ title: 'تعلم البرمجة من الصفر', lang: 'ar', subtitle: 'دورة شاملة للمبتدئين' }),

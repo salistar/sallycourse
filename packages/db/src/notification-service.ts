@@ -30,6 +30,15 @@ const EMAIL_TEMPLATE_BY_TYPE: Record<NotificationType, EmailTemplateName | undef
   voice_clone_used: undefined,
   // Pas d'email : suggestion consultable dans le dashboard (voir course-refresh.ts).
   course_refresh_available: undefined,
+  // Pas d'email : rapport de révision consultable sur la page cours (2026-07-26).
+  course_review_done: undefined,
+  // Gamification (P200) — décision produit : ces trois types restent in-app
+  // (+ Web Push pour le rappel de streak). AUCUN nouveau gabarit email.
+  streak_reminder: undefined,
+  badge_earned: undefined,
+  level_up: undefined,
+  // Pas d'email : alerte/signalement consultable in-app (P206, anti-partage).
+  account_sharing_suspected: undefined,
 };
 
 export interface NotifyInput {

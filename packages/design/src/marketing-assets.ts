@@ -739,7 +739,14 @@ export function generateCourseImage(input: CourseImageSpecInput): string {
       : rtl
         ? layout.pad
         : width - layout.pad - badgeW;
-    const badgeY = layout.pad;
+    // Correctif 1.6 (audit 2026-07-20) : en layout CENTRÉ (youtube, story), la
+    // marque SALISTAR (brandX = width/2) et le badge (badgeX = (width-badgeW)/2,
+    // donc centré lui aussi) partagent la même position horizontale — les poser
+    // à la même hauteur (layout.pad) les fait se superposer/s'entremêler. On
+    // empile le badge SOUS la marque dans ce cas ; les layouts non centrés
+    // (udemy, og) restent inchangés, brand et badge y sont déjà sur des côtés
+    // opposés (aucun chevauchement).
+    const badgeY = layout.centered ? brandY + badgeFont * 0.6 : layout.pad;
     const badgeColor = ensureContrast(gold['300'], bgReference);
     parts.push(
       `<rect x="${fx(badgeX)}" y="${fx(badgeY)}" width="${fx(badgeW)}" height="${fx(badgeH)}" ` +

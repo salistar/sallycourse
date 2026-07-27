@@ -13,6 +13,10 @@
       /* Gros texte (P137, accessibilité) : 1 par défaut, override injecté par
          renderTemplate({ largeText: true }) — voir render-templates.ts. */
       --text-scale: 1;
+      /* Fit anti-troncature des puces (2026-07-26) : ≤ 1, calculé par
+         contentFitScale() selon le volume de texte pour ne jamais déborder du
+         cadre 1080px (overflow:hidden). 1 → rendu strictement inchangé. */
+      --fit: {{fitScale}};
       --bg: #0D0714;              /* neutral.950 */
       --surface: #171021;         /* themes.dark.surface */
       --surface-subtle: #231B2F;  /* neutral.900 */
@@ -114,11 +118,11 @@
     /* Liste à puces : losanges or, 5 points maximum, interlignage aéré */
     .bullets {
       list-style: none;
-      margin-top: 84px;
+      margin-top: calc(84px * var(--fit));
       max-width: 1480px;
       display: flex;
       flex-direction: column;
-      gap: 52px;
+      gap: calc(52px * var(--fit));
     }
     .bullets li {
       display: flex;
@@ -129,14 +133,14 @@
       flex: none;
       width: 18px;
       height: 18px;
-      margin-top: 17px;
+      margin-top: calc(17px * var(--fit));
       transform: rotate(45deg);
       border-radius: 3px;
       background: linear-gradient(135deg, var(--gold-300), var(--gold-600));
       box-shadow: 0 0 18px rgba(212, 160, 23, 0.35); /* gold.500 */
     }
     .bullet-text {
-      font-size: calc(37px * var(--text-scale));
+      font-size: calc(37px * var(--text-scale) * var(--fit));
       line-height: 1.45;
       color: var(--fg);
       text-wrap: pretty;
@@ -179,6 +183,41 @@
     }
     html[dir="rtl"] .footer-fill { background: linear-gradient(to left, var(--violet-500), var(--violet-400) 55%, var(--gold-400)); }
     .footer-label { font-size: 21px; font-variant-numeric: tabular-nums; }
+
+    /* Image SDXL PAR SLIDE (Lot 3, plan 2026-07-20) — même panneau que le
+       gabarit "title" (render-templates/title.html), pour une cohérence
+       visuelle entre tous les gabarits qui la supportent. */
+    .illustration {
+      position: absolute;
+      inset-inline-end: 96px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 560px;
+      height: 560px;
+      border-radius: 32px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.6);
+      pointer-events: none;
+    }
+    .illustration img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      filter: saturate(0.92);
+    }
+    .illustration::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(13, 7, 20, 0.55), transparent 45%),
+        radial-gradient(120% 120% at 100% 100%, transparent 60%, rgba(13, 7, 20, 0.5));
+    }
+    /* L'illustration prime sur le filigrane de coin ; le texte laisse la place. */
+    .slide:has(.illustration) .corner-motif { display: none; }
+    .slide:has(.illustration) .title,
+    .slide:has(.illustration) .bullets { max-width: 1020px; }
   </style>
 </head>
 <body>
@@ -200,6 +239,8 @@
     <ul class="bullets">
       {{bullets}}
     </ul>
+
+    {{illustrationHtml}}
 
     <footer class="footer">
       <div class="footer-course">{{courseTitle}}</div>

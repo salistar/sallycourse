@@ -12,7 +12,7 @@ import mongoose, {
 // abonné (PushManager.subscribe() côté client). Les clés `p256dh`/`auth` sont
 // celles renvoyées par le navigateur (PushSubscriptionJSON.keys) : nécessaires
 // pour chiffrer la charge utile envoyée à l'endpoint FCM/Mozilla (voir
-// apps/web/src/lib/web-push.ts). `endpoint` est unique par abonnement — un
+// packages/shared/src/web-push.ts). `endpoint` est unique par abonnement — un
 // même utilisateur peut avoir plusieurs abonnements (plusieurs appareils).
 
 export interface IPushSubscription {

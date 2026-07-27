@@ -196,6 +196,40 @@
     }
     html[dir="rtl"] .footer-fill { background: linear-gradient(to left, var(--violet-500), var(--violet-400) 55%, var(--gold-400)); }
     .footer-label { font-size: 21px; font-variant-numeric: tabular-nums; }
+
+    /* Image SDXL PAR SLIDE (Lot 3, plan 2026-07-20) — même panneau que le
+       gabarit "title"/"content" (render-templates/title.html), pour une
+       cohérence visuelle entre tous les gabarits qui la supportent. */
+    .illustration {
+      position: absolute;
+      inset-inline-end: 96px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 560px;
+      height: 560px;
+      border-radius: 32px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.6);
+      pointer-events: none;
+    }
+    .illustration img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      filter: saturate(0.92);
+    }
+    .illustration::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(13, 7, 20, 0.55), transparent 45%),
+        radial-gradient(120% 120% at 100% 100%, transparent 60%, rgba(13, 7, 20, 0.5));
+    }
+    .slide:has(.illustration) .corner-motif { display: none; }
+    .slide:has(.illustration) .title,
+    .slide:has(.illustration) .checklist { max-width: 1020px; }
   </style>
 </head>
 <body>
@@ -217,6 +251,8 @@
     <ul class="checklist{{checklistLayout}}">
       {{items}}
     </ul>
+
+    {{illustrationHtml}}
 
     <footer class="footer">
       <div class="footer-course">{{courseTitle}}</div>
