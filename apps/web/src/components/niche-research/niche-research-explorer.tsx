@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Compass, Flame, Sparkles, Wand2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 // Sous-module direct (et non le barrel @sallycourse/shared) : le barrel
 // réexporte crypto.ts (node:crypto), incompatible avec le bundle client.
 import {
@@ -33,11 +34,11 @@ function opportunityVariant(candidate: NicheCandidate): 'ready' | 'generating' |
   return 'draft';
 }
 
-function opportunityLabel(candidate: NicheCandidate): string {
+function opportunityLabelKey(candidate: NicheCandidate): string {
   const opportunity = candidate.demandScore - candidate.competitionScore;
-  if (opportunity >= 25) return 'Opportunité forte';
-  if (opportunity >= 0) return 'Opportunité correcte';
-  return 'Marché saturé';
+  if (opportunity >= 25) return 'opportunity.strong';
+  if (opportunity >= 0) return 'opportunity.correct';
+  return 'opportunity.saturated';
 }
 
 interface CandidateCardProps {
@@ -47,45 +48,44 @@ interface CandidateCardProps {
 }
 
 function CandidateCard({ candidate, onCreate, creating }: CandidateCardProps) {
+  const t = useTranslations('nicheResearch');
   return (
     <Card interactive>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <CardTitle className="text-base leading-snug">{candidate.title}</CardTitle>
           <Badge variant={opportunityVariant(candidate)} hideDot className="shrink-0">
-            {opportunityLabel(candidate)}
+            {t(opportunityLabelKey(candidate))}
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <dl className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
           <div className="flex flex-col gap-0.5">
-            <dt className="text-2xs uppercase tracking-wide text-muted">Demande</dt>
+            <dt className="text-2xs uppercase tracking-wide text-muted">{t('candidate.demand')}</dt>
             <dd className="font-display text-lg font-semibold text-foreground">{candidate.demandScore}</dd>
           </div>
           <div className="flex flex-col gap-0.5">
-            <dt className="text-2xs uppercase tracking-wide text-muted">Concurrence</dt>
+            <dt className="text-2xs uppercase tracking-wide text-muted">{t('candidate.competition')}</dt>
             <dd className="font-display text-lg font-semibold text-foreground">{candidate.competitionScore}</dd>
           </div>
           <div className="flex flex-col gap-0.5">
-            <dt className="text-2xs uppercase tracking-wide text-muted">Cours existants</dt>
-            <dd className="font-semibold text-foreground">{candidate.estimatedCourseCount}</dd>
+            <dt className="text-2xs uppercase tracking-wide text-muted">{t('candidate.existingCourses')}</dt>
+            <dd className="font-semibold text-foreground">≈ {candidate.estimatedCourseCount}</dd>
           </div>
           <div className="flex flex-col gap-0.5">
-            <dt className="text-2xs uppercase tracking-wide text-muted">Prix moyen</dt>
-            <dd className="font-semibold text-foreground">{candidate.avgPrice} €</dd>
+            <dt className="text-2xs uppercase tracking-wide text-muted">{t('candidate.avgPriceLabel')}</dt>
+            <dd className="font-semibold text-foreground">≈ {candidate.avgPrice} €</dd>
           </div>
         </dl>
 
-        <div className="flex flex-col gap-2">
-          <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-subtle">
-            <span
-              className="h-full bg-gradient-to-r from-primary-500 to-accent-400"
-              style={{ width: `${candidate.demandScore}%` }}
-              aria-hidden="true"
-            />
-          </div>
-          <p className="text-2xs text-muted">Note moyenne {candidate.avgRating.toFixed(1)}/5</p>
+        {/* Barre = score de demande (0-100), pas une note d'avis réelle. */}
+        <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-subtle">
+          <span
+            className="h-full bg-gradient-to-r from-primary-500 to-accent-400"
+            style={{ width: `${candidate.demandScore}%` }}
+            aria-hidden="true"
+          />
         </div>
 
         <Button
@@ -96,7 +96,7 @@ function CandidateCard({ candidate, onCreate, creating }: CandidateCardProps) {
           disabled={creating}
         >
           <Wand2 aria-hidden="true" className="size-3.5" />
-          Créer un cours
+          {t('candidate.createCourse')}
         </Button>
       </CardContent>
     </Card>
@@ -106,6 +106,7 @@ function CandidateCard({ candidate, onCreate, creating }: CandidateCardProps) {
 export function NicheResearchExplorer() {
   const router = useRouter();
   const { toast } = useToast();
+  const t = useTranslations('nicheResearch');
   const [category, setCategory] = React.useState<TemplateCategory>(CATEGORY_OPTIONS[0]);
   const [candidates, setCandidates] = React.useState<NicheCandidate[]>([]);
   const [liveSignal, setLiveSignal] = React.useState(false);
@@ -119,7 +120,7 @@ export function NicheResearchExplorer() {
       try {
         const response = await findNicheOpportunitiesAction(cat);
         if (!response.ok) {
-          toast({ variant: 'danger', title: 'Recherche indisponible', description: response.error });
+          toast({ variant: 'danger', title: t('toast.searchUnavailableTitle'), description: response.error });
           return;
         }
         setCandidates(response.result.candidates);
@@ -128,8 +129,8 @@ export function NicheResearchExplorer() {
       } catch {
         toast({
           variant: 'danger',
-          title: 'Recherche indisponible',
-          description: 'Une erreur est survenue — réessayez dans un instant.',
+          title: t('toast.searchUnavailableTitle'),
+          description: t('toast.genericErrorDescription'),
         });
       } finally {
         setLoading(false);
@@ -154,20 +155,19 @@ export function NicheResearchExplorer() {
       >
         <span className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-surface px-3.5 py-1.5 text-2xs font-semibold uppercase tracking-widest text-muted">
           <Compass className="size-3.5 text-accent-400" aria-hidden="true" />
-          Recherche de niche
+          {t('badge')}
         </span>
         <h1 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">
-          Trouver un sujet qui a de la demande
+          {t('title')}
         </h1>
         <p className="max-w-2xl text-sm text-muted">
-          Choisissez une catégorie : on croise des tendances connues avec un signal de popularité
-          best-effort pour estimer la demande et la concurrence de chaque sujet.
+          {t('subtitle')}
         </p>
       </motion.header>
 
       <div className="flex flex-col items-end gap-3 sm:flex-row sm:items-end">
         <Select
-          label="Catégorie"
+          label={t('categoryLabel')}
           value={category}
           onChange={(e) => setCategory(e.target.value as TemplateCategory)}
           wrapperClassName="w-full sm:max-w-xs"
@@ -180,14 +180,14 @@ export function NicheResearchExplorer() {
         </Select>
         <Button onClick={() => runSearch(category)} loading={loading} className="w-full sm:w-auto">
           {!loading && <Sparkles aria-hidden="true" className="size-4" />}
-          {loading ? 'Recherche…' : 'Trouver un sujet'}
+          {loading ? t('searching') : t('searchButton')}
         </Button>
       </div>
 
       {liveSignal && hasSearched && (
         <p className="inline-flex w-fit items-center gap-1.5 text-2xs text-muted">
           <Flame className="size-3.5 text-accent-400" aria-hidden="true" />
-          Signal de popularité externe enrichi (best-effort).
+          {t('liveSignalNote')}
         </p>
       )}
 
@@ -200,14 +200,21 @@ export function NicheResearchExplorer() {
       )}
 
       {!loading && hasSearched && candidates.length === 0 && (
-        <p className="text-sm text-muted">Aucun candidat trouvé pour cette catégorie.</p>
+        <p className="text-sm text-muted">{t('empty')}</p>
+      )}
+
+      {!loading && candidates.length > 0 && (
+        <p className="rounded-md border border-border bg-surface-subtle px-3.5 py-2.5 text-2xs text-muted">
+          <strong className="font-semibold text-foreground">{t('disclaimerTitle')}</strong>{' '}
+          {t('disclaimerBody')}
+        </p>
       )}
 
       {!loading && candidates.length > 0 && (
         <div
           className={cn('grid grid-cols-1 gap-4 sm:grid-cols-2')}
           role="list"
-          aria-label="Sujets suggérés"
+          aria-label={t('suggestedTopicsAriaLabel')}
         >
           {candidates.map((candidate) => (
             <CandidateCard

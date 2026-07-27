@@ -4,17 +4,21 @@ import * as React from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  AlertTriangle,
+  Award,
   Bell,
   CheckCheck,
   CheckCircle2,
-  Rocket,
-  ThumbsUp,
-  ThumbsDown,
-  AlertTriangle,
+  Flame,
   RefreshCw,
+  Rocket,
+  ThumbsDown,
+  ThumbsUp,
+  TrendingUp,
 } from 'lucide-react';
 import { transitions } from '@/components/motion';
 import { cn } from '@/lib/cn';
+import { useTranslations } from 'next-intl';
 
 /**
  * Cloche de notifications du header dashboard (Prompt 59). Composant client :
@@ -31,7 +35,12 @@ type NotificationType =
   | 'review_rejected'
   | 'quota_reached'
   | 'voice_clone_used'
-  | 'course_refresh_available';
+  | 'course_refresh_available'
+  // Gamification du LMS (P200) — émis par le cron de rappel de série (worker)
+  // et par l'attribution d'XP (web).
+  | 'streak_reminder'
+  | 'badge_earned'
+  | 'level_up';
 
 interface NotificationItem {
   id: string;
@@ -60,24 +69,31 @@ const TYPE_META: Record<
   quota_reached: { icon: AlertTriangle, tone: 'text-warning' },
   voice_clone_used: { icon: AlertTriangle, tone: 'text-muted' },
   course_refresh_available: { icon: RefreshCw, tone: 'text-accent-400' },
+  streak_reminder: { icon: Flame, tone: 'text-accent-400' },
+  badge_earned: { icon: Award, tone: 'text-accent-400' },
+  level_up: { icon: TrendingUp, tone: 'text-success' },
 };
 
 /** Intervalle de rafraîchissement (ms) tant que la cloche est montée. */
 const POLL_INTERVAL = 45_000;
 
-/** Formatage relatif court en français. */
-function timeAgo(iso: string): string {
+/** Formatage relatif court, localisé. */
+function timeAgo(
+  iso: string,
+  t: (key: string, values?: Record<string, number | string>) => string,
+): string {
   const diff = Date.now() - new Date(iso).getTime();
   const min = Math.floor(diff / 60_000);
-  if (min < 1) return "à l'instant";
-  if (min < 60) return `il y a ${min} min`;
+  if (min < 1) return t('timeAgo.instant');
+  if (min < 60) return t('timeAgo.minutes', { count: min });
   const h = Math.floor(min / 60);
-  if (h < 24) return `il y a ${h} h`;
+  if (h < 24) return t('timeAgo.hours', { count: h });
   const d = Math.floor(h / 24);
-  return `il y a ${d} j`;
+  return t('timeAgo.days', { count: d });
 }
 
 export function NotificationBell() {
+  const t = useTranslations('dashboard.notifications');
   const [open, setOpen] = React.useState(false);
   const [items, setItems] = React.useState<NotificationItem[]>([]);
   const [unread, setUnread] = React.useState(0);
@@ -156,7 +172,7 @@ export function NotificationBell() {
     <div ref={rootRef} className="relative">
       <button
         type="button"
-        aria-label="Notifications"
+        aria-label={t('bellAriaLabel')}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
@@ -181,15 +197,15 @@ export function NotificationBell() {
         {open && (
           <motion.div
             role="menu"
-            aria-label="Liste des notifications"
+            aria-label={t('menuAriaLabel')}
             initial={{ opacity: 0, y: 6, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.98 }}
             transition={transitions.springSnappy}
-            className="absolute end-0 z-40 mt-2 w-[min(360px,calc(100vw-2rem))] origin-top-end overflow-hidden rounded-md border border-border bg-surface shadow-xl"
+            className="absolute start-0 z-40 mt-2 w-[min(360px,calc(100vw-2rem))] origin-top-start overflow-hidden rounded-md border border-border bg-surface shadow-xl"
           >
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <span className="text-sm font-semibold text-foreground">Notifications</span>
+              <span className="text-sm font-semibold text-foreground">{t('title')}</span>
               {unread > 0 && (
                 <button
                   type="button"
@@ -197,7 +213,7 @@ export function NotificationBell() {
                   className="flex items-center gap-1.5 rounded-sm px-1.5 py-1 text-2xs font-medium text-muted transition-colors duration-fast hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/80"
                 >
                   <CheckCheck className="size-3.5" aria-hidden="true" />
-                  Tout marquer lu
+                  {t('markAllRead')}
                 </button>
               )}
             </div>
@@ -205,7 +221,7 @@ export function NotificationBell() {
             <div className="max-h-[min(60vh,420px)] overflow-y-auto">
               {items.length === 0 ? (
                 <p className="px-4 py-10 text-center text-sm text-muted">
-                  {loading ? 'Chargement…' : 'Aucune notification pour le moment.'}
+                  {loading ? t('loading') : t('empty')}
                 </p>
               ) : (
                 <ul className="divide-y divide-border/60">
@@ -239,7 +255,7 @@ export function NotificationBell() {
                           </div>
                           <p className="mt-0.5 line-clamp-2 text-2xs text-muted">{n.body}</p>
                           <span className="mt-1 block text-2xs text-muted/70">
-                            {timeAgo(n.createdAt)}
+                            {timeAgo(n.createdAt, t)}
                           </span>
                         </div>
                       </div>

@@ -1,10 +1,12 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { Check, CheckCircle2, RotateCcw, Sparkles, X, XCircle } from 'lucide-react';
 import { Button, Progress, useToast } from '@/components/ui';
 import { cn } from '@/lib/cn';
-import type { LearnQuizQuestionView } from './types';
+import { errorMessage } from '@/lib/error-message';
+import type { GamificationAwardView, LearnQuizQuestionView } from './types';
 
 /**
  * Quiz interactif du LMS étudiant, enrichi (Prompt 145) : à la soumission, les
@@ -12,6 +14,11 @@ import type { LearnQuizQuestionView } from './types';
  * (LessonProgress.wrongAnswers) pour alimenter le générateur d'exercices
  * ciblés. Un bouton « Plus d'exercices » appelle ensuite
  * /api/lms/lessons/[id]/more-exercises et affiche les questions générées.
+ *
+ * P200 : /track renvoie le delta d'XP à la PREMIÈRE soumission (5/10/20 XP
+ * selon le score, + 10 XP de leçon terminée, + bonus quotidien éventuel).
+ * `onXpAwarded` le remonte au HUD ; une re-soumission ne rapporte plus rien
+ * (la route détecte la leçon déjà complétée) et remonte donc `null`.
  */
 export interface LearnQuizPlayerProps {
   courseId: string;
@@ -19,6 +26,8 @@ export interface LearnQuizPlayerProps {
   /** Titre de la leçon — sert de thème par défaut faute de thème par question. */
   lessonTitle: string;
   questions: LearnQuizQuestionView[];
+  /** Remonte le gain d'XP renvoyé par /track (null si aucun XP attribué). */
+  onXpAwarded?: (award: GamificationAwardView | null) => void;
   className?: string;
 }
 
@@ -32,9 +41,12 @@ export function LearnQuizPlayer({
   lessonId,
   lessonTitle,
   questions,
+  onXpAwarded,
   className,
 }: LearnQuizPlayerProps) {
   const { toast } = useToast();
+  const t = useTranslations('learn.quiz');
+  const tApiError = useTranslations('apiErrors');
   const total = questions.length;
   const [answers, setAnswers] = React.useState<(number | null)[]>(() =>
     Array.from({ length: total }, () => null),
@@ -73,7 +85,7 @@ export function LearnQuizPlayer({
       }));
 
     try {
-      await fetch(`/api/learn/${courseId}/track`, {
+      const res = await fetch(`/api/learn/${courseId}/track`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -83,6 +95,12 @@ export function LearnQuizPlayer({
           wrongAnswers,
         }),
       });
+      if (res.ok && onXpAwarded) {
+        // P200 : `gamification` est null si la leçon avait déjà été complétée
+        // (aucun XP à la re-soumission) — le HUD ne bouge alors pas.
+        const data = (await res.json()) as { gamification: GamificationAwardView | null };
+        onXpAwarded(data.gamification);
+      }
     } catch {
       // Best-effort — l'échec du tracking ne bloque jamais l'affichage du score.
     }
@@ -101,22 +119,22 @@ export function LearnQuizPlayer({
       const data = (await res.json().catch(() => ({}))) as Partial<GeneratedExercise> & { error?: string };
       if (!res.ok) {
         toast({
-          title: 'Génération impossible',
-          description: data.error ?? 'Réessayez plus tard.',
+          title: t('errorGenTitle'),
+          description: errorMessage(data, tApiError),
           variant: 'danger',
         });
         return;
       }
       setExercise({ targetedThemes: data.targetedThemes ?? [], questions: data.questions ?? [] });
     } catch {
-      toast({ title: 'Génération impossible', description: 'Erreur réseau.', variant: 'danger' });
+      toast({ title: t('errorGenTitle'), description: t('errorNetwork'), variant: 'danger' });
     } finally {
       setGenerating(false);
     }
   }
 
   if (total === 0) {
-    return <p className="text-sm text-muted">Ce quiz ne contient encore aucune question.</p>;
+    return <p className="text-sm text-muted">{t('emptyQuiz')}</p>;
   }
 
   const answeredCount = answers.filter((a) => a !== null).length;
@@ -126,12 +144,12 @@ export function LearnQuizPlayer({
     <div className={cn('flex flex-col gap-6', className)}>
       {submitted ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface-subtle p-6 text-center">
-          <p className="text-2xs font-semibold uppercase tracking-wide text-muted">Résultat</p>
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted">{t('resultLabel')}</p>
           <p className="font-display text-4xl font-semibold text-foreground">
             {correctCount}
             <span className="text-muted"> / {total}</span>
           </p>
-          <Progress value={percent} label="Bonnes réponses" showLabel className="max-w-xs" />
+          <Progress value={percent} label={t('correctAnswersLabel')} showLabel className="max-w-xs" />
           <p
             className={cn(
               'flex items-center gap-2 text-sm font-semibold',
@@ -140,23 +158,23 @@ export function LearnQuizPlayer({
           >
             {percent >= 70 ? (
               <>
-                <CheckCircle2 className="size-4" aria-hidden="true" /> Quiz réussi
+                <CheckCircle2 className="size-4" aria-hidden="true" /> {t('quizPassed')}
               </>
             ) : (
               <>
-                <XCircle className="size-4" aria-hidden="true" /> En dessous du seuil (70 %)
+                <XCircle className="size-4" aria-hidden="true" /> {t('belowThreshold')}
               </>
             )}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Button variant="secondary" size="sm" onClick={restart}>
               <RotateCcw aria-hidden="true" />
-              Recommencer le quiz
+              {t('restart')}
             </Button>
             {hasMistakes && (
               <Button size="sm" onClick={requestMoreExercises} disabled={generating}>
                 <Sparkles aria-hidden="true" />
-                {generating ? 'Génération…' : 'Plus d’exercices'}
+                {generating ? t('generating') : t('moreExercises')}
               </Button>
             )}
           </div>
@@ -164,9 +182,9 @@ export function LearnQuizPlayer({
       ) : (
         <div className="flex items-center justify-between gap-3">
           <p className="text-2xs font-semibold uppercase tracking-wide text-muted">
-            {answeredCount} / {total} question(s) répondue(s)
+            {t('progress', { answered: answeredCount, total })}
           </p>
-          <Progress value={(answeredCount / total) * 100} label="Avancement du quiz" className="max-w-[12rem]" />
+          <Progress value={(answeredCount / total) * 100} label={t('quizProgressLabel')} className="max-w-[12rem]" />
         </div>
       )}
 
@@ -232,7 +250,7 @@ export function LearnQuizPlayer({
               </ul>
               {submitted && question.explanation && (
                 <p className="rounded-md border border-border bg-surface-subtle p-3 text-sm text-muted">
-                  <span className="font-semibold text-foreground">Explication : </span>
+                  <span className="font-semibold text-foreground">{t('explanationLabel')}</span>
                   {question.explanation}
                 </p>
               )}
@@ -245,10 +263,10 @@ export function LearnQuizPlayer({
         <div>
           <Button onClick={submit} disabled={!ready}>
             <CheckCircle2 aria-hidden="true" />
-            Soumettre le quiz
+            {t('submit')}
           </Button>
           {!ready && (
-            <p className="mt-2 text-2xs text-muted">Répondez à toutes les questions pour soumettre.</p>
+            <p className="mt-2 text-2xs text-muted">{t('answerAllPrompt')}</p>
           )}
         </div>
       )}
@@ -259,9 +277,9 @@ export function LearnQuizPlayer({
           <div className="flex items-center gap-2">
             <Sparkles className="size-4 text-accent-600" aria-hidden="true" />
             <p className="text-sm font-semibold text-foreground">
-              Exercices personnalisés{' '}
+              {t('personalizedExercises')}{' '}
               {exercise.targetedThemes.length > 0 && (
-                <span className="font-normal text-muted">— ciblés sur : {exercise.targetedThemes.join(', ')}</span>
+                <span className="font-normal text-muted">{t('targetedOn', { themes: exercise.targetedThemes.join(', ') })}</span>
               )}
             </p>
           </div>

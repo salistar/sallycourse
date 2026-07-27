@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/cn';
 
 /**
@@ -24,10 +25,12 @@ export function ProgressRing({
   value,
   size = 44,
   strokeWidth = 4,
-  label = 'Progression',
+  label,
   className,
 }: ProgressRingProps) {
+  const t = useTranslations('dashboard.progressRing');
   const gradientId = React.useId();
+  const resolvedLabel = label ?? t('label');
   const clamped = Math.min(100, Math.max(0, value));
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -36,7 +39,7 @@ export function ProgressRing({
   return (
     <span
       role="progressbar"
-      aria-label={label}
+      aria-label={resolvedLabel}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(clamped)}

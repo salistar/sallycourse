@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { PreviewFrame } from './preview-frame';
 import { ExampleLabel, StyleSection } from './section-shell';
 
@@ -25,26 +26,27 @@ const SPACING_STEPS: Array<{ token: string; px: string; barClass: string }> = [
   { token: '32', px: '128 px', barClass: 'w-32' },
 ];
 
-const RADII_STEPS: Array<{ token: string; px: string; className: string; usage: string }> = [
-  { token: 'sm', px: '8 px', className: 'rounded-sm', usage: 'Boutons, inputs, badges' },
-  { token: 'md (défaut)', px: '12 px', className: 'rounded-md', usage: 'Cartes, dropdowns' },
-  { token: 'lg', px: '16 px', className: 'rounded-lg', usage: 'Modales, panneaux' },
-  { token: 'xl', px: '24 px', className: 'rounded-xl', usage: 'Blocs hero, illustrations' },
-  { token: 'full', px: 'pill', className: 'rounded-full', usage: 'Pills, avatars' },
+const RADII_STEPS: Array<{ token: string; px: string; className: string; usageKey: string; isDefault?: boolean }> = [
+  { token: 'sm', px: '8 px', className: 'rounded-sm', usageKey: 'radii.usage.sm' },
+  { token: 'md', px: '12 px', className: 'rounded-md', usageKey: 'radii.usage.md', isDefault: true },
+  { token: 'lg', px: '16 px', className: 'rounded-lg', usageKey: 'radii.usage.lg' },
+  { token: 'xl', px: '24 px', className: 'rounded-xl', usageKey: 'radii.usage.xl' },
+  { token: 'full', px: 'pill', className: 'rounded-full', usageKey: 'radii.usage.full' },
 ];
 
-const SHADOW_STEPS: Array<{ token: string; className: string; usage: string }> = [
-  { token: 'shadow-sm', className: 'shadow-sm', usage: 'Relief discret (inputs)' },
-  { token: 'shadow-md', className: 'shadow-md', usage: 'Cartes au repos' },
-  { token: 'shadow-lg', className: 'shadow-lg', usage: 'Cartes survolées, popovers' },
-  { token: 'shadow-xl', className: 'shadow-xl', usage: 'Modales, panneaux flottants' },
-  { token: 'shadow-glow', className: 'shadow-glow', usage: 'Halo premium — CTA, mise en avant' },
+const SHADOW_STEPS: Array<{ token: string; className: string; usageKey: string }> = [
+  { token: 'shadow-sm', className: 'shadow-sm', usageKey: 'shadows.usage.sm' },
+  { token: 'shadow-md', className: 'shadow-md', usageKey: 'shadows.usage.md' },
+  { token: 'shadow-lg', className: 'shadow-lg', usageKey: 'shadows.usage.lg' },
+  { token: 'shadow-xl', className: 'shadow-xl', usageKey: 'shadows.usage.xl' },
+  { token: 'shadow-glow', className: 'shadow-glow', usageKey: 'shadows.usage.glow' },
 ];
 
 function SpacingScale() {
+  const t = useTranslations('design.foundations');
   return (
     <div className="flex flex-col gap-3">
-      <ExampleLabel>Espacements — grille 4 px stricte (seule exception : 2 px)</ExampleLabel>
+      <ExampleLabel>{t('spacing.label')}</ExampleLabel>
       <ul className="flex flex-col gap-2 rounded-md border border-border/60 bg-surface p-5">
         {SPACING_STEPS.map((step) => (
           <li key={step.token} className="flex items-center gap-4">
@@ -63,9 +65,10 @@ function SpacingScale() {
 }
 
 function RadiiScale() {
+  const t = useTranslations('design.foundations');
   return (
     <div className="flex flex-col gap-3">
-      <ExampleLabel>Rayons — trois crans structurants (8 / 12 / 16) + xl et pill</ExampleLabel>
+      <ExampleLabel>{t('radii.label')}</ExampleLabel>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {RADII_STEPS.map((step) => (
           <div key={step.token} className="flex flex-col items-start gap-2 rounded-md border border-border/60 bg-surface p-4">
@@ -73,9 +76,12 @@ function RadiiScale() {
               aria-hidden="true"
               className={`${step.className} h-14 w-full border border-primary-400/50 bg-primary-soft`}
             />
-            <span className="text-xs font-semibold text-foreground">{step.token}</span>
+            <span className="text-xs font-semibold text-foreground">
+              {step.token}
+              {step.isDefault ? ` (${t('radii.default')})` : ''}
+            </span>
             <span className="text-2xs text-muted">
-              {step.px} · {step.usage}
+              {step.px} · {t(step.usageKey)}
             </span>
           </div>
         ))}
@@ -85,9 +91,10 @@ function RadiiScale() {
 }
 
 function ShadowsScale() {
+  const t = useTranslations('design.foundations');
   return (
     <div className="flex flex-col gap-3">
-      <ExampleLabel>Ombres — toujours teintées violet, jamais de noir pur</ExampleLabel>
+      <ExampleLabel>{t('shadows.label')}</ExampleLabel>
       <div className="grid grid-cols-2 gap-4 rounded-md border border-border/60 bg-surface-subtle p-5 sm:grid-cols-3 lg:grid-cols-5 lg:p-8">
         {SHADOW_STEPS.map((step) => (
           <div key={step.token} className="flex flex-col gap-2">
@@ -96,25 +103,23 @@ function ShadowsScale() {
               className={`${step.className} h-20 rounded-md border border-border/40 bg-surface`}
             />
             <span className="text-xs font-semibold text-foreground">{step.token}</span>
-            <span className="text-2xs text-muted">{step.usage}</span>
+            <span className="text-2xs text-muted">{t(step.usageKey)}</span>
           </div>
         ))}
       </div>
-      <p className="text-xs text-muted">
-        En thème sombre les ombres s&apos;effacent au profit des liserés et halos&nbsp;: basculez en
-        light pour lire toute la profondeur de l&apos;échelle.
-      </p>
+      <p className="text-xs text-muted">{t('shadows.note')}</p>
     </div>
   );
 }
 
 export function FoundationsSection() {
+  const t = useTranslations('design.foundations');
   return (
     <StyleSection
       id="fondations"
       index={3}
-      title="Espacements · Rayons · Ombres"
-      lead="Une grille de 4 px sans exception (ou presque), trois rayons structurants et des ombres teintées de violet profond : la matière discrète qui tient chaque écran."
+      title={t('section.title')}
+      lead={t('section.lead')}
     >
       <PreviewFrame>
         <div className="flex flex-col gap-10">

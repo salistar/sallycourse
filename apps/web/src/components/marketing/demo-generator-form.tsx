@@ -4,6 +4,8 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Sparkles } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
+import { useTranslations } from 'next-intl';
+import { errorMessage } from '@/lib/error-message';
 
 /**
  * Formulaire de démo automatique (Prompt 96) — landing page. Saisie d'un
@@ -12,6 +14,8 @@ import { Button, Input } from '@/components/ui';
  */
 export function DemoGeneratorForm() {
   const router = useRouter();
+  const t = useTranslations('marketing.demoForm');
+  const tApiError = useTranslations('apiErrors');
   const [title, setTitle] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -19,7 +23,7 @@ export function DemoGeneratorForm() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (title.trim().length < 4) {
-      setError('Saisissez au moins 4 caractères.');
+      setError(t('errors.minLength'));
       return;
     }
     setLoading(true);
@@ -32,13 +36,13 @@ export function DemoGeneratorForm() {
       });
       const data = (await response.json()) as { id?: string; error?: string };
       if (!response.ok || !data.id) {
-        setError(data.error ?? 'Impossible de générer la démo pour le moment.');
+        setError(errorMessage(data, tApiError));
         setLoading(false);
         return;
       }
       router.push(`/demo/${data.id}`);
     } catch {
-      setError('Erreur réseau, réessayez.');
+      setError(t('errors.network'));
       setLoading(false);
     }
   }
@@ -46,10 +50,10 @@ export function DemoGeneratorForm() {
   return (
     <form onSubmit={handleSubmit} className="mt-8 flex w-full max-w-lg flex-col items-center gap-3 sm:flex-row">
       <Input
-        label="Titre de votre cours"
+        label={t('titleLabel')}
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder="Ex. Photographie culinaire pour débutants"
+        placeholder={t('titlePlaceholder')}
         maxLength={200}
         disabled={loading}
         error={error ?? undefined}
@@ -57,7 +61,7 @@ export function DemoGeneratorForm() {
       />
       <Button type="submit" variant="gold" loading={loading} className="w-full gap-2 self-start sm:w-auto">
         <Sparkles className="size-4" aria-hidden="true" />
-        Essayer gratuitement
+        {t('submit')}
       </Button>
     </form>
   );

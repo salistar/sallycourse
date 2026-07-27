@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { DesignSettingsProvider, useDesignSettings } from './design-context';
 import { DesignToolbar } from './design-toolbar';
 import { GrainOverlay } from './grain';
@@ -19,16 +20,17 @@ import { IllustrationsSection } from './illustrations-section';
  */
 
 const TOC = [
-  { href: '#palette', label: 'Palette' },
-  { href: '#typographie', label: 'Typographie' },
-  { href: '#fondations', label: 'Fondations' },
-  { href: '#motion', label: 'Motion' },
-  { href: '#illustrations', label: 'Illustrations' },
+  { href: '#palette', labelKey: 'toc.palette' },
+  { href: '#typographie', labelKey: 'toc.typography' },
+  { href: '#fondations', labelKey: 'toc.foundations' },
+  { href: '#motion', labelKey: 'toc.motion' },
+  { href: '#illustrations', labelKey: 'toc.illustrations' },
 ];
 
 /** En-tête héroïque : halos violets/or, grain, sommaire en pills de verre. */
 function Hero() {
   const { grain } = useDesignSettings();
+  const t = useTranslations('design.styleguide');
 
   return (
     <header className="relative overflow-hidden border-b border-border/60">
@@ -48,38 +50,33 @@ function Hero() {
           {/* Kicker sur liseré dégradé — signature de la marque */}
           <div className="rounded-full bg-gradient-to-r from-primary-500/60 via-border to-accent-400/60 p-px">
             <p className="rounded-full bg-surface/80 px-4 py-1.5 text-2xs font-semibold uppercase tracking-widest text-accent backdrop-blur-md">
-              SALISTAR · Direction artistique
+              {t('heroKicker')}
             </p>
           </div>
 
           <h1 className="font-display text-4xl font-semibold text-foreground sm:text-5xl">
-            Le studio où chaque
-            <br />
-            idée devient un cours.
+            {t.rich('heroTitle', { br: () => <br /> })}
           </h1>
 
           <p className="max-w-xl text-lg text-muted">
-            Fonds sombres profonds teintés de violet, or en touches rares, verre dépoli et
-            grain de pellicule&nbsp;: SallyCourse emprunte ses codes aux studios de production
-            haut de gamme. Ce guide vivant en est la référence — observez chaque fondation
-            en light, dark et RTL.
+            {t('heroDescription')}
           </p>
 
-          <nav aria-label="Sommaire du styleguide" className="flex flex-wrap gap-2">
+          <nav aria-label={t('tocAriaLabel')} className="flex flex-wrap gap-2">
             {TOC.map((item) => (
               <a
                 key={item.href}
                 href={item.href}
                 className="rounded-full border border-border/70 bg-surface/60 px-4 py-1.5 text-sm font-medium text-muted backdrop-blur-md transition-colors duration-fast hover:border-primary-400/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/80"
               >
-                {item.label}
+                {t(item.labelKey)}
               </a>
             ))}
           </nav>
         </div>
 
         <IllustrationFluxCours
-          title="Illustration du flux : d'une étincelle de prompt naissent les modules d'un cours"
+          title={t('heroIllustrationTitle')}
           className="h-auto w-full max-w-md justify-self-center animate-fade-in-up lg:justify-self-end"
         />
       </div>
@@ -89,16 +86,18 @@ function Hero() {
 
 /** Pied de page : rappel de la source de vérité des tokens. */
 function Footer() {
+  const t = useTranslations('design.styleguide');
+
   return (
     <footer className="border-t border-border/60">
       <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-10 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
         <p>
-          Source de vérité&nbsp;:{' '}
-          <span className="font-semibold text-foreground">packages/design/src/tokens.ts</span> —
-          aucune couleur hex ailleurs.
+          {t('footerSourceLabel')}{' '}
+          <span className="font-semibold text-foreground">packages/design/src/tokens.ts</span>{' '}
+          {t('footerNoHex')}
         </p>
         <p>
-          Composants&nbsp;:{' '}
+          {t('footerComponentsLabel')}{' '}
           <a
             href="/design/components"
             className="font-semibold text-foreground underline decoration-accent-400/60 underline-offset-4 transition-colors duration-fast hover:decoration-accent-400"

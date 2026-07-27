@@ -4,6 +4,8 @@ import * as React from 'react';
 import { Bot, Send, Sparkles } from 'lucide-react';
 import { Button, Card, CardContent } from '@/components/ui';
 import { cn } from '@/lib/cn';
+import { useTranslations } from 'next-intl';
+import { errorMessage } from '@/lib/error-message';
 
 /**
  * Widget chatbot embarquable (Prompt 146) — assistant de cours sur le LMS
@@ -33,6 +35,8 @@ export interface CourseChatbotWidgetProps {
 const MAX_QUESTION_LENGTH = 500;
 
 export function CourseChatbotWidget({ courseId, lessonTitleById = {}, className }: CourseChatbotWidgetProps) {
+  const t = useTranslations('learn.chatbot');
+  const tApiError = useTranslations('apiErrors');
   const [open, setOpen] = React.useState(false);
   const [question, setQuestion] = React.useState('');
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
@@ -60,7 +64,7 @@ export function CourseChatbotWidget({ courseId, lessonTitleById = {}, className 
         error?: string;
       };
       if (!res.ok) {
-        setError(data.error ?? "L'assistant est momentanément indisponible.");
+        setError(errorMessage(data, tApiError));
         return;
       }
       setMessages((prev) => [
@@ -68,7 +72,7 @@ export function CourseChatbotWidget({ courseId, lessonTitleById = {}, className 
         { role: 'assistant', content: data.answer ?? '', sourceLessonIds: data.sourceLessonIds ?? [] },
       ]);
     } catch {
-      setError('Connexion impossible — réessayez plus tard.');
+      setError(t('errorConnection'));
     } finally {
       setBusy(false);
     }
@@ -84,9 +88,9 @@ export function CourseChatbotWidget({ courseId, lessonTitleById = {}, className 
   if (!open) {
     return (
       <div className={cn('fixed bottom-6 right-6 z-40', className)}>
-        <Button onClick={() => setOpen(true)} className="shadow-lg" aria-label="Ouvrir l'assistant de cours">
+        <Button onClick={() => setOpen(true)} className="shadow-lg" aria-label={t('openLabel')}>
           <Bot aria-hidden="true" />
-          Assistant du cours
+          {t('title')}
         </Button>
       </div>
     );
@@ -98,19 +102,16 @@ export function CourseChatbotWidget({ courseId, lessonTitleById = {}, className 
         <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
             <Sparkles className="size-4 text-accent" aria-hidden="true" />
-            <p className="text-sm font-semibold text-foreground">Assistant du cours</p>
+            <p className="text-sm font-semibold text-foreground">{t('title')}</p>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setOpen(false)} aria-label="Fermer l'assistant">
+          <Button variant="ghost" size="sm" onClick={() => setOpen(false)} aria-label={t('closeLabel')}>
             ✕
           </Button>
         </div>
 
         <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
           {messages.length === 0 && (
-            <p className="text-xs text-muted">
-              Posez une question sur le contenu de ce cours — l'assistant répond à partir des leçons déjà disponibles
-              et cite ses sources.
-            </p>
+            <p className="text-xs text-muted">{t('emptyState')}</p>
           )}
           {messages.map((m, i) => (
             <div
@@ -125,13 +126,13 @@ export function CourseChatbotWidget({ courseId, lessonTitleById = {}, className 
               <p className="whitespace-pre-wrap">{m.content}</p>
               {m.role === 'assistant' && m.sourceLessonIds && m.sourceLessonIds.length > 0 && (
                 <p className="mt-1.5 text-2xs text-muted">
-                  Sources :{' '}
+                  {t('sourcesLabel')}{' '}
                   {m.sourceLessonIds.map((id) => lessonTitleById[id] ?? id).join(', ')}
                 </p>
               )}
             </div>
           ))}
-          {busy && <p className="text-xs text-muted">L'assistant réfléchit…</p>}
+          {busy && <p className="text-xs text-muted">{t('thinking')}</p>}
           {error && <p className="text-xs text-danger">{error}</p>}
         </CardContent>
 
@@ -140,7 +141,7 @@ export function CourseChatbotWidget({ courseId, lessonTitleById = {}, className 
             value={question}
             onChange={(e) => setQuestion(e.target.value.slice(0, MAX_QUESTION_LENGTH))}
             onKeyDown={handleKeyDown}
-            placeholder="Votre question sur ce cours…"
+            placeholder={t('placeholder')}
             rows={2}
             className={cn(
               'min-h-0 flex-1 resize-none rounded-sm border border-input bg-surface px-3 py-2',
@@ -148,9 +149,9 @@ export function CourseChatbotWidget({ courseId, lessonTitleById = {}, className 
               'placeholder:text-muted hover:border-ring/50',
               'focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/35',
             )}
-            aria-label="Votre question sur ce cours"
+            aria-label={t('questionLabel')}
           />
-          <Button onClick={handleAsk} disabled={busy || question.trim().length < 3} aria-label="Envoyer la question">
+          <Button onClick={handleAsk} disabled={busy || question.trim().length < 3} aria-label={t('sendLabel')}>
             <Send aria-hidden="true" />
           </Button>
         </div>

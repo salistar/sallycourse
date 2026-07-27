@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { ArrowLeftRight, RotateCcw } from 'lucide-react';
 // Sous-module direct (pas le baril) : évite d'embarquer render-templates.ts
 // (Node-only, node:url) dans le bundle navigateur d'un composant client.
@@ -17,25 +18,25 @@ import { ExampleLabel, StyleSection } from './section-shell';
  * est respecté globalement (voir globals.css).
  */
 
-const DURATION_ROWS: Array<{ token: string; value: string; className: string; usage: string }> = [
-  { token: 'instant', value: durations.instant, className: 'duration-instant', usage: 'Feedback pressé' },
-  { token: 'fast', value: durations.fast, className: 'duration-fast', usage: 'Hover, focus' },
-  { token: 'base', value: durations.base, className: 'duration-base', usage: 'Transitions par défaut' },
-  { token: 'slow', value: durations.slow, className: 'duration-slow', usage: 'Entrées de panneaux' },
-  { token: 'slower', value: durations.slower, className: 'duration-slower', usage: 'Séquences orchestrées' },
+const DURATION_ROWS: Array<{ token: string; value: string; className: string; usageKey: string }> = [
+  { token: 'instant', value: durations.instant, className: 'duration-instant', usageKey: 'dur.instant' },
+  { token: 'fast', value: durations.fast, className: 'duration-fast', usageKey: 'dur.fast' },
+  { token: 'base', value: durations.base, className: 'duration-base', usageKey: 'dur.base' },
+  { token: 'slow', value: durations.slow, className: 'duration-slow', usageKey: 'dur.slow' },
+  { token: 'slower', value: durations.slower, className: 'duration-slower', usageKey: 'dur.slower' },
 ];
 
-const EASING_ROWS: Array<{ token: string; value: string; className: string; usage: string }> = [
-  { token: 'standard', value: easings.standard, className: 'ease-standard duration-slower', usage: 'Courbe par défaut' },
-  { token: 'out', value: easings.out, className: 'ease-out duration-slower', usage: 'Entrées (décélération)' },
-  { token: 'in', value: easings.in, className: 'ease-in duration-slower', usage: 'Sorties (accélération)' },
-  { token: 'spring', value: easings.spring, className: 'ease-spring duration-slower', usage: 'Célébrations, badges' },
+const EASING_ROWS: Array<{ token: string; value: string; className: string; usageKey: string }> = [
+  { token: 'standard', value: easings.standard, className: 'ease-standard duration-slower', usageKey: 'ease.standard' },
+  { token: 'out', value: easings.out, className: 'ease-out duration-slower', usageKey: 'ease.out' },
+  { token: 'in', value: easings.in, className: 'ease-in duration-slower', usageKey: 'ease.in' },
+  { token: 'spring', value: easings.spring, className: 'ease-spring duration-slower', usageKey: 'ease.spring' },
 ];
 
-const ENTRANCE_ROWS: Array<{ token: string; className: string; usage: string }> = [
-  { token: 'animate-fade-in', className: 'animate-fade-in', usage: 'Apparitions discrètes' },
-  { token: 'animate-fade-in-up', className: 'animate-fade-in-up', usage: 'Contenu qui se pose' },
-  { token: 'animate-scale-in', className: 'animate-scale-in', usage: 'Modales, célébrations' },
+const ENTRANCE_ROWS: Array<{ token: string; className: string; usageKey: string }> = [
+  { token: 'animate-fade-in', className: 'animate-fade-in', usageKey: 'entrance.fadeIn' },
+  { token: 'animate-fade-in-up', className: 'animate-fade-in-up', usageKey: 'entrance.fadeInUp' },
+  { token: 'animate-scale-in', className: 'animate-scale-in', usageKey: 'entrance.scaleIn' },
 ];
 
 /** Piste de course : une bille par ligne, aller-retour au clic. */
@@ -44,10 +45,11 @@ function RaceTrack({
   legend,
   note,
 }: {
-  rows: Array<{ token: string; value: string; className: string; usage: string }>;
+  rows: Array<{ token: string; value: string; className: string; usageKey: string }>;
   legend: string;
   note: string;
 }) {
+  const t = useTranslations('design.motion');
   const [away, setAway] = React.useState(false);
 
   return (
@@ -56,7 +58,7 @@ function RaceTrack({
         <ExampleLabel>{legend}</ExampleLabel>
         <Button variant="secondary" size="sm" onClick={() => setAway((v) => !v)}>
           <ArrowLeftRight aria-hidden="true" />
-          {away ? 'Retour' : 'Lancer'}
+          {away ? t('back') : t('start')}
         </Button>
       </div>
       <ul className="flex flex-col gap-3 rounded-md border border-border/60 bg-surface p-5">
@@ -75,7 +77,7 @@ function RaceTrack({
               />
             </div>
             <span className="text-2xs text-muted">
-              <span className="font-medium text-foreground">{row.value}</span> · {row.usage}
+              <span className="font-medium text-foreground">{row.value}</span> · {t(row.usageKey)}
             </span>
           </li>
         ))}
@@ -87,15 +89,16 @@ function RaceTrack({
 
 /** Animations d'entrée standard, rejouées en remontant les cartes (clé React). */
 function EntranceShowcase() {
+  const t = useTranslations('design.motion');
   const [runKey, setRunKey] = React.useState(0);
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <ExampleLabel>Animations d&apos;entrée standard</ExampleLabel>
+        <ExampleLabel>{t('entranceLabel')}</ExampleLabel>
         <Button variant="secondary" size="sm" onClick={() => setRunKey((k) => k + 1)}>
           <RotateCcw aria-hidden="true" />
-          Rejouer
+          {t('replay')}
         </Button>
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
@@ -113,7 +116,7 @@ function EntranceShowcase() {
             />
             <div className="flex flex-col gap-0.5">
               <span className="text-xs font-semibold text-foreground">{row.token}</span>
-              <span className="text-2xs text-muted">{row.usage}</span>
+              <span className="text-2xs text-muted">{t(row.usageKey)}</span>
             </div>
           </div>
         ))}
@@ -123,24 +126,25 @@ function EntranceShowcase() {
 }
 
 export function MotionSection() {
+  const t = useTranslations('design.motion');
   return (
     <StyleSection
       id="motion"
       index={4}
-      title="Motion"
-      lead="Cinq durées, quatre courbes, trois entrées : un vocabulaire court et strict. Les micro-interactions restent sous 250 ms ; le spring est réservé aux célébrations. prefers-reduced-motion est toujours respecté."
+      title={t('title')}
+      lead={t('lead')}
     >
       <PreviewFrame>
         <div className="flex flex-col gap-10">
           <RaceTrack
             rows={DURATION_ROWS}
-            legend="Durées — même courbe (standard), cinq tempos"
-            note="Chaque bille court sur la même distance : seule la durée change. En RTL, la course s'inverse naturellement (déplacement en marge logique)."
+            legend={t('durationsLegend')}
+            note={t('durationsNote')}
           />
           <RaceTrack
             rows={EASING_ROWS}
-            legend="Courbes — même durée (slower), quatre caractères"
-            note="Observez le spring dépasser légèrement sa cible avant de se poser — à réserver aux moments de célébration."
+            legend={t('easingsLegend')}
+            note={t('easingsNote')}
           />
           <EntranceShowcase />
         </div>

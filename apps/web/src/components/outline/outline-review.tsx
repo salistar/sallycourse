@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   ArrowLeft,
   CalendarDays,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Badge, Button, ToastProvider, Toaster, useToast } from '@/components/ui';
 import { cn } from '@/lib/cn';
+import { errorMessage } from '@/lib/error-message';
 import { approveOutlinePayloadSchema, type ApproveOutlinePayload } from '@/lib/outline-payload';
 import { useAutosave, autosaveStatusLabel } from '@/hooks/use-autosave';
 import { clearLocalDraft, readLocalDraft, shouldOfferRecovery, writeLocalDraft } from '@/hooks/local-draft';
@@ -62,6 +64,7 @@ export function OutlineReview({ course }: OutlineReviewProps) {
 function OutlineReviewInner({ course }: OutlineReviewProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const tApiError = useTranslations('apiErrors');
   const draftScope = `outline:${course.id}`;
 
   const initialSections = React.useMemo(() => toEditorSections(course.sections), [course.sections]);
@@ -152,7 +155,7 @@ function OutlineReviewInner({ course }: OutlineReviewProps) {
         toast({
           variant: 'danger',
           title: 'Validation impossible',
-          description: data.error ?? 'Une erreur est survenue, réessayez.',
+          description: errorMessage(data, tApiError),
         });
         return;
       }
@@ -184,7 +187,7 @@ function OutlineReviewInner({ course }: OutlineReviewProps) {
         toast({
           variant: 'danger',
           title: 'Régénération impossible',
-          description: data.error ?? 'Une erreur est survenue, réessayez.',
+          description: errorMessage(data, tApiError),
         });
         return;
       }

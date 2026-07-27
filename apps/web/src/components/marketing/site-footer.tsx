@@ -55,6 +55,9 @@ export async function SiteFooter() {
           <Link href="/showcase" className="text-sm text-foreground/80 transition-colors duration-fast hover:text-foreground">
             {t('links.showcase')}
           </Link>
+          <Link href="/blog" className="text-sm text-foreground/80 transition-colors duration-fast hover:text-foreground">
+            {t('links.blog')}
+          </Link>
         </div>
 
         <div className="flex flex-col gap-3">

@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Film, Moon, Sun } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/cn';
 import {
   useDesignSettings,
@@ -65,6 +66,7 @@ function Divider() {
 }
 
 export function DesignToolbar() {
+  const t = useTranslations('design.toolbar');
   const { theme, setTheme, dir, setDir, grain, setGrain } = useDesignSettings();
 
   return (
@@ -74,22 +76,22 @@ export function DesignToolbar() {
         {/* Verre dépoli discret sur surface élevée */}
         <div className="flex items-center gap-2 rounded-full bg-surface/75 px-2.5 py-1.5 backdrop-blur-xl sm:gap-3">
           <Segmented<ThemeMode>
-            label="Thème"
+            label={t('theme.label')}
             value={theme}
             onChange={setTheme}
             options={[
-              { value: 'light', srLabel: 'Thème clair', label: <Sun className="h-4 w-4" aria-hidden="true" /> },
-              { value: 'dark', srLabel: 'Thème sombre', label: <Moon className="h-4 w-4" aria-hidden="true" /> },
+              { value: 'light', srLabel: t('theme.light'), label: <Sun className="h-4 w-4" aria-hidden="true" /> },
+              { value: 'dark', srLabel: t('theme.dark'), label: <Moon className="h-4 w-4" aria-hidden="true" /> },
             ]}
           />
           <Divider />
           <Segmented<TextDirection>
-            label="Sens de lecture des démonstrations"
+            label={t('direction.label')}
             value={dir}
             onChange={setDir}
             options={[
-              { value: 'ltr', srLabel: 'Gauche vers droite (FR/EN)', label: 'LTR' },
-              { value: 'rtl', srLabel: 'Droite vers gauche (AR)', label: 'RTL' },
+              { value: 'ltr', srLabel: t('direction.ltr'), label: 'LTR' },
+              { value: 'rtl', srLabel: t('direction.rtl'), label: 'RTL' },
             ]}
           />
           <Divider />
@@ -104,7 +106,7 @@ export function DesignToolbar() {
             )}
           >
             <Film className="h-4 w-4" aria-hidden="true" />
-            Grain
+            {t('grain')}
           </button>
         </div>
       </div>

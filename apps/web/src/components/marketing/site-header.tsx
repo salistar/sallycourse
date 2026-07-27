@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { Sparkles } from 'lucide-react';
 import { buttonVariants } from '@/components/ui';
 import { cn } from '@/lib/cn';
+import { MobileNav } from './mobile-nav';
 
 /**
  * En-tête public (P95) — navigation marketing partagée par toutes les pages
@@ -32,6 +33,9 @@ export async function SiteHeader() {
           <Link href="/showcase" className="text-sm font-medium text-muted transition-colors duration-fast hover:text-foreground">
             {t('showcase')}
           </Link>
+          <Link href="/marketplace" className="text-sm font-medium text-muted transition-colors duration-fast hover:text-foreground">
+            {t('header.marketplace')}
+          </Link>
         </nav>
 
         <div className="flex items-center gap-3">
@@ -44,6 +48,18 @@ export async function SiteHeader() {
           <Link href="/register" className={cn(buttonVariants({ variant: 'gold', size: 'sm' }))}>
             {t('cta')}
           </Link>
+          {/* Navigation mobile (hamburger) — visible uniquement sous md. */}
+          <MobileNav
+            menuLabel={t('header.menu')}
+            loginLabel={t('login')}
+            ctaLabel={t('cta')}
+            links={[
+              { href: '/#fonctionnalites', label: t('features') },
+              { href: '/pricing', label: t('pricing') },
+              { href: '/showcase', label: t('showcase') },
+              { href: '/marketplace', label: t('header.marketplace') },
+            ]}
+          />
         </div>
       </div>
     </header>

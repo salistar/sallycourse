@@ -2,10 +2,13 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
+import { useTranslations } from 'next-intl';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  BarChart3,
+  Building2,
   ChevronsUpDown,
   Compass,
   Gift,
@@ -14,6 +17,7 @@ import {
   LogOut,
   Menu,
   PlusCircle,
+  Route,
   Settings,
   ShieldCheck,
   UserRound,
@@ -21,6 +25,7 @@ import {
 } from 'lucide-react';
 import { transitions } from '@/components/motion';
 import { LanguageSwitcher } from '@/components/i18n';
+import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { cn } from '@/lib/cn';
 import { NotificationBell } from './notification-bell';
 import { GlobalSearch } from './global-search';
@@ -66,34 +71,58 @@ function Logo() {
 
 interface NavItem {
   href: string;
-  label: string;
+  /** Clé i18n dans le namespace `nav` (résolue par useTranslations dans NavLinks). */
+  labelKey: string;
   icon: React.ComponentType<{ className?: string }>;
   /** Actif uniquement sur correspondance exacte (évite /dashboard actif sur /dashboard/new). */
   exact?: boolean;
+  /** Préfixe d'activation quand il diffère du href (ex. href /settings/account, actif sur /settings/*). */
+  activePrefix?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  { href: '/dashboard/new', label: 'Nouveau cours', icon: PlusCircle },
-  { href: '/dashboard/niche-research', label: 'Trouver un sujet', icon: Compass },
-  { href: '/dashboard/batch', label: 'Génération en batch', icon: Layers },
-  { href: '/dashboard/affiliate', label: 'Affiliation', icon: Gift },
-  { href: '/settings', label: 'Paramètres', icon: Settings },
+  { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard, exact: true },
+  { href: '/dashboard/new', labelKey: 'newCourse', icon: PlusCircle },
+  { href: '/dashboard/niche-research', labelKey: 'nicheResearch', icon: Compass },
+  { href: '/dashboard/batch', labelKey: 'batch', icon: Layers },
+  { href: '/dashboard/paths', labelKey: 'paths', icon: Route },
+  // Statistiques & analytique (2026-07-26) : conso par provider IA/apps Modal + coûts.
+  { href: '/dashboard/stats', labelKey: 'stats', icon: BarChart3 },
+  { href: '/dashboard/affiliate', labelKey: 'affiliate', icon: Gift },
+  // Directement /account : /dashboard/settings n'est qu'un 307 vers cette page,
+  // et en dev le hub + la cible se compilent chacun à la 1re visite (~18 s cumulés).
+  { href: '/dashboard/settings/account', labelKey: 'settings', icon: Settings, activePrefix: '/dashboard/settings' },
 ];
 
 /** Entrée réservée au rôle admin — supervision des jobs de génération. */
-const ADMIN_NAV_ITEM: NavItem = { href: '/admin/jobs', label: 'Admin', icon: ShieldCheck };
+const ADMIN_NAV_ITEM: NavItem = { href: '/admin/jobs', labelKey: 'admin', icon: ShieldCheck };
+/** Entrée réservée aux comptes agence (P150) — gestion des clients/facturation. */
+const AGENCY_NAV_ITEM: NavItem = { href: '/dashboard/agency', labelKey: 'agency', icon: Building2 };
 
-function NavLinks({ onNavigate, isAdmin }: { onNavigate?: () => void; isAdmin?: boolean }) {
+function NavLinks({
+  onNavigate,
+  isAdmin,
+  isAgency,
+}: {
+  onNavigate?: () => void;
+  isAdmin?: boolean;
+  isAgency?: boolean;
+}) {
   const pathname = usePathname();
-  const items = isAdmin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
+  const t = useTranslations('nav');
+  const items = [
+    ...NAV_ITEMS,
+    ...(isAgency ? [AGENCY_NAV_ITEM] : []),
+    ...(isAdmin ? [ADMIN_NAV_ITEM] : []),
+  ];
 
   return (
-    <nav aria-label="Navigation principale" className="flex flex-col gap-1">
+    <nav aria-label={t('mainNav')} className="flex flex-col gap-1">
       {items.map((item) => {
+        const matchBase = item.activePrefix ?? item.href;
         const active = item.exact
           ? pathname === item.href
-          : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          : pathname === matchBase || pathname.startsWith(`${matchBase}/`);
         return (
           <Link
             key={item.href}
@@ -121,7 +150,7 @@ function NavLinks({ onNavigate, isAdmin }: { onNavigate?: () => void; isAdmin?: 
               className={cn('h-[18px] w-[18px] shrink-0', active ? 'text-accent-400' : 'text-muted group-hover:text-foreground')}
               aria-hidden="true"
             />
-            {item.label}
+            {t(item.labelKey)}
           </Link>
         );
       })}
@@ -140,6 +169,8 @@ const PLAN_LABELS: Record<DashboardUser['plan'], string> = {
 };
 
 function UserMenu({ user }: { user: DashboardUser }) {
+  const router = useRouter();
+  const t = useTranslations('userMenu');
   const [open, setOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
@@ -164,9 +195,9 @@ function UserMenu({ user }: { user: DashboardUser }) {
   }, [open]);
 
   const items = [
-    { id: 'profile', label: 'Profil', icon: UserRound },
-    { id: 'settings', label: 'Paramètres', icon: Settings },
-    { id: 'logout', label: 'Se déconnecter', icon: LogOut, danger: true },
+    { id: 'profile', label: t('profile'), icon: UserRound },
+    { id: 'settings', label: t('settings'), icon: Settings },
+    { id: 'logout', label: t('logout'), icon: LogOut, danger: true },
   ];
 
   return (
@@ -175,7 +206,7 @@ function UserMenu({ user }: { user: DashboardUser }) {
         {open && (
           <motion.div
             role="menu"
-            aria-label="Menu utilisateur"
+            aria-label={t('label')}
             initial={{ opacity: 0, y: 6, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.98 }}
@@ -191,6 +222,11 @@ function UserMenu({ user }: { user: DashboardUser }) {
                   setOpen(false);
                   // Déconnexion réelle (Auth.js) — retour à l'écran de connexion.
                   if (item.id === 'logout') void signOut({ callbackUrl: '/login' });
+                  // Profil/Paramètres mènent aux réglages du compte (les deux
+                  // entrées étaient muettes — audit connectivité 2026-07-17).
+                  if (item.id === 'profile' || item.id === 'settings') {
+                    router.push('/dashboard/settings/account');
+                  }
                 }}
                 className={cn(
                   'flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-start text-sm',
@@ -228,7 +264,7 @@ function UserMenu({ user }: { user: DashboardUser }) {
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-semibold text-foreground">{user.name}</span>
           <span className="block truncate text-2xs text-muted">
-            Plan {PLAN_LABELS[user.plan]} · {user.email}
+            {t('planPrefix')} {PLAN_LABELS[user.plan]} · {user.email}
           </span>
         </span>
         <ChevronsUpDown className="size-4 shrink-0 text-muted" aria-hidden="true" />
@@ -245,10 +281,12 @@ function UserMenu({ user }: { user: DashboardUser }) {
 function SidebarContent({
   onNavigate,
   isAdmin,
+  isAgency,
   user,
 }: {
   onNavigate?: () => void;
   isAdmin?: boolean;
+  isAgency?: boolean;
   user: DashboardUser;
 }) {
   return (
@@ -260,9 +298,10 @@ function SidebarContent({
       </div>
       {/* Recherche globale (P132) — raccourci Cmd/Ctrl+K, accessible sur toute la sidebar */}
       <GlobalSearch />
-      <NavLinks onNavigate={onNavigate} isAdmin={isAdmin} />
+      <NavLinks onNavigate={onNavigate} isAdmin={isAdmin} isAgency={isAgency} />
       <div className="mt-auto space-y-2">
-        {/* Sélecteur de langue de l'UI (cookie NEXT_LOCALE) — au-dessus du menu. */}
+        {/* Sélecteur de thème (clair/sombre/système) + langue de l'UI. */}
+        <ThemeToggle />
         <LanguageSwitcher />
         <UserMenu user={user} />
       </div>
@@ -273,11 +312,13 @@ function SidebarContent({
 export interface DashboardSidebarProps {
   /** Affiche le lien Admin (rôle admin uniquement — fourni par le layout serveur). */
   isAdmin?: boolean;
+  /** Affiche le lien Agence (comptes agence, P150 — fourni par le layout serveur). */
+  isAgency?: boolean;
   /** Utilisateur connecté (fourni par le layout serveur) — mock en secours. */
   user?: DashboardUser;
 }
 
-export function DashboardSidebar({ isAdmin = false, user = MOCK_USER }: DashboardSidebarProps) {
+export function DashboardSidebar({ isAdmin = false, isAgency = false, user = MOCK_USER }: DashboardSidebarProps) {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const pathname = usePathname();
 
@@ -290,7 +331,7 @@ export function DashboardSidebar({ isAdmin = false, user = MOCK_USER }: Dashboar
     <>
       {/* Sidebar desktop — fixe côté début de ligne (RTL ok) */}
       <aside className="fixed inset-y-0 start-0 z-30 hidden w-64 border-e border-border bg-surface/60 backdrop-blur-sm lg:block">
-        <SidebarContent isAdmin={isAdmin} user={user} />
+        <SidebarContent isAdmin={isAdmin} isAgency={isAgency} user={user} />
       </aside>
 
       {/* Barre haute mobile */}
@@ -333,7 +374,7 @@ export function DashboardSidebar({ isAdmin = false, user = MOCK_USER }: Dashboar
               transition={transitions.springSoft}
               className="fixed inset-y-0 start-0 z-50 w-72 border-e border-border bg-surface shadow-xl lg:hidden"
             >
-              <SidebarContent onNavigate={() => setDrawerOpen(false)} isAdmin={isAdmin} user={user} />
+              <SidebarContent onNavigate={() => setDrawerOpen(false)} isAdmin={isAdmin} isAgency={isAgency} user={user} />
             </motion.div>
           </>
         )}

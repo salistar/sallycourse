@@ -36,6 +36,15 @@ export interface DashboardCourse {
   platforms: PlatformId[];
   /** Libellé de fraîcheur pré-formaté (évite tout calcul de date côté mock). */
   updatedAtLabel: string;
+  /** Cours archivé par la rétention P79 (médias purgés) — réactivable. */
+  archived?: boolean;
+  /**
+   * URL présignée de la couverture réelle du cours (hero SDXL/Z-Image ou image
+   * uploadée par l'auteur). Absente → repli sur la miniature géométrique
+   * générée (CourseThumbnail). Ajouté 2026-07-26 (les covers générées n'étaient
+   * jamais affichées sur les cartes du dashboard).
+   */
+  coverUrl?: string;
 }
 
 export const MOCK_COURSES: DashboardCourse[] = [

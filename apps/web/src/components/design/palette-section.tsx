@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 // Sous-module direct (pas le baril) : évite d'embarquer render-templates.ts
 // (Node-only, node:url) dans le bundle navigateur d'un composant client.
 import { colors } from '@sallycourse/design/tokens';
@@ -19,8 +20,8 @@ const SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as const;
 type Shade = (typeof SHADES)[number];
 
 interface ColorFamily {
-  label: string;
-  usage: string;
+  labelKey: string;
+  usageKey: string;
   hex: Record<Shade, string>;
   /** Classes bg-* épelées une à une pour chaque cran. */
   swatch: Record<Shade, string>;
@@ -30,8 +31,8 @@ interface ColorFamily {
 
 const FAMILIES: ColorFamily[] = [
   {
-    label: 'Violet — primaire',
-    usage: 'Actions, liens, identité. #5B2A86 posé au cran 700.',
+    labelKey: 'families.violet.label',
+    usageKey: 'families.violet.usage',
     hex: colors.violet,
     brandShade: 700,
     swatch: {
@@ -41,8 +42,8 @@ const FAMILIES: ColorFamily[] = [
     },
   },
   {
-    label: 'Or — accent',
-    usage: 'Parcimonieux : distinctions, célébrations. #D4A017 au cran 500.',
+    labelKey: 'families.gold.label',
+    usageKey: 'families.gold.usage',
     hex: colors.gold,
     brandShade: 500,
     swatch: {
@@ -52,8 +53,8 @@ const FAMILIES: ColorFamily[] = [
     },
   },
   {
-    label: 'Neutres chauds',
-    usage: 'Textes, bordures, surfaces — teintés violet, jamais de gris froid. Fond de marque #0D0714 au cran 950.',
+    labelKey: 'families.neutral.label',
+    usageKey: 'families.neutral.usage',
     hex: colors.neutral,
     brandShade: 950,
     swatch: {
@@ -63,8 +64,8 @@ const FAMILIES: ColorFamily[] = [
     },
   },
   {
-    label: 'Succès',
-    usage: 'Validations, quiz réussis, progression complétée.',
+    labelKey: 'families.success.label',
+    usageKey: 'families.success.usage',
     hex: colors.success,
     swatch: {
       50: 'bg-success-50', 100: 'bg-success-100', 200: 'bg-success-200', 300: 'bg-success-300',
@@ -73,8 +74,8 @@ const FAMILIES: ColorFamily[] = [
     },
   },
   {
-    label: 'Avertissement',
-    usage: 'États à surveiller, quotas, brouillons.',
+    labelKey: 'families.warning.label',
+    usageKey: 'families.warning.usage',
     hex: colors.warning,
     swatch: {
       50: 'bg-warning-50', 100: 'bg-warning-100', 200: 'bg-warning-200', 300: 'bg-warning-300',
@@ -83,8 +84,8 @@ const FAMILIES: ColorFamily[] = [
     },
   },
   {
-    label: 'Danger',
-    usage: 'Erreurs, suppressions, échecs de génération.',
+    labelKey: 'families.danger.label',
+    usageKey: 'families.danger.usage',
     hex: colors.danger,
     swatch: {
       50: 'bg-danger-50', 100: 'bg-danger-100', 200: 'bg-danger-200', 300: 'bg-danger-300',
@@ -93,8 +94,8 @@ const FAMILIES: ColorFamily[] = [
     },
   },
   {
-    label: 'Info',
-    usage: 'Messages informatifs, astuces, traitements en cours.',
+    labelKey: 'families.info.label',
+    usageKey: 'families.info.usage',
     hex: colors.info,
     swatch: {
       50: 'bg-info-50', 100: 'bg-info-100', 200: 'bg-info-200', 300: 'bg-info-300',
@@ -116,6 +117,7 @@ function Swatch({
   swatchClass: string;
   brand: boolean;
 }) {
+  const t = useTranslations('design.palette');
   const [copied, setCopied] = React.useState(false);
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -144,7 +146,7 @@ function Swatch({
     <button
       type="button"
       onClick={copy}
-      title={`Copier ${hex}`}
+      title={t('swatch.copyTitle', { hex })}
       className={cn(
         'group flex h-16 min-w-0 flex-col justify-between rounded-md p-1.5 text-start',
         'transition-transform duration-fast ease-out hover:-translate-y-0.5',
@@ -162,7 +164,7 @@ function Swatch({
           onLight ? 'text-neutral-950/60' : 'text-neutral-50/70',
         )}
       >
-        {copied ? 'Copié ✓' : hex}
+        {copied ? t('swatch.copied') : hex}
       </span>
     </button>
   );
@@ -170,22 +172,23 @@ function Swatch({
 
 /** Rôles sémantiques pilotés par CSS variables — réagissent au thème en direct. */
 function SemanticRoles() {
+  const t = useTranslations('design.palette');
   return (
     <div className="flex flex-col gap-3">
-      <ExampleLabel>Rôles sémantiques (varient avec le thème — basculez light/dark ci-dessus)</ExampleLabel>
+      <ExampleLabel>{t('roles.heading')}</ExampleLabel>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        <RoleChip className="bg-background text-foreground" name="background" note="fond de page" bordered />
-        <RoleChip className="bg-surface text-foreground" name="surface" note="cartes, panneaux" bordered />
-        <RoleChip className="bg-surface-subtle text-foreground" name="surface-subtle" note="bandeaux, wells" bordered />
-        <RoleChip className="bg-primary text-primary-foreground" name="primary" note="action principale" />
-        <RoleChip className="bg-primary-soft text-foreground" name="primary-soft" note="hover doux, pills" bordered />
-        <RoleChip className="bg-accent text-accent-foreground" name="accent" note="or — parcimonieux" />
-        <RoleChip className="bg-success text-success-foreground" name="success" note="validation" />
-        <RoleChip className="bg-warning text-warning-foreground" name="warning" note="vigilance" />
-        <RoleChip className="bg-danger text-danger-foreground" name="danger" note="erreur" />
-        <RoleChip className="bg-info text-info-foreground" name="info" note="information" />
-        <RoleChip className="bg-surface text-muted" name="muted" note="texte secondaire" bordered />
-        <RoleChip className="bg-surface text-foreground ring-2 ring-ring ring-offset-2 ring-offset-background" name="ring" note="focus clavier" bordered />
+        <RoleChip className="bg-background text-foreground" name="background" note={t('roles.background.note')} bordered />
+        <RoleChip className="bg-surface text-foreground" name="surface" note={t('roles.surface.note')} bordered />
+        <RoleChip className="bg-surface-subtle text-foreground" name="surface-subtle" note={t('roles.surfaceSubtle.note')} bordered />
+        <RoleChip className="bg-primary text-primary-foreground" name="primary" note={t('roles.primary.note')} />
+        <RoleChip className="bg-primary-soft text-foreground" name="primary-soft" note={t('roles.primarySoft.note')} bordered />
+        <RoleChip className="bg-accent text-accent-foreground" name="accent" note={t('roles.accent.note')} />
+        <RoleChip className="bg-success text-success-foreground" name="success" note={t('roles.success.note')} />
+        <RoleChip className="bg-warning text-warning-foreground" name="warning" note={t('roles.warning.note')} />
+        <RoleChip className="bg-danger text-danger-foreground" name="danger" note={t('roles.danger.note')} />
+        <RoleChip className="bg-info text-info-foreground" name="info" note={t('roles.info.note')} />
+        <RoleChip className="bg-surface text-muted" name="muted" note={t('roles.muted.note')} bordered />
+        <RoleChip className="bg-surface text-foreground ring-2 ring-ring ring-offset-2 ring-offset-background" name="ring" note={t('roles.ring.note')} bordered />
       </div>
     </div>
   );
@@ -217,20 +220,21 @@ function RoleChip({
 }
 
 export function PaletteSection() {
+  const t = useTranslations('design.palette');
   return (
     <StyleSection
       id="palette"
       index={1}
-      title="Palette"
-      lead="Sept échelles 50→950 dérivées de tokens.ts — violet de marque, or premium, neutres chauds teintés violet et quatre états harmonisés. Cliquer une pastille copie son hexadécimal ; l'anneau doré marque le cran de marque."
+      title={t('title')}
+      lead={t('lead')}
     >
       <PreviewFrame>
         <div className="flex flex-col gap-8">
           {FAMILIES.map((family) => (
-            <div key={family.label} className="flex flex-col gap-2.5">
+            <div key={family.labelKey} className="flex flex-col gap-2.5">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <h3 className="text-sm font-semibold text-foreground">{family.label}</h3>
-                <p className="text-xs text-muted">{family.usage}</p>
+                <h3 className="text-sm font-semibold text-foreground">{t(family.labelKey)}</h3>
+                <p className="text-xs text-muted">{t(family.usageKey)}</p>
               </div>
               <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6 lg:grid-cols-11">
                 {SHADES.map((shade) => (

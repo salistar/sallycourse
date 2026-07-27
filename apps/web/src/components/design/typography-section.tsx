@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { PreviewFrame } from './preview-frame';
 import { ExampleLabel, StyleSection } from './section-shell';
 
@@ -11,18 +12,18 @@ import { ExampleLabel, StyleSection } from './section-shell';
  */
 
 /** Échelle épelée (classes statiques) avec les valeurs des tokens. */
-const TYPE_SCALE: Array<{ token: string; px: string; className: string; role: string }> = [
-  { token: '6xl', px: '76,3 px', className: 'text-6xl', role: 'Affichage exceptionnel' },
-  { token: '5xl', px: '61 px', className: 'text-5xl', role: 'Hero' },
-  { token: '4xl', px: '48,8 px', className: 'text-4xl', role: 'H1' },
-  { token: '3xl', px: '39 px', className: 'text-3xl', role: 'H2' },
-  { token: '2xl', px: '31,25 px', className: 'text-2xl', role: 'H3' },
-  { token: 'xl', px: '25 px', className: 'text-xl', role: 'H4' },
-  { token: 'lg', px: '20 px', className: 'text-lg', role: 'Lead' },
-  { token: 'base', px: '16 px', className: 'text-base', role: 'Corps de référence' },
-  { token: 'sm', px: '14 px', className: 'text-sm', role: 'UI dense' },
-  { token: 'xs', px: '12,8 px', className: 'text-xs', role: 'Légendes' },
-  { token: '2xs', px: '10,24 px', className: 'text-2xs', role: 'Mentions' },
+const TYPE_SCALE: Array<{ token: string; px: string; className: string; roleKey: string }> = [
+  { token: '6xl', px: '76,3 px', className: 'text-6xl', roleKey: 'roles.6xl' },
+  { token: '5xl', px: '61 px', className: 'text-5xl', roleKey: 'roles.5xl' },
+  { token: '4xl', px: '48,8 px', className: 'text-4xl', roleKey: 'roles.4xl' },
+  { token: '3xl', px: '39 px', className: 'text-3xl', roleKey: 'roles.3xl' },
+  { token: '2xl', px: '31,25 px', className: 'text-2xl', roleKey: 'roles.2xl' },
+  { token: 'xl', px: '25 px', className: 'text-xl', roleKey: 'roles.xl' },
+  { token: 'lg', px: '20 px', className: 'text-lg', roleKey: 'roles.lg' },
+  { token: 'base', px: '16 px', className: 'text-base', roleKey: 'roles.base' },
+  { token: 'sm', px: '14 px', className: 'text-sm', roleKey: 'roles.sm' },
+  { token: 'xs', px: '12,8 px', className: 'text-xs', roleKey: 'roles.xs' },
+  { token: '2xs', px: '10,24 px', className: 'text-2xs', roleKey: 'roles.2xs' },
 ];
 
 const WEIGHTS: Array<{ label: string; value: string; className: string }> = [
@@ -34,9 +35,10 @@ const WEIGHTS: Array<{ label: string; value: string; className: string }> = [
 
 /** Spécimen français : serif expressive + sans humaniste. */
 function SpecimenLatin() {
+  const t = useTranslations('design.typography');
   return (
     <div className="flex flex-col gap-4">
-      <ExampleLabel>Latin — Fraunces (titres) · Figtree (corps)</ExampleLabel>
+      <ExampleLabel>{t('specimenLatin.label')}</ExampleLabel>
       <div dir="ltr" lang="fr" className="flex flex-col gap-3 rounded-md border border-border/60 bg-surface p-6">
         <p className="text-2xs font-semibold uppercase tracking-widest text-accent">Studio SallyCourse</p>
         <p className="font-display text-4xl font-semibold text-foreground">
@@ -57,9 +59,10 @@ function SpecimenLatin() {
 
 /** Spécimen arabe : IBM Plex Sans Arabic, RTL natif, graisse ≥ 600 en titre. */
 function SpecimenArabe() {
+  const t = useTranslations('design.typography');
   return (
     <div className="flex flex-col gap-4">
-      <ExampleLabel>Arabe — IBM Plex Sans Arabic (titres et corps, jamais d&apos;italique)</ExampleLabel>
+      <ExampleLabel>{t('specimenArabic.label')}</ExampleLabel>
       <div dir="rtl" lang="ar" className="flex flex-col gap-3 rounded-md border border-border/60 bg-surface p-6 font-arabic">
         <p className="text-2xs font-semibold tracking-wide text-accent">استوديو سالي كورس</p>
         <p className="text-4xl font-bold text-foreground">المعرفة تُروى كقصة.</p>
@@ -76,9 +79,10 @@ function SpecimenArabe() {
 
 /** Échelle modulaire rendue taille par taille. */
 function ScaleTable() {
+  const t = useTranslations('design.typography');
   return (
     <div className="flex flex-col gap-3">
-      <ExampleLabel>Échelle modulaire — ratio 1,25 (quarte majeure), base 16 px</ExampleLabel>
+      <ExampleLabel>{t('scale.label')}</ExampleLabel>
       <ul className="flex flex-col divide-y divide-border/60 rounded-md border border-border/60 bg-surface">
         {TYPE_SCALE.map((step) => (
           <li key={step.token} className="flex items-baseline gap-4 overflow-hidden px-4 py-3 sm:px-6">
@@ -89,7 +93,7 @@ function ScaleTable() {
             <span className={`${step.className} min-w-0 truncate font-display text-foreground`}>
               Aa — Studio
             </span>
-            <span className="ms-auto hidden shrink-0 text-2xs text-muted sm:block">{step.role}</span>
+            <span className="ms-auto hidden shrink-0 text-2xs text-muted sm:block">{t(step.roleKey)}</span>
           </li>
         ))}
       </ul>
@@ -99,9 +103,10 @@ function ScaleTable() {
 
 /** Graisses couvertes par Figtree et IBM Plex Sans Arabic. */
 function WeightsRow() {
+  const t = useTranslations('design.typography');
   return (
     <div className="flex flex-col gap-3">
-      <ExampleLabel>Graisses standardisées</ExampleLabel>
+      <ExampleLabel>{t('weights.label')}</ExampleLabel>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {WEIGHTS.map((weight) => (
           <div key={weight.value} className="flex flex-col gap-1 rounded-md border border-border/60 bg-surface p-4">
@@ -118,24 +123,25 @@ function WeightsRow() {
 
 /** Règles d'appariement FR ↔ AR issues des tokens (fontPairing). */
 function PairingRules() {
+  const t = useTranslations('design.typography');
+  const strong = (chunks: React.ReactNode) => (
+    <strong className="font-semibold text-foreground">{chunks}</strong>
+  );
   return (
     <div className="flex flex-col gap-3">
-      <ExampleLabel>Règles d&apos;appariement</ExampleLabel>
+      <ExampleLabel>{t('pairing.label')}</ExampleLabel>
       <ul className="flex flex-col gap-2 rounded-md border border-border/60 bg-surface p-5 text-sm text-muted">
         <li className="flex gap-2">
           <span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-400" />
-          FR/EN&nbsp;: titres en <strong className="font-semibold text-foreground">font-display</strong> (Fraunces),
-          corps en <strong className="font-semibold text-foreground">font-sans</strong> (Figtree).
+          {t.rich('pairing.item1', { strong })}
         </li>
         <li className="flex gap-2">
           <span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-400" />
-          AR&nbsp;: titres ET corps en <strong className="font-semibold text-foreground">font-arabic</strong> —
-          graisse ≥ 600 pour les titres, jamais de serif ni d&apos;italique.
+          {t.rich('pairing.item2', { strong })}
         </li>
         <li className="flex gap-2">
           <span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-400" />
-          Texte mixte&nbsp;: la famille suit la langue dominante du bloc, les fallbacks couvrent
-          les insertions ponctuelles de l&apos;autre écriture.
+          {t.rich('pairing.item3', { strong })}
         </li>
       </ul>
     </div>
@@ -143,12 +149,13 @@ function PairingRules() {
 }
 
 export function TypographySection() {
+  const t = useTranslations('design.typography');
   return (
     <StyleSection
       id="typographie"
       index={2}
-      title="Typographie"
-      lead="Fraunces incarne la voix éditoriale, Figtree porte la lecture, IBM Plex Sans Arabic assume l'arabe seul — titres et corps. Une échelle modulaire de ratio 1,25 rythme l'ensemble."
+      title={t('title')}
+      lead={t('lead')}
     >
       <PreviewFrame>
         <div className="flex flex-col gap-10">

@@ -13,6 +13,7 @@ export { FirstCourseEmpty, type FirstCourseEmptyProps } from './first-course-emp
 export { DashboardSidebar } from './sidebar';
 export { NotificationBell } from './notification-bell';
 export { GlobalSearch } from './global-search';
+export { AssistantPanel } from './assistant-panel';
 export {
   MOCK_COURSES,
   MOCK_STATS,

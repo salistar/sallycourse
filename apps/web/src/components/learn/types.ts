@@ -60,3 +60,64 @@ export interface LearnCourseView {
   priceCents: number;
   currency: string;
 }
+
+/* ------------------------------------------------------------------ */
+/* Gamification (Prompt 200) — DTO client                              */
+/* ------------------------------------------------------------------ */
+
+/** Badge affiché dans le HUD (catalogue partagé, résolu côté serveur). */
+export interface GamificationBadgeView {
+  id: string;
+  label: string;
+  description: string;
+  /** Clé d'icône du catalogue (@sallycourse/shared/gamification). */
+  icon: string;
+  /** ISO — présent uniquement pour un badge obtenu. */
+  earnedAt?: string;
+}
+
+/** Progression dans le niveau courant (miroir de LevelProgress, sérialisé). */
+export interface GamificationLevelProgressView {
+  level: number;
+  levelStartXp: number;
+  nextLevelXp: number;
+  xpIntoLevel: number;
+  xpRemaining: number;
+  percent: number;
+}
+
+/** Réponse de GET /api/learn/gamification. */
+export interface GamificationProfileView {
+  totalXp: number;
+  level: number;
+  levelProgress: GamificationLevelProgressView;
+  currentStreak: number;
+  longestStreak: number;
+  lastActiveDay: string | null;
+  leaderboardOptOut: boolean;
+  badges: GamificationBadgeView[];
+  catalogue: GamificationBadgeView[];
+}
+
+/** Delta renvoyé par POST /api/learn/[courseId]/track à la 1re complétion. */
+export interface GamificationAwardView {
+  xp: { lesson: number; quiz: number; dailyBonus: number; total: number };
+  totalXp: number;
+  courseXp: number;
+  level: number;
+  previousLevel: number;
+  leveledUp: boolean;
+  levelProgress: GamificationLevelProgressView;
+  streak: { current: number; longest: number; extended: boolean; broken: boolean };
+  newBadges: GamificationBadgeView[];
+}
+
+/** Ligne du classement d'un cours (GET /api/learn/[courseId]/leaderboard). */
+export interface LeaderboardRowView {
+  rank: number;
+  studentId: string;
+  xp: number;
+  /** « Prénom I. » ou « Apprenant » (opt-out) — jamais l'email. */
+  displayName: string;
+  isViewer: boolean;
+}
