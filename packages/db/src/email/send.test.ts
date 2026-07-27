@@ -3,7 +3,7 @@ import { resolveEmailChannel } from './send';
 
 // Tests de resolveEmailChannel (P156) : sélection SMTP(OSS)/Resend(cloud)/mock
 // selon PROVIDER_MODE — logique pure, aucun envoi réseau. Même règle que
-// apps/worker/src/providers/registry.ts::selectProvider (dupliquée ici en
+// l'ancien registre P151 (supprimé 2026-07-17 ; règle conservée ici en
 // pur, packages/db ne pouvant pas dépendre du worker).
 
 const RESEND = { RESEND_API_KEY: 'resend_test_key' };

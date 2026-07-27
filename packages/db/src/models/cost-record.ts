@@ -14,8 +14,12 @@ import mongoose, {
 // par plan. Les métriques brutes (tokens/caractères/secondes) sont conservées
 // en plus de l'estimation USD, pour re-calculer si la grille de tarifs change.
 
-/** Nature du coût — aligné sur CostKind (@sallycourse/shared/pricing-table). */
-export const COST_KINDS = ['claude', 'tts', 'render', 'image'] as const;
+/**
+ * Nature du coût — aligné sur CostKind (@sallycourse/shared/pricing-table).
+ * 'transcribe' (Whisper) et 'avatar' (Ditto/SadTalker/HeyGen) ajoutés par
+ * l'audit coûts 2026-07-26 : ces usages GPU n'étaient pas instrumentés.
+ */
+export const COST_KINDS = ['claude', 'tts', 'render', 'image', 'transcribe', 'avatar'] as const;
 export type CostKind = (typeof COST_KINDS)[number];
 
 export interface ICostRecord {

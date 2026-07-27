@@ -4,7 +4,7 @@ import { createConnection } from 'node:net';
 // @ts-ignore TS6059 — source hors rootDir (worker), typage intact
 import { getConfig } from '@sallycourse/shared/config.js';
 // Réimplémentation locale minimale de la règle PROVIDER_MODE (P151) : packages/db
-// ne peut pas dépendre de apps/worker/src/providers/registry.ts (mauvais sens de
+// ne peut pas dépendre de l'ancien registre P151 du worker (supprimé au rangement 2026-07-17 ; mauvais sens de
 // dépendance) — même règle que selectProvider()/planJustifiesCloud(), dupliquée
 // ici en pur pour rester indépendante du worker.
 // @ts-ignore TS6059 — source hors rootDir (worker), typage intact
@@ -17,7 +17,7 @@ import { renderEmailTemplate, type EmailTemplateData, type EmailTemplateName, ty
 // (OSS auto-hébergé — Mailpit en dev, Stalwart/Postfix en prod, voir
 // docs/EMAIL-SELFHOSTED.md) est désormais le DÉFAUT OSS ; Resend reste une
 // option cloud, choisie selon PROVIDER_MODE (packages/shared/src/config.ts,
-// même règle que apps/worker/src/providers/registry.ts::selectProvider) :
+// seule implémentation restante de la règle PROVIDER_MODE) :
 //   - PROVIDER_MODE=oss    → SMTP toujours (même si RESEND_API_KEY est présente).
 //   - PROVIDER_MODE=cloud  → Resend si RESEND_API_KEY présente, sinon repli SMTP.
 //   - PROVIDER_MODE=auto (défaut) → Resend SEULEMENT si (clé présente ET plan
