@@ -248,6 +248,22 @@ export async function callClaudeJson<T>(params: CallClaudeJsonParams<T>): Promis
 
   const wantsOllama = llmProviderId === 'ollama' || llmProviderId === 'oss';
   const wantsAnthropic = llmProviderId === 'anthropic' || llmProviderId === 'claude';
+  const wantsModal = llmProviderId === 'modal';
+
+  // 0) Modal LLM (GPU serverless, vLLM/Qwen2.5) — choix explicite du cours.
+  // En cas d'indisponibilité (cold-start trop long, endpoint down), on laisse
+  // filer vers la cascade ci-dessous (cloud → Anthropic → Ollama) : jamais de
+  // blocage du pipeline.
+  if (wantsModal) {
+    try {
+      const { generateModalLlmJson, isModalLlmConfigured } = await import('../providers/modal-llm-provider.js');
+      if (isModalLlmConfigured()) {
+        return await generateModalLlmJson({ schema, system, user, temperature });
+      }
+    } catch (err) {
+      logger.warn({ err }, 'callClaudeJson : Modal LLM indisponible/insuffisant — repli cascade');
+    }
+  }
 
   // 1) Providers CLOUD OpenAI-compatibles (Gemini gratuit par défaut, DeepSeek,
   // Grok, Qwen…). Choix explicite du cours (llmProviderId) prioritaire, sinon

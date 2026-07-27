@@ -31,5 +31,6 @@ export const LLM_PROVIDER_CATALOG: LlmProviderMeta[] = [
   { id: 'xai', label: 'xAI Grok', free: false, quality: 4 },
   { id: 'minimax', label: 'MiniMax', free: false, quality: 3 },
   { id: 'anthropic', label: 'Anthropic Claude — qualité max', free: false, quality: 5 },
+  { id: 'modal', label: 'Modal GPU — Qwen2.5 open-source (rapide, serverless)', free: false, quality: 4 },
   { id: 'ollama', label: 'Ollama — local (hors-ligne, gratuit)', free: true, quality: 3 },
 ];

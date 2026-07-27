@@ -19,3 +19,4 @@ test-results/
 backups/
 dkim-*/
 docker-compose.override.yml
+modal/__pycache__/
