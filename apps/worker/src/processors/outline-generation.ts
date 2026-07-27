@@ -17,7 +17,10 @@ import {
   makeJobId,
   outlineSchema,
   publishProgress,
+  renderGenerationDirectives,
+  renderPlatformConstraints,
   type Difficulty,
+  type QuizPosition,
   type Locale,
   type Outline,
   type OutlineJobData,
@@ -57,8 +60,86 @@ export interface OutlineResult {
  * vidéo, un quiz en fin de chaque section, longueurs Udemy. Retourne la liste
  * des problèmes (vide si conforme) — réinjectée au LLM en cas d'échec.
  */
-export function validateOutlineBusiness(outline: Outline): string[] {
+/**
+ * Normalisation déterministe du quiz de section (garde-fou OSS) : les petits
+ * modèles locaux (Ollama 3b/7b, P152) produisent un plan au CONTENU pertinent
+ * mais échouent souvent la règle structurelle « exactement 1 quiz, en dernière
+ * position » — et la boucle de retry métier brûle des minutes de CPU sans
+ * converger. La structure étant purement mécanique (le contenu du quiz est
+ * généré séparément, par section, à partir des leçons), on la répare en code :
+ * les quiz mal placés/surnuméraires sont retirés, puis UN quiz standard est
+ * ajouté en fin de section. Fonction PURE (retourne un nouvel objet).
+ */
+export function normalizeOutlineQuizzes(
+  outline: Outline,
+  quizPosition?: QuizPosition,
+  videoCapMin = 7,
+): Outline {
+  // Clamp des micro-leçons vidéo. Le plafond dépend du contexte : 7 min par
+  // défaut (garde-fou modèles LOCAUX 3b/7b : > 7 min ⇒ ~2800+ mots hors de
+  // portée en un JSON), MAIS relevé selon avgVideoLength pour un provider cloud
+  // (ex. 8-12 min atteignable) — voir l'appelant qui calcule videoCapMin.
+  const clampVideos = (lessons: Outline['sections'][number]['lessons']) =>
+    lessons.map((l) => (l.type === 'video' && l.durationMin > videoCapMin ? { ...l, durationMin: videoCapMin } : l));
+
+  // Mode par défaut (P164 quizPosition absent ou 'per-section') : UN quiz en fin
+  // de CHAQUE section (garde-fou OSS historique, comportement inchangé).
+  if (!quizPosition || quizPosition === 'per-section') {
+    return {
+      ...outline,
+      sections: outline.sections
+        // Section composée UNIQUEMENT de quiz (pattern OSS) : supprimée —
+        // l'évaluation est assurée par le quiz ajouté ci-dessous à chaque section.
+        .filter((section) => section.lessons.some((l) => l.type !== 'quiz'))
+        .map((section) => ({
+          ...section,
+          lessons: [
+            ...clampVideos(section.lessons.filter((l) => l.type !== 'quiz')),
+            {
+              title: `Quiz — ${section.title}`,
+              type: 'quiz' as const,
+              durationMin: 5,
+              summary: `Vérification des acquis de la section « ${section.title} ».`,
+            },
+          ],
+        })),
+    };
+  }
+
+  // Modes 'mid-course' / 'final-only' (P164) : on NE force PAS un quiz par section
+  // (l'auteur a choisi une autre stratégie, portée par les consignes avancées).
+  // On clamp les vidéos et on garantit AU MOINS un quiz, placé à l'endroit voulu.
+  let sections = outline.sections.map((section) => ({ ...section, lessons: clampVideos(section.lessons) }));
+  const hasQuiz = sections.some((s) => s.lessons.some((l) => l.type === 'quiz'));
+  if (!hasQuiz && sections.length > 0) {
+    const targetIndex = quizPosition === 'mid-course' ? Math.floor(sections.length / 2) : sections.length - 1;
+    const target = sections[targetIndex]!;
+    sections = sections.map((s, i) =>
+      i === targetIndex
+        ? {
+            ...s,
+            lessons: [
+              ...s.lessons,
+              {
+                title: `Quiz — ${target.title}`,
+                type: 'quiz' as const,
+                durationMin: 5,
+                summary: `Évaluation ${quizPosition === 'final-only' ? 'finale' : 'de mi-parcours'} du cours.`,
+              },
+            ],
+          }
+        : s,
+    );
+  }
+  return { ...outline, sections };
+}
+
+export function validateOutlineBusiness(outline: Outline, quizPosition?: QuizPosition): string[] {
   const problems: string[] = [];
+  // Par défaut (ou 'per-section') : règle historique « 1 quiz par section ».
+  // En 'mid-course'/'final-only', l'auteur a choisi une autre stratégie → on
+  // exige seulement AU MOINS un quiz dans tout le cours.
+  const perSection = !quizPosition || quizPosition === 'per-section';
 
   if (outline.sections.length < UDEMY.MIN_SECTIONS) {
     problems.push(
@@ -76,19 +157,24 @@ export function validateOutlineBusiness(outline: Outline): string[] {
     );
   }
 
-  outline.sections.forEach((section, index) => {
-    const quizzes = section.lessons.filter((l) => l.type === 'quiz');
-    const last = section.lessons[section.lessons.length - 1];
-    if (quizzes.length !== 1) {
-      problems.push(
-        `La section ${index + 1} (« ${section.title} ») contient ${quizzes.length} quiz — il en faut exactement 1.`,
-      );
-    } else if (last?.type !== 'quiz') {
-      problems.push(
-        `Le quiz de la section ${index + 1} (« ${section.title} ») doit être la DERNIÈRE leçon de la section.`,
-      );
-    }
-  });
+  if (perSection) {
+    outline.sections.forEach((section, index) => {
+      const quizzes = section.lessons.filter((l) => l.type === 'quiz');
+      const last = section.lessons[section.lessons.length - 1];
+      if (quizzes.length !== 1) {
+        problems.push(
+          `La section ${index + 1} (« ${section.title} ») contient ${quizzes.length} quiz — il en faut exactement 1.`,
+        );
+      } else if (last?.type !== 'quiz') {
+        problems.push(
+          `Le quiz de la section ${index + 1} (« ${section.title} ») doit être la DERNIÈRE leçon de la section.`,
+        );
+      }
+    });
+  } else {
+    const totalQuizzes = outline.sections.flatMap((s) => s.lessons).filter((l) => l.type === 'quiz').length;
+    if (totalQuizzes < 1) problems.push('Le plan doit contenir au moins un quiz.');
+  }
 
   if (outline.title.length > UDEMY.TITLE_MAX_CHARS) {
     problems.push(`Le titre dépasse ${UDEMY.TITLE_MAX_CHARS} caractères (${outline.title.length}).`);
@@ -406,14 +492,36 @@ export async function processOutlineGeneration(job: Job<OutlineJobData>): Promis
       );
     }
 
-    const baseUser = outlineUserPrompt({
-      title: course.title,
-      difficulty: course.difficulty,
-      locale: course.locale,
-    });
+    const baseUser =
+      outlineUserPrompt({
+        title: course.title,
+        difficulty: course.difficulty,
+        locale: course.locale,
+        approxSections: course.approxSections,
+      }) +
+      // Phase 10 — consignes avancées de STRUCTURE + pédagogie + domaine (vide si
+      // aucun paramètre avancé). Appendu à baseUser → reconduit à chaque retry.
+      renderGenerationDirectives(course.advancedParams, 'outline') +
+      // P172 — contraintes des plateformes cibles cochées (Udemy/YouTube/…),
+      // appliquées dès le plan.
+      renderPlatformConstraints(course.targetPlatforms);
+    // Phase 10 — normalisation post-LLM alignée sur les paramètres avancés :
+    // - quizPosition pilote la stratégie de quiz (per-section par défaut), y
+    //   compris dans le prompt système ci-dessous ;
+    // - le plafond de durée vidéo reste 7 min pour les modèles LOCAUX (garde-fou
+    //   OSS) mais respecte la borne haute d'avgVideoLength en cloud (8-12 → 12…).
+    const quizPosition = course.advancedParams?.quizPosition;
+    const isLocalProvider = course.llmProvider === 'ollama' || course.llmProvider === 'oss';
+    const AVG_VIDEO_CAP: Record<string, number> = { '3-5': 5, '5-8': 8, '8-12': 12 };
+    const requestedCap = AVG_VIDEO_CAP[course.advancedParams?.avgVideoLength ?? ''];
+    const videoCapMin = isLocalProvider ? 7 : requestedCap ?? 7;
+
     // Prompt 93 — playground admin : surcharge en base si une version est
     // active pour "outline.system", sinon comportement inchangé (fallback).
-    const system = await getActivePrompt('outline.system', outlineSystemPrompt(sourceMaterialExcerpt || undefined));
+    const system = await getActivePrompt(
+      'outline.system',
+      outlineSystemPrompt(sourceMaterialExcerpt || undefined, quizPosition),
+    );
 
     // Boucle métier : le schéma est garanti par callClaudeJson, mais les règles
     // Udemy (sections, minutes vidéo, quiz/section) peuvent nécessiter un retry
@@ -435,15 +543,19 @@ export async function processOutlineGeneration(job: Job<OutlineJobData>): Promis
               .map((p) => `- ${p}`)
               .join('\n')}`;
 
-      const candidate = await callClaudeJson({
+      const raw = await callClaudeJson({
         schema: outlineSchema,
         system,
         user,
         maxTokens: OUTLINE_MAX_TOKENS,
         cost: { courseId, userId: String(course.userId) },
+        llmProviderId: course.llmProvider,
       });
+      // Réparation structurelle des quiz de section AVANT validation — voir
+      // normalizeOutlineQuizzes (indispensable avec les modèles OSS locaux).
+      const candidate = normalizeOutlineQuizzes(raw, quizPosition, videoCapMin);
 
-      feedback = validateOutlineBusiness(candidate);
+      feedback = validateOutlineBusiness(candidate, quizPosition);
       if (feedback.length === 0) {
         outline = candidate;
         break;
@@ -459,6 +571,20 @@ export async function processOutlineGeneration(job: Job<OutlineJobData>): Promis
 
     await report(courseId, 70, 'Plan validé — écriture des sections et leçons');
     const { sections, lessons } = await persistOutline(courseId, outline);
+
+    // P170 — point de validation « après le plan » DÉSACTIVÉ explicitement
+    // (validationPoints.afterPlan === false) : on saute la revue humaine et on
+    // enchaîne directement sur la 1re leçon (même machinerie que la
+    // déclinaison). afterPlan absent/true → revue historique inchangée.
+    // Champ exposé par le schéma mais jamais lu avant l'audit 2026-07-17.
+    const afterPlan = (
+      course as { advancedParams?: { validationPoints?: { afterPlan?: boolean } } }
+    ).advancedParams?.validationPoints?.afterPlan;
+    if (afterPlan === false) {
+      await enqueueFirstLessonAfterDerive(courseId);
+      await report(courseId, 100, `Plan généré (${sections} sections) — génération enchaînée sans revue`);
+      return { courseId, sections, lessons };
+    }
 
     await report(courseId, 100, `Plan généré : ${sections} sections, ${lessons} leçons`);
     return { courseId, sections, lessons };

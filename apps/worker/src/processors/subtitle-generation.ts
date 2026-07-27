@@ -21,7 +21,6 @@ import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import type { Readable } from 'node:stream';
 import type { Job } from 'bullmq';
-import { execa } from 'execa';
 import {
   Course,
   Lesson,
@@ -37,7 +36,6 @@ import {
 } from '../shared.js';
 import { getRedisConnection } from '../queues/connection.js';
 import { logger } from '../queues/index.js';
-import { purgeCourseIntermediateAssets } from '../lib/retention.js';
 import {
   alignToReference,
   subtitlesFromScript,
@@ -46,13 +44,12 @@ import {
   toVtt,
   type Cue,
   type FallbackSlide,
-  type WhisperSegment,
 } from '../media/subtitles.js';
-
-/** Modèle faster-whisper : « small » = bon compromis vitesse/qualité sur CPU. */
-const WHISPER_MODEL = 'small';
-/** Codes langue faster-whisper (ISO 639-1) par locale du cours. */
-const WHISPER_LANGUAGE: Record<string, string> = { fr: 'fr', en: 'en', ar: 'ar' };
+// transcribeWithWhisper()/whisperPythonScript() vivent désormais dans
+// media/transcribe.ts (Prompt 210) — extraits ici SANS duplication pour être
+// partagés avec le processor de dictée vocale. Comportement inchangé.
+import { WHISPER_LANGUAGE, transcribeWithWhisper } from '../media/transcribe.js';
+import { recordTranscribeCost } from '../lib/cost.js';
 
 export interface SubtitleResult {
   courseId: string;
@@ -133,48 +130,6 @@ async function prepareMediaFile(
   return concatPath;
 }
 
-/** Script Python inline : faster-whisper → JSON de segments sur stdout. */
-function whisperPythonScript(): string {
-  return [
-    'import json, sys',
-    'from faster_whisper import WhisperModel',
-    'media_path, model_name, language = sys.argv[1], sys.argv[2], sys.argv[3]',
-    "model = WhisperModel(model_name, device='cpu', compute_type='int8')",
-    'segments, _ = model.transcribe(media_path, language=language, word_timestamps=True)',
-    'out = [{"start": s.start, "end": s.end, "text": s.text} for s in segments]',
-    'sys.stdout.write(json.dumps(out))',
-  ].join('\n');
-}
-
-/**
- * Transcrit un média via faster-whisper (sous-processus Python). Retourne les
- * segments, ou null si le binaire Python / le module est indisponible (repli).
- */
-async function transcribeWithWhisper(
-  mediaPath: string,
-  language: string,
-  dir: string,
-): Promise<WhisperSegment[] | null> {
-  const bin = process.env.WHISPER_BIN ?? 'python';
-  const scriptPath = path.join(dir, 'whisper_transcribe.py');
-  await writeFile(scriptPath, whisperPythonScript(), 'utf8');
-
-  try {
-    const { stdout } = await execa(bin, [scriptPath, mediaPath, WHISPER_MODEL, language], {
-      // Transcription CPU longue : pas de timeout agressif (le job BullMQ borne déjà).
-      timeout: 0,
-    });
-    const parsed = JSON.parse(stdout) as WhisperSegment[];
-    if (!Array.isArray(parsed)) return null;
-    return parsed.filter(
-      (s) => typeof s?.start === 'number' && typeof s?.end === 'number' && typeof s?.text === 'string',
-    );
-  } catch (err) {
-    logger.warn({ mediaPath, err }, 'faster-whisper indisponible ou en échec — repli sur le script');
-    return null;
-  }
-}
-
 /** Extrait la liste ordonnée des narrations d'un Lesson.script (video). */
 function narrationSlides(script: unknown): FallbackSlide[] {
   const parsed = slideScriptSchema.safeParse(script);
@@ -219,6 +174,10 @@ export async function processSubtitleGeneration(job: Job<SubtitleJobData>): Prom
         await report(courseId, 45, `Transcription faster-whisper (${language})`);
         const segments = await transcribeWithWhisper(mediaPath, language, dir);
         if (segments && segments.length > 0) {
+          // Coût Whisper instrumenté (audit coûts 2026-07-26) : durée d'audio
+          // transcrite ≈ fin du dernier segment. Best-effort.
+          const audioSeconds = Math.max(0, segments[segments.length - 1]?.end ?? 0);
+          await recordTranscribeCost({ courseId }, audioSeconds).catch(() => undefined);
           await report(courseId, 70, 'Réalignement de la transcription sur le script');
           cues = alignToReference(segments, slides.map((s) => s.narration));
           degraded = cues.length === 0; // alignement vide → repli
@@ -255,14 +214,12 @@ export async function processSubtitleGeneration(job: Job<SubtitleJobData>): Prom
     await report(courseId, 100, `Sous-titres prêts : ${cues.length} lignes${degraded ? ' (mode dégradé)' : ''}`);
     logger.info({ courseId, lessonId, cues: cues.length, srtKey, vttKey, txtKey, degraded }, 'sous-titres générés');
 
-    // Rétention (P79) : la vidéo est assemblée ET les sous-titres finaux sont
-    // écrits — les slides PNG et l'audio par slide de cette leçon deviennent
-    // intermédiaires. Purge best-effort, jamais bloquante pour le pipeline.
-    // purgeCourseIntermediateAssets ne touche QUE les leçons 'ready' (skip les
-    // autres), donc une leçon voisine encore en cours reste intacte.
-    await purgeCourseIntermediateAssets(courseId).catch((err) =>
-      logger.warn({ courseId, lessonId, err }, 'retention : purge des assets intermédiaires ignorée'),
-    );
+    // Rétention (P79) : la purge des slides PNG + audio par slide N'A PAS LIEU
+    // ici. Ce job tourne par leçon, en parallèle de la finalisation du cours, et
+    // les slides/audios sont encore consommés en aval par la réutilisation du
+    // contenu (podcast P202, bande-annonce P197). La purge est donc faite une
+    // seule fois, à la toute fin de finalizeCourseIfComplete, quand plus aucun
+    // générateur n'en a besoin (cf. processors/content-generation.ts).
 
     return { courseId, lessonId, cues: cues.length, srtKey, vttKey, txtKey, degraded };
   } catch (err) {

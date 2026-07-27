@@ -1,6 +1,12 @@
 // Prompts de génération du plan de cours (outline) — règles Udemy injectées
 // depuis les constantes partagées, format de sortie aligné sur outlineSchema.
-import { UDEMY, type Difficulty, type Locale } from '../shared.js';
+import {
+  UDEMY,
+  OUTLINE_PLANNING_TARGET_MINUTES,
+  type Difficulty,
+  type Locale,
+  type QuizPosition,
+} from '../shared.js';
 
 export interface OutlinePromptInput {
   title: string;
@@ -30,7 +36,14 @@ const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 /** Prompt système : contrat de sortie JSON strict conforme à outlineSchema. */
-export function outlineSystemPrompt(sourceMaterialExcerpt?: string): string {
+export function outlineSystemPrompt(sourceMaterialExcerpt?: string, quizPosition?: QuizPosition): string {
+  // Règle de placement des quiz (P164, Phase 10) — par défaut 1 quiz/section.
+  const quizRule =
+    quizPosition === 'final-only'
+      ? `4. NE mets PAS de quiz à chaque section : le cours se termine par UNE seule leçon de type "quiz", récapitulative et finale.`
+      : quizPosition === 'mid-course'
+        ? `4. NE mets PAS de quiz à chaque section : place UNE seule leçon de type "quiz" (bilan) vers le milieu du cours.`
+        : `4. Chaque section se termine par exactement UNE leçon de type "quiz" (et une seule par section).`;
   return [
     `Tu es un ingénieur pédagogique senior spécialisé dans les cours Udemy à succès.`,
     `Tu produis des plans de cours complets, immédiatement exploitables par un pipeline automatisé.`,
@@ -46,9 +59,9 @@ export function outlineSystemPrompt(sourceMaterialExcerpt?: string): string {
       : []),
     `RÈGLES IMPÉRATIVES DU PLAN :`,
     `1. Au moins ${UDEMY.MIN_SECTIONS} sections, ordonnées selon une progression pédagogique adaptée au niveau demandé.`,
-    `2. Au moins ${UDEMY.MIN_TOTAL_VIDEO_MINUTES} minutes de vidéo au total (somme des durationMin des leçons de type "video").`,
+    `2. Au moins ${OUTLINE_PLANNING_TARGET_MINUTES} minutes de vidéo au total (somme des durationMin des leçons de type "video") — vise cette cible avec marge, PAS le strict minimum : la narration réelle une fois synthétisée est souvent plus courte que l'estimation de durée (débit de lecture variable), et le plancher absolu à ne jamais franchir est de ${UDEMY.MIN_TOTAL_VIDEO_MINUTES} min.`,
     `3. Les types de leçons alternent entre "video", "article" et "tp" au sein de chaque section (pas de section mono-type).`,
-    `4. Chaque section se termine par exactement UNE leçon de type "quiz" (et une seule par section).`,
+    quizRule,
     `5. "title" du cours : ${UDEMY.TITLE_MAX_CHARS} caractères maximum.`,
     `6. "subtitle" : ${UDEMY.SUBTITLE_MAX_CHARS} caractères maximum, orienté bénéfices.`,
     `7. "learningObjectives" : entre ${UDEMY.MIN_LEARNING_OBJECTIVES} et 8 objectifs concrets et mesurables.`,

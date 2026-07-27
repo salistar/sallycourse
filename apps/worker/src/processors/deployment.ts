@@ -364,12 +364,29 @@ export async function processDeployment(
   try {
     await report(2, `Déploiement ${platform} démarré (mode ${effectiveMode})`);
 
+    // Reprise plus fine (P179) : on ne persiste les étapes PRÉ-upload que sur un
+    // déploiement neuf (lessonIndex 0). Sur une reprise déjà avancée dans l'upload
+    // (lessonIndex > 0), on NE réécrit PAS le step pour ne pas régresser le point
+    // de reprise (le curseur d'upload reste la source de vérité). Additif : aucun
+    // impact sur les adapters qui posent déjà leur propre step (ex. udemy.ts).
+    const atFlowStart = ctx.checkpoint.lessonIndex === 0;
+
     // 1) Authentification.
     await adapter.authenticate(ctx);
+    if (atFlowStart) {
+      ctx.checkpoint = { lessonIndex: 0, step: 'authenticate' };
+      deployment.checkpoint = { ...ctx.checkpoint };
+      if (!mock) await deployment.save();
+    }
 
     // 2) Création du cours (idempotent : réutilise externalId du checkpoint si repris).
     const { externalId } = await adapter.createCourse(ctx);
     ctx.externalId = externalId;
+    if (atFlowStart) {
+      ctx.checkpoint = { lessonIndex: 0, step: 'createCourse' };
+      deployment.checkpoint = { ...ctx.checkpoint };
+      if (!mock) await deployment.save();
+    }
     await report(15, 'Cours créé côté plateforme');
 
     // 3) Upload des leçons, checkpoint par leçon (REPRISE depuis lessonIndex).
@@ -419,6 +436,15 @@ export async function processDeployment(
       msg: `${mock ? '[mock] ' : ''}déploiement terminé : ${status.status}${status.reviewState ? ` (${status.reviewState})` : ''}`,
     });
     await deployment.save();
+
+    // Un déploiement mené à terme (quel que soit l'adapter — plus seulement le
+    // LMS interne) promeut le cours en 'published' : c'est ce statut qui rend
+    // visibles les features post-publication (TranslatePanel, vitrine…). On ne
+    // promeut que depuis 'ready' — jamais un cours generating/failed/cancelled.
+    await Course.updateOne(
+      { _id: courseId, status: 'ready' },
+      { $set: { status: 'published' } },
+    ).catch(() => undefined);
 
     await report(100, `Déploiement terminé : ${status.status}`);
     logger.info(

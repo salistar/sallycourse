@@ -100,10 +100,15 @@ export async function processVideoRender(job: Job<VideoRenderJobData>): Promise<
     // Sous-titres de la leçon (jobId déterministe = déduplication).
     // Priorité (P73) selon le plan du propriétaire du cours.
     const subtitlePriority = priorityForPlan(await planForCourse(courseId));
-    await createQueue(QUEUES.subtitle).add(
+    const subtitleQueue = createQueue(QUEUES.subtitle);
+    const subtitleJobId = makeJobId(courseId, QUEUES.subtitle, lessonId);
+    // Purge une exécution précédente du même jobId (cf. tts-generation) : une
+    // régénération doit RE-produire les sous-titres, pas être dédupliquée.
+    await subtitleQueue.remove(subtitleJobId).catch(() => undefined);
+    await subtitleQueue.add(
       QUEUES.subtitle,
       { courseId, lessonId },
-      { jobId: makeJobId(courseId, QUEUES.subtitle, lessonId), priority: subtitlePriority },
+      { jobId: subtitleJobId, priority: subtitlePriority },
     );
     await report(courseId, 90, 'Sous-titrage enfilé');
 

@@ -10,7 +10,6 @@
 // sans faire échouer les autres. Enregistré avec concurrency 1 dans index.ts.
 import type { Job } from 'bullmq';
 import sharp from 'sharp';
-import type { Readable } from 'node:stream';
 import {
   GenerationJob,
   Lesson,
@@ -32,6 +31,7 @@ import {
   type ScreenshotJobData,
   type TpContent,
   type TpScreenshotSpec,
+  streamToBuffer,
 } from '../shared.js';
 import { getRedisConnection } from '../queues/connection.js';
 import { logger } from '../queues/index.js';
@@ -44,6 +44,7 @@ import {
   renderScreencastFromSpec,
   type CapturedScreenshot,
 } from '../media/screenshot-capture.js';
+import { captureTpStep } from '../media/tp-step-environment.js';
 import { readFile } from 'node:fs/promises';
 import { mongoCheckpointStore, withCheckpoint } from '../lib/idempotency.js';
 import { bumpCacheStat } from '../lib/cache.js';
@@ -118,14 +119,8 @@ export async function fallbackScreenshotPng(caption: string, stepNumber: number)
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
-/** Agrège un stream lisible en un Buffer. */
-async function streamToBuffer(stream: Readable): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of stream) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks);
-}
+// (« stream S3 -> Buffer » factorise dans @sallycourse/shared/storage —
+// audit dedup 2026-07-26 : readObjectBuffer/streamToBuffer importes.)
 
 /**
  * Construit la spec d'annotation ÉDITORIALE à partir de la capture brute et de
@@ -204,17 +199,48 @@ export async function composeAnnotated(
     .toBuffer();
 }
 
-/** Étape TP portant une screenshotSpec + l'instruction associée (contexte alt text P137). */
+/**
+ * Borne les dimensions d'une capture à 8192 px : annotationSpecSchema
+ * (@sallycourse/design) rejette width/height > 8192 (au-delà, l'overlay SVG
+ * exploserait en mémoire). Une page longue capturée en fullPage peut dépasser
+ * en hauteur → on la redimensionne proportionnellement pour rester sous la
+ * borne, plutôt que de laisser annotateScreenshot jeter (ce qui retombait sur
+ * l'illustration dégradée, perdant la vraie capture).
+ */
+const MAX_CAPTURE_PX = 8192;
+export async function clampCapturedScreenshot(captured: CapturedScreenshot): Promise<CapturedScreenshot> {
+  if (captured.width <= MAX_CAPTURE_PX && captured.height <= MAX_CAPTURE_PX) return captured;
+  const scale = MAX_CAPTURE_PX / Math.max(captured.width, captured.height);
+  const width = Math.max(1, Math.floor(captured.width * scale));
+  const height = Math.max(1, Math.floor(captured.height * scale));
+  const buffer = await sharp(captured.buffer).resize(width, height, { fit: 'fill' }).png().toBuffer();
+  logger.info(
+    { from: { w: captured.width, h: captured.height }, to: { w: width, h: height } },
+    'capture redimensionnée sous la borne 8192 px (annotation)',
+  );
+  return { ...captured, buffer, width, height };
+}
+
+/** Étape TP à illustrer : spec Playwright OU commande terminal (P22, env Docker). */
 interface StepWithSpec {
-  spec: TpScreenshotSpec;
+  /** Spec de capture navigateur — absente pour une étape terminal pure. */
+  spec?: TpScreenshotSpec;
+  /** Étape brute — nécessaire à captureTpStep (environnement Docker P22). */
+  step: TpContent['steps'][number];
   instruction: string;
 }
 
-/** Étapes du TP portant une screenshotSpec, dans l'ordre du script. */
+/**
+ * Étapes du TP à illustrer, dans l'ordre du script : celles portant une
+ * screenshotSpec (capture Playwright classique) ET — P22, branché par l'audit
+ * connectivité 2026-07-17 — celles portant une `command` SANS spec, illustrées
+ * via un environnement Docker jetable + terminal web (captureTpStep). Avant ce
+ * branchement, les étapes terminal pures n'étaient jamais illustrées.
+ */
 function stepsWithSpec(tp: TpContent): StepWithSpec[] {
   return tp.steps
-    .filter((step): step is typeof step & { screenshotSpec: TpScreenshotSpec } => Boolean(step.screenshotSpec))
-    .map((step) => ({ spec: step.screenshotSpec, instruction: step.instruction }));
+    .filter((step) => Boolean(step.screenshotSpec) || Boolean(step.command?.trim()))
+    .map((step) => ({ spec: step.screenshotSpec, step, instruction: step.instruction }));
 }
 
 /**
@@ -239,7 +265,10 @@ export async function generateScreenshotAltText(
       caption,
       stepNumber,
       lessonTitle: lessonTitle.trim() || 'Étape du tutoriel',
-      action: instruction,
+      // altTextRequestSchema borne `action` à 400 car — une instruction de TP
+      // plus longue faisait jeter buildAltTextPrompt (repli systématique sur la
+      // légende brute). On tronque pour conserver un alt réellement descriptif.
+      action: instruction.slice(0, 400),
     });
     const result = await callClaudeJson({ schema: altTextResultSchema, system, user });
     return result.altText;
@@ -263,8 +292,9 @@ async function replaceArticlePlaceholders(
   screenshotKeys: string[],
   altTexts: string[] = [],
 ): Promise<number> {
-  if (screenshotKeys.length === 0) return 0;
-
+  // Pas de bail-out sur screenshotKeys vide (audit ESG E2) : même si TOUTES les
+  // captures du TP voisin ont échoué, l'article peut avoir des placeholders à
+  // combler par une illustration de repli (voir plus bas).
   const article = await Lesson.findOne({ courseId, sectionId, type: 'article' });
   if (!article?.assets?.articleMd) return 0;
 
@@ -283,13 +313,41 @@ async function replaceArticlePlaceholders(
   const placeholders = extractScreenshotPlaceholders(markdown);
   if (placeholders.length === 0) return 0;
 
+  // Garde-fou (audit ESG 2026-07-19, E2) : un article peut contenir PLUS de
+  // placeholders {{screenshot:…}} que le TP voisin n'a d'étapes capturées
+  // (l'article et le TP sont générés indépendamment). Sans ce complément, les
+  // placeholders excédentaires restaient bruts dans l'article publié — le QA
+  // final (checkArticlePlaceholders) est censé l'empêcher mais un cours peut
+  // être laissé `failed` avec ce défaut visible. On génère donc une
+  // illustration de repli (même mécanisme que les captures en échec, cf.
+  // fallbackScreenshotPng) pour CHAQUE placeholder au-delà des captures
+  // disponibles : aucun placeholder brut ne peut plus survivre à cette passe.
+  const keys = storageKeys.course(courseId).lesson(section.order, article.order);
+  const extraKeys: string[] = [];
+  const extraCaptions: string[] = [];
+  for (let i = screenshotKeys.length; i < placeholders.length; i += 1) {
+    const desc = placeholders[i]?.trim() || `illustration ${i + 1}`;
+    const stepNumber = i + 1;
+    try {
+      const key = keys.screenshot(1000 + i); // espace d'index dédié : jamais de collision avec le TP.
+      await uploadObject(key, await fallbackScreenshotPng(desc, stepNumber), 'image/png');
+      extraKeys.push(key);
+      extraCaptions.push(desc);
+    } catch (err) {
+      logger.warn({ courseId, articleKey, index: i, err }, 'illustration de repli (placeholder excédentaire) impossible');
+    }
+  }
+  const allKeys = [...screenshotKeys, ...extraKeys];
+  const allCaptions = [...captions, ...extraCaptions];
+  const allAltTexts = [...altTexts, ...extraCaptions];
+
   let index = 0;
   let replaced = 0;
   const next = markdown.replace(/\{\{screenshot:([^}]+)\}\}/g, (match, desc: string) => {
-    const key = screenshotKeys[index];
-    if (!key) return match; // plus de capture disponible : on garde le placeholder.
+    const key = allKeys[index];
+    if (!key) return match; // ne devrait plus jamais arriver (repli garanti ci-dessus).
     // Texte alternatif descriptif (P137) prioritaire sur la légende brute.
-    const alt = (altTexts[index] || captions[index] || desc.trim()).replace(/[[\]()]/g, '');
+    const alt = (allAltTexts[index] || allCaptions[index] || desc.trim()).replace(/[[\]()]/g, '');
     // Chemin relatif d'asset dans le paquet exporté (résolu au packaging P24+).
     const rel = key.startsWith(`${storageKeys.course(courseId).prefix}/`)
       ? key.slice(storageKeys.course(courseId).prefix.length + 1)
@@ -301,7 +359,7 @@ async function replaceArticlePlaceholders(
 
   if (replaced > 0 && next !== markdown) {
     await uploadObject(articleKey, next, 'text/markdown; charset=utf-8');
-    article.assets.screenshots = screenshotKeys.slice(0, replaced);
+    article.assets.screenshots = allKeys.slice(0, replaced);
     await article.save();
   }
   return replaced;
@@ -355,6 +413,9 @@ export async function processScreenshotCapture(
 
   let failed = 0;
   const screencastKeys: string[] = [];
+  // Correctif N2 (audit 2026-07-20) : position (dans `uploadedKeys`) de chaque
+  // capture produite en mode dégradé (carton de repli) — voir usage plus bas.
+  const degradedPositions: number[] = [];
   try {
     // Reprise granulaire (P69) : chaque étape (réussie OU en échec toléré) est
     // checkpointée avant de passer à la suivante. Un crash DUR du worker (pas
@@ -365,40 +426,59 @@ export async function processScreenshotCapture(
       jobId: lessonId,
       steps: specs,
       store: mongoCheckpointStore(courseId, QUEUES.screenshot),
-      runStep: async ({ spec, instruction }, i) => {
+      runStep: async ({ spec, step, instruction }, i) => {
         const stepNumber = i + 1;
+        // Étape terminal pure (command sans spec, P22) : la légende vient de
+        // l'instruction ; spec d'annotation synthétique (actions vides).
+        const caption = spec?.caption ?? instruction.slice(0, 200);
+        const annotSpec: TpScreenshotSpec = spec ?? { actions: [], caption };
         try {
           const key = keys.screenshot(i);
           // Texte alternatif descriptif (P137) — indépendant du cache image
           // par contenu (deux cours différents peuvent vouloir un alt propre
           // à LEUR titre de leçon même si la capture brute est identique).
-          const altText = await generateScreenshotAltText(lesson.title, stepNumber, spec.caption, instruction);
+          const altText = await generateScreenshotAltText(lesson.title, stepNumber, caption, instruction);
 
           // Cache par CONTENU (Prompt 72) : deux TP — même cours ou cours
           // différents — qui rejouent la même spec (url/actions/focus/légende)
           // réutilisent la capture déjà annotée sans relancer Playwright/sharp.
-          const contentKey = storageKeys.screenshotCache(hashScreenshotSpec(spec));
-          if (await objectExists(contentKey)) {
+          // Réservé aux specs navigateur : la sortie d'une commande dans un
+          // environnement Docker n'est pas reproductible par contenu.
+          const contentKey = spec ? storageKeys.screenshotCache(hashScreenshotSpec(spec)) : undefined;
+          if (contentKey && (await objectExists(contentKey))) {
             const cached = await streamToBuffer(await getObjectStream(contentKey));
             await uploadObject(key, cached, 'image/png');
             await bumpCacheStat('screenshot', 'hit');
-            return { ok: true, key, caption: spec.caption, altText };
+            return { ok: true, key, caption, altText };
           }
           await bumpCacheStat('screenshot', 'miss');
 
-          const captured = await captureFromSpec(browser, spec);
-          const annotated = await composeAnnotated(captured, buildAnnotationSpec(captured, spec, stepNumber));
+          let rawCaptured;
+          if (spec) {
+            rawCaptured = await captureFromSpec(browser, spec);
+          } else {
+            // P22 : environnement Docker jetable + terminal web — la commande
+            // du step est exécutée et son résultat capturé. skipped (Docker
+            // absent, image inconnue…) → repli illustration dégradée via throw.
+            const term = await captureTpStep(browser, step);
+            if (term.skipped) throw new Error(`environnement TP indisponible : ${term.reason}`);
+            rawCaptured = term.screenshot;
+          }
+          const captured = await clampCapturedScreenshot(rawCaptured);
+          const annotated = await composeAnnotated(captured, buildAnnotationSpec(captured, annotSpec, stepNumber));
           await uploadObject(key, annotated, 'image/png');
-          await uploadObject(contentKey, annotated, 'image/png').catch((err) => {
-            logger.warn({ contentKey, err }, 'écriture du cache de capture par contenu impossible (non bloquant)');
-          });
+          if (contentKey) {
+            await uploadObject(contentKey, annotated, 'image/png').catch((err) => {
+              logger.warn({ contentKey, err }, 'écriture du cache de capture par contenu impossible (non bloquant)');
+            });
+          }
 
           // Screencast (Prompt 85) : en plus de la capture image (ci-dessus,
           // conservée pour l'article/annotation), produit une mini-vidéo de
           // démonstration si l'étape le demande. Échec de screencast toléré
           // isolément (log + on continue avec la capture image seule).
           let screencastKey: string | undefined;
-          if (isScreencastSpec(spec)) {
+          if (spec && isScreencastSpec(spec)) {
             try {
               const screencast = await renderScreencastFromSpec(browser, spec, {
                 narrationText: spec.caption,
@@ -411,7 +491,7 @@ export async function processScreenshotCapture(
             }
           }
 
-          return { ok: true, key, caption: spec.caption, altText, screencastKey };
+          return { ok: true, key, caption, altText, screencastKey };
         } catch (err) {
           logger.warn({ courseId, lessonId, step: stepNumber, err }, 'capture en échec — repli sur une illustration dégradée');
           // Mode dégradé : illustration de repli plutôt qu'un placeholder brut
@@ -419,8 +499,8 @@ export async function processScreenshotCapture(
           // l'étape est réellement abandonnée (comportement historique).
           try {
             const key = keys.screenshot(i);
-            await uploadObject(key, await fallbackScreenshotPng(spec.caption, stepNumber), 'image/png');
-            return { ok: true, key, caption: spec.caption, altText: spec.caption, degraded: true };
+            await uploadObject(key, await fallbackScreenshotPng(caption, stepNumber), 'image/png');
+            return { ok: true, key, caption, altText: caption, degraded: true };
           } catch (fallbackErr) {
             logger.warn({ courseId, lessonId, step: stepNumber, err: fallbackErr }, 'illustration de repli impossible');
             return { ok: false };
@@ -448,7 +528,10 @@ export async function processScreenshotCapture(
     });
 
     for (const r of results) {
-      if (r.ok && r.key) uploadedKeys.push(r.key);
+      if (r.ok && r.key) {
+        if (r.degraded) degradedPositions.push(uploadedKeys.length);
+        uploadedKeys.push(r.key);
+      }
       if (r.ok && r.caption) captions.push(r.caption);
       if (r.ok && r.altText) altTexts.push(r.altText);
       if (r.ok && r.screencastKey) screencastKeys.push(r.screencastKey);
@@ -459,11 +542,21 @@ export async function processScreenshotCapture(
 
   // Persiste les captures produites sur la leçon TP elle-même.
   lesson.assets.screenshots = uploadedKeys;
+  lesson.assets.screenshotsDegraded = degradedPositions.length > 0 ? degradedPositions : undefined;
   // Screencasts (Prompt 85) : additif, uniquement rempli si au moins une étape
   // du TP a demandé recordVideo — sinon on laisse le champ absent (undefined).
   if (screencastKeys.length > 0) {
     lesson.assets.screencasts = screencastKeys;
   }
+  // Les captures sont la DERNIÈRE étape du média d'un TP : la leçon est prête.
+  // Constaté en réel le 2026-07-25 : dans le flux « édition TP (PATCH, status
+  // 'pending') → Recapturer (regenerate render-only, status 'generating') »,
+  // AUCUN autre job ne repasse jamais le statut à 'ready' (dans le flux de
+  // génération normal, c'est content-generation qui l'avait déjà posé AVANT la
+  // capture — no-op ici dans ce cas) : les TP réédités restaient bloqués en
+  // 'generating' pour toujours, et finalizeCourseIfComplete (qui exige toutes
+  // les leçons 'ready') ne finalisait plus jamais le cours.
+  lesson.status = 'ready';
   await lesson.save();
 
   // Reporte les captures dans l'article de la leçon liée (même section).
