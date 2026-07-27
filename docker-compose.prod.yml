@@ -2,6 +2,7 @@
 services:
   web:
     image: ghcr.io/salistar/sallycourse-web:latest
+    ports: !override ["127.0.0.1:3000:3000"]
     environment:
       HOSTNAME: "0.0.0.0"
       PORT: "3000"
