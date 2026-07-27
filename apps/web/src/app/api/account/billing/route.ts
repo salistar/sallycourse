@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { z } from 'zod';
 import { connectDb, User as UserModel } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
@@ -51,7 +52,7 @@ export async function PUT(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = billingInputSchema.safeParse(body);
@@ -69,20 +70,20 @@ export async function PUT(request: Request) {
   if (billingTaxStatus === 'company') {
     if (!billingIce || !isValidIce(billingIce)) {
       return NextResponse.json(
-        { error: 'ICE invalide (15 chiffres attendus) — obligatoire pour une société.' },
+        { error: 'ICE invalide (15 chiffres attendus) — obligatoire pour une société.', code: 'invalidIceCompany' },
         { status: 400 },
       );
     }
     if (!billingIf || !isValidIf(billingIf)) {
       return NextResponse.json(
-        { error: 'IF invalide (6 à 8 chiffres attendus) — obligatoire pour une société.' },
+        { error: 'IF invalide (6 à 8 chiffres attendus) — obligatoire pour une société.', code: 'invalidIfCompany' },
         { status: 400 },
       );
     }
   }
   // Auto-entrepreneur : ICE optionnel mais, si renseigné, doit être valide.
   if (billingTaxStatus === 'auto_entrepreneur' && billingIce && !isValidIce(billingIce)) {
-    return NextResponse.json({ error: 'ICE invalide (15 chiffres attendus).' }, { status: 400 });
+    return NextResponse.json({ error: 'ICE invalide (15 chiffres attendus).', code: 'invalidIce' }, { status: 400 });
   }
 
   await connectDb();

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { Sparkles, Star, GraduationCap } from 'lucide-react';
 import { connectDb, Course, Testimonial } from '@sallycourse/db';
 import type { Difficulty } from '@sallycourse/shared';
@@ -12,17 +13,20 @@ import { Badge, Card, CardContent } from '@/components/ui';
  * publique, pas d'authentification requise.
  */
 
-export const metadata: Metadata = {
-  title: 'Vitrine — SallyCourse',
-  description: 'Découvrez des cours créés avec SallyCourse par notre communauté de formateurs.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('marketing.showcase');
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  };
+}
 
 export const dynamic = 'force-dynamic';
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {
-  beginner: 'Débutant',
-  intermediate: 'Intermédiaire',
-  advanced: 'Avancé',
+  beginner: 'difficulty.beginner',
+  intermediate: 'difficulty.intermediate',
+  advanced: 'difficulty.advanced',
 };
 
 interface ShowcaseEntry {
@@ -59,9 +63,10 @@ async function loadShowcaseEntries(): Promise<ShowcaseEntry[]> {
   });
 }
 
-function StarRating({ rating }: { rating: number }) {
+async function StarRating({ rating }: { rating: number }) {
+  const t = await getTranslations('marketing.showcase');
   return (
-    <div className="flex items-center gap-0.5" aria-label={`Note ${rating} sur 5`}>
+    <div className="flex items-center gap-0.5" aria-label={t('starRatingLabel', { rating })}>
       {Array.from({ length: 5 }, (_, i) => (
         <Star
           key={i}
@@ -75,35 +80,33 @@ function StarRating({ rating }: { rating: number }) {
 
 export default async function ShowcasePage() {
   const entries = await loadShowcaseEntries();
+  const t = await getTranslations('marketing.showcase');
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-16 sm:py-24">
       <header className="mx-auto max-w-2xl text-center">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-2xs font-semibold uppercase tracking-wide text-accent">
           <Sparkles className="size-3.5" aria-hidden="true" />
-          Vitrine de la communauté
+          {t('badge')}
         </span>
         <h1 className="mt-5 font-display text-4xl font-semibold text-foreground sm:text-5xl">
-          Des cours créés avec SallyCourse
+          {t('heading')}
         </h1>
         <p className="mt-4 text-base text-muted">
-          Une sélection de cours publiés par des formateurs qui ont choisi de partager leur création.
+          {t('subtitle')}
         </p>
       </header>
 
       {entries.length === 0 ? (
         <div className="mx-auto mt-16 max-w-md text-center">
-          <p className="text-sm text-muted">
-            Aucun cours n&apos;est encore affiché ici. Publiez le vôtre et activez l&apos;option « Afficher sur
-            la vitrine » pour apparaître parmi les premiers.
-          </p>
+          <p className="text-sm text-muted">{t('emptyState')}</p>
         </div>
       ) : (
         <section className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {entries.map((entry) => (
             <Card key={entry.id} wrapperClassName="h-full" className="flex h-full flex-col p-0">
               <div className="relative aspect-video w-full overflow-hidden rounded-t-[calc(1rem-1px)]">
-                <CourseThumbnail title={entry.title} />
+                <CourseThumbnail title={entry.title} seedKey={entry.id} />
                 <div className="absolute end-2.5 top-2.5 flex items-center gap-1.5">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full border border-border/60 bg-neutral-950/70 text-neutral-100 backdrop-blur-sm">
                     <GraduationCap className="size-3.5" aria-hidden="true" />
@@ -112,7 +115,7 @@ export default async function ShowcasePage() {
               </div>
               <CardContent className="flex flex-1 flex-col gap-3 p-5">
                 <div className="flex items-center gap-2">
-                  <Badge variant="published">{DIFFICULTY_LABELS[entry.difficulty]}</Badge>
+                  <Badge variant="published">{t(DIFFICULTY_LABELS[entry.difficulty])}</Badge>
                 </div>
                 <h2 className="line-clamp-2 font-display text-lg font-semibold leading-snug text-foreground">
                   {entry.title}

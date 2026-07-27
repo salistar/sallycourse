@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import Link from 'next/link';
 import { Store, Tag } from 'lucide-react';
 import { connectDb, Course as CourseModel, CourseMarketplaceListing } from '@sallycourse/db';
 import { marketplacePriceLabel } from '@sallycourse/shared';
 import { Badge, Card, CardContent, EmptyState } from '@/components/ui';
+import { BuyListingButton } from '@/components/marketplace/buy-listing-button';
 
 /**
  * /marketplace — catalogue public des cours listés à la vente entre
@@ -11,16 +13,19 @@ import { Badge, Card, CardContent, EmptyState } from '@/components/ui';
  * pour parcourir. Filtrable par catégorie via ?category=.
  */
 
-export const metadata: Metadata = {
-  title: 'Marketplace de cours — SallyCourse',
-  description: 'Achetez des cours ou des templates créés par d’autres utilisateurs SallyCourse.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('marketing.marketplace');
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  };
+}
 
 export const dynamic = 'force-dynamic';
 
 const LICENSE_LABELS: Record<string, string> = {
-  'course-copy': 'Copie intégrale',
-  'template-only': 'Template seul',
+  'course-copy': 'licenseCourseCopy',
+  'template-only': 'licenseTemplateOnly',
 };
 
 export default async function MarketplaceCataloguePage({
@@ -29,6 +34,7 @@ export default async function MarketplaceCataloguePage({
   searchParams: Promise<{ category?: string }>;
 }) {
   await connectDb();
+  const t = await getTranslations('marketing.marketplace');
   const { category } = await searchParams;
 
   const filter: Record<string, unknown> = { status: 'active' };
@@ -50,21 +56,17 @@ export default async function MarketplaceCataloguePage({
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-16 sm:py-20">
       <header className="flex flex-col gap-2">
-        <h1 className="font-display text-3xl font-semibold text-foreground">Marketplace de cours</h1>
-        <p className="max-w-2xl text-muted">
-          Achetez la copie d’un cours déjà généré ou un template de plan pédagogique créé par
-          d’autres utilisateurs. L’achat vous livre votre propre copie indépendante, prête à
-          personnaliser et déployer.
-        </p>
+        <h1 className="font-display text-3xl font-semibold text-foreground">{t('title')}</h1>
+        <p className="max-w-2xl text-muted">{t('intro')}</p>
       </header>
 
       {categories.length > 0 && (
-        <nav aria-label="Catégories" className="flex flex-wrap gap-2">
+        <nav aria-label={t('categoriesLabel')} className="flex flex-wrap gap-2">
           <Link
             href="/marketplace"
             className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted transition-colors duration-fast hover:border-ring/50 hover:text-foreground"
           >
-            Toutes
+            {t('allCategories')}
           </Link>
           {categories.map((c) => (
             <Link
@@ -81,8 +83,8 @@ export default async function MarketplaceCataloguePage({
 
       {listings.length === 0 ? (
         <EmptyState
-          title="Aucun listing pour le moment"
-          description="Les cours mis en vente par les créateurs apparaîtront ici."
+          title={t('emptyTitle')}
+          description={t('emptyDescription')}
         />
       ) : (
         <ul className="grid list-none grid-cols-1 gap-6 p-0 sm:grid-cols-2 lg:grid-cols-3">
@@ -94,14 +96,14 @@ export default async function MarketplaceCataloguePage({
                   <CardContent className="flex flex-1 flex-col gap-3 p-5">
                     <div className="flex items-center justify-between gap-2">
                       <Badge variant={listing.licenseType === 'course-copy' ? 'ready' : 'published'}>
-                        {LICENSE_LABELS[listing.licenseType] ?? listing.licenseType}
+                        {LICENSE_LABELS[listing.licenseType] ? t(LICENSE_LABELS[listing.licenseType]) : listing.licenseType}
                       </Badge>
                       <span className="text-sm font-semibold text-foreground">
                         {marketplacePriceLabel(listing.priceCents, listing.currency)}
                       </span>
                     </div>
                     <h2 className="font-display text-lg font-semibold text-foreground">
-                      {course?.title ?? 'Cours'}
+                      {course?.title ?? t('courseFallback')}
                     </h2>
                     {listing.description && (
                       <p className="line-clamp-3 text-sm text-muted">{listing.description}</p>
@@ -109,10 +111,14 @@ export default async function MarketplaceCataloguePage({
                     <div className="mt-auto flex items-center justify-between pt-2 text-2xs text-muted">
                       <span className="flex items-center gap-1">
                         <Store className="size-3.5" aria-hidden="true" />
-                        {listing.salesCount} vente(s)
+                        {t('sales', { count: listing.salesCount })}
                       </span>
                       {listing.category && <span>{listing.category}</span>}
                     </div>
+                    <BuyListingButton
+                      listingId={String(listing._id)}
+                      priceLabel={marketplacePriceLabel(listing.priceCents, listing.currency)}
+                    />
                   </CardContent>
                 </Card>
               </li>

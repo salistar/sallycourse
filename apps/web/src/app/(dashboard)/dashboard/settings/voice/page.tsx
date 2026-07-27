@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { requireUser } from '@/lib/session';
 import { VoiceCloneManager } from './voice-clone-manager';
 
@@ -7,23 +8,25 @@ import { VoiceCloneManager } from './voice-clone-manager';
  * Voice Cloning) pour narrer les cours vidéo avec sa propre voix.
  */
 
-export const metadata: Metadata = {
-  title: 'Ma voix — SallyCourse',
-  description: 'Clonez votre voix pour narrer vos cours vidéo avec votre propre timbre.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('settings.voicePage');
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  };
+}
 
 export const dynamic = 'force-dynamic';
 
 export default async function VoiceSettingsPage() {
   await requireUser();
+  const t = await getTranslations('settings.voicePage');
 
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-2">
-        <h1 className="font-display text-3xl font-semibold text-foreground">Ma voix</h1>
-        <p className="max-w-2xl text-muted">
-          Gérez le clonage vocal utilisé pour la narration de vos cours vidéo.
-        </p>
+        <h1 className="font-display text-3xl font-semibold text-foreground">{t('heading')}</h1>
+        <p className="max-w-2xl text-muted">{t('description')}</p>
       </header>
 
       <VoiceCloneManager />

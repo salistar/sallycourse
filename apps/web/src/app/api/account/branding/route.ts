@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { presignedGetUrl, storageKeys, uploadObject } from '@sallycourse/shared';
 import { schoolBrandingInputSchema } from '@sallycourse/shared';
 import { connectDb, SchoolBranding } from '@sallycourse/db';
@@ -63,7 +64,7 @@ export async function PUT(request: Request) {
   if (user instanceof Response) return user;
   if (user.plan !== 'business') {
     return NextResponse.json(
-      { error: 'La marque blanche du certificat est réservée au plan Business.' },
+      { error: 'La marque blanche du certificat est réservée au plan Business.', code: 'certificateWhiteLabelBusiness' },
       { status: 403 },
     );
   }
@@ -72,7 +73,7 @@ export async function PUT(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = schoolBrandingInputSchema.safeParse(body);
@@ -92,7 +93,7 @@ export async function PUT(request: Request) {
       userId: { $ne: user.id },
     }).lean();
     if (conflict) {
-      return NextResponse.json({ error: 'Ce sous-domaine est déjà utilisé.' }, { status: 409 });
+      return NextResponse.json({ error: 'Ce sous-domaine est déjà utilisé.', code: 'subdomainTaken' }, { status: 409 });
     }
   }
 
@@ -132,7 +133,7 @@ export async function POST(request: Request) {
   if (user instanceof Response) return user;
   if (user.plan !== 'business') {
     return NextResponse.json(
-      { error: 'La marque blanche du certificat est réservée au plan Business.' },
+      { error: 'La marque blanche du certificat est réservée au plan Business.', code: 'certificateWhiteLabelBusiness' },
       { status: 403 },
     );
   }
@@ -141,22 +142,22 @@ export async function POST(request: Request) {
   try {
     form = await request.formData();
   } catch {
-    return NextResponse.json({ error: 'Requête multipart invalide.' }, { status: 400 });
+    return apiError('invalidMultipart');
   }
 
   const file = form.get('file');
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: 'Logo manquant (champ « file »).' }, { status: 400 });
+    return NextResponse.json({ error: 'Logo manquant (champ « file »).', code: 'missingLogo' }, { status: 400 });
   }
   const ext = ACCEPTED_LOGO_TYPES[file.type];
   if (!ext) {
     return NextResponse.json(
-      { error: 'Format non supporté (PNG, JPEG, WebP ou SVG attendu).' },
+      { error: 'Format non supporté (PNG, JPEG, WebP ou SVG attendu).', code: 'unsupportedLogoFormat' },
       { status: 415 },
     );
   }
   if (file.size > MAX_LOGO_MB * 1024 * 1024) {
-    return NextResponse.json({ error: `Logo trop lourd (max ${MAX_LOGO_MB} Mo).` }, { status: 413 });
+    return NextResponse.json({ error: `Logo trop lourd (max ${MAX_LOGO_MB} Mo).`, code: 'brandingLogoTooLarge', params: { max: MAX_LOGO_MB } }, { status: 413 });
   }
 
   await connectDb();
@@ -167,7 +168,7 @@ export async function POST(request: Request) {
     await uploadObject(key, buffer, file.type);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: `Échec du téléversement : ${message}` }, { status: 502 });
+    return NextResponse.json({ error: `Échec du téléversement : ${message}`, code: 'brandingUploadFailed', params: { message: message } }, { status: 502 });
   }
 
   const doc = await SchoolBranding.findOneAndUpdate(

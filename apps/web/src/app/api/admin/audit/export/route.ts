@@ -1,4 +1,5 @@
 import { AuditLog, User, connectDb } from '@sallycourse/db';
+import { apiError } from '@/lib/api-error';
 import { requireApiUser } from '@/lib/session';
 import { auditLogsToCsv, buildAuditLogFilter } from '@/lib/audit-log-query';
 
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
   const user = await requireApiUser();
   if (user instanceof Response) return user;
   if (user.role !== 'admin') {
-    return Response.json({ error: 'Accès réservé aux administrateurs.' }, { status: 403 });
+    return apiError('adminOnly');
   }
 
   const { searchParams } = new URL(request.url);

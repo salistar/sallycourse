@@ -13,6 +13,7 @@ import {
   Section,
   Testimonial,
 } from '@sallycourse/db';
+import { deleteCoursePrefix } from '@sallycourse/shared';
 import { auth } from '@/lib/auth';
 
 /**
@@ -58,8 +59,10 @@ export async function deleteCourse(courseId: string): Promise<CourseActionResult
     ]);
     await Course.deleteOne({ _id: courseId, userId });
 
-    // TODO(storage) : purger les assets S3/MinIO du préfixe du cours
-    // (deleteCoursePrefix côté worker) quand le pipeline d'assets sera branché.
+    // Purge des assets S3/MinIO du cours (vidéos/slides/exports…) — best-effort :
+    // un stockage indisponible n'empêche pas la suppression logique (le préfixe
+    // orphelin sera repris par une purge ultérieure).
+    await deleteCoursePrefix(courseId).catch(() => undefined);
 
     revalidatePath('/dashboard');
     return { ok: true };

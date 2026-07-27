@@ -1,4 +1,5 @@
 import { requireApiUser } from '@/lib/session';
+import { apiError } from '@/lib/api-error';
 import { loadAllRevenueEntries } from '@/lib/revenue-data';
 import { toAccountingCsv } from '@/lib/revenue-aggregate';
 
@@ -15,7 +16,7 @@ export async function GET() {
   const user = await requireApiUser();
   if (user instanceof Response) return user;
   if (user.role !== 'admin') {
-    return Response.json({ error: 'Accès réservé aux administrateurs.' }, { status: 403 });
+    return apiError('adminOnly');
   }
 
   const entries = await loadAllRevenueEntries();

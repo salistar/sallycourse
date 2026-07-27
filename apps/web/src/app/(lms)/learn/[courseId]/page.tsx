@@ -5,6 +5,7 @@ import {
   connectDb,
   Coupon as CouponModel,
   Course as CourseModel,
+  CourseReview as CourseReviewModel,
   Enrollment as EnrollmentModel,
   Lesson as LessonModel,
   LmsListing as LmsListingModel,
@@ -13,7 +14,8 @@ import {
 } from '@sallycourse/db';
 import { applyDiscount, checkCouponValidity, getObjectStream, presignedGetUrl } from '@sallycourse/shared';
 import { auth } from '@/lib/auth';
-import { LearnCourseExperience } from '@/components/learn';
+import { getTranslations } from 'next-intl/server';
+import { CourseReviewForm, LearnCourseExperience } from '@/components/learn';
 import type { LearnCourseView, LearnLessonView } from '@/components/learn';
 
 /**
@@ -31,13 +33,14 @@ export async function generateMetadata({
   params: Promise<{ courseId: string }>;
 }): Promise<Metadata> {
   const { courseId } = await params;
-  if (!isValidObjectId(courseId)) return { title: 'Cours — SallyCourse Academy' };
+  const t = await getTranslations('learn.course');
+  if (!isValidObjectId(courseId)) return { title: t('metaTitleFallback') };
   await connectDb();
   const listing = await LmsListingModel.findOne({ courseId, published: true })
     .select('title summary')
     .lean();
   return {
-    title: listing ? `${listing.title} — SallyCourse Academy` : 'Cours — SallyCourse Academy',
+    title: listing ? t('metaTitle', { title: listing.title }) : t('metaTitleFallback'),
     description: listing?.summary ?? undefined,
   };
 }
@@ -97,7 +100,39 @@ export default async function LearnCoursePage({
   const quizByLesson = new Map(quizzes.map((q) => [String(q.lessonId), q.questions]));
   const sectionOrderById = new Map(sections.map((s) => [String(s._id), s.order]));
 
-  // Construit les vues de leçons : présignature vidéo + lecture article.
+  // Progression apprenant (si connecté ET inscrit). Calculé AVANT les vues de
+  // leçons : le contenu payant (article, réponses de quiz, transcription, liens
+  // sandbox) ne doit être sérialisé QUE pour un apprenant inscrit.
+  const session = await auth();
+  const studentId = session?.user?.id;
+  let enrolled = false;
+  let completedLessons: string[] = [];
+  let completedAt: string | null = null;
+  // Avis déjà déposé par CET apprenant (P205) — pré-remplit le formulaire d'avis.
+  let existingReview: { rating: number; comment: string } | null = null;
+  if (studentId) {
+    const enrollment = await EnrollmentModel.findOne({ studentId, courseId })
+      .select('completedLessons completedAt')
+      .lean();
+    if (enrollment) {
+      enrolled = true;
+      completedLessons = enrollment.completedLessons.map((id) => String(id));
+      completedAt = enrollment.completedAt ? new Date(enrollment.completedAt).toISOString() : null;
+
+      const review = await CourseReviewModel.findOne({ studentId, courseId })
+        .select('rating comment')
+        .lean();
+      if (review) {
+        existingReview = { rating: review.rating, comment: review.comment ?? '' };
+      }
+    }
+  }
+
+  // Construit les vues de leçons. Anti-piratage : la vidéo n'est JAMAIS exposée
+  // ici (lecture via POST …/watch filigrané). Le contenu textuel payant (article,
+  // réponses+explications de quiz, transcription/sous-titres, liens sandbox TP)
+  // n'est sérialisé que si `enrolled` — sinon un non-inscrit recevrait, dans le
+  // HTML de la page, le cours complet et les corrigés de quiz gratuitement.
   const lessonViews: LearnLessonView[] = await Promise.all(
     lessons.map(async (l) => {
       const questions = quizByLesson.get(String(l._id)) ?? [];
@@ -107,43 +142,29 @@ export default async function LearnCoursePage({
         title: l.title,
         type: l.type,
         durationMin: l.durationMin ?? 0,
-        videoUrl: await safePresign(l.assets?.videoUrl),
-        captionsUrl: await safePresign(l.assets?.vttUrl),
-        transcriptUrl: await safePresign(l.assets?.txtUrl),
-        articleMd: l.type === 'article' ? await safeReadMarkdown(l.assets?.articleMd) : undefined,
-        quiz: questions.map((q) => ({
-          question: q.question,
-          choices: [...q.choices],
-          correctIndex: q.correctIndex,
-          explanation: q.explanation ?? '',
-        })),
-        sandboxLinks: l.assets?.sandboxLinks
-          ? {
-              language: l.assets.sandboxLinks.language,
-              starter: { ...l.assets.sandboxLinks.starter },
-              solution: { ...l.assets.sandboxLinks.solution },
-            }
-          : undefined,
+        videoUrl: undefined,
+        captionsUrl: enrolled ? await safePresign(l.assets?.vttUrl) : undefined,
+        transcriptUrl: enrolled ? await safePresign(l.assets?.txtUrl) : undefined,
+        articleMd: enrolled && l.type === 'article' ? await safeReadMarkdown(l.assets?.articleMd) : undefined,
+        quiz: enrolled
+          ? questions.map((q) => ({
+              question: q.question,
+              choices: [...q.choices],
+              correctIndex: q.correctIndex,
+              explanation: q.explanation ?? '',
+            }))
+          : [],
+        sandboxLinks:
+          enrolled && l.assets?.sandboxLinks
+            ? {
+                language: l.assets.sandboxLinks.language,
+                starter: { ...l.assets.sandboxLinks.starter },
+                solution: { ...l.assets.sandboxLinks.solution },
+              }
+            : undefined,
       };
     }),
   );
-
-  // Progression apprenant (si connecté ET inscrit).
-  const session = await auth();
-  const studentId = session?.user?.id;
-  let enrolled = false;
-  let completedLessons: string[] = [];
-  let completedAt: string | null = null;
-  if (studentId) {
-    const enrollment = await EnrollmentModel.findOne({ studentId, courseId })
-      .select('completedLessons completedAt')
-      .lean();
-    if (enrollment) {
-      enrolled = true;
-      completedLessons = enrollment.completedLessons.map((id) => String(id));
-      completedAt = enrollment.completedAt ? new Date(enrollment.completedAt).toISOString() : null;
-    }
-  }
 
   // Prix réduit affiché si un code promo valide accompagne l'URL (?promo=CODE,
   // posé par /promo/[code]) — affichage seul : le décrément atomique réel a
@@ -179,14 +200,23 @@ export default async function LearnCoursePage({
   };
 
   return (
-    <LearnCourseExperience
-      course={view}
-      isAuthenticated={Boolean(studentId)}
-      enrolled={enrolled}
-      completedLessons={completedLessons}
-      completedAt={completedAt}
-      promoCode={promoCode}
-      promoPriceCents={promoPriceCents}
-    />
+    <>
+      <LearnCourseExperience
+        course={view}
+        isAuthenticated={Boolean(studentId)}
+        enrolled={enrolled}
+        completedLessons={completedLessons}
+        completedAt={completedAt}
+        promoCode={promoCode}
+        promoPriceCents={promoPriceCents}
+      />
+      {/* Avis : réservé aux apprenants INSCRITS (P205) — alimente les avis
+          publics agrégés sur la page instructeur (/@handle). */}
+      {enrolled && (
+        <section className="mx-auto w-full max-w-6xl px-6 pb-16">
+          <CourseReviewForm courseId={courseId} existing={existingReview} />
+        </section>
+      )}
+    </>
   );
 }

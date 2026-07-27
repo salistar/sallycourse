@@ -16,6 +16,7 @@ import {
   Webhook,
   connectDb,
 } from '@sallycourse/db';
+import { apiError } from '@/lib/api-error';
 import { requireApiUser } from '@/lib/session';
 import { buildZip, type ZipEntry } from '@/lib/simple-zip';
 
@@ -87,7 +88,7 @@ export async function GET() {
   ]);
 
   if (!profile) {
-    return Response.json({ error: 'Utilisateur introuvable.' }, { status: 404 });
+    return apiError('userNotFound');
   }
 
   const entries: ZipEntry[] = [

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { Types } from 'mongoose';
 import { presignedGetUrl } from '@sallycourse/shared';
 import { connectDb, ManualPaymentRequest } from '@sallycourse/db';
@@ -18,18 +19,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const user = await requireApiUser();
   if (user instanceof Response) return user;
   if (user.role !== 'admin') {
-    return NextResponse.json({ error: 'Accès réservé aux administrateurs.' }, { status: 403 });
+    return apiError('adminOnly');
   }
 
   const { id } = await params;
   if (!Types.ObjectId.isValid(id)) {
-    return NextResponse.json({ error: 'Identifiant invalide.' }, { status: 400 });
+    return apiError('invalidId');
   }
 
   await connectDb();
   const doc = await ManualPaymentRequest.findById(id).select('proofUrl').lean();
   if (!doc || !doc.proofUrl) {
-    return NextResponse.json({ error: 'Preuve introuvable.' }, { status: 404 });
+    return NextResponse.json({ error: 'Preuve introuvable.', code: 'proofNotFound' }, { status: 404 });
   }
 
   const url = await presignedGetUrl(doc.proofUrl, 3600);

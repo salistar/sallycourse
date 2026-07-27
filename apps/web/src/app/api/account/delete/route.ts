@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { apiError } from '@/lib/api-error';
 import { deleteCoursePrefix } from '@sallycourse/shared';
 import {
   ApiKey,
@@ -45,13 +46,13 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
     return Response.json(
-      { error: 'Données invalides.', details: parsed.error.flatten().fieldErrors },
+      { error: 'Données invalides.', code: 'invalidData', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }
@@ -61,12 +62,12 @@ export async function POST(request: Request) {
   const userId = user.id;
   const dbUser = await UserModel.findById(userId).select('email').lean();
   if (!dbUser) {
-    return Response.json({ error: 'Utilisateur introuvable.' }, { status: 404 });
+    return apiError('userNotFound');
   }
 
   if (parsed.data.confirmEmail !== dbUser.email.toLowerCase()) {
     return Response.json(
-      { error: 'La confirmation ne correspond pas à votre adresse email.' },
+      { error: 'La confirmation ne correspond pas à votre adresse email.', code: 'emailConfirmationMismatch' },
       { status: 400 },
     );
   }

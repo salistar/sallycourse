@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { getConfig, storageKeys, uploadObject } from '@sallycourse/shared';
 import { User as UserModel, connectDb } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
@@ -74,28 +75,28 @@ export async function POST(request: Request) {
   try {
     form = await request.formData();
   } catch {
-    return NextResponse.json({ error: 'Requête multipart invalide.' }, { status: 400 });
+    return apiError('invalidMultipart');
   }
 
   const file = form.get('file');
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: 'Échantillon audio manquant (champ « file »).' }, { status: 400 });
+    return NextResponse.json({ error: 'Échantillon audio manquant (champ « file »).', code: 'missingAudioSample' }, { status: 400 });
   }
-  if (file.type && !ACCEPTED_TYPES.includes(file.type)) {
+  if (!ACCEPTED_TYPES.includes(file.type)) {
     return NextResponse.json(
-      { error: 'Format non supporté (MP3, WAV, WebM ou M4A attendu).' },
+      { error: 'Format non supporté (MP3, WAV, WebM ou M4A attendu).', code: 'unsupportedAudioFormat' },
       { status: 415 },
     );
   }
   if (file.size > MAX_MB * 1024 * 1024) {
-    return NextResponse.json({ error: `Échantillon trop lourd (max ${MAX_MB} Mo).` }, { status: 413 });
+    return NextResponse.json({ error: `Échantillon trop lourd (max ${MAX_MB} Mo).`, code: 'voiceCloneSampleTooLarge', params: { max: MAX_MB } }, { status: 413 });
   }
 
   const consentRaw = form.get('consent');
   const consent = consentRaw === 'true' || consentRaw === 'on' || consentRaw === '1';
   if (!consent) {
     return NextResponse.json(
-      { error: 'Consentement explicite requis (case « voiceCloneConsent ») avant tout clonage vocal.' },
+      { error: 'Consentement explicite requis (case « voiceCloneConsent ») avant tout clonage vocal.', code: 'voiceCloneConsentRequired' },
       { status: 400 },
     );
   }
@@ -104,13 +105,13 @@ export async function POST(request: Request) {
   const durationSeconds = typeof durationRaw === 'string' ? Number.parseFloat(durationRaw) : NaN;
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
     return NextResponse.json(
-      { error: 'Durée de l’échantillon manquante ou invalide.' },
+      { error: 'Durée de l’échantillon manquante ou invalide.', code: 'invalidSampleDuration' },
       { status: 400 },
     );
   }
   if (durationSeconds < MIN_SAMPLE_SECONDS) {
     return NextResponse.json(
-      { error: `Échantillon trop court : ${Math.round(durationSeconds)}s (minimum recommandé : ${MIN_SAMPLE_SECONDS}s).` },
+      { error: `Échantillon trop court : ${Math.round(durationSeconds)}s (minimum recommandé : ${MIN_SAMPLE_SECONDS}s).`, code: 'voiceCloneSampleTooShort', params: { seconds: Math.round(durationSeconds), minSeconds: MIN_SAMPLE_SECONDS } },
       { status: 400 },
     );
   }
@@ -137,6 +138,10 @@ export async function POST(request: Request) {
       voiceCloneStatus: 'ready',
       voiceCloneConsent: true,
       voiceCloneSampleSeconds: Math.round(durationSeconds),
+      // Active AUSSI le clonage Chatterbox/Modal : l'échantillon vient d'être
+      // stocké à voiceSample(userId) ; ce timestamp sert de drapeau de présence
+      // + version dans la clé de cache TTS (voir tts-generation.ts / Course.useCustomVoice).
+      voiceSampleUploadedAt: new Date(),
     });
 
     return NextResponse.json(
@@ -146,7 +151,7 @@ export async function POST(request: Request) {
   } catch (err) {
     await UserModel.findByIdAndUpdate(user.id, { voiceCloneStatus: 'failed' }).catch(() => undefined);
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: `Échec du clonage vocal : ${message}` }, { status: 502 });
+    return NextResponse.json({ error: `Échec du clonage vocal : ${message}`, code: 'voiceCloneFailed', params: { message: message } }, { status: 502 });
   }
 }
 
@@ -160,7 +165,7 @@ export async function GET() {
     .select('clonedVoiceId voiceCloneStatus voiceCloneConsent voiceCloneSampleSeconds')
     .lean();
   if (!dbUser) {
-    return NextResponse.json({ error: 'Utilisateur introuvable.' }, { status: 404 });
+    return apiError('userNotFound');
   }
 
   return NextResponse.json({
@@ -194,6 +199,7 @@ export async function DELETE() {
     clonedVoiceId: undefined,
     voiceCloneStatus: 'none',
     voiceCloneSampleSeconds: undefined,
+    voiceSampleUploadedAt: undefined,
   });
 
   return NextResponse.json({ ok: true, status: 'none' });

@@ -1,13 +1,17 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import Link from 'next/link';
 import { GraduationCap } from 'lucide-react';
 import { ToastProvider, Toaster } from '@/components/ui';
 import { auth } from '@/lib/auth';
 
-export const metadata: Metadata = {
-  title: 'Catalogue — SallyCourse',
-  description: 'Découvrez et suivez les cours publiés sur le LMS SallyCourse.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('learn.layout');
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  };
+}
 
 /**
  * Shell public du LMS interne (/learn) : barre haute légère avec accès au
@@ -16,6 +20,7 @@ export const metadata: Metadata = {
 export default async function LmsLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   const isAuthenticated = Boolean(session?.user?.id);
+  const t = await getTranslations('learn.layout');
 
   return (
     <ToastProvider>
@@ -28,15 +33,15 @@ export default async function LmsLayout({ children }: { children: React.ReactNod
             </Link>
             <nav className="flex items-center gap-4 text-sm">
               <Link href="/learn" className="text-muted transition-colors hover:text-foreground">
-                Catalogue
+                {t('nav.catalog')}
               </Link>
               {isAuthenticated ? (
                 <Link href="/dashboard" className="font-medium text-primary hover:underline">
-                  Mon espace
+                  {t('nav.mySpace')}
                 </Link>
               ) : (
                 <Link href="/login" className="font-medium text-primary hover:underline">
-                  Se connecter
+                  {t('nav.signIn')}
                 </Link>
               )}
             </nav>

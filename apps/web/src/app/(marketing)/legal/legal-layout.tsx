@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { FileText, ScrollText, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
@@ -9,9 +10,9 @@ import { cn } from '@/lib/cn';
  */
 
 const LEGAL_NAV = [
-  { href: '/legal/cgu', label: 'CGU', icon: FileText },
-  { href: '/legal/cgv', label: 'CGV', icon: ScrollText },
-  { href: '/legal/confidentialite', label: 'Confidentialité', icon: ShieldCheck },
+  { href: '/legal/cgu', labelKey: 'nav.cgu', icon: FileText },
+  { href: '/legal/cgv', labelKey: 'nav.cgv', icon: ScrollText },
+  { href: '/legal/confidentialite', labelKey: 'nav.privacy', icon: ShieldCheck },
 ] as const;
 
 export interface LegalPageProps {
@@ -21,15 +22,16 @@ export interface LegalPageProps {
   children: React.ReactNode;
 }
 
-export function LegalPage({ title, updatedAt, active, children }: LegalPageProps) {
+export async function LegalPage({ title, updatedAt, active, children }: LegalPageProps) {
+  const t = await getTranslations('legal');
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-16 sm:py-20">
       <header className="mb-8">
         <h1 className="font-display text-3xl font-semibold text-foreground sm:text-4xl">{title}</h1>
-        <p className="mt-2 text-sm text-muted">Dernière mise à jour : {updatedAt}</p>
+        <p className="mt-2 text-sm text-muted">{t('lastUpdated', { date: updatedAt })}</p>
       </header>
 
-      <nav aria-label="Documents légaux" className="mb-10 flex flex-wrap gap-2">
+      <nav aria-label={t('navAriaLabel')} className="mb-10 flex flex-wrap gap-2">
         {LEGAL_NAV.map((item) => {
           const isActive = item.href === active;
           const Icon = item.icon;
@@ -46,7 +48,7 @@ export function LegalPage({ title, updatedAt, active, children }: LegalPageProps
               )}
             >
               <Icon className="size-3.5" aria-hidden="true" />
-              {item.label}
+              {t(item.labelKey)}
             </Link>
           );
         })}

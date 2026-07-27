@@ -32,7 +32,8 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('marketing.hero');
-  const title = 'SallyCourse — Créez un cours en ligne complet en quelques minutes';
+  const home = await getTranslations('marketing.home');
+  const title = home('metaTitle');
   const description = t('subtitle');
 
   return {
@@ -64,6 +65,7 @@ interface TestimonialEntry {
 
 /** Charge jusqu'à 3 témoignages réels (P89) ; retombe sur le contenu i18n si vide. */
 async function loadTestimonials(): Promise<TestimonialEntry[]> {
+  const home = await getTranslations('marketing.home');
   try {
     await connectDb();
     const testimonials = await Testimonial.find({ rating: { $gte: 4 } })
@@ -81,7 +83,7 @@ async function loadTestimonials(): Promise<TestimonialEntry[]> {
     return testimonials.map((t) => ({
       quote: t.quote as string,
       rating: t.rating as number | undefined,
-      author: titleByCourseId.get(String(t.courseId)) ?? 'Formateur SallyCourse',
+      author: titleByCourseId.get(String(t.courseId)) ?? home('fallbackAuthor'),
     }));
   } catch {
     // Base indisponible en build/preview statique : retombe sur le contenu i18n.
@@ -89,9 +91,9 @@ async function loadTestimonials(): Promise<TestimonialEntry[]> {
   }
 }
 
-function StarRating({ rating }: { rating: number }) {
+function StarRating({ rating, ratingLabel }: { rating: number; ratingLabel: string }) {
   return (
-    <div className="flex items-center gap-0.5" aria-label={`Note ${rating} sur 5`}>
+    <div className="flex items-center gap-0.5" aria-label={ratingLabel}>
       {Array.from({ length: 5 }, (_, i) => (
         <Star
           key={i}
@@ -104,13 +106,14 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 export default async function HomePage() {
-  const [hero, comparison, features, pricingPreview, testimonialsT, faq] = await Promise.all([
+  const [hero, comparison, features, pricingPreview, testimonialsT, faq, home] = await Promise.all([
     getTranslations('marketing.hero'),
     getTranslations('marketing.comparison'),
     getTranslations('marketing.features'),
     getTranslations('marketing.pricingPreview'),
     getTranslations('marketing.testimonials'),
     getTranslations('marketing.faq'),
+    getTranslations('marketing.home'),
   ]);
 
   const featureItems = features.raw('items') as { title: string; description: string }[];
@@ -153,9 +156,7 @@ export default async function HomePage() {
           <p className="mt-6 text-xs text-muted">{hero('trust')}</p>
 
           <div className="mt-10 flex w-full flex-col items-center border-t border-border/60 pt-8">
-            <p className="text-sm font-semibold text-foreground">
-              Ou testez tout de suite, sans compte — saisissez un titre :
-            </p>
+            <p className="text-sm font-semibold text-foreground">{home('demoPrompt')}</p>
             <DemoGeneratorForm />
           </div>
         </div>
@@ -272,8 +273,8 @@ export default async function HomePage() {
                   <h3 className="font-display text-xl font-semibold capitalize text-foreground">{planId}</h3>
                   <p className="mt-2 text-sm text-muted">
                     {Number.isFinite(plan.coursesPerMonth)
-                      ? `${plan.coursesPerMonth} cours / mois`
-                      : 'Cours illimités'}
+                      ? home('coursesPerMonth', { count: plan.coursesPerMonth })
+                      : home('unlimitedCourses')}
                   </p>
                 </Card>
               );
@@ -301,7 +302,9 @@ export default async function HomePage() {
             {testimonials.map((t) => (
               <Card key={t.quote} className="h-full p-0">
                 <CardContent className="flex h-full flex-col gap-3 p-6">
-                  {typeof t.rating === 'number' && <StarRating rating={t.rating} />}
+                  {typeof t.rating === 'number' && (
+                    <StarRating rating={t.rating} ratingLabel={home('starRating', { rating: t.rating })} />
+                  )}
                   <p className="flex-1 text-sm italic leading-relaxed text-foreground">« {t.quote} »</p>
                   <p className="text-xs font-semibold text-muted">{t.author}</p>
                 </CardContent>

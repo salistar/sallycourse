@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { connectDb, User } from '@sallycourse/db';
 import { DashboardSidebar, type DashboardUser } from '@/components/dashboard';
 import { ToastProvider, Toaster } from '@/components/ui';
 import { auth } from '@/lib/auth';
@@ -18,6 +19,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const session = await auth();
   const isAdmin = session?.user?.role === 'admin';
 
+  // Compte agence (P150) : non porté par le JWT, lu en base (requête indexée
+  // légère) pour n'afficher le lien « Agence » qu'aux comptes concernés.
+  let isAgency = false;
+  if (session?.user?.id) {
+    await connectDb();
+    const doc = await User.findById(session.user.id).select('isAgency').lean();
+    isAgency = Boolean(doc?.isAgency);
+  }
+
   // Utilisateur réel affiché dans le menu de la sidebar (plan borné au type UI).
   const sidebarUser: DashboardUser | undefined = session?.user
     ? {
@@ -30,7 +40,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <ToastProvider>
       <div className="min-h-dvh bg-background">
-        <DashboardSidebar isAdmin={isAdmin} user={sidebarUser} />
+        <DashboardSidebar isAdmin={isAdmin} isAgency={isAgency} user={sidebarUser} />
         <main className="lg:ps-64">
           <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10">{children}</div>
         </main>

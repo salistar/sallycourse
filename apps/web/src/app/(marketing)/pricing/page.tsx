@@ -4,28 +4,35 @@ import { Check, Minus, Sparkles } from 'lucide-react';
 import { PLANS } from '@sallycourse/shared';
 import { buttonVariants, Card, CardContent, CardHeader } from '@/components/ui';
 import { cn } from '@/lib/cn';
+import { getTranslations } from 'next-intl/server';
 
 // Page tarifs (P53) — 3 offres Free/Pro/Business, design SALISTAR premium.
 // Les capacités affichées dérivent de PLANS (source unique) pour rester alignées
 // avec la logique de quota côté serveur.
 
-export const metadata: Metadata = {
-  title: 'Tarifs — SallyCourse',
-  description: 'Choisissez votre offre : du plan gratuit au plan Business illimité avec API et multi-comptes.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('marketing.pricing');
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  };
+}
 
 /** Rend une limite mensuelle : Infinity → « Illimité ». */
-function formatCoursesPerMonth(n: number): string {
-  return Number.isFinite(n) ? `${n} cours / mois` : 'Cours illimités';
+function formatCoursesPerMonth(
+  n: number,
+  t: (key: string, values?: Record<string, string | number>) => string,
+): string {
+  return Number.isFinite(n) ? t('coursesPerMonthValue', { count: n }) : t('coursesUnlimited');
 }
 
 interface PlanCard {
   id: keyof typeof PLANS;
   name: string;
-  tagline: string;
+  taglineKey: string;
   price: string;
-  period: string;
-  cta: string;
+  periodKey: string;
+  ctaKey: string;
   href: string;
   featured?: boolean;
 }
@@ -35,76 +42,91 @@ const PLAN_CARDS: PlanCard[] = [
   {
     id: 'free',
     name: 'Free',
-    tagline: 'Pour tester la génération de cours.',
+    taglineKey: 'planFreeTagline',
     price: '0 €',
-    period: 'pour toujours',
-    cta: 'Commencer gratuitement',
+    periodKey: 'planFreePeriod',
+    ctaKey: 'planFreeCta',
     href: '/register',
   },
   {
     id: 'pro',
     name: 'Pro',
-    tagline: 'Pour les créateurs réguliers.',
+    taglineKey: 'planProTagline',
     price: '29 €',
-    period: 'par mois',
-    cta: 'Passer au Pro',
+    periodKey: 'planProPeriod',
+    ctaKey: 'planProCta',
     href: '/register?plan=pro',
     featured: true,
   },
   {
     id: 'business',
     name: 'Business',
-    tagline: 'Pour les équipes et l’automatisation.',
+    taglineKey: 'planBusinessTagline',
     price: '99 €',
-    period: 'par mois',
-    cta: 'Contacter les ventes',
+    periodKey: 'planBusinessPeriod',
+    ctaKey: 'planBusinessCta',
     href: '/register?plan=business',
   },
 ];
 
 /** Une ligne de la matrice de comparaison ; `value(plan)` → booléen ou libellé. */
 interface FeatureRow {
-  label: string;
-  value: (plan: (typeof PLANS)[keyof typeof PLANS]) => boolean | string;
+  labelKey: string;
+  value: (
+    plan: (typeof PLANS)[keyof typeof PLANS],
+    t: (key: string, values?: Record<string, string | number>) => string,
+  ) => boolean | string;
 }
 
 const FEATURES: FeatureRow[] = [
-  { label: 'Cours générés par mois', value: (p) => formatCoursesPerMonth(p.coursesPerMonth) },
+  { labelKey: 'featureCoursesLabel', value: (p, t) => formatCoursesPerMonth(p.coursesPerMonth, t) },
   {
-    label: 'Déploiement multi-plateformes',
-    value: (p) => (Number.isFinite(p.maxDeployPlatforms) ? `${p.maxDeployPlatforms} à la fois` : 'Partout'),
+    labelKey: 'featureDeployLabel',
+    value: (p, t) =>
+      Number.isFinite(p.maxDeployPlatforms)
+        ? t('deployPlatformsValue', { count: p.maxDeployPlatforms })
+        : t('deployEverywhere'),
   },
-  { label: 'Sans filigrane', value: (p) => !p.watermark },
-  { label: 'Accès API', value: (p) => p.api },
-  { label: 'Multi-comptes plateformes', value: (p) => p.multiAccounts },
+  { labelKey: 'featureNoWatermarkLabel', value: (p) => !p.watermark },
+  { labelKey: 'featureApiLabel', value: (p) => p.api },
+  { labelKey: 'featureMultiAccountsLabel', value: (p) => p.multiAccounts },
 ];
 
 /** Cellule de valeur : coche/tiret pour un booléen, texte sinon. */
-function FeatureValue({ value }: { value: boolean | string }) {
+function FeatureValue({
+  value,
+  includedLabel,
+  excludedLabel,
+}: {
+  value: boolean | string;
+  includedLabel: string;
+  excludedLabel: string;
+}) {
   if (typeof value === 'string') {
     return <span className="text-sm text-foreground">{value}</span>;
   }
   return value ? (
-    <Check className="size-4 text-accent" aria-label="Inclus" />
+    <Check className="size-4 text-accent" aria-label={includedLabel} />
   ) : (
-    <Minus className="size-4 text-muted" aria-label="Non inclus" />
+    <Minus className="size-4 text-muted" aria-label={excludedLabel} />
   );
 }
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const t = await getTranslations('marketing.pricing');
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-16 sm:py-24">
       {/* En-tête */}
       <header className="mx-auto max-w-2xl text-center">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-2xs font-semibold uppercase tracking-wide text-accent">
           <Sparkles className="size-3.5" aria-hidden="true" />
-          Tarifs simples
+          {t('badge')}
         </span>
         <h1 className="mt-5 font-display text-4xl font-semibold text-foreground sm:text-5xl">
-          Un cours complet, en quelques minutes
+          {t('heroTitle')}
         </h1>
         <p className="mt-4 text-base text-muted">
-          Commencez gratuitement, passez à l’échelle quand vous êtes prêt. Aucun engagement, changez d’offre à tout moment.
+          {t('heroSubtitle')}
         </p>
       </header>
 
@@ -122,31 +144,31 @@ export default function PricingPage() {
                 <h2 className="font-display text-2xl font-semibold text-foreground">{plan.name}</h2>
                 {plan.featured && (
                   <span className="rounded-full bg-gradient-to-b from-accent-300 to-accent-500 px-2.5 py-0.5 text-2xs font-semibold uppercase tracking-wide text-accent-foreground">
-                    Populaire
+                    {t('popularBadge')}
                   </span>
                 )}
               </div>
-              <p className="text-sm text-muted">{plan.tagline}</p>
+              <p className="text-sm text-muted">{t(plan.taglineKey)}</p>
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="font-display text-4xl font-semibold text-foreground">{plan.price}</span>
-                <span className="text-sm text-muted">{plan.period}</span>
+                <span className="text-sm text-muted">{t(plan.periodKey)}</span>
               </div>
             </CardHeader>
 
             <CardContent className="flex flex-1 flex-col gap-4">
               <ul className="flex flex-col gap-3">
                 {FEATURES.map((feature) => {
-                  const value = feature.value(PLANS[plan.id]);
+                  const value = feature.value(PLANS[plan.id], t);
                   const included = typeof value === 'boolean' ? value : true;
                   return (
-                    <li key={feature.label} className="flex items-start gap-2.5 text-sm">
+                    <li key={feature.labelKey} className="flex items-start gap-2.5 text-sm">
                       {included ? (
                         <Check className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
                       ) : (
                         <Minus className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
                       )}
                       <span className={cn(included ? 'text-foreground' : 'text-muted')}>
-                        {typeof value === 'string' ? value : feature.label}
+                        {typeof value === 'string' ? value : t(feature.labelKey)}
                       </span>
                     </li>
                   );
@@ -161,7 +183,7 @@ export default function PricingPage() {
                     'w-full',
                   )}
                 >
-                  {plan.cta}
+                  {t(plan.ctaKey)}
                 </Link>
               </div>
             </CardContent>
@@ -172,13 +194,13 @@ export default function PricingPage() {
       {/* Matrice de comparaison détaillée */}
       <section className="mt-20">
         <h2 className="text-center font-display text-2xl font-semibold text-foreground">
-          Comparer les offres en détail
+          {t('comparisonTitle')}
         </h2>
         <div className="mt-8 overflow-x-auto">
           <table className="w-full min-w-[560px] border-collapse text-left">
             <thead>
               <tr className="border-b border-border">
-                <th className="py-4 pr-4 text-sm font-medium text-muted">Fonctionnalité</th>
+                <th className="py-4 pr-4 text-sm font-medium text-muted">{t('comparisonFeatureHeader')}</th>
                 {PLAN_CARDS.map((plan) => (
                   <th key={plan.id} className="px-4 py-4 text-center font-display text-base font-semibold text-foreground">
                     {plan.name}
@@ -188,12 +210,16 @@ export default function PricingPage() {
             </thead>
             <tbody>
               {FEATURES.map((feature) => (
-                <tr key={feature.label} className="border-b border-border/60">
-                  <td className="py-4 pr-4 text-sm text-foreground">{feature.label}</td>
+                <tr key={feature.labelKey} className="border-b border-border/60">
+                  <td className="py-4 pr-4 text-sm text-foreground">{t(feature.labelKey)}</td>
                   {PLAN_CARDS.map((plan) => (
                     <td key={plan.id} className="px-4 py-4 text-center">
                       <span className="inline-flex justify-center">
-                        <FeatureValue value={feature.value(PLANS[plan.id])} />
+                        <FeatureValue
+                          value={feature.value(PLANS[plan.id], t)}
+                          includedLabel={t('included')}
+                          excludedLabel={t('excluded')}
+                        />
                       </span>
                     </td>
                   ))}
@@ -206,10 +232,10 @@ export default function PricingPage() {
 
       {/* CTA de bas de page */}
       <section className="mt-20 text-center">
-        <p className="text-sm text-muted">Prêt à générer votre premier cours ?</p>
+        <p className="text-sm text-muted">{t('footerCta')}</p>
         <div className="mt-4">
           <Link href="/register" className={buttonVariants({ variant: 'primary', size: 'lg' })}>
-            Créer un compte gratuit
+            {t('footerButton')}
           </Link>
         </div>
       </section>

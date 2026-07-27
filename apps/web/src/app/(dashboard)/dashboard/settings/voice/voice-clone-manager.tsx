@@ -1,8 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { AlertTriangle, Mic, Trash2, UploadCloud } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import { errorMessage } from '@/lib/error-message';
+import { AlertTriangle, Mic, Square, Trash2, UploadCloud } from 'lucide-react';
+import {
+  MIN_VOICE_SAMPLE_SECONDS,
+  canSubmitRecording,
+  formatRecordingTime,
+  remainingSecondsBeforeSubmit,
+} from '@sallycourse/shared/voice-recording';
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, useToast } from '@/components/ui';
+import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 
 // Section « Ma voix » (Prompt 81) : upload d'un échantillon audio (>= 60s
 // recommandé) avec consentement explicite obligatoire → clonage ElevenLabs
@@ -12,7 +21,7 @@ import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitl
 // « voice_clone_used » émise côté worker).
 
 const ENDPOINT = '/api/account/voice-clone';
-const MIN_SAMPLE_SECONDS = 60;
+const MIN_SAMPLE_SECONDS = MIN_VOICE_SAMPLE_SECONDS;
 
 interface VoiceStatus {
   voiceId: string | null;
@@ -41,11 +50,11 @@ function readAudioDurationSeconds(file: File): Promise<number> {
   });
 }
 
-const STATUS_LABEL: Record<VoiceStatus['status'], string> = {
-  none: 'Aucune voix clonée',
-  pending: 'Clonage en cours',
-  ready: 'Voix prête',
-  failed: 'Échec du clonage',
+const STATUS_LABEL_KEY: Record<VoiceStatus['status'], string> = {
+  none: 'statusNone',
+  pending: 'statusPending',
+  ready: 'statusReady',
+  failed: 'statusFailed',
 };
 
 const STATUS_BADGE_VARIANT: Record<VoiceStatus['status'], 'draft' | 'generating' | 'ready' | 'failed'> = {
@@ -56,6 +65,8 @@ const STATUS_BADGE_VARIANT: Record<VoiceStatus['status'], 'draft' | 'generating'
 };
 
 export function VoiceCloneManager() {
+  const t = useTranslations('settings.voice');
+  const tApiError = useTranslations('apiErrors');
   const { toast } = useToast();
   const [phase, setPhase] = React.useState<Phase>('loading');
   const [status, setStatus] = React.useState<VoiceStatus>({
@@ -67,6 +78,7 @@ export function VoiceCloneManager() {
   const [consentChecked, setConsentChecked] = React.useState(false);
   const [removing, setRemoving] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const recorder = useAudioRecorder();
 
   React.useEffect(() => {
     let cancelled = false;
@@ -85,34 +97,16 @@ export function VoiceCloneManager() {
     };
   }, []);
 
-  const onPick = React.useCallback(
-    async (file: File) => {
-      if (!consentChecked) {
-        toast({
-          title: 'Consentement requis',
-          description: 'Cochez la case de consentement avant de téléverser votre échantillon.',
-          variant: 'danger',
-        });
-        return;
-      }
-
+  // Cœur d'upload partagé par le fichier téléversé ET l'enregistrement micro :
+  // même endpoint, mêmes champs multipart, même gestion de réponse.
+  const uploadSample = React.useCallback(
+    async (source: File | Blob, filename: string, durationSeconds: number) => {
       setPhase('uploading');
       try {
-        const durationSeconds = await readAudioDurationSeconds(file).catch(() => 0);
-        if (durationSeconds > 0 && durationSeconds < MIN_SAMPLE_SECONDS) {
-          toast({
-            title: 'Échantillon trop court',
-            description: `Durée détectée : ${Math.round(durationSeconds)}s (minimum recommandé : ${MIN_SAMPLE_SECONDS}s).`,
-            variant: 'danger',
-          });
-          setPhase('idle');
-          return;
-        }
-
         const body = new FormData();
-        body.append('file', file);
+        body.append('file', source, filename);
         body.append('consent', 'true');
-        body.append('durationSeconds', String(durationSeconds || MIN_SAMPLE_SECONDS));
+        body.append('durationSeconds', String(durationSeconds));
         body.append('label', 'Ma voix');
 
         const res = await fetch(ENDPOINT, { method: 'POST', body });
@@ -121,8 +115,7 @@ export function VoiceCloneManager() {
           | null;
 
         if (!res.ok) {
-          toast({ title: 'Clonage impossible', description: data?.error, variant: 'danger' });
-          setPhase('idle');
+          toast({ title: t('toastCloneFailedTitle'), description: errorMessage(data, tApiError), variant: 'danger' });
           return;
         }
 
@@ -133,20 +126,93 @@ export function VoiceCloneManager() {
           sampleSeconds: data?.sampleSeconds ?? null,
         });
         toast({
-          title: 'Voix clonée',
+          title: t('toastClonedTitle'),
           description: data?.mock
-            ? 'Mode simulé (aucune clé ElevenLabs) : un identifiant fictif a été assigné.'
-            : 'Votre voix est prête à être utilisée pour vos cours.',
+            ? t('toastClonedMock')
+            : t('toastClonedReady'),
           variant: 'success',
         });
       } catch {
-        toast({ title: 'Erreur réseau', description: 'Serveur injoignable.', variant: 'danger' });
+        toast({ title: t('toastNetworkError'), description: t('toastServerUnreachable'), variant: 'danger' });
       } finally {
         setPhase('idle');
       }
     },
-    [consentChecked, toast],
+    [toast],
   );
+
+  const onPick = React.useCallback(
+    async (file: File) => {
+      if (!consentChecked) {
+        toast({
+          title: t('toastConsentRequiredTitle'),
+          description: t('toastConsentRequiredUpload'),
+          variant: 'danger',
+        });
+        return;
+      }
+
+      // La durée d'un fichier téléversé est lisible (contrairement aux blobs webm
+      // du micro) : on la mesure pour bloquer un échantillon trop court côté client.
+      const durationSeconds = await readAudioDurationSeconds(file).catch(() => 0);
+      if (durationSeconds > 0 && durationSeconds < MIN_SAMPLE_SECONDS) {
+        toast({
+          title: t('toastTooShortTitle'),
+          description: t('toastTooShortDescription', { detected: Math.round(durationSeconds), min: MIN_SAMPLE_SECONDS }),
+          variant: 'danger',
+        });
+        return;
+      }
+
+      await uploadSample(file, file.name || 'sample', durationSeconds || MIN_SAMPLE_SECONDS);
+    },
+    [consentChecked, toast, uploadSample],
+  );
+
+  const onStartRecording = React.useCallback(async () => {
+    if (!consentChecked) {
+      toast({
+        title: t('toastConsentRequiredTitle'),
+        description: t('toastConsentRequiredRecord'),
+        variant: 'danger',
+      });
+      return;
+    }
+    if (!recorder.supported) {
+      toast({
+        title: t('toastMicUnavailableTitle'),
+        description: t('toastMicUnavailableDescription'),
+        variant: 'danger',
+      });
+      return;
+    }
+    try {
+      await recorder.start();
+    } catch {
+      toast({
+        title: t('toastMicDeniedTitle'),
+        description: t('toastMicDeniedDescription'),
+        variant: 'warning',
+      });
+    }
+  }, [consentChecked, recorder, toast]);
+
+  // La DURÉE vient du minuteur (secondes écoulées), pas de HTMLAudioElement.duration.
+  const onUseRecording = React.useCallback(async () => {
+    const seconds = recorder.elapsedSeconds;
+    if (!canSubmitRecording(seconds, MIN_SAMPLE_SECONDS)) return;
+    let blob: Blob;
+    try {
+      blob = await recorder.stop();
+    } catch {
+      return;
+    }
+    if (blob.size === 0) {
+      toast({ title: t('toastEmptyRecordingTitle'), description: t('toastEmptyRecordingDescription'), variant: 'danger' });
+      return;
+    }
+    await uploadSample(blob, 'sample.webm', seconds);
+  }, [recorder, toast, uploadSample]);
 
   const onRemove = React.useCallback(async () => {
     setRemoving(true);
@@ -155,12 +221,12 @@ export function VoiceCloneManager() {
       if (res.ok) {
         setStatus({ voiceId: null, status: 'none', consent: false, sampleSeconds: null });
         setConsentChecked(false);
-        toast({ title: 'Voix clonée supprimée', variant: 'success' });
+        toast({ title: t('toastRemovedTitle'), variant: 'success' });
       } else {
-        toast({ title: 'Suppression impossible', variant: 'danger' });
+        toast({ title: t('toastRemoveFailedTitle'), variant: 'danger' });
       }
     } catch {
-      toast({ title: 'Erreur réseau', variant: 'danger' });
+      toast({ title: t('toastNetworkError'), variant: 'danger' });
     } finally {
       setRemoving(false);
     }
@@ -173,32 +239,29 @@ export function VoiceCloneManager() {
       <CardHeader className="gap-2">
         <CardTitle className="flex items-center gap-2 text-lg">
           <Mic className="size-5 text-accent" aria-hidden="true" />
-          Ma voix
+          {t('cardTitle')}
         </CardTitle>
         <CardDescription>
-          Clonez votre voix (ElevenLabs) pour narrer vos cours vidéo avec votre propre timbre au
-          lieu d’une voix de synthèse générique. Un échantillon d’au moins {MIN_SAMPLE_SECONDS}s,
-          clair et sans bruit de fond, donne les meilleurs résultats.
+          {t('description', { seconds: MIN_SAMPLE_SECONDS })}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center gap-2">
-          <Badge variant={STATUS_BADGE_VARIANT[status.status]}>{STATUS_LABEL[status.status]}</Badge>
+          <Badge variant={STATUS_BADGE_VARIANT[status.status]}>{t(STATUS_LABEL_KEY[status.status])}</Badge>
           {status.sampleSeconds ? (
-            <span className="text-sm text-muted">échantillon de {status.sampleSeconds}s</span>
+            <span className="text-sm text-muted">{t('sampleDuration', { seconds: status.sampleSeconds })}</span>
           ) : null}
         </div>
 
         {hasVoice ? (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-muted">
-              Sélectionnez cette voix dans les options avancées lors de la création d’un cours pour
-              l’utiliser comme narration.
+              {t('useVoiceHint')}
             </p>
             <div>
               <Button variant="ghost" size="sm" loading={removing} onClick={() => void onRemove()}>
                 {!removing && <Trash2 aria-hidden="true" />}
-                Supprimer ma voix clonée
+                {t('removeButton')}
               </Button>
             </div>
           </div>
@@ -210,18 +273,17 @@ export function VoiceCloneManager() {
                 className="mt-0.5 size-4 rounded border-border accent-accent"
                 checked={consentChecked}
                 onChange={(e) => setConsentChecked(e.target.checked)}
-                disabled={phase === 'uploading'}
+                disabled={phase === 'uploading' || recorder.status === 'recording'}
               />
               <span>
-                Je consens explicitement à ce que SallyCourse crée un clone de ma voix à partir de
-                l’échantillon téléversé, et l’utilise pour générer la narration de mes cours.
+                {t('consentLabel')}
               </span>
             </label>
 
             {!consentChecked && (
               <p className="flex items-center gap-1.5 text-xs text-muted">
                 <AlertTriangle className="size-3.5" aria-hidden="true" />
-                Le téléversement est bloqué tant que le consentement n’est pas coché.
+                {t('consentBlockedHint')}
               </p>
             )}
 
@@ -230,13 +292,69 @@ export function VoiceCloneManager() {
                 variant="secondary"
                 size="sm"
                 loading={phase === 'uploading'}
-                disabled={phase === 'loading' || !consentChecked}
+                disabled={phase === 'loading' || !consentChecked || recorder.status === 'recording'}
                 onClick={() => inputRef.current?.click()}
               >
                 {phase !== 'uploading' && <UploadCloud aria-hidden="true" />}
-                {phase === 'uploading' ? 'Clonage en cours…' : 'Téléverser un échantillon audio'}
+                {phase === 'uploading' ? t('uploadingButton') : t('uploadButton')}
               </Button>
             </div>
+
+            {recorder.supported && (
+              <div className="flex flex-col gap-2 rounded-lg border border-input bg-surface/50 p-3">
+                <div className="flex items-center gap-2 text-2xs font-semibold uppercase tracking-widest text-muted">
+                  <Mic className="h-3.5 w-3.5" aria-hidden="true" /> {t('orRecordMic')}
+                </div>
+
+                {recorder.status === 'recording' ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-danger" aria-hidden="true" />
+                      <span className="font-mono text-sm text-foreground" aria-live="polite">
+                        {formatRecordingTime(recorder.elapsedSeconds)}
+                      </span>
+                      <span className="text-xs text-muted">
+                        / {formatRecordingTime(MIN_SAMPLE_SECONDS)} {t('recordingMinAbbrev')}
+                      </span>
+                    </div>
+
+                    {!canSubmitRecording(recorder.elapsedSeconds, MIN_SAMPLE_SECONDS) && (
+                      <p className="flex items-center gap-1.5 text-xs text-muted" aria-live="polite">
+                        <AlertTriangle className="size-3.5" aria-hidden="true" />
+                        {t('recordMoreHint', { remaining: remainingSecondsBeforeSubmit(recorder.elapsedSeconds, MIN_SAMPLE_SECONDS), min: MIN_SAMPLE_SECONDS })}
+                      </p>
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={!canSubmitRecording(recorder.elapsedSeconds, MIN_SAMPLE_SECONDS)}
+                        onClick={() => void onUseRecording()}
+                      >
+                        <Square className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                        {t('useRecordingButton')}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => recorder.reset()}>
+                        {t('cancelButton')}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={phase !== 'idle' || !consentChecked}
+                      onClick={() => void onStartRecording()}
+                    >
+                      <Mic className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                      {t('recordMicButton')}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

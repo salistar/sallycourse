@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import {
   connectDb,
   AgencyClient,
@@ -27,7 +28,7 @@ export async function GET() {
 
   const me = await User.findById(user.id).select('isAgency').lean();
   if (me?.isAgency !== true) {
-    return NextResponse.json({ error: 'Réservé aux comptes agence.' }, { status: 403 });
+    return apiError('agencyOnly');
   }
 
   const clients = await AgencyClient.find({ agencyUserId: user.id })
