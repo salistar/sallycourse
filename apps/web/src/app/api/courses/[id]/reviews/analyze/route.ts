@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { connectDb, Course as CourseModel } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
@@ -24,7 +25,7 @@ export async function POST(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   await connectDb();
@@ -33,12 +34,12 @@ export async function POST(
     .select('_id status')
     .lean();
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   if (!REVIEWABLE_STATUSES.has(course.status)) {
     return NextResponse.json(
-      { error: `Aucun retour étudiant disponible (statut : ${course.status}).` },
+      { error: `Aucun retour étudiant disponible (statut : ${course.status}).`, code: 'reviewsAnalyzeNoStudentFeedback', params: { status: course.status } },
       { status: 409 },
     );
   }
@@ -54,7 +55,7 @@ export async function POST(
     await queue.add(FEEDBACK_JOB, { courseId }, { jobId, removeOnComplete: true, removeOnFail: 20 });
   } catch {
     return NextResponse.json(
-      { error: "Impossible de lancer l'analyse des retours, réessayez plus tard." },
+      { error: "Impossible de lancer l'analyse des retours, réessayez plus tard.", code: 'cannotStartFeedbackAnalysis' },
       { status: 503 },
     );
   }

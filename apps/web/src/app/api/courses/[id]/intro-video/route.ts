@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import {
   deleteObject,
@@ -32,12 +33,12 @@ const ACCEPTED_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
 /** Charge le cours possédé par l'utilisateur, ou renvoie une Response 404. */
 async function loadOwnedCourse(id: string, userId: string) {
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
   await connectDb();
   const course = await CourseModel.findOne({ _id: id, userId }).select('_id introVideoKey');
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
   return course;
 }
@@ -54,21 +55,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     form = await request.formData();
   } catch {
-    return NextResponse.json({ error: 'Requête multipart invalide.' }, { status: 400 });
+    return apiError('invalidMultipart');
   }
 
   const file = form.get('file');
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: 'Fichier vidéo manquant (champ « file »).' }, { status: 400 });
+    return NextResponse.json({ error: 'Fichier vidéo manquant (champ « file »).', code: 'missingVideoFile' }, { status: 400 });
   }
   if (file.type && !ACCEPTED_TYPES.includes(file.type)) {
     return NextResponse.json(
-      { error: 'Format non supporté (MP4, MOV ou WebM attendu).' },
+      { error: 'Format non supporté (MP4, MOV ou WebM attendu).', code: 'unsupportedVideoFormat' },
       { status: 415 },
     );
   }
   if (file.size > MAX_MB * 1024 * 1024) {
-    return NextResponse.json({ error: `Vidéo trop lourde (max ${MAX_MB} Mo).` }, { status: 413 });
+    return NextResponse.json({ error: `Vidéo trop lourde (max ${MAX_MB} Mo).`, code: 'introVideoTooLarge', params: { max: MAX_MB } }, { status: 413 });
   }
 
   const key = introKey(id);
@@ -79,7 +80,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     await course.save();
   } catch {
     return NextResponse.json(
-      { error: 'Échec de l’enregistrement de la vidéo, réessayez.' },
+      { error: 'Échec de l’enregistrement de la vidéo, réessayez.', code: 'videoSaveFailed' },
       { status: 503 },
     );
   }
@@ -121,7 +122,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     course.introVideoKey = undefined;
     await course.save();
   } catch {
-    return NextResponse.json({ error: 'Suppression impossible, réessayez.' }, { status: 503 });
+    return NextResponse.json({ error: 'Suppression impossible, réessayez.', code: 'deletionFailed' }, { status: 503 });
   }
 
   return NextResponse.json({ ok: true, hasIntro: false }, { status: 200 });

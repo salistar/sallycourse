@@ -1,4 +1,5 @@
 import { isValidObjectId } from 'mongoose';
+import { apiError } from '@/lib/api-error';
 import { connectDb, Course } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
 
@@ -20,7 +21,7 @@ export async function GET(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return Response.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   await connectDb();
@@ -30,7 +31,7 @@ export async function GET(
     .select('qaReport status')
     .lean();
   if (!course) {
-    return Response.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   return Response.json({

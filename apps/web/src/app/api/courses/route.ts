@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { createCourseInputSchema } from '@sallycourse/shared';
 import { connectDb, AgencyClient, Course as CourseModel } from '@sallycourse/db';
@@ -39,13 +40,13 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = createCourseInputSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Données invalides.', details: parsed.error.flatten().fieldErrors },
+      { error: 'Données invalides.', code: 'invalidData', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
   let agencyClientId: string | undefined;
   if (typeof requestedAgencyClientId === 'string' && requestedAgencyClientId.length > 0) {
     if (!isValidObjectId(requestedAgencyClientId)) {
-      return NextResponse.json({ error: 'Client d’agence invalide.' }, { status: 400 });
+      return NextResponse.json({ error: 'Client d’agence invalide.', code: 'invalidAgencyClient' }, { status: 400 });
     }
     await connectDb();
     const client = await AgencyClient.findOne({
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
       .select('_id')
       .lean();
     if (!client) {
-      return NextResponse.json({ error: 'Client d’agence introuvable.' }, { status: 404 });
+      return NextResponse.json({ error: 'Client d’agence introuvable.', code: 'agencyClientNotFound' }, { status: 404 });
     }
     agencyClientId = requestedAgencyClientId;
   }
@@ -101,20 +102,20 @@ export async function POST(request: Request) {
       case 'quota':
         return NextResponse.json(
           {
-            error: `Quota mensuel atteint : ${result.error.limit} cours/mois sur le plan ${result.error.plan}.`,
+            error: `Quota mensuel atteint : ${result.error.limit} cours/mois sur le plan ${result.error.plan}.`, params: { limit: result.error.limit, plan: result.error.plan },
             code: 'quota_exceeded',
           },
           { status: 402 },
         );
       case 'user_not_found':
-        return NextResponse.json({ error: 'Utilisateur introuvable.' }, { status: 401 });
+        return NextResponse.json({ error: 'Utilisateur introuvable.', code: 'userNotFound' }, { status: 401 });
       case 'enqueue_failed':
         return NextResponse.json(
-          { error: 'Impossible de démarrer la génération, réessayez plus tard.' },
+          { error: 'Impossible de démarrer la génération, réessayez plus tard.', code: 'cannotStartGeneration' },
           { status: 503 },
         );
       default:
-        return NextResponse.json({ error: 'Erreur interne, réessayez plus tard.' }, { status: 500 });
+        return apiError('internalError');
     }
   }
 

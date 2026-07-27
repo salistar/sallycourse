@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { PLANS, type PlanId } from '@sallycourse/shared';
+import { apiError } from '@/lib/api-error';
+import { type PlanId } from '@sallycourse/shared';
 import { connectDb, User as UserModel } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
 import { createCourseForUser } from '@/lib/create-course';
@@ -24,12 +25,12 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const csv = (body as { csv?: unknown })?.csv;
   if (typeof csv !== 'string' || csv.trim() === '') {
-    return NextResponse.json({ error: 'Champ « csv » manquant.' }, { status: 400 });
+    return NextResponse.json({ error: 'Champ « csv » manquant.', code: 'missingCsvField' }, { status: 400 });
   }
 
   const parsed = parseBatchCsv(csv);
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
   }
   if (parsed.valid.length === 0) {
     return NextResponse.json(
-      { error: 'Aucune ligne valide à générer.', invalid: parsed.invalid },
+      { error: 'Aucune ligne valide à générer.', code: 'noValidRowToGenerate', invalid: parsed.invalid },
       { status: 400 },
     );
   }
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
   // Refus AVANT création si le lot dépasse le quota restant du plan (P53).
   const userDoc = await UserModel.findById(user.id).select('plan quotaUsed').lean();
   if (!userDoc) {
-    return NextResponse.json({ error: 'Utilisateur introuvable.' }, { status: 401 });
+    return NextResponse.json({ error: 'Utilisateur introuvable.', code: 'userNotFound' }, { status: 401 });
   }
   const plan = (userDoc.plan ?? 'free') as PlanId;
   const quota = getQuotaState(userDoc);
@@ -56,8 +57,7 @@ export async function POST(request: Request) {
   if (Number.isFinite(quota.remaining) && parsed.valid.length > quota.remaining) {
     return NextResponse.json(
       {
-        error: `Lot de ${parsed.valid.length} cours refusé : quota restant ${quota.remaining}/${quota.limit} sur le plan ${plan}.`,
-        code: 'quota_exceeded',
+        error: `Lot de ${parsed.valid.length} cours refusé : quota restant ${quota.remaining}/${quota.limit} sur le plan ${plan}.`, code: 'batchQuotaExceeded', params: { count: parsed.valid.length, remaining: quota.remaining, limit: quota.limit, plan: plan },
         remaining: quota.remaining,
         limit: quota.limit,
         requested: parsed.valid.length,

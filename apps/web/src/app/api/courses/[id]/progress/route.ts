@@ -1,4 +1,5 @@
 import { isValidObjectId } from 'mongoose';
+import { apiError } from '@/lib/api-error';
 import Redis from 'ioredis';
 import { connectDb, Course, GenerationJob } from '@sallycourse/db';
 import { getConfig, subscribeProgress, type ProgressEvent } from '@sallycourse/shared';
@@ -25,7 +26,7 @@ export async function GET(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return Response.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   await connectDb();
@@ -33,7 +34,7 @@ export async function GET(
   // Ownership : le cours doit appartenir à l'utilisateur connecté.
   const course = await Course.findOne({ _id: id, userId: user.id }).select('_id').lean();
   if (!course) {
-    return Response.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   // Snapshot initial : dernier état connu du job de génération.

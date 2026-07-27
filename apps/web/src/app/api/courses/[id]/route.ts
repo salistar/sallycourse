@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { deleteCoursePrefix } from '@sallycourse/shared';
 import {
@@ -6,6 +7,7 @@ import {
   CourseAnalytics,
   Deployment,
   GenerationJob,
+  LearningPath,
   Lesson,
   LmsListing,
   Quiz,
@@ -38,14 +40,14 @@ export async function DELETE(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   await connectDb();
 
   const course = await CourseModel.findOne({ _id: id, userId: user.id }).select('_id title').lean();
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   await Promise.all([
@@ -56,7 +58,22 @@ export async function DELETE(
     Deployment.deleteMany({ courseId: id }),
     LmsListing.deleteMany({ courseId: id }),
     CourseAnalytics.deleteMany({ courseId: id }),
+    // P199 : retire le cours des parcours qui le chaînent — sans quoi un
+    // parcours pointerait vers un cours supprimé (étape morte, verrou bloquant).
+    LearningPath.updateMany(
+      { 'courses.courseId': id },
+      { $pull: { courses: { courseId: id } } },
+    ),
   ]);
+
+  // P199 : un parcours PUBLIÉ vidé de son dernier cours par le $pull ci-dessus
+  // resterait visible au catalogue avec 0 cours — état que la garde de
+  // publication (PATCH /api/paths/[id]) interdit. On le dé-publie pour préserver
+  // l'invariant « publié ⇒ au moins un cours ».
+  await LearningPath.updateMany(
+    { published: true, courses: { $size: 0 } },
+    { $set: { published: false }, $unset: { publishedAt: '' } },
+  );
 
   // Médias S3/MinIO : best-effort, ne bloque jamais la suppression des données.
   await deleteCoursePrefix(id).catch(() => undefined);

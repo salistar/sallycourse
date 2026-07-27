@@ -12,34 +12,40 @@ import {
 import { connectDb, Course as CourseModel } from '@sallycourse/db';
 import { requireApiUser } from '@/lib/session';
 import { getPackagingQueue } from '@/lib/queues';
+import { rateLimit } from '@/lib/rate-limit';
 
 /**
- * Nom du fichier ZIP du mode portable (Prompt 142) — produit par le worker
- * (processors/packaging.ts, mode='portable' → PORTABLE_PACK_FILENAME). Dupliqué
- * ici comme pour package/route.ts : source unique de la clé via storageKeys.
+ * Export SCORM (Prompt 42) — même mécanique que master-archive/route.ts
+ * (POST enfile un job packaging mode 'scorm' → GET présigne le ZIP) : produit un
+ * paquet SCORM 1.2 (imsmanifest + ressources HTML/vidéo) importable dans un LMS
+ * tiers (Moodle, TalentLMS…). Ownership → 404. Rate-limité (action lourde).
  */
-const PORTABLE_PACK_FILENAME = 'course-portable.zip';
 
-/** Résout la clé S3 du pack portable d'un cours. */
-function portableKey(courseId: string): string {
-  return storageKeys.course(courseId).exportFile(PORTABLE_PACK_FILENAME);
+/** Nom du ZIP SCORM (worker deploy/scorm.ts → SCORM_ZIP_FILENAME). */
+const SCORM_FILENAME = 'scorm.zip';
+
+/** Résout la clé S3 du paquet SCORM d'un cours. */
+function scormKey(courseId: string): string {
+  return storageKeys.course(courseId).exportFile(SCORM_FILENAME);
 }
 
-/**
- * POST /api/courses/[id]/portable-export — enfile un job 'packaging' en mode
- * 'portable' (jobId distinct du pack ZIP standard : les deux modes peuvent
- * être lancés indépendamment sans se piétiner).
- */
-export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireApiUser();
   if (user instanceof Response) return user;
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
     return apiError('courseNotFound');
+  }
+
+  const limited = await rateLimit(`scorm-export:user:${user.id}`, { limit: 10, windowSec: 300 }).catch(
+    () => ({ allowed: true }) as { allowed: boolean },
+  );
+  if (!limited.allowed) {
+    return NextResponse.json(
+      { error: 'Trop de demandes d’export SCORM, réessayez dans quelques minutes.', code: 'tooManyRequests' },
+      { status: 429 },
+    );
   }
 
   await connectDb();
@@ -52,13 +58,13 @@ export async function POST(
   const courseId = id;
   try {
     const queue = getPackagingQueue();
-    const jobId = makeJobId(courseId, QUEUES.packaging, 'portable');
+    const jobId = makeJobId(courseId, QUEUES.packaging, 'scorm');
     // Un run précédent garderait le jobId réservé : purge avant re-add.
     await queue.remove(jobId).catch(() => undefined);
-    await queue.add('course-portable', { courseId, mode: 'portable' }, { ...defaultJobOptions, jobId });
+    await queue.add('course-scorm', { courseId, mode: 'scorm' }, { ...defaultJobOptions, jobId });
   } catch {
     return NextResponse.json(
-      { error: "Impossible de lancer l'export portable, réessayez plus tard.", code: 'portableExportLaunchFailed' },
+      { error: 'Impossible de lancer l’export SCORM, réessayez plus tard.', code: 'scormExportFailed' },
       { status: 503 },
     );
   }
@@ -67,13 +73,10 @@ export async function POST(
 }
 
 /**
- * GET /api/courses/[id]/portable-export — renvoie une URL présignée si le ZIP
- * portable existe, sinon 404. Même contrat que package/route.ts (GET).
+ * GET /api/courses/[id]/scorm-export — renvoie l'URL présignée si le paquet
+ * SCORM existe, sinon 404 { ready: false }.
  */
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireApiUser();
   if (user instanceof Response) return user;
 
@@ -89,7 +92,7 @@ export async function GET(
     return apiError('courseNotFound');
   }
 
-  const key = portableKey(id);
+  const key = scormKey(id);
   try {
     if (!(await objectExists(key))) {
       return NextResponse.json({ ready: false }, { status: 404 });

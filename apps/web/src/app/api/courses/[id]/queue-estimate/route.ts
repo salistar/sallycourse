@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { connectDb, Course as CourseModel } from '@sallycourse/db';
 import { QUEUE_NAMES, type QueueName } from '@sallycourse/shared';
@@ -21,18 +22,18 @@ export async function GET(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   const step = new URL(request.url).searchParams.get('step');
   if (!step || !(QUEUE_NAMES as readonly string[]).includes(step)) {
-    return NextResponse.json({ error: 'Paramètre "step" invalide.' }, { status: 400 });
+    return NextResponse.json({ error: 'Paramètre "step" invalide.', code: 'invalidStepParam' }, { status: 400 });
   }
 
   await connectDb();
   const course = await CourseModel.findOne({ _id: id, userId: user.id }).select('_id').lean();
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   const estimate = await estimateWaitTime(step as QueueName);

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import { QUEUES, defaultJobOptions, makeJobId, localeSchema } from '@sallycourse/shared';
@@ -34,7 +35,7 @@ async function requireOwnedCourse(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   await connectDb();
@@ -42,7 +43,7 @@ async function requireOwnedCourse(
     .select('_id status')
     .lean();
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
   return { id, userId: user.id };
 }
@@ -59,13 +60,13 @@ export async function POST(
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
+    return apiError('invalidJson');
   }
 
   const parsed = translateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Données invalides.', details: parsed.error.flatten().fieldErrors },
+      { error: 'Données invalides.', code: 'invalidData', details: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }
@@ -98,7 +99,7 @@ export async function POST(
     );
   } catch {
     return NextResponse.json(
-      { error: 'Impossible de lancer la traduction, réessayez plus tard.' },
+      { error: 'Impossible de lancer la traduction, réessayez plus tard.', code: 'cannotStartTranslation' },
       { status: 503 },
     );
   }

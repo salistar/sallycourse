@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import { QUEUES, defaultJobOptions, makeJobId, slideScriptSchema } from '@sallycourse/shared';
 import {
@@ -28,19 +29,19 @@ export async function POST(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   await connectDb();
 
   const course = await CourseModel.findOne({ _id: id, userId: user.id });
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   if (!course.archived) {
     return NextResponse.json(
-      { error: "Ce cours n'est pas archivé." },
+      { error: "Ce cours n'est pas archivé.", code: 'courseNotArchived' },
       { status: 409 },
     );
   }
@@ -75,7 +76,7 @@ export async function POST(
     );
   } catch {
     return NextResponse.json(
-      { error: 'Impossible de relancer la génération, réessayez plus tard.' },
+      { error: 'Impossible de relancer la génération, réessayez plus tard.', code: 'cannotRestartGeneration' },
       { status: 503 },
     );
   }

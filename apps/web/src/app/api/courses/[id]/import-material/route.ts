@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import {
   detectSourceMaterialKind,
@@ -30,14 +31,14 @@ const MAX_FILES = 10;
 
 async function loadOwnedCourse(id: string, userId: string) {
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
   await connectDb();
   const course = await CourseModel.findOne({ _id: id, userId }).select(
     '_id sourceMaterial sourceMaterialFiles',
   );
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
   return course;
 }
@@ -54,30 +55,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     form = await request.formData();
   } catch {
-    return NextResponse.json({ error: 'Requête multipart invalide.' }, { status: 400 });
+    return apiError('invalidMultipart');
   }
 
   const file = form.get('file');
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: 'Fichier manquant (champ « file »).' }, { status: 400 });
+    return apiError('missingFile');
   }
 
   const kind = detectSourceMaterialKind(file.name, file.type);
   if (!kind) {
     return NextResponse.json(
-      { error: 'Format non supporté (PDF, PPTX ou Markdown attendu).' },
+      { error: 'Format non supporté (PDF, PPTX ou Markdown attendu).', code: 'unsupportedDocFormat' },
       { status: 415 },
     );
   }
   if (file.size > MAX_MB * 1024 * 1024) {
-    return NextResponse.json({ error: `Fichier trop lourd (max ${MAX_MB} Mo).` }, { status: 413 });
+    return NextResponse.json({ error: `Fichier trop lourd (max ${MAX_MB} Mo).`, code: 'importMaterialFileTooLarge', params: { max: MAX_MB } }, { status: 413 });
   }
 
   const existing = sourceMaterialFilesSchema.safeParse(course.sourceMaterialFiles ?? []);
   const currentFiles: SourceMaterialFile[] = existing.success ? existing.data : [];
   if (currentFiles.length >= MAX_FILES) {
     return NextResponse.json(
-      { error: `Nombre maximal de supports atteint (${MAX_FILES}).` },
+      { error: `Nombre maximal de supports atteint (${MAX_FILES}).`, code: 'importMaterialMaxFilesReached', params: { max: MAX_FILES } },
       { status: 422 },
     );
   }
@@ -96,7 +97,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     await uploadObject(key, buffer, contentType);
   } catch {
     return NextResponse.json(
-      { error: 'Échec de l’enregistrement du fichier, réessayez.' },
+      { error: 'Échec de l’enregistrement du fichier, réessayez.', code: 'fileSaveFailed' },
       { status: 503 },
     );
   }

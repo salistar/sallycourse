@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import {
   QUEUES,
@@ -38,14 +39,14 @@ export async function POST(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   await connectDb();
 
   const course = await CourseModel.findOne({ _id: id, userId: user.id }).select('_id').lean();
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   const courseId = id;
@@ -57,7 +58,7 @@ export async function POST(
     await queue.add('course-pack', { courseId }, { ...defaultJobOptions, jobId });
   } catch {
     return NextResponse.json(
-      { error: 'Impossible de lancer le packaging, réessayez plus tard.' },
+      { error: 'Impossible de lancer le packaging, réessayez plus tard.', code: 'packagingLaunchFailed' },
       { status: 503 },
     );
   }
@@ -78,14 +79,14 @@ export async function GET(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   await connectDb();
 
   const course = await CourseModel.findOne({ _id: id, userId: user.id }).select('_id').lean();
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   const key = packKey(id);

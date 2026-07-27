@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-error';
 import { isValidObjectId } from 'mongoose';
 import {
   QUEUES,
@@ -31,14 +32,14 @@ export async function POST(
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   await connectDb();
 
   const course = await CourseModel.findOne({ _id: id, userId: user.id }).select('_id').lean();
   if (!course) {
-    return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
+    return apiError('courseNotFound');
   }
 
   const courseId = String(course._id);
@@ -56,7 +57,7 @@ export async function POST(
 
   if (lessonIds.length === 0) {
     return NextResponse.json(
-      { error: "Aucune leçon approuvée — validez d'abord l'aperçu rapide de chaque leçon." },
+      { error: "Aucune leçon approuvée — validez d'abord l'aperçu rapide de chaque leçon.", code: 'noApprovedLesson' },
       { status: 409 },
     );
   }
@@ -78,7 +79,7 @@ export async function POST(
     );
   } catch {
     return NextResponse.json(
-      { error: 'Impossible de lancer la version finale, réessayez plus tard.' },
+      { error: 'Impossible de lancer la version finale, réessayez plus tard.', code: 'finalVersionLaunchFailed' },
       { status: 503 },
     );
   }
