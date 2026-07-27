@@ -174,12 +174,33 @@ export async function createCourseForUser(
       title: input.title,
       difficulty: input.difficulty,
       locale: input.locale,
+      generationMode: input.generationMode ?? 'auto',
+      ...(input.llmProvider ? { llmProvider: input.llmProvider } : {}),
       ttsVoice: input.ttsVoice,
+      ...(input.ttsEngine ? { ttsEngine: input.ttsEngine } : {}),
+      // Voix du catalogue (fix « voix multiples » 2026-07-26) : identité vocale
+      // unique épinglée sur tout le cours — voir Course.voiceId.
+      ...(input.voiceId ? { voiceId: input.voiceId } : {}),
+      // Thème visuel (catalogue 2026-07-26) — absent = défaut « salistar ».
+      ...(input.themeId ? { themeId: input.themeId } : {}),
+      ...(input.imageEngine ? { imageEngine: input.imageEngine } : {}),
       targetPlatforms: input.targetPlatforms,
+      // Nombre de sections voulu (P115) — persisté pour être injecté dans le
+      // prompt de plan (sinon la valeur du stepper 3–30 serait perdue).
+      ...(input.approxSections ? { approxSections: input.approxSections } : {}),
       watermark,
       status: 'generating',
       avatarEnabled: input.avatarEnabled,
       avatarId: input.avatarId,
+      useCustomVoice: input.useCustomVoice,
+      // Paramètres avancés (Phase 10) — injectés ensuite dans les prompts de
+      // génération via renderGenerationDirectives (worker).
+      ...(input.advancedParams ? { advancedParams: input.advancedParams } : {}),
+      // narrationSpeed est un champ Course dédié (P137) — repris depuis les
+      // paramètres avancés si fourni, sinon inchangé.
+      ...(input.advancedParams?.narrationSpeed !== undefined
+        ? { narrationSpeed: input.advancedParams.narrationSpeed }
+        : {}),
       ...(options?.agencyClientId ? { agencyClientId: options.agencyClientId } : {}),
     });
   } catch {

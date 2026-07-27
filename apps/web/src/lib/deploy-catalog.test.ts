@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCatalog,
+  buildRisks,
+  deployRiskFor,
   estimateBatchSeconds,
   estimatePlatformSeconds,
   formatDuration,
@@ -43,6 +45,51 @@ describe('buildCatalog', () => {
       expect(entry.capabilities.modes.length).toBeGreaterThan(0);
       expect(typeof entry.capabilities.needsBrowser).toBe('boolean');
     }
+  });
+
+  it('propage la table des risques dérivés par plateforme', () => {
+    const catalog = buildCatalog();
+    const udemy = catalog.find((e) => e.id === 'udemy');
+    expect(udemy?.risks.auto?.level).toBe('tos');
+    // Plateforme API pure : aucun risque quel que soit le mode.
+    const thinkific = catalog.find((e) => e.id === 'thinkific');
+    expect(thinkific?.risks).toEqual({});
+  });
+});
+
+describe('deployRiskFor', () => {
+  it('signale un risque CGU pour une plateforme navigateur en mode auto', () => {
+    const risk = deployRiskFor('udemy', 'auto');
+    expect(risk).not.toBeNull();
+    expect(risk?.level).toBe('tos');
+    expect(risk?.label).toMatch(/CGU/);
+  });
+
+  it('ne signale aucun risque en modes assisté/manuel (humain dans la boucle)', () => {
+    expect(deployRiskFor('udemy', 'assisted')).toBeNull();
+    expect(deployRiskFor('udemy', 'manual')).toBeNull();
+  });
+
+  it('ne signale aucun risque pour une plateforme API directe même en auto', () => {
+    // gumroad/thinkific n'utilisent pas de navigateur → pas d'automatisation à risque.
+    expect(deployRiskFor('gumroad', 'auto')).toBeNull();
+    expect(deployRiskFor('thinkific', 'auto')).toBeNull();
+  });
+
+  it('reste sûr pour une plateforme inconnue (fallback API, aucun risque)', () => {
+    expect(deployRiskFor('inexistante', 'auto')).toBeNull();
+  });
+});
+
+describe('buildRisks', () => {
+  it('n’indexe que les modes réellement à risque', () => {
+    const risks = buildRisks('udemy');
+    expect(Object.keys(risks)).toEqual(['auto']);
+    expect(risks.assisted).toBeUndefined();
+  });
+
+  it('retourne un objet vide pour une plateforme sans risque', () => {
+    expect(buildRisks('gumroad')).toEqual({});
   });
 });
 

@@ -127,14 +127,32 @@ export function useAutosave<T>(
   return { status, lastSavedAt };
 }
 
-/** Libellé français court pour l'indicateur d'autosave. */
-export function autosaveStatusLabel(status: AutosaveStatus, lastSavedAt: Date | null): string {
-  if (status === 'saving') return 'Enregistrement…';
-  if (status === 'error') return 'Échec de l’enregistrement automatique';
+/** Libellés localisés pour l'indicateur d'autosave. */
+export interface AutosaveLabels {
+  saving: string;
+  error: string;
+  /** Reçoit l'heure formatée « HH:mm », rend p.ex. « Enregistré à 14:32 ». */
+  savedAt: (time: string) => string;
+}
+
+/** Libellé court pour l'indicateur d'autosave. Les libellés sont fournis par
+ *  l'appelant (i18n) ; à défaut, un repli français est utilisé. */
+export function autosaveStatusLabel(
+  status: AutosaveStatus,
+  lastSavedAt: Date | null,
+  labels?: AutosaveLabels,
+): string {
+  const l = labels ?? {
+    saving: 'Enregistrement…',
+    error: 'Échec de l’enregistrement automatique',
+    savedAt: (time: string) => `Enregistré à ${time}`,
+  };
+  if (status === 'saving') return l.saving;
+  if (status === 'error') return l.error;
   if (status === 'saved' && lastSavedAt) {
     const hh = String(lastSavedAt.getHours()).padStart(2, '0');
     const mm = String(lastSavedAt.getMinutes()).padStart(2, '0');
-    return `Enregistré à ${hh}:${mm}`;
+    return l.savedAt(`${hh}:${mm}`);
   }
   return '';
 }

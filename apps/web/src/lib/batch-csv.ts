@@ -8,6 +8,7 @@ import {
   type CreateCourseInput,
   type Difficulty,
 } from '@sallycourse/shared/schemas/course';
+import { VOICE_CATALOG_IDS } from '@sallycourse/shared/voice-catalog';
 
 /**
  * Import CSV pour la génération en batch (P63). Parse maison (aucune dépendance) :
@@ -20,8 +21,20 @@ import {
  *   language   (optionnel)   — fr | en | ar                          [def. fr]
  *   platforms  (optionnel)   — liste séparée par des « ; » (ex. « udemy;youtube »)
  *
+ * Colonnes avancées (2026-07-26, additif — mêmes options qu'à la création
+ * unitaire) :
+ *   duration   (optionnel)   — durée VISÉE du cours en minutes (15-720) ;
+ *                              convertie en nombre de sections (≈18 min/section)
+ *   sections   (optionnel)   — nombre de sections exact (3-30) ; prime sur duration
+ *   voice      (optionnel)   — voix du catalogue (claire, henri, aria…) — une
+ *                              seule identité vocale sur tout le cours
+ *   ttsengine  (optionnel)   — chatterbox | qwen3
+ *   imageengine(optionnel)   — sdxl | zimage
+ *
  * Synonymes d'en-têtes tolérés : niveau→level, langue/locale→language,
- * plateformes/platform→platforms, titre→title.
+ * plateformes/platform→platforms, titre→title, durée/duree/minutes→duration,
+ * section→sections, voix→voice, moteur_voix/moteurvoix→ttsengine,
+ * modele_image/modèle_image/image→imageengine.
  */
 
 /** Nombre maximal de lignes acceptées dans un fichier (garde-fou DoS/UX). */
@@ -40,8 +53,20 @@ const LEVEL_ALIASES: Record<string, Difficulty> = {
   avance: 'advanced',
 };
 
+/** Clés canoniques des colonnes reconnues. */
+type BatchColumn =
+  | 'title'
+  | 'level'
+  | 'language'
+  | 'platforms'
+  | 'duration'
+  | 'sections'
+  | 'voice'
+  | 'ttsengine'
+  | 'imageengine';
+
 /** Mappe un nom d'en-tête (normalisé) vers une clé canonique, ou null si inconnu. */
-function canonicalHeader(raw: string): 'title' | 'level' | 'language' | 'platforms' | null {
+function canonicalHeader(raw: string): BatchColumn | null {
   const h = raw.trim().toLowerCase();
   if (h === 'title' || h === 'titre') return 'title';
   if (h === 'level' || h === 'niveau' || h === 'difficulty' || h === 'difficulté') return 'level';
@@ -49,7 +74,23 @@ function canonicalHeader(raw: string): 'title' | 'level' | 'language' | 'platfor
   if (h === 'platforms' || h === 'platform' || h === 'plateformes' || h === 'plateforme') {
     return 'platforms';
   }
+  if (h === 'duration' || h === 'durée' || h === 'duree' || h === 'minutes') return 'duration';
+  if (h === 'sections' || h === 'section') return 'sections';
+  if (h === 'voice' || h === 'voix') return 'voice';
+  if (h === 'ttsengine' || h === 'moteur_voix' || h === 'moteurvoix' || h === 'tts') return 'ttsengine';
+  if (h === 'imageengine' || h === 'modele_image' || h === 'modèle_image' || h === 'modeleimage' || h === 'image') {
+    return 'imageengine';
+  }
   return null;
+}
+
+/**
+ * Durée visée (minutes) → nombre de sections (≈18 min de contenu par section,
+ * calé sur les mesures réelles : une section ≈ 3-4 leçons ≈ 15-20 min). Borné
+ * aux limites du produit (3-30 sections). Ex. : 90 min → 5 sections.
+ */
+export function sectionsForTargetMinutes(minutes: number): number {
+  return Math.min(30, Math.max(3, Math.round(minutes / 18)));
 }
 
 /**
@@ -128,6 +169,87 @@ const rowSchema = z.object({
         .map((p) => p.trim().toLowerCase())
         .filter(Boolean),
     ),
+  // ── Colonnes avancées (2026-07-26, additives) ─────────────────────────────
+  duration: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v, ctx) => {
+      if (!v) return undefined;
+      const minutes = Number.parseInt(v, 10);
+      if (!Number.isFinite(minutes) || minutes < 15 || minutes > 720) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Durée invalide : « ${v} » (attendu 15-720 minutes).`,
+        });
+        return z.NEVER;
+      }
+      return minutes;
+    }),
+  sections: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v, ctx) => {
+      if (!v) return undefined;
+      const n = Number.parseInt(v, 10);
+      if (!Number.isFinite(n) || n < 3 || n > 30) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Nombre de sections invalide : « ${v} » (attendu 3-30).`,
+        });
+        return z.NEVER;
+      }
+      return n;
+    }),
+  voice: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v, ctx) => {
+      if (!v) return undefined;
+      const id = v.toLowerCase();
+      if (!(VOICE_CATALOG_IDS as readonly string[]).includes(id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Voix inconnue : « ${v} » (attendu : ${VOICE_CATALOG_IDS.join(', ')}).`,
+        });
+        return z.NEVER;
+      }
+      return id;
+    }),
+  ttsengine: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v, ctx) => {
+      if (!v) return undefined;
+      const e = v.toLowerCase();
+      if (e !== 'chatterbox' && e !== 'qwen3') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Moteur de voix invalide : « ${v} » (attendu chatterbox/qwen3).`,
+        });
+        return z.NEVER;
+      }
+      return e as 'chatterbox' | 'qwen3';
+    }),
+  imageengine: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v, ctx) => {
+      if (!v) return undefined;
+      const e = v.toLowerCase();
+      if (e !== 'sdxl' && e !== 'zimage') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Modèle d'image invalide : « ${v} » (attendu sdxl/zimage).`,
+        });
+        return z.NEVER;
+      }
+      return e as 'sdxl' | 'zimage';
+    }),
 });
 
 /** Une ligne valide, prête pour createCourseForUser. */
@@ -171,7 +293,7 @@ export function parseBatchCsv(content: string): ParsedBatch {
 
   // Première ligne = en-tête. On construit l'index colonne → position.
   const headerCells = splitCsvLine(header);
-  const columnIndex: Partial<Record<'title' | 'level' | 'language' | 'platforms', number>> = {};
+  const columnIndex: Partial<Record<BatchColumn, number>> = {};
   headerCells.forEach((cell, i) => {
     const key = canonicalHeader(cell);
     if (key && columnIndex[key] === undefined) columnIndex[key] = i;
@@ -208,6 +330,11 @@ export function parseBatchCsv(content: string): ParsedBatch {
       level: cellAt(columnIndex.level),
       language: cellAt(columnIndex.language),
       platforms: cellAt(columnIndex.platforms),
+      duration: cellAt(columnIndex.duration),
+      sections: cellAt(columnIndex.sections),
+      voice: cellAt(columnIndex.voice),
+      ttsengine: cellAt(columnIndex.ttsengine),
+      imageengine: cellAt(columnIndex.imageengine),
     };
 
     const parsed = rowSchema.safeParse(candidate);
@@ -220,6 +347,11 @@ export function parseBatchCsv(content: string): ParsedBatch {
       return;
     }
 
+    // sections explicite > durée visée (convertie) > défaut produit (absent).
+    const approxSections =
+      parsed.data.sections ??
+      (parsed.data.duration !== undefined ? sectionsForTargetMinutes(parsed.data.duration) : undefined);
+
     valid.push({
       line: lineNo,
       input: {
@@ -227,6 +359,10 @@ export function parseBatchCsv(content: string): ParsedBatch {
         difficulty: parsed.data.level,
         locale: parsed.data.language,
         targetPlatforms: parsed.data.platforms,
+        ...(approxSections !== undefined ? { approxSections } : {}),
+        ...(parsed.data.voice ? { voiceId: parsed.data.voice } : {}),
+        ...(parsed.data.ttsengine ? { ttsEngine: parsed.data.ttsengine } : {}),
+        ...(parsed.data.imageengine ? { imageEngine: parsed.data.imageengine } : {}),
       },
     });
   });

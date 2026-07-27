@@ -19,6 +19,10 @@ export interface BarChartProps {
   height?: number;
   /** Couleur des barres (variable CSS ou couleur littérale). */
   color?: string;
+  /** i18n : texte d'état vide (l'appelant passe une chaîne traduite). */
+  emptyLabel?: string;
+  /** i18n : libellé accessible du graphique (l'appelant passe une chaîne traduite). */
+  ariaLabel?: string;
   className?: string;
 }
 
@@ -27,6 +31,8 @@ export function BarChart({
   formatValue = (v) => String(v),
   height = 160,
   color = 'rgb(var(--sc-primary))',
+  emptyLabel = 'Aucune donnée sur cette période.',
+  ariaLabel = 'Graphique en barres',
   className,
 }: BarChartProps) {
   const max = Math.max(1, ...points.map((p) => p.value));
@@ -37,7 +43,7 @@ export function BarChart({
   if (points.length === 0) {
     return (
       <div className={className}>
-        <p className="text-sm text-muted">Aucune donnée sur cette période.</p>
+        <p className="text-sm text-muted">{emptyLabel}</p>
       </div>
     );
   }
@@ -49,7 +55,7 @@ export function BarChart({
         className="w-full"
         style={{ height }}
         role="img"
-        aria-label="Graphique en barres"
+        aria-label={ariaLabel}
       >
         {/* Ligne de base */}
         <line x1={0} y1={height} x2={width} y2={height} stroke="rgb(var(--sc-border))" strokeWidth={1} />

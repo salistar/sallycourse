@@ -34,7 +34,21 @@ export interface RedeemCouponResult {
 export async function redeemCoupon(params: {
   code: string;
   priceCents: number;
+  /**
+   * Auteur du contenu remisé (cours ou parcours). Un coupon n'est accepté que
+   * s'il appartient à CET auteur : sans ce contrôle, n'importe quel apprenant
+   * pouvait s'auto-émettre un coupon global à 100 % (POST /api/coupons) et
+   * l'appliquer au contenu payant d'un tiers. Un coupon global reste légitime —
+   * c'est la promo de l'auteur sur SON propre catalogue.
+   */
+  ownerId: string;
   courseId?: string;
+  /**
+   * true → seuls les coupons GLOBAUX (sans courseId) sont acceptés. Utilisé par
+   * le checkout d'un parcours (P199) : un coupon lié à un cours précis ne doit
+   * pas remiser le prix bundle de tout un parcours.
+   */
+  globalOnly?: boolean;
 }): Promise<RedeemCouponResult> {
   const code = params.code.trim().toUpperCase();
   if (!code) return { ok: false, error: 'Code promo manquant.' };
@@ -42,6 +56,13 @@ export async function redeemCoupon(params: {
   const coupon = await Coupon.findOne({ code }).lean<ICoupon & { _id: unknown }>();
   if (!coupon) return { ok: false, error: 'Code promo introuvable.' };
 
+  // Un coupon ne peut remiser QUE le contenu de son propre créateur.
+  if (String(coupon.userId) !== String(params.ownerId)) {
+    return { ok: false, error: 'Ce code promo ne s’applique pas à ce contenu.' };
+  }
+  if (params.globalOnly && coupon.courseId) {
+    return { ok: false, error: 'Ce code promo ne s’applique pas à ce parcours.' };
+  }
   if (params.courseId && coupon.courseId && String(coupon.courseId) !== String(params.courseId)) {
     return { ok: false, error: 'Ce code promo ne s’applique pas à ce cours.' };
   }

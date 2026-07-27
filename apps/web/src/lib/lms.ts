@@ -95,6 +95,14 @@ export interface CertificateParams {
   locale?: 'fr' | 'en' | 'ar';
   /** Marque blanche (Prompt 88) — omis/undefined → défauts SALISTAR. */
   branding?: CertificateBranding;
+  /**
+   * Libellé du certificat (P199) — omis → défaut du gabarit
+   * (« Certificat d'accomplissement »). Un certificat de PARCOURS passe
+   * « Certificat de parcours » ici : aucun nouveau gabarit n'est créé.
+   */
+  certLabel?: string;
+  /** Ligne descriptive sous le nom (P199) — omise → défaut du gabarit. */
+  descriptionLine?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -150,7 +158,10 @@ export function renderCertificateHtml(params: CertificateParams): string {
     qrDataUri: verificationQrDataUri(params.certificateId),
     signerName: 'SallyCourse',
     signerRole: 'Plateforme de formation',
-    // certLabel / awardLine / descriptionLine : défauts du gabarit (fr).
+    // certLabel / descriptionLine : fournis pour un certificat de parcours
+    // (P199), sinon défauts du gabarit (fr). awardLine : toujours le défaut.
+    ...(params.certLabel ? { certLabel: params.certLabel } : {}),
+    ...(params.descriptionLine ? { descriptionLine: params.descriptionLine } : {}),
     // brandName/brandLogoUrl/brandPrimaryHex/brandAccentHex : défauts SALISTAR
     // du gabarit si params.branding est absent (voir resolveCertificateBranding).
     ...(params.branding

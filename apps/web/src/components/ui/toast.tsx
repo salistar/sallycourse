@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslations } from 'next-intl';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, CheckCircle2, Info, Sparkles, X, XCircle } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -103,6 +104,7 @@ const VARIANT_STYLES: Record<ToastVariant, { icon: React.ElementType; accentBar:
 /** Viewport des toasts — à placer une fois sous le provider (layout). */
 export function Toaster() {
   const ctx = React.useContext(ToastContext);
+  const t = useTranslations('common');
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
 
@@ -111,7 +113,7 @@ export function Toaster() {
 
   return createPortal(
     <ol
-      aria-label="Notifications"
+      aria-label={t('notifications')}
       className="pointer-events-none fixed bottom-4 end-4 z-[60] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-2"
     >
       <AnimatePresence initial={false}>
@@ -158,7 +160,7 @@ export function Toaster() {
               <button
                 type="button"
                 onClick={() => ctx.dismiss(item.id)}
-                aria-label="Fermer la notification"
+                aria-label={t('closeNotification')}
                 className={cn(
                   'absolute end-2 top-2 rounded-sm p-1 text-muted',
                   'transition-colors duration-fast hover:bg-primary-soft hover:text-foreground',

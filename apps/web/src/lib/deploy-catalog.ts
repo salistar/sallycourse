@@ -38,6 +38,21 @@ const DEFAULT_CAPABILITIES: PlatformCapabilities = {
   needsBrowser: false,
 };
 
+/** Niveau de risque d'une combinaison (plateforme, mode). */
+export type DeployRiskLevel = 'tos';
+
+/** Avertissement de risque dérivé d'une combinaison (plateforme, mode). */
+export interface DeployRisk {
+  level: DeployRiskLevel;
+  /** Libellé court du badge. */
+  label: string;
+  /** Explication affichée en infobulle / détail. */
+  detail: string;
+}
+
+/** Risque CGU indexé par mode (uniquement les modes à risque). */
+export type PlatformRisks = Partial<Record<DeploymentMode, DeployRisk>>;
+
 /** Entrée du catalogue exposée à l'UI et à l'API. */
 export interface DeployCatalogEntry {
   id: string;
@@ -45,6 +60,8 @@ export interface DeployCatalogEntry {
   description: string;
   kind: PlatformMeta['kind'];
   capabilities: PlatformCapabilities;
+  /** Risque CGU dérivé par mode (badge). Mode absent = aucun risque connu. */
+  risks: PlatformRisks;
 }
 
 /** Capacités d'une plateforme (jamais undefined : fallback prudent). */
@@ -52,7 +69,41 @@ export function getCapabilities(platformId: string): PlatformCapabilities {
   return CAPABILITIES[platformId] ?? DEFAULT_CAPABILITIES;
 }
 
-/** Catalogue complet : métadonnées plateforme + capacités adapter. */
+/**
+ * Risque dérivé (PUR, sans I/O) d'une combinaison (plateforme, mode).
+ * Règle actuelle : une plateforme sans API publique (needsBrowser) pilotée en
+ * mode `auto` s'appuie sur de l'automatisation navigateur, souvent contraire
+ * aux CGU de la plateforme → on affiche un badge d'avertissement. Les modes
+ * `assisted`/`manual` gardent l'humain dans la boucle : pas de risque dérivé.
+ * Aucun nouveau champ DB : la dérivation est recalculée à la volée.
+ */
+export function deployRiskFor(platformId: string, mode: DeploymentMode): DeployRisk | null {
+  const caps = getCapabilities(platformId);
+  if (caps.needsBrowser && mode === 'auto') {
+    return {
+      level: 'tos',
+      label: 'Automatisation navigateur — CGU',
+      detail:
+        "Cette plateforme n'a pas d'API publique : le mode automatique pilote un " +
+        'navigateur, ce qui peut enfreindre ses conditions d’utilisation. Préférez ' +
+        'le mode assisté ou manuel pour rester conforme.',
+    };
+  }
+  return null;
+}
+
+/** Table des risques par mode supporté d'une plateforme (modes sains omis). */
+export function buildRisks(platformId: string): PlatformRisks {
+  const caps = getCapabilities(platformId);
+  const risks: PlatformRisks = {};
+  for (const mode of caps.modes) {
+    const risk = deployRiskFor(platformId, mode);
+    if (risk) risks[mode] = risk;
+  }
+  return risks;
+}
+
+/** Catalogue complet : métadonnées plateforme + capacités adapter + risques. */
 export function buildCatalog(): DeployCatalogEntry[] {
   return PLATFORMS.map((meta) => ({
     id: meta.id,
@@ -60,6 +111,7 @@ export function buildCatalog(): DeployCatalogEntry[] {
     description: meta.description,
     kind: meta.kind,
     capabilities: getCapabilities(meta.id),
+    risks: buildRisks(meta.id),
   }));
 }
 

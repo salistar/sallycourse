@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslations } from 'next-intl';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -81,6 +82,7 @@ export interface DialogContentProps
 }
 
 export function DialogContent({ className, children, hideClose = false, ...props }: DialogContentProps) {
+  const t = useTranslations('common');
   const { open, setOpen, titleId, descriptionId } = useDialogContext('DialogContent');
   const panelRef = React.useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = React.useState(false);
@@ -172,7 +174,7 @@ export function DialogContent({ className, children, hideClose = false, ...props
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  aria-label="Fermer le dialogue"
+                  aria-label={t('closeDialog')}
                   className={cn(
                     'absolute end-4 top-4 rounded-sm p-1.5 text-muted',
                     'transition-colors duration-fast hover:bg-primary-soft hover:text-foreground',
