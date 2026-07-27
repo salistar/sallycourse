@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useFormStatus } from 'react-dom';
+import { useTranslations } from 'next-intl';
 import { Select } from '@/components/ui';
 import type { PlanId } from '@sallycourse/shared';
 import { setPlanAction } from './actions';
@@ -15,12 +16,13 @@ const PLAN_OPTIONS: PlanId[] = ['free', 'pro', 'business'];
 
 function PlanSelectInner({ current }: { current: PlanId }) {
   const { pending } = useFormStatus();
+  const t = useTranslations('admin.planSelect');
   return (
     <Select
       name="plan"
       defaultValue={current}
       disabled={pending}
-      aria-label="Changer le plan"
+      aria-label={t('changePlanAria')}
       className="h-9 w-32 text-sm"
       onChange={(e) => {
         // Soumet le formulaire parent au changement de valeur.

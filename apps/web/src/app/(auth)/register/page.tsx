@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { RegisterForm } from '@/components/auth';
 
-export const metadata: Metadata = {
-  title: 'Créer un compte — SallyCourse',
-  description: 'Rejoignez SallyCourse et générez votre premier cours en quelques minutes.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('auth.registerPage');
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  };
+}
 
 export default function RegisterPage() {
   return <RegisterForm googleEnabled={Boolean(process.env.GOOGLE_CLIENT_ID)} />;

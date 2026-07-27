@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { PendingButton } from '@/components/admin';
 import { Input } from '@/components/ui';
 
@@ -16,6 +17,7 @@ export function RejectForm({
   requestId: string;
   action: (formData: FormData) => Promise<void>;
 }) {
+  const t = useTranslations('admin.rejectForm');
   const [open, setOpen] = React.useState(false);
 
   if (!open) {
@@ -25,7 +27,7 @@ export function RejectForm({
         onClick={() => setOpen(true)}
         className="rounded-full border border-border px-3 py-1.5 text-sm font-semibold text-muted transition-colors duration-fast hover:bg-surface hover:text-foreground"
       >
-        Rejeter
+        {t('reject')}
       </button>
     );
   }
@@ -35,12 +37,12 @@ export function RejectForm({
       <input type="hidden" name="requestId" value={requestId} />
       <Input
         name="reason"
-        label="Motif (optionnel)"
+        label={t('reasonLabel')}
         wrapperClassName="w-40"
         className="h-9 py-1.5 text-sm"
       />
       <PendingButton variant="ghost" size="sm">
-        Confirmer
+        {t('confirm')}
       </PendingButton>
     </form>
   );

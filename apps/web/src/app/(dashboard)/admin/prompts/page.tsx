@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { AdminNav } from '@/components/admin';
 import { requireAdmin } from '../guard';
 import { PromptPlayground } from './prompt-playground';
@@ -12,24 +13,25 @@ import { PromptPlayground } from './prompt-playground';
  * getActivePrompt()).
  */
 
-export const metadata: Metadata = {
-  title: 'Admin — Prompts — SallyCourse',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('admin.promptsPage');
+  return {
+    title: t('metaTitle'),
+  };
+}
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminPromptsPage() {
   await requireAdmin();
 
+  const t = await getTranslations('admin.promptsPage');
+
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="font-display text-2xl font-semibold text-foreground">Prompts</h1>
-        <p className="mt-1 text-sm text-muted">
-          Éditez et versionnez les prompts de génération sans redéployer. Une version active en base
-          surcharge le prompt en dur du générateur ; le bouton « Tester » compare la version en cours
-          d&apos;édition à la version précédemment active.
-        </p>
+        <h1 className="font-display text-2xl font-semibold text-foreground">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted">{t('description')}</p>
       </div>
 
       <AdminNav />

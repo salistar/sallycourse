@@ -1,6 +1,8 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
+import { errorMessage } from '@/lib/error-message';
 import { Plus, Trash2, UserCheck, UserX, Receipt } from 'lucide-react';
 import {
   Button,
@@ -45,6 +47,8 @@ interface AgencyManagerProps {
  */
 export function AgencyManager({ initialClients }: AgencyManagerProps) {
   const { toast } = useToast();
+  const t = useTranslations('agency');
+  const _tApiError = useTranslations('apiErrors');
   const [clients, setClients] = React.useState(initialClients);
   const [activeClientId, setActiveClientId] = React.useState<string | null>(null);
   const [showForm, setShowForm] = React.useState(false);
@@ -66,10 +70,12 @@ export function AgencyManager({ initialClients }: AgencyManagerProps) {
     const client = clients.find((c) => c.id === clientId);
     toast({
       variant: 'success',
-      title: clientId ? `Contexte : ${client?.clientName ?? 'client'}` : 'Contexte agence désactivé',
+      title: clientId
+        ? t('contextActive', { name: client?.clientName ?? t('defaultClient') })
+        : t('contextDisabled'),
       description: clientId
-        ? 'Les prochains cours créés seront rattachés à ce client.'
-        : 'Les prochains cours créés seront rattachés à votre compte agence.',
+        ? t('contextSwitchedToClient')
+        : t('contextSwitchedToAgency'),
     });
   }
 
@@ -80,9 +86,9 @@ export function AgencyManager({ initialClients }: AgencyManagerProps) {
       if (!res.ok) throw new Error();
       setClients((prev) => prev.filter((c) => c.id !== client.id));
       if (activeClientId === client.id) switchContext(null);
-      toast({ variant: 'success', title: 'Client supprimé', description: client.clientName });
+      toast({ variant: 'success', title: t('clientDeleted'), description: client.clientName });
     } catch {
-      toast({ variant: 'danger', title: 'Erreur', description: 'Suppression impossible.' });
+      toast({ variant: 'danger', title: t('error'), description: t('deleteFailed') });
     } finally {
       setBusy(null);
     }
@@ -96,7 +102,7 @@ export function AgencyManager({ initialClients }: AgencyManagerProps) {
       if (!res.ok) throw new Error(json.error ?? 'Erreur');
       setBilling(json.reports ?? []);
     } catch {
-      toast({ variant: 'danger', title: 'Erreur', description: 'Facturation indisponible.' });
+      toast({ variant: 'danger', title: t('error'), description: t('billingUnavailable') });
     } finally {
       setLoadingBilling(false);
     }
@@ -105,7 +111,7 @@ export function AgencyManager({ initialClients }: AgencyManagerProps) {
   function handleCreated(client: AgencyClientSummary) {
     setClients((prev) => [client, ...prev]);
     setShowForm(false);
-    toast({ variant: 'success', title: 'Client créé', description: client.clientName });
+    toast({ variant: 'success', title: t('clientCreated'), description: client.clientName });
   }
 
   return (
@@ -113,11 +119,8 @@ export function AgencyManager({ initialClients }: AgencyManagerProps) {
       {/* Contexte actif */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Contexte de travail</CardTitle>
-          <p className="text-sm text-muted">
-            Choisissez pour quel client vous travaillez : les nouveaux cours créés et leurs
-            déploiements seront rattachés à ce client.
-          </p>
+          <CardTitle className="text-lg">{t('contextTitle')}</CardTitle>
+          <p className="text-sm text-muted">{t('contextDescription')}</p>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-2">
           <Button
@@ -125,7 +128,7 @@ export function AgencyManager({ initialClients }: AgencyManagerProps) {
             size="sm"
             onClick={() => switchContext(null)}
           >
-            <UserX aria-hidden="true" /> Mon compte agence
+            <UserX aria-hidden="true" /> {t('myAgencyAccount')}
           </Button>
           {clients.map((c) => (
             <Button
@@ -143,9 +146,9 @@ export function AgencyManager({ initialClients }: AgencyManagerProps) {
       {/* Liste des clients */}
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-xl font-semibold text-foreground">Mes clients</h2>
+          <h2 className="font-display text-xl font-semibold text-foreground">{t('myClients')}</h2>
           <Button variant="primary" size="sm" onClick={() => setShowForm((v) => !v)}>
-            <Plus aria-hidden="true" /> Nouveau client
+            <Plus aria-hidden="true" /> {t('newClient')}
           </Button>
         </div>
 
@@ -153,8 +156,8 @@ export function AgencyManager({ initialClients }: AgencyManagerProps) {
 
         {clients.length === 0 && !showForm ? (
           <EmptyState
-            title="Aucun client pour le moment"
-            description="Créez votre premier client pour générer des cours en son nom."
+            title={t('emptyClientsTitle')}
+            description={t('emptyClientsDescription')}
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -164,7 +167,7 @@ export function AgencyManager({ initialClients }: AgencyManagerProps) {
                   <div className="flex items-start justify-between gap-3">
                     <CardTitle className="text-base">{client.clientName}</CardTitle>
                     <Badge variant={client.platformCredentials.length > 0 ? 'published' : 'draft'}>
-                      {client.platformCredentials.length} compte(s)
+                      {t('accountsCount', { count: client.platformCredentials.length })}
                     </Badge>
                   </div>
                   <p className="text-sm text-muted">{client.clientEmail}</p>
@@ -176,7 +179,7 @@ export function AgencyManager({ initialClients }: AgencyManagerProps) {
                     loading={busy === `del:${client.id}`}
                     onClick={() => handleDelete(client)}
                   >
-                    <Trash2 aria-hidden="true" /> Supprimer
+                    <Trash2 aria-hidden="true" /> {t('delete')}
                   </Button>
                 </CardContent>
               </Card>
@@ -189,18 +192,18 @@ export function AgencyManager({ initialClients }: AgencyManagerProps) {
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl font-semibold text-foreground">
-            Facturation par client
+            {t('billingTitle')}
           </h2>
           <Button variant="secondary" size="sm" loading={loadingBilling} onClick={loadBilling}>
-            <Receipt aria-hidden="true" /> Calculer les coûts
+            <Receipt aria-hidden="true" /> {t('calculateCosts')}
           </Button>
         </div>
 
         {billing !== null && (
           billing.length === 0 ? (
             <EmptyState
-              title="Aucun coût à facturer"
-              description="Aucun cours généré au nom d'un client n'a encore engendré de coût."
+              title={t('emptyBillingTitle')}
+              description={t('emptyBillingDescription')}
             />
           ) : (
             <div className="flex flex-col gap-3">
@@ -214,7 +217,7 @@ export function AgencyManager({ initialClients }: AgencyManagerProps) {
                       </span>
                     </div>
                     <p className="text-sm text-muted">
-                      {row.clientEmail} · {row.courseCount} cours facturé(s)
+                      {row.clientEmail} · {t('billedCourses', { count: row.courseCount })}
                     </p>
                   </CardHeader>
                 </Card>
@@ -238,6 +241,8 @@ interface ClientFormProps {
 
 function ClientForm({ onCreated, onCancel }: ClientFormProps) {
   const { toast } = useToast();
+  const t = useTranslations('agency');
+  const _tApiError = useTranslations('apiErrors');
   const [clientName, setClientName] = React.useState('');
   const [clientEmail, setClientEmail] = React.useState('');
   const [saving, setSaving] = React.useState(false);
@@ -253,12 +258,12 @@ function ClientForm({ onCreated, onCancel }: ClientFormProps) {
       });
       const json = (await res.json()) as { client?: AgencyClientSummary; error?: string };
       if (!res.ok || !json.client) {
-        toast({ variant: 'danger', title: 'Création impossible', description: json.error });
+        toast({ variant: 'danger', title: t('createClientFailed'), description: errorMessage(json, _tApiError) });
         return;
       }
       onCreated(json.client);
     } catch {
-      toast({ variant: 'danger', title: 'Erreur', description: 'Réseau indisponible.' });
+      toast({ variant: 'danger', title: t('error'), description: t('networkUnavailable') });
     } finally {
       setSaving(false);
     }
@@ -269,26 +274,26 @@ function ClientForm({ onCreated, onCancel }: ClientFormProps) {
       <CardContent className="pt-6">
         <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <Input
-            label="Nom du client"
+            label={t('clientNameLabel')}
             value={clientName}
             onChange={(e) => setClientName(e.target.value)}
-            placeholder="Académie Dupont"
+            placeholder={t('clientNamePlaceholder')}
             required
           />
           <Input
-            label="Email de contact"
+            label={t('contactEmailLabel')}
             type="email"
             value={clientEmail}
             onChange={(e) => setClientEmail(e.target.value)}
-            placeholder="contact@academie-dupont.fr"
+            placeholder={t('contactEmailPlaceholder')}
             required
           />
           <div className="flex gap-2">
             <Button type="submit" variant="primary" size="sm" loading={saving}>
-              Créer
+              {t('create')}
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-              Annuler
+              {t('cancel')}
             </Button>
           </div>
         </form>

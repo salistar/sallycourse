@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
 import { LoginForm } from '@/components/auth';
+import { getTranslations } from 'next-intl/server';
 
-export const metadata: Metadata = {
-  title: 'Connexion — SallyCourse',
-  description: 'Connectez-vous pour piloter la génération de vos cours.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('auth.loginPage');
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  };
+}
 
 /** Seuls les chemins internes sont acceptés comme destination post-login. */
 function sanitizeCallbackUrl(raw: string | undefined): string {

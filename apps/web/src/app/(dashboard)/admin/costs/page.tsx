@@ -1,14 +1,24 @@
 import type { Metadata } from 'next';
 import type { Types } from 'mongoose';
+import { getTranslations } from 'next-intl/server';
 import { Course, User, CostRecord, connectDb } from '@sallycourse/db';
 import { COURSE_COST_ALERT_USD, HETZNER_USD_PER_HOUR, type PlanId } from '@sallycourse/shared';
 import { AdminNav } from '@/components/admin';
 import { Badge, Card, CardContent, CardHeader, CardTitle, EmptyState } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { requireAdmin } from '../guard';
-import { costByCourse, marginByPlan, usageByCourse, compareCourseCost, type CostRow } from './cost-stats';
+import {
+  costByCourse,
+  marginByPlan,
+  usageByCourse,
+  compareCourseCost,
+  costByProvider,
+  usageTimeline,
+  type CostRow,
+} from './cost-stats';
 import { deriveCacheStats, overallHitRate, totalEstimatedSavingsUsd } from './cache-stats';
 import { readCacheCounts } from './read-cache-stats';
+import { UsageTimelineChart, ProviderUsageBars } from './usage-charts';
 
 /**
  * Dashboard admin des coûts de génération (P55) : coût par cours (ventilé par
@@ -17,9 +27,12 @@ import { readCacheCounts } from './read-cache-stats';
  * partagée à partir des métriques brutes conservées sur chaque CostRecord.
  */
 
-export const metadata: Metadata = {
-  title: 'Admin — Coûts — SallyCourse',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('admin.costsPage');
+  return {
+    title: t('metaTitle'),
+  };
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -30,19 +43,23 @@ const usd = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD',
 const usd2 = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
 
 const KIND_LABELS: Record<CostRow['kind'], string> = {
-  claude: 'Claude',
-  tts: 'Voix',
-  render: 'Vidéo',
-  image: 'Images',
+  claude: 'costKind.claude',
+  tts: 'costKind.tts',
+  render: 'costKind.render',
+  image: 'costKind.image',
+  // Whisper + avatar (audit coûts 2026-07-26).
+  transcribe: 'costKind.transcribe',
+  avatar: 'costKind.avatar',
 };
 
 export default async function AdminCostsPage() {
   await requireAdmin();
   await connectDb();
+  const t = await getTranslations('admin.costsPage');
 
   // Lignes de coût brutes (métriques + contexte) — ré-estimation côté pur.
   const records = await CostRecord.find({})
-    .select('courseId userId kind tokensIn tokensOut chars seconds model')
+    .select('courseId userId kind tokensIn tokensOut chars seconds model createdAt')
     .lean();
 
   const rows: CostRow[] = records.map((r) => ({
@@ -54,9 +71,15 @@ export default async function AdminCostsPage() {
     chars: r.chars,
     seconds: r.seconds,
     model: r.model,
+    createdAt: r.createdAt,
   }));
 
   const courseCosts = costByCourse(rows);
+
+  // ── Usage par provider + historique 30 jours (dashboard providers) ──────────
+  const providerUsage = costByProvider(rows);
+  const today = new Date().toISOString().slice(0, 10);
+  const timeline = usageTimeline(rows, today, 30);
 
   // ── Marge par plan : coût par plan (via propriétaire → plan) + effectifs ──
   const userIds = [...new Set(rows.map((r) => r.userId))];
@@ -123,18 +146,17 @@ export default async function AdminCostsPage() {
   const percent = new Intl.NumberFormat('fr-FR', { style: 'percent', maximumFractionDigits: 1 });
 
   const CACHE_NAMESPACE_LABELS: Record<(typeof cacheStats)[number]['namespace'], string> = {
-    claude: 'Appels Claude',
-    tts: 'Synthèse vocale (TTS)',
-    screenshot: 'Captures d’écran',
+    claude: 'cacheNamespace.claude',
+    tts: 'cacheNamespace.tts',
+    screenshot: 'cacheNamespace.screenshot',
   };
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="font-display text-2xl font-semibold text-foreground">Coûts de génération</h1>
+        <h1 className="font-display text-2xl font-semibold text-foreground">{t('heading')}</h1>
         <p className="mt-1 text-sm text-muted">
-          Coût par cours, marge par plan et alertes. Estimé depuis la table de tarifs (seuil d’alerte :{' '}
-          {usd2.format(COURSE_COST_ALERT_USD)}).
+          {t('intro', { threshold: usd2.format(COURSE_COST_ALERT_USD) })}
         </p>
       </div>
 
@@ -144,7 +166,7 @@ export default async function AdminCostsPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm text-muted">Coût total</CardTitle>
+            <CardTitle className="text-sm text-muted">{t('summary.totalCost')}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="font-display text-2xl font-semibold tabular-nums text-foreground">{usd2.format(grandTotal)}</p>
@@ -152,7 +174,7 @@ export default async function AdminCostsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm text-muted">Cours suivis</CardTitle>
+            <CardTitle className="text-sm text-muted">{t('summary.trackedCourses')}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="font-display text-2xl font-semibold tabular-nums text-foreground">{courseCosts.length}</p>
@@ -160,7 +182,7 @@ export default async function AdminCostsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm text-muted">Cours en alerte</CardTitle>
+            <CardTitle className="text-sm text-muted">{t('summary.alertCourses')}</CardTitle>
           </CardHeader>
           <CardContent>
             <p
@@ -175,17 +197,34 @@ export default async function AdminCostsPage() {
         </Card>
       </div>
 
+      {/* Usage & coût par provider (historique + ventilation) */}
+      <section className="flex flex-col gap-3">
+        <h2 className="font-display text-lg font-semibold text-foreground">{t('providers.heading')}</h2>
+        <UsageTimelineChart days={timeline} />
+        <div className="rounded-lg border border-border bg-surface/60 p-4">
+          <div className="mb-3 flex items-center justify-between text-2xs uppercase tracking-wide text-muted">
+            <span>{t('providers.colProviderModel')}</span>
+            <span className="flex gap-6">
+              <span className="w-16 text-end">{t('providers.colCalls')}</span>
+              <span className="w-24 text-end">{t('providers.colCost')}</span>
+            </span>
+          </div>
+          <ProviderUsageBars providers={providerUsage} />
+        </div>
+        <p className="text-2xs text-muted">{t('providers.note')}</p>
+      </section>
+
       {/* Marge par plan */}
       <section className="flex flex-col gap-3">
-        <h2 className="font-display text-lg font-semibold text-foreground">Marge par plan</h2>
+        <h2 className="font-display text-lg font-semibold text-foreground">{t('margin.heading')}</h2>
         <div className="overflow-x-auto rounded-lg border border-border bg-surface/60">
           <table className="w-full min-w-[40rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-start text-2xs uppercase tracking-wide text-muted">
-                <th className="px-4 py-3 text-start font-semibold">Plan</th>
-                <th className="px-4 py-3 text-end font-semibold">Revenu (USD)</th>
-                <th className="px-4 py-3 text-end font-semibold">Coût (USD)</th>
-                <th className="px-4 py-3 text-end font-semibold">Marge (USD)</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('margin.colPlan')}</th>
+                <th className="px-4 py-3 text-end font-semibold">{t('margin.colRevenue')}</th>
+                <th className="px-4 py-3 text-end font-semibold">{t('margin.colCost')}</th>
+                <th className="px-4 py-3 text-end font-semibold">{t('margin.colMargin')}</th>
               </tr>
             </thead>
             <tbody>
@@ -213,23 +252,23 @@ export default async function AdminCostsPage() {
 
       {/* Coût par cours */}
       <section className="flex flex-col gap-3">
-        <h2 className="font-display text-lg font-semibold text-foreground">Coût par cours</h2>
+        <h2 className="font-display text-lg font-semibold text-foreground">{t('byCourse.heading')}</h2>
         {shown.length === 0 ? (
           <EmptyState
-            title="Aucun coût enregistré"
-            description="Les coûts apparaissent dès qu’un cours passe par la génération (Claude, voix, vidéo, images)."
+            title={t('byCourse.emptyTitle')}
+            description={t('byCourse.emptyDescription')}
           />
         ) : (
           <div className="overflow-x-auto rounded-lg border border-border bg-surface/60">
             <table className="w-full min-w-[56rem] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border text-start text-2xs uppercase tracking-wide text-muted">
-                  <th className="px-4 py-3 text-start font-semibold">Cours</th>
-                  <th className="px-4 py-3 text-end font-semibold">Claude</th>
-                  <th className="px-4 py-3 text-end font-semibold">Voix</th>
-                  <th className="px-4 py-3 text-end font-semibold">Vidéo</th>
-                  <th className="px-4 py-3 text-end font-semibold">Images</th>
-                  <th className="px-4 py-3 text-end font-semibold">Total</th>
+                  <th className="px-4 py-3 text-start font-semibold">{t('byCourse.colCourse')}</th>
+                  <th className="px-4 py-3 text-end font-semibold">{t('byCourse.colClaude')}</th>
+                  <th className="px-4 py-3 text-end font-semibold">{t('byCourse.colVoice')}</th>
+                  <th className="px-4 py-3 text-end font-semibold">{t('byCourse.colVideo')}</th>
+                  <th className="px-4 py-3 text-end font-semibold">{t('byCourse.colImages')}</th>
+                  <th className="px-4 py-3 text-end font-semibold">{t('byCourse.colTotal')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -245,11 +284,11 @@ export default async function AdminCostsPage() {
                       <span className="flex items-center gap-2">
                         {c.overThreshold && (
                           <Badge variant="failed" hideDot className="text-2xs">
-                            alerte
+                            {t('byCourse.alertBadge')}
                           </Badge>
                         )}
                         <span className="block truncate font-medium text-foreground" title={titleById.get(c.courseId)}>
-                          {titleById.get(c.courseId) ?? 'Cours supprimé'}
+                          {titleById.get(c.courseId) ?? t('byCourse.deletedCourse')}
                         </span>
                       </span>
                       <span className="block truncate font-mono text-2xs text-muted">{c.courseId}</span>
@@ -268,17 +307,17 @@ export default async function AdminCostsPage() {
           </div>
         )}
         <p className="text-2xs text-muted">
-          Ventilation par nature — {Object.values(KIND_LABELS).join(' · ')}. Montants en USD.
+          {t('byCourse.note', { kinds: Object.values(KIND_LABELS).map((k) => t(k)).join(' · ') })}
         </p>
       </section>
 
       {/* Comparateur cloud vs OSS (P160) */}
       <section className="flex flex-col gap-3">
-        <h2 className="font-display text-lg font-semibold text-foreground">Cloud vs OSS</h2>
+        <h2 className="font-display text-lg font-semibold text-foreground">{t('compare.heading')}</h2>
         <div className="grid gap-4 sm:grid-cols-3">
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm text-muted">Coût cloud (actuel)</CardTitle>
+              <CardTitle className="text-sm text-muted">{t('compare.cloudCurrent')}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="font-display text-2xl font-semibold tabular-nums text-foreground">{usd2.format(grandTotal)}</p>
@@ -286,7 +325,7 @@ export default async function AdminCostsPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm text-muted">Coût si full OSS</CardTitle>
+              <CardTitle className="text-sm text-muted">{t('compare.fullOss')}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="font-display text-2xl font-semibold tabular-nums text-foreground">{usd2.format(ossTotal)}</p>
@@ -294,7 +333,7 @@ export default async function AdminCostsPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm text-muted">Économie potentielle</CardTitle>
+              <CardTitle className="text-sm text-muted">{t('compare.potentialSavings')}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="font-display text-2xl font-semibold tabular-nums text-success">
@@ -305,19 +344,19 @@ export default async function AdminCostsPage() {
         </div>
         {shown.length === 0 ? (
           <EmptyState
-            title="Aucun cours à comparer"
-            description="Le comparateur apparaît dès qu'un cours a des coûts enregistrés."
+            title={t('compare.emptyTitle')}
+            description={t('compare.emptyDescription')}
           />
         ) : (
           <div className="overflow-x-auto rounded-lg border border-border bg-surface/60">
             <table className="w-full min-w-[56rem] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border text-start text-2xs uppercase tracking-wide text-muted">
-                  <th className="px-4 py-3 text-start font-semibold">Cours</th>
-                  <th className="px-4 py-3 text-end font-semibold">Coût cloud</th>
-                  <th className="px-4 py-3 text-end font-semibold">Coût OSS</th>
-                  <th className="px-4 py-3 text-start font-semibold">Mix recommandé</th>
-                  <th className="px-4 py-3 text-start font-semibold">Mix réellement utilisé</th>
+                  <th className="px-4 py-3 text-start font-semibold">{t('compare.colCourse')}</th>
+                  <th className="px-4 py-3 text-end font-semibold">{t('compare.colCloudCost')}</th>
+                  <th className="px-4 py-3 text-end font-semibold">{t('compare.colOssCost')}</th>
+                  <th className="px-4 py-3 text-start font-semibold">{t('compare.colRecommendedMix')}</th>
+                  <th className="px-4 py-3 text-start font-semibold">{t('compare.colActualMix')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -328,7 +367,7 @@ export default async function AdminCostsPage() {
                     <tr key={c.courseId} className="border-b border-border/60 last:border-b-0 hover:bg-primary-soft/30">
                       <td className="max-w-72 px-4 py-3">
                         <span className="block truncate font-medium text-foreground" title={titleById.get(c.courseId)}>
-                          {titleById.get(c.courseId) ?? 'Cours supprimé'}
+                          {titleById.get(c.courseId) ?? t('byCourse.deletedCourse')}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-end tabular-nums text-muted">{usd.format(cmp.cloudTotalUsd)}</td>
@@ -354,21 +393,16 @@ export default async function AdminCostsPage() {
             </table>
           </div>
         )}
-        <p className="text-2xs text-muted">
-          Coût OSS = compute Hetzner uniquement (CPU-heures ffmpeg/ollama/piper à {usd2.format(HETZNER_USD_PER_HOUR)}/h),
-          pas de facturation au token/caractère. Recommandation : langue rare ou plan business → cloud pour le
-          plan/scripts (llm), OSS pour le reste ; sinon full OSS. Le mix « réellement utilisé » reflète
-          Course.providerMix (défaut OSS si jamais enregistré — cours antérieurs à ce comparateur).
-        </p>
+        <p className="text-2xs text-muted">{t('compare.note', { rate: usd2.format(HETZNER_USD_PER_HOUR) })}</p>
       </section>
 
       {/* Cache intelligent (P72) */}
       <section className="flex flex-col gap-3">
-        <h2 className="font-display text-lg font-semibold text-foreground">Cache</h2>
+        <h2 className="font-display text-lg font-semibold text-foreground">{t('cache.heading')}</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm text-muted">Taux de hit global</CardTitle>
+              <CardTitle className="text-sm text-muted">{t('cache.overallHitRate')}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="font-display text-2xl font-semibold tabular-nums text-foreground">
@@ -378,7 +412,7 @@ export default async function AdminCostsPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm text-muted">Économie estimée</CardTitle>
+              <CardTitle className="text-sm text-muted">{t('cache.estimatedSavings')}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="font-display text-2xl font-semibold tabular-nums text-foreground">
@@ -391,17 +425,17 @@ export default async function AdminCostsPage() {
           <table className="w-full min-w-[48rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-start text-2xs uppercase tracking-wide text-muted">
-                <th className="px-4 py-3 text-start font-semibold">Cache</th>
-                <th className="px-4 py-3 text-end font-semibold">Hits</th>
-                <th className="px-4 py-3 text-end font-semibold">Miss</th>
-                <th className="px-4 py-3 text-end font-semibold">Taux de hit</th>
-                <th className="px-4 py-3 text-end font-semibold">Économie estimée</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('cache.colCache')}</th>
+                <th className="px-4 py-3 text-end font-semibold">{t('cache.colHits')}</th>
+                <th className="px-4 py-3 text-end font-semibold">{t('cache.colMiss')}</th>
+                <th className="px-4 py-3 text-end font-semibold">{t('cache.colHitRate')}</th>
+                <th className="px-4 py-3 text-end font-semibold">{t('cache.colSavings')}</th>
               </tr>
             </thead>
             <tbody>
               {cacheStats.map((s) => (
                 <tr key={s.namespace} className="border-b border-border/60 last:border-b-0">
-                  <td className="px-4 py-3 font-medium text-foreground">{CACHE_NAMESPACE_LABELS[s.namespace]}</td>
+                  <td className="px-4 py-3 font-medium text-foreground">{t(CACHE_NAMESPACE_LABELS[s.namespace])}</td>
                   <td className="px-4 py-3 text-end tabular-nums text-muted">{s.hits}</td>
                   <td className="px-4 py-3 text-end tabular-nums text-muted">{s.misses}</td>
                   <td className="px-4 py-3 text-end tabular-nums text-muted">{percent.format(s.hitRate)}</td>
@@ -413,12 +447,7 @@ export default async function AdminCostsPage() {
             </tbody>
           </table>
         </div>
-        <p className="text-2xs text-muted">
-          Économie = nombre de hits × coût moyen évité (estimé depuis la table de tarifs, taille d’appel typique du
-          pipeline). Cache Claude (30 jours, clé = hash système+message+modèle), cache TTS (permanent, clé =
-          hash texte+voix, déjà en place), cache de captures d’écran par contenu (permanent, clé = hash de la
-          spec — réutilisé entre leçons et entre cours).
-        </p>
+        <p className="text-2xs text-muted">{t('cache.note')}</p>
       </section>
     </div>
   );

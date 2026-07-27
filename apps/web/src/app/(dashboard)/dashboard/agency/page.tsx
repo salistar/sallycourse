@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { connectDb, AgencyClient, User } from '@sallycourse/db';
 import { requireUser } from '@/lib/session';
 import { AgencyManager, type AgencyClientSummary } from './agency-manager';
+import { getTranslations } from 'next-intl/server';
 
 /**
  * Dashboard → Agence (Prompt 150) : liste des clients gérés, création de
@@ -11,15 +12,19 @@ import { AgencyManager, type AgencyClientSummary } from './agency-manager';
  * comptes User.isAgency=true — redirige les autres vers le dashboard normal.
  */
 
-export const metadata: Metadata = {
-  title: 'Mode agence — SallyCourse',
-  description: 'Gérez vos clients et générez des cours en leur nom.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('agency.page');
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  };
+}
 
 // Données par utilisateur : rendu à la requête.
 export const dynamic = 'force-dynamic';
 
 export default async function AgencyDashboardPage() {
+  const t = await getTranslations('agency.page');
   const user = await requireUser();
 
   await connectDb();
@@ -43,12 +48,8 @@ export default async function AgencyDashboardPage() {
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-2">
-        <h1 className="font-display text-3xl font-semibold text-foreground">Mode agence</h1>
-        <p className="max-w-2xl text-muted">
-          Gérez vos clients et générez des cours en leur nom. Les déploiements d&apos;un cours créé
-          dans le contexte d&apos;un client utilisent exclusivement les comptes de publication de ce
-          client — jamais les vôtres.
-        </p>
+        <h1 className="font-display text-3xl font-semibold text-foreground">{t('heading')}</h1>
+        <p className="max-w-2xl text-muted">{t('intro')}</p>
       </header>
 
       <AgencyManager initialClients={initialClients} />

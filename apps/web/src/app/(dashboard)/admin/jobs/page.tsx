@@ -9,26 +9,28 @@ import { AdminNav, PendingButton } from '@/components/admin';
 import { requireUser } from '@/lib/session';
 import { cn } from '@/lib/cn';
 import { retryAllFailedAction, retryJobAction } from './actions';
+import { getTranslations, getFormatter } from 'next-intl/server';
 
 /**
  * Page admin — supervision des jobs de génération : liste filtrable par
  * statut (échoués par défaut), relance unitaire ou en masse.
  */
 
-export const metadata: Metadata = {
-  title: 'Admin — Jobs de génération — SallyCourse',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('admin.jobs');
+  return { title: t('metaTitle') };
+}
 
 export const dynamic = 'force-dynamic';
 
 // ── Statuts dérivés (le modèle ne stocke pas de champ status) ──────
 type StatusFilter = 'failed' | 'running' | 'done' | 'all';
 
-const FILTERS: { id: StatusFilter; label: string }[] = [
-  { id: 'failed', label: 'Échoués' },
-  { id: 'running', label: 'En cours' },
-  { id: 'done', label: 'Terminés' },
-  { id: 'all', label: 'Tous' },
+const FILTERS: { id: StatusFilter; labelKey: string }[] = [
+  { id: 'failed', labelKey: 'filters.failed' },
+  { id: 'running', labelKey: 'filters.running' },
+  { id: 'done', labelKey: 'filters.done' },
+  { id: 'all', labelKey: 'filters.all' },
 ];
 
 /** `error` renseigné et non vide → échec ; sinon progress décide. */
@@ -47,25 +49,22 @@ function parseFilter(raw: string | undefined): StatusFilter {
 
 interface JobBadge {
   variant: 'failed' | 'generating' | 'ready';
-  label: string;
+  labelKey: string;
 }
 
 function jobBadge(job: { error?: string | null; progress: number }): JobBadge {
-  if (job.error) return { variant: 'failed', label: 'Échec' };
-  if (job.progress >= 100) return { variant: 'ready', label: 'Terminé' };
-  return { variant: 'generating', label: 'En cours' };
+  if (job.error) return { variant: 'failed', labelKey: 'status.failed' };
+  if (job.progress >= 100) return { variant: 'ready', labelKey: 'status.done' };
+  return { variant: 'generating', labelKey: 'status.running' };
 }
-
-const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
-  dateStyle: 'short',
-  timeStyle: 'short',
-});
 
 interface AdminJobsPageProps {
   searchParams: Promise<{ status?: string }>;
 }
 
 export default async function AdminJobsPage({ searchParams }: AdminJobsPageProps) {
+  const t = await getTranslations('admin.jobs');
+  const format = await getFormatter();
   const user = await requireUser();
   if (user.role !== 'admin') redirect('/dashboard');
 
@@ -96,21 +95,19 @@ export default async function AdminJobsPage({ searchParams }: AdminJobsPageProps
       {/* En-tête + relance en masse */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-foreground">Jobs de génération</h1>
-          <p className="mt-1 text-sm text-muted">
-            Supervision du pipeline : relancez les étapes échouées, unitairement ou en masse.
-          </p>
+          <h1 className="font-display text-2xl font-semibold text-foreground">{t('title')}</h1>
+          <p className="mt-1 text-sm text-muted">{t('subtitle')}</p>
         </div>
         <form action={retryAllFailedAction}>
           <PendingButton variant="secondary" size="sm" disabled={failedCount === 0}>
             <RotateCcw aria-hidden="true" />
-            Relancer tous les échoués ({failedCount})
+            {t('retryAllFailed', { count: failedCount })}
           </PendingButton>
         </form>
       </div>
 
       {/* Filtres par statut */}
-      <nav aria-label="Filtrer par statut" className="flex flex-wrap gap-2">
+      <nav aria-label={t('filterByStatus')} className="flex flex-wrap gap-2">
         {FILTERS.map((f) => {
           const active = f.id === filter;
           return (
@@ -126,7 +123,7 @@ export default async function AdminJobsPage({ searchParams }: AdminJobsPageProps
                   : 'border-border bg-surface text-muted hover:border-ring/50 hover:text-foreground',
               )}
             >
-              {f.label}
+              {t(f.labelKey)}
               <span className="ms-1.5 tabular-nums opacity-70">{countByFilter.get(f.id)}</span>
             </Link>
           );
@@ -135,11 +132,11 @@ export default async function AdminJobsPage({ searchParams }: AdminJobsPageProps
 
       {jobs.length === 0 ? (
         <EmptyState
-          title="Aucun job dans ce filtre"
+          title={t('empty.title')}
           description={
             filter === 'failed'
-              ? 'Bonne nouvelle : aucun job échoué pour le moment.'
-              : 'Aucun job ne correspond à ce statut.'
+              ? t('empty.descriptionFailed')
+              : t('empty.descriptionOther')
           }
         />
       ) : (
@@ -147,14 +144,14 @@ export default async function AdminJobsPage({ searchParams }: AdminJobsPageProps
           <table className="w-full min-w-[64rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-start text-2xs uppercase tracking-wide text-muted">
-                <th className="px-4 py-3 text-start font-semibold">Cours</th>
-                <th className="px-4 py-3 text-start font-semibold">Étape</th>
-                <th className="px-4 py-3 text-start font-semibold">Statut</th>
-                <th className="px-4 py-3 text-start font-semibold">Progression</th>
-                <th className="px-4 py-3 text-start font-semibold">Erreur</th>
-                <th className="px-4 py-3 text-start font-semibold">Tentatives</th>
-                <th className="px-4 py-3 text-start font-semibold">Mise à jour</th>
-                <th className="px-4 py-3 text-end font-semibold">Action</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('columns.course')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('columns.step')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('columns.status')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('columns.progress')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('columns.error')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('columns.attempts')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('columns.updatedAt')}</th>
+                <th className="px-4 py-3 text-end font-semibold">{t('columns.action')}</th>
               </tr>
             </thead>
             <tbody>
@@ -166,17 +163,17 @@ export default async function AdminJobsPage({ searchParams }: AdminJobsPageProps
                   <tr key={id} className="border-b border-border/60 last:border-b-0 hover:bg-primary-soft/30">
                     <td className="max-w-56 px-4 py-3">
                       <span className="block truncate font-medium text-foreground" title={title ?? job.courseId.toString()}>
-                        {title ?? 'Cours supprimé'}
+                        {title ?? t('deletedCourse')}
                       </span>
                       <span className="block truncate font-mono text-2xs text-muted">{job.courseId.toString()}</span>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-foreground">{job.step}</td>
                     <td className="px-4 py-3">
-                      <Badge variant={badge.variant}>{badge.label}</Badge>
+                      <Badge variant={badge.variant}>{t(badge.labelKey)}</Badge>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Progress value={job.progress} className="w-24" aria-label={`Progression ${job.progress} %`} />
+                        <Progress value={job.progress} className="w-24" aria-label={t('progressLabel', { value: job.progress })} />
                         <span className="tabular-nums text-xs text-muted">{Math.round(job.progress)}%</span>
                       </div>
                     </td>
@@ -191,13 +188,13 @@ export default async function AdminJobsPage({ searchParams }: AdminJobsPageProps
                     </td>
                     <td className="px-4 py-3 tabular-nums text-muted">{job.attempts}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-muted">
-                      {dateFormatter.format(job.updatedAt)}
+                      {format.dateTime(job.updatedAt, { dateStyle: 'short', timeStyle: 'short' })}
                     </td>
                     <td className="px-4 py-3 text-end">
                       <form action={retryJobAction.bind(null, id)}>
                         <PendingButton variant="ghost" size="sm">
                           <RotateCcw aria-hidden="true" />
-                          Relancer
+                          {t('retry')}
                         </PendingButton>
                       </form>
                     </td>

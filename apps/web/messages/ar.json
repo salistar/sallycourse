@@ -11,11 +11,21 @@
     "back": "رجوع",
     "next": "التالي",
     "search": "بحث",
-    "language": "اللغة"
+    "language": "اللغة",
+    "closeDialog": "إغلاق الحوار",
+    "closeNotification": "إغلاق الإشعار",
+    "notifications": "الإشعارات",
+    "noData": "لا توجد بيانات لهذه الفترة."
   },
   "nav": {
     "dashboard": "لوحة التحكم",
     "newCourse": "دورة جديدة",
+    "nicheResearch": "ابحث عن موضوع",
+    "batch": "التوليد بالدفعات",
+    "paths": "المسارات",
+    "stats": "الإحصاءات",
+    "affiliate": "التسويق بالعمولة",
+    "agency": "وكالة",
     "settings": "الإعدادات",
     "admin": "الإدارة",
     "openMenu": "فتح القائمة",
@@ -36,14 +46,1553 @@
   },
   "dashboard": {
     "title": "لوحة التحكم",
-    "defaultUser": "منشئ"
+    "defaultUser": "منشئ",
+    "greetingMorning": "صباح الخير",
+    "greetingAfternoon": "مساء الخير",
+    "greetingEvening": "مساء الخير",
+    "subtitle": "استوديو دوراتك يعمل بكامل طاقته — إليك حالة الإنتاج.",
+    "newCourse": "دورة جديدة",
+    "statCoursesCreated": "الدورات المُنشأة",
+    "statCoursesPublished": "الدورات المنشورة",
+    "statGenerating": "قيد التوليد",
+    "statVideoMinutes": "دقائق الفيديو",
+    "trendThisMonth": "+{count} هذا الشهر",
+    "trendPipelineActive": "قيد التشغيل",
+    "trendVideoContent": "≈ {hours} ساعة من المحتوى",
+    "onboarding": {
+      "metaTitle": "الدورة الأولى — SallyCourse",
+      "metaDescription": "اختر قالبًا متخصصًا وأطلق دورتك الأولى ببضع نقرات."
+    },
+    "firstCourse": {
+      "sectionLabel": "أنشئ دورتك الأولى",
+      "title": "دورتك الأولى لا تنتظر سوى عنوان",
+      "description": "أعطِ موضوعًا ومستوى — تتولى SallyCourse صياغة المخطط، وكتابة الدروس، وتسجيل السرد، ومونتاج الفيديوهات، وتجميع الاختبارات. دورة كاملة، جاهزة للنشر.",
+      "ctaPrimary": "أنشئ دورتي الأولى",
+      "ctaSecondary": "ابدأ من صفحة بيضاء",
+      "estimate": "≈ 25 دقيقة من التوليد لدورة مدتها 5 ساعات"
+    },
+    "thumbnail": {
+      "ariaLabel": "صورة مصغّرة مُنشأة لـ «{title}»"
+    },
+    "progressRing": {
+      "label": "التقدم"
+    },
+    "search": {
+      "triggerAriaLabel": "بحث شامل",
+      "placeholderShort": "بحث…",
+      "searchPlaceholder": "ابحث عن دورة أو قسم أو درس…",
+      "inputAriaLabel": "مصطلح البحث",
+      "minChars": "اكتب حرفين على الأقل لبدء البحث.",
+      "searching": "جارٍ البحث…",
+      "noResults": "لا نتائج لـ «{query}».",
+      "kind": {
+      "transcribe": "النسخ الصوتي",
+      "avatar": "الأفاتار",
+        "course": "دورة",
+        "section": "قسم",
+        "lesson": "درس"
+      }
+    },
+    "stepOutline": "مخطط الدورة",
+    "stepContent": "التحرير",
+    "stepTts": "السرد الصوتي",
+    "stepScreenshot": "اللقطات",
+    "stepVideo": "معالجة الفيديو",
+    "stepSubtitle": "الترجمة النصية",
+    "stepPackaging": "التصدير",
+    "stepDeploy": "النشر",
+    "relativeJustNow": "الآن",
+    "relativeMinutes": "منذ {minutes, plural, zero {# دقيقة} one {دقيقة واحدة} two {دقيقتين} few {# دقائق} many {# دقيقة} other {# دقيقة}}",
+    "relativeHours": "منذ {hours, plural, zero {# ساعة} one {ساعة واحدة} two {ساعتين} few {# ساعات} many {# ساعة} other {# ساعة}}",
+    "relativeYesterday": "أمس",
+    "relativeDays": "منذ {days, plural, zero {# يوم} one {يوم واحد} two {يومين} few {# أيام} many {# يوماً} other {# يوم}}",
+    "relativeOnDate": "في {date}",
+    "freshnessDraft": "مسودة عُدّلت {rel}",
+    "freshnessGeneratingStep": "قيد التنفيذ — مرحلة {step}",
+    "freshnessGeneratingStarted": "بدأ الإنشاء {rel}",
+    "freshnessOutlineReview": "مخطط بانتظار المراجعة — {rel}",
+    "freshnessReady": "تم الإنشاء {rel}",
+    "freshnessPublished": "نُشر {rel}",
+    "freshnessFailedStep": "فشل عند مرحلة {step}",
+    "freshnessFailed": "فشل {rel}",
+    "freshnessCancelled": "أُلغي {rel}",
+    "courseGrid": {
+      "title": "دوراتي",
+      "countLabel": "{visible} / {total} دورة",
+      "filterAria": "تصفية الدورات حسب الحالة",
+      "emptyFilterTitle": "لا يوجد شيء في هذه التصفية",
+      "emptyFilterDescription": "لا توجد دورة تطابق هذه الحالة حتى الآن — ابدأ عملية إنشاء لملء هذا العرض.",
+      "newCourse": "دورة جديدة"
+    },
+    "courseCard": {
+      "status": {
+        "draft": "مسودة",
+        "generating": "قيد الإنشاء",
+        "outlineReview": "مخطط بانتظار المراجعة",
+        "ready": "جاهز",
+        "published": "منشور",
+        "failed": "فشل",
+        "cancelled": "ملغى"
+      },
+      "difficulty": {
+        "beginner": "مبتدئ",
+        "intermediate": "متوسط",
+        "advanced": "متقدم"
+      },
+      "menu": {
+        "open": "فتح الدورة",
+        "rename": "إعادة التسمية",
+        "retry": "إعادة تشغيل الإنشاء",
+        "delete": "حذف"
+      },
+      "menuAriaLabel": "إجراءات لـ «{title}»",
+      "menuLabel": "إجراءات — {title}",
+      "toast": {
+        "retryStarted": {
+          "title": "تمت إعادة تشغيل الإنشاء",
+          "description": "يُعاد إنشاء المخطط الآن."
+        },
+        "retryFailed": {
+          "title": "تعذّرت إعادة التشغيل"
+        },
+        "networkError": {
+          "title": "خطأ في الشبكة",
+          "description": "تعذّر الوصول إلى الخادم، تحقق من اتصالك."
+        },
+        "renamed": {
+          "title": "تمت إعادة تسمية الدورة",
+          "description": "«{title}»"
+        },
+        "renameFailed": {
+          "title": "تعذّرت إعادة التسمية"
+        },
+        "deleted": {
+          "title": "تم حذف الدورة",
+          "description": "تم حذف «{title}» ومحتواها."
+        },
+        "deleteFailed": {
+          "title": "تعذّر الحذف"
+        }
+      },
+      "reactivateConfirm": "إعادة تفعيل هذه الدورة المؤرشفة؟ ستُعاد إنشاء الوسائط المحذوفة.",
+      "reactivateError": "تعذّرت إعادة التفعيل حالياً.",
+      "serverUnreachable": "تعذّر الوصول إلى الخادم.",
+      "archivedReactivate": "مؤرشف — إعادة التفعيل",
+      "progressRingLabel": "إنشاء «{title}»",
+      "progressComplete": "اكتمل الإنشاء",
+      "progressPercent": "تم الإنشاء بنسبة {progress}٪",
+      "openCourseAria": "فتح «{title}»",
+      "sectionsCount": "{count, plural, zero {# قسم} one {قسم واحد} two {قسمان} few {# أقسام} many {# قسمًا} other {# قسم}}",
+      "lessonsCount": "{count, plural, zero {# درس} one {درس واحد} two {درسان} few {# دروس} many {# درسًا} other {# درس}}",
+      "duration": "{hours} س {minutes} د",
+      "sectionsPlanned": "{count, plural, zero {# قسم مخطَّط} one {قسم واحد مخطَّط} two {قسمان مخطَّطان} few {# أقسام مخطَّطة} many {# قسمًا مخطَّطًا} other {# قسم مخطَّط}}",
+      "renameDialog": {
+        "title": "إعادة تسمية الدورة",
+        "description": "سيُستخدم العنوان الجديد في كل مكان (لوحة التحكم، التصدير، النشر).",
+        "inputLabel": "عنوان الدورة",
+        "submit": "إعادة التسمية"
+      },
+      "cancel": "إلغاء",
+      "deleteDialog": {
+        "title": "حذف هذه الدورة؟",
+        "description": "سيتم حذف «{title}» وجميع أقسامها ودروسها واختباراتها ومهام الإنشاء نهائياً. هذا الإجراء لا يمكن التراجع عنه.",
+        "confirm": "حذف نهائي"
+      }
+    },
+    "generationPanel": {
+      "steps": {
+        "outline": {
+          "label": "مخطط الدورة",
+          "description": "الأقسام والدروس والأهداف"
+        },
+        "content": {
+          "label": "كتابة الدروس",
+          "description": "النصوص والمقالات والتمارين"
+        },
+        "tts": {
+          "label": "السرد الصوتي",
+          "description": "الصوت الاصطناعي والمزج"
+        },
+        "screenshot": {
+          "label": "اللقطات والعناصر المرئية",
+          "description": "رسوم توضيحية للشرائح"
+        },
+        "video": {
+          "label": "معالجة الفيديو",
+          "description": "شرائح متحركة بدقة 1080p"
+        },
+        "subtitle": {
+          "label": "الترجمة النصية",
+          "description": "ملفات SRT / VTT متزامنة"
+        },
+        "packaging": {
+          "label": "الاختبار والتصدير",
+          "description": "الأسئلة والأجوبة والحزم"
+        },
+        "deployment": {
+          "label": "النشر",
+          "description": "النشر على المنصات"
+        }
+      },
+      "terminalTitle": "worker · التوليد",
+      "logAriaLabel": "سجل التوليد",
+      "renderPreview": "معاينة العرض",
+      "slideNumber": "الخطوة {current} / {total}",
+      "liveGeneration": "توليد مباشر",
+      "status": {
+        "failed": "فشل",
+        "done": "اكتمل",
+        "running": "قيد التنفيذ"
+      },
+      "globalProgress": "التقدم الإجمالي",
+      "waitingConnected": "متصل — في انتظار أحداث المُنفِّذ…",
+      "connecting": "جارٍ الاتصال بتدفق التقدم…"
+    },
+    "notifications": {
+      "bellAriaLabel": "الإشعارات",
+      "menuAriaLabel": "قائمة الإشعارات",
+      "title": "الإشعارات",
+      "markAllRead": "تعليم الكل كمقروء",
+      "loading": "جارٍ التحميل…",
+      "empty": "لا توجد إشعارات حتى الآن.",
+      "timeAgo": {
+        "instant": "الآن",
+        "minutes": "{count, plural, zero {منذ # دقيقة} one {منذ دقيقة} two {منذ دقيقتين} few {منذ # دقائق} many {منذ # دقيقة} other {منذ # دقيقة}}",
+        "hours": "{count, plural, zero {منذ # ساعة} one {منذ ساعة} two {منذ ساعتين} few {منذ # ساعات} many {منذ # ساعة} other {منذ # ساعة}}",
+        "days": "{count, plural, zero {منذ # يوم} one {منذ يوم} two {منذ يومين} few {منذ # أيام} many {منذ # يوماً} other {منذ # يوم}}"
+      }
+    },
+    "assistant": {
+      "regionLabel": "المساعد",
+      "title": "المساعد",
+      "placeholder": "مثال: أنشئ دورة عن Docker للمبتدئين",
+      "commandAriaLabel": "أمر المساعد",
+      "sendAriaLabel": "إرسال",
+      "confirmQuestion": "هل تؤكد الإجراء؟",
+      "confirm": "تأكيد",
+      "cancel": "إلغاء",
+      "noAction": "لا يوجد إجراء لتنفيذه — أعد الصياغة إذا لزم الأمر.",
+      "disclaimer": "يقترح المساعد إجراءً لكنه لا ينفّذه أبدًا دون تأكيدك.",
+      "toast": {
+        "unavailable": "المساعد غير متاح",
+        "connectionFailed": "تعذّر الاتصال",
+        "checkNetwork": "تحقّق من اتصالك بالشبكة.",
+        "actionRejected": "تم رفض الإجراء",
+        "actionStarted": "بدأ تنفيذ الإجراء"
+      }
+    }
   },
   "create": {
     "title": "دورة جديدة",
-    "submit": "إنشاء الدورة"
+    "submit": "إنشاء الدورة",
+    "titleField": {
+      "titleAriaLabel": "عنوان الدورة",
+      "placeholder": "مثال: إتقان Docker في 7 أيام"
+    },
+    "level": {
+      "groupLabel": "مستوى الدورة",
+      "beginnerLabel": "مبتدئ",
+      "beginnerTagline": "البدء من الصفر",
+      "beginnerDescription": "لا متطلبات مسبقة: يُقدَّم كل مفهوم خطوة بخطوة مع أمثلة ملموسة جدًا.",
+      "intermediateLabel": "متوسط",
+      "intermediateTagline": "الارتقاء إلى مستوى أعلى",
+      "intermediateDescription": "الأساسيات متقنة — والآن التركيز على الممارسة والحالات الواقعية والعادات الجيدة.",
+      "advancedLabel": "متقدم",
+      "advancedTagline": "الطموح إلى القمة",
+      "advancedDescription": "البنية والأداء والحالات الحدّية: مسار صارم دون مواربة."
+    },
+    "voice": {
+      "readyToastTitle": "تم فهم الإملاء",
+      "readyToastDesc": "تمت تعبئة النموذج مسبقًا.",
+      "failedToastTitle": "لم تكتمل عملية الإملاء",
+      "failedToastDesc": "أعد المحاولة أو أدخل العنوان يدويًا.",
+      "timeoutToastTitle": "انتهت المهلة",
+      "timeoutToastDesc": "التفريغ النصي يستغرق وقتًا طويلًا، أعد المحاولة.",
+      "connectionLostToastTitle": "انقطع الاتصال",
+      "connectionLostToastDesc": "تعذّر جلب التفريغ النصي.",
+      "emptyToastTitle": "تسجيل فارغ",
+      "emptyToastDesc": "لم يلتقط الميكروفون أي شيء.",
+      "uploadFailedToastTitle": "تعذّر الإرسال",
+      "retryDesc": "أعد المحاولة.",
+      "connectionFailedToastTitle": "تعذّر الاتصال",
+      "connectionFailedToastDesc": "تحقّق من اتصالك بالشبكة.",
+      "micUnavailableToastTitle": "الميكروفون غير متاح",
+      "micUnavailableToastDesc": "متصفحك لا يدعم التسجيل.",
+      "micDeniedToastTitle": "تم رفض الميكروفون",
+      "micDeniedToastDesc": "اسمح بالوصول إلى الميكروفون لإملاء دورتك.",
+      "header": "أملِ الدورة بالصوت",
+      "langLabel": "لغة الإملاء",
+      "stop": "إيقاف",
+      "record": "تسجيل",
+      "recording": "جارٍ التسجيل…",
+      "uploading": "جارٍ إرسال التسجيل…",
+      "processing": "جارٍ التفريغ والفهم…",
+      "understood": "المفهوم:",
+      "tip": "نصيحة: «أريد دورة عن Docker للمبتدئين» — يتم فهم الدارجة (مثل «bghit cours 3la Git»)."
+    },
+    "generation": {
+      "badge": {
+        "ready": "جاهز",
+        "generating": "جارٍ الإنشاء"
+      },
+      "subtitle": "تم إنشاء الدورة — جارٍ فتح متابعة الإنشاء",
+      "sectionsCount": "≈ {count} قسم",
+      "difficulty": {
+        "beginner": "مبتدئ",
+        "intermediate": "متوسط",
+        "advanced": "متقدم"
+      },
+      "voice": {
+        "custom": "صوتي المستنسخ",
+        "synthetic": "صوت اصطناعي"
+      },
+      "progressRegionLabel": "تقدّم الإنشاء",
+      "courseGenerated": "تم إنشاء الدورة",
+      "globalProgressLabel": "التقدّم الإجمالي",
+      "createAnother": "إنشاء دورة أخرى",
+      "planReady": "المخطط جاهز للمراجعة",
+      "steps": {
+        "analyse": {
+          "label": "تحليل الموضوع",
+          "description": "رسم خريطة المجال والتوقعات."
+        },
+        "plan": {
+          "label": "بناء المخطط",
+          "description": "الأقسام والدروس والأهداف التعليمية."
+        },
+        "lecons": {
+          "label": "كتابة الدروس",
+          "description": "نصوص الفيديو والمقالات والتمارين التطبيقية."
+        },
+        "quiz": {
+          "label": "إنشاء الاختبارات",
+          "description": "أسئلة معايرة حسب المستوى المختار."
+        },
+        "assemblage": {
+          "label": "التجميع النهائي",
+          "description": "السرد وعرض الفيديو والتغليف."
+        }
+      }
+    },
+    "experience": {
+      "estimate": "التقدير: <strong>≈ {lessons, plural, zero {# درس} one {درس} two {درسان} few {# دروس} many {# درسًا} other {# درس}}</strong> · {videos, plural, zero {# فيديو} one {فيديو} two {فيديوهان} few {# فيديوهات} many {# فيديو} other {# فيديو}} · ~{minutes} دقيقة فيديو · تكلفة سحابية <strong>{cloudCost}</strong> (OSS {ossCost})",
+      "presetNamePrompt": "اسم الإعداد المسبق (مثال: «إعدادات DevOps»):",
+      "presetSaved": "تم حفظ الإعداد المسبق",
+      "presetSaveFailed": "تعذّر الحفظ",
+      "networkError": "خطأ في الشبكة",
+      "loadPresetAriaLabel": "تحميل إعداد مسبق للإنشاء",
+      "presetApplied": "تم تطبيق الإعداد المسبق",
+      "loadPresetOption": "تحميل إعداد مسبق…",
+      "saveAsPreset": "حفظ كإعداد مسبق",
+      "deletePresetConfirm": "حذف الإعداد المسبق «{name}»؟",
+      "presetDeleteFailed": "تعذّر الحذف",
+      "presetDeleted": "تم حذف الإعداد المسبق",
+      "deletePresetButton": "حذف «{name}»",
+      "quotaTitle": "تم بلوغ الحصة الشهرية",
+      "quotaDescription": "قم بالترقية إلى خطة أعلى لإنشاء المزيد من الدورات.",
+      "viewPlans": "عرض الخطط",
+      "createFailedTitle": "فشل الإنشاء",
+      "createFailedDescription": "يرجى المحاولة مرة أخرى بعد لحظات.",
+      "similarCourseTitle": "تم اكتشاف دورة مشابهة",
+      "similarCourseDescription": "لديك بالفعل «{courseTitle}»، وهو قريب جدًا من هذا العنوان. سيستمر الإنشاء على أي حال.",
+      "materialNotImportedTitle": "لم يتم استيراد مادة المصدر",
+      "materialNotImportedDescription": "تم إنشاء الدورة، لكن تعذّر استيراد الملف.",
+      "scheduledTitle": "تمت جدولة الإنشاء",
+      "scheduledDescription": "ستبدأ دورتك خلال ساعات الذروة المنخفضة، حوالي {time}.",
+      "connectionFailedTitle": "تعذّر الاتصال",
+      "connectionFailedDescription": "تحقّق من شبكتك ثم أعد المحاولة.",
+      "eyebrow": "دورة جديدة — اكتب الغلاف",
+      "whichLevel": "لأي مستوى؟",
+      "generationModeAriaLabel": "وضع الإنشاء",
+      "autoModeLabel": "إنشاء تلقائي",
+      "autoModeHint": "يتم إنشاء الدورة بأكملها دفعة واحدة، دون انقطاع.",
+      "validatedModeLabel": "التحقّق خطوة بخطوة",
+      "validatedModeHint": "ينتظر كل درس مُنشأ مراجعتك قبل الانتقال إلى التالي.",
+      "writingEngine": "محرّك الكتابة",
+      "submitting": "جارٍ إنشاء الدورة…",
+      "submit": "أنشئ دورتي",
+      "errorTitleTooLong": "لا يمكن أن يتجاوز العنوان 120 حرفًا.",
+      "errorTitleTooShort": "أدخل عنوانًا لا يقل عن 3 أحرف — إنه غلاف دورتك.",
+      "errorLevelRequired": "اختر مستوى: فهو يضبط الأسلوب والإيقاع والاختبارات.",
+      "free": "مجاني"
+    },
+    "advanced": {
+      "title": "خيارات متقدمة",
+      "subtitle": "قيم افتراضية مدروسة — لا تعدّلها إلا عند الحاجة.",
+      "closeLabel": "إغلاق الخيارات المتقدمة",
+      "sectionsSuffix": "{count, plural, zero {# قسم} one {قسم} two {قسمان} few {# أقسام} many {# قسمًا} other {# قسم}}",
+      "courseLanguageLabel": "لغة الدورة",
+      "customVoiceLabel": "استخدام صوتي المستنسخ",
+      "customVoiceHint": "يروي الدروس بصوتك أنت (عيّنة مسجّلة في الإعدادات ← صوتي، بموافقتك). وإلا فسيُستخدم صوت اصطناعي تلقائي مناسب للغة الدورة.",
+      "voiceCatalogLabel": "صوت السرد",
+      "voiceCatalogHint": "صوت واحد للدورة كاملة: الهوية الصوتية المختارة تُثبَّت على جميع الفيديوهات مهما كان المحرك. الافتراضي: {default}.",
+      "voiceCatalogDefault": "تلقائي (الصوت الافتراضي للغة)",
+      "voiceFemale": "أنثوي",
+      "voiceMale": "ذكوري",
+      "ttsEngineLabel": "محرك الصوت",
+      "ttsEngineHint": "المحرك المستخدم للسرد القياسي واستنساخ الصوت. يمكن تغييره لاحقًا، درسًا بدرس، من زر «إصلاح الصوت».",
+      "ttsEngineChatterbox": "Chatterbox (افتراضي)",
+      "ttsEngineQwen3": "Qwen3-TTS (جديد، صوت أوضح)",
+      "themeLabel": "السمة المرئية",
+      "themeHint": "ألوان وأجواء شرائح الفيديو والمقالات. يمكن تغييرها لاحقًا من صفحة الدورة (يُعاد توليد الفيديوهات).",
+      "themeDefault": "Salistar (افتراضي)",
+      "imageEngineLabel": "نموذج الصورة",
+      "imageEngineHint": "النموذج المستخدم لرسومات الدورة والشرائح. يمكن تغييره لاحقًا، شريحة بشريحة، من لوحة الصورة الخاصة بها.",
+      "imageEngineSdxl": "SDXL (افتراضي)",
+      "imageEngineZimage": "Z-Image Turbo (جديد، أوضح وأسرع)",
+      "platformsLegend": "المنصّات المستهدفة",
+      "platformsHint": "تتكيّف التصديرات (الصيغ والصور المصغّرة) مع كل منصّة.",
+      "avatarLabel": "الصورة الرمزية بالفيديو (تجريبي)",
+      "avatarHint": "يقوم مقدّم «talking-head» بتقديم كل قسم وختمه. مع صورة لوجهك (الإعدادات ← صورتي الرمزية)، يُحرّك عرض Ditto فوق السرد؛ وإلا فأفاتار HeyGen (الخطط المدفوعة) أو بطاقة عنوان كبديل.",
+      "avatarSelectLabel": "أفاتار HeyGen (بديل بدون صورة)",
+      "avatarSelectHint": "يُستخدم فقط إذا لم تُحفظ صورة للمقدّم. مع وجود صورة (الإعدادات ← صورتي الرمزية)، تكون الأولوية لأفاتار Ditto المُحرّك فوق وجهك.",
+      "clonedVoiceLabel": "صوتي المستنسخ",
+      "clonedVoiceHint": "يروي الدورة بصوتك المخصّص (Chatterbox). يتطلّب عيّنة صوتية مسجّلة في الإعدادات ← صوتي؛ وإلا فسيُستخدم الصوت القياسي.",
+      "offPeakLabel": "جدولة التوليد لهذه الليلة",
+      "offPeakHint": "يبدأ خلال ساعات الذروة المنخفضة (2–6 صباحًا) — الموعد التالي {day} في {time}.",
+      "reset": "إعادة الضبط",
+      "done": "تم",
+      "sectionsLabel": "عدد الأقسام",
+      "fewerSections": "أقسام أقل",
+      "moreSections": "أقسام أكثر",
+      "sectionsRange": "بين {min} و{max} — يضبطه الذكاء الاصطناعي حسب الموضوع.",
+      "sourceUnsupported": "صيغة غير مدعومة — المتوقّع PDF أو PPTX أو Markdown.",
+      "sourceLabel": "استيراد مادة موجودة (اختياري)",
+      "sourceRemove": "إزالة المادة",
+      "sourceChoose": "اختيار ملف PDF أو PPTX أو Markdown",
+      "sourceHint": "سيعتمد مخطّط الدورة على هذا المحتوى (التدرّج، المفردات، الأمثلة).",
+      "genStructureLegend": "البنية",
+      "genPedagogyLegend": "علم التدريس",
+      "genDomainLegend": "مجال الخبرة",
+      "genVoiceVideoLegend": "الصوت والفيديو",
+      "genValidationLegend": "التحقّق",
+      "genDefault": "افتراضي",
+      "genTargetHoursLabel": "المدّة الإجمالية المستهدفة",
+      "genTargetHoursDefault": "افتراضي (حسب الموضوع)",
+      "genTargetHours1": "≈ ساعة واحدة",
+      "genTargetHours3": "≈ 3 ساعات",
+      "genTargetHours6": "≈ 6 ساعات",
+      "genTargetHours10": "10 ساعات فأكثر",
+      "genAvgVideoLabel": "متوسّط مدّة الفيديو",
+      "genAvgVideoShort": "قصيرة (3–5 دقائق)",
+      "genAvgVideoMedium": "متوسّطة (5–8 دقائق)",
+      "genAvgVideoLong": "طويلة (8–12 دقيقة)",
+      "genQuizPositionLabel": "موضع الاختبارات",
+      "genQuizPerSection": "اختبار لكل قسم",
+      "genQuizMidCourse": "اختبار في منتصف الدورة",
+      "genQuizFinalOnly": "اختبار نهائي واحد فقط",
+      "genProjectModeLabel": "التمارين التطبيقية",
+      "genProjectFilRouge": "مشروع متواصل (متدرّج)",
+      "genProjectIndependent": "تمارين مستقلّة",
+      "genFinalExamLabel": "الامتحان النهائي",
+      "genFinalExamHint": "يضيف امتحانًا شاملًا في نهاية الدورة.",
+      "genPassingScoreLabel": "درجة النجاح في الامتحان",
+      "genPassingScoreDefault": "افتراضي (70٪)",
+      "genContentRatioLabel": "توزيع المحتوى (فيديو/مقال/تطبيقي/اختبار، ٪)",
+      "genContentRatioHint": "4 أوزان مفصولة بفواصل — مثل «40,25,20,15». فارغ = التوازن الافتراضي.",
+      "genToneLabel": "النبرة",
+      "genToneAcademic": "أكاديمي",
+      "genToneConversational": "حواري",
+      "genToneEnergetic": "حيوي",
+      "genDensityLabel": "الكثافة",
+      "genDensityConcise": "موجز",
+      "genDensityNormal": "عادية",
+      "genDensityDetailed": "مفصّلة جدًا",
+      "genApproachLabel": "المقاربة",
+      "genApproachTheory": "النظرية أولًا",
+      "genApproachExamples": "الأمثلة أولًا",
+      "genApproachPractice": "أقصى قدر من التطبيق",
+      "genObjectiveLabel": "هدف المتعلّم",
+      "genObjectiveCertification": "شهادة",
+      "genObjectiveCareerChange": "تغيير المسار المهني",
+      "genObjectiveUpskilling": "تطوير المهارات",
+      "genAnalogiesLabel": "التشبيهات ورواية القصص",
+      "genAudienceLabel": "الجمهور المستهدف",
+      "genAudienceHint": "مثل «محاسبون مغاربة يكتشفون Excel» — يكيّف الأمثلة والمفردات.",
+      "genAudiencePlaceholder": "صِف جمهورك…",
+      "genSpacedRepetitionLabel": "التكرار المتباعد",
+      "genSpacedRepetitionHint": "يعيد إدراج المفاهيم الأساسية من الأقسام السابقة في الاختبارات اللاحقة.",
+      "genMandatoryKeywordsLabel": "الكلمات المفتاحية الواجب تغطيتها",
+      "genCommaHint": "مفصولة بفواصل.",
+      "genMandatoryKeywordsPlaceholder": "مثل الضريبة على القيمة المضافة، دفتر الأستاذ، الإهلاك",
+      "genExcludedTopicsLabel": "المواضيع المستبعَدة",
+      "genExcludedTopicsPlaceholder": "مثل العملات المشفّرة",
+      "genImposedToolsLabel": "الأدوات / الإصدارات المفروضة",
+      "genImposedToolsPlaceholder": "مثل Terraform 1.9 وليس 1.5",
+      "genTpOsLabel": "نظام تشغيل التمارين التطبيقية",
+      "genTpOsWeb": "متصفّح الويب",
+      "genTpOsAny": "لا يهمّ",
+      "genCodeCommentLangLabel": "لغة تعليقات الشيفرة",
+      "genCodeCommentLangPlaceholder": "مثل الإنجليزية",
+      "genCertificationTargetLabel": "الشهادة المستهدفة",
+      "genCertificationTargetHint": "يوائم المحتوى والاختبارات مع الإطار الرسمي.",
+      "genCertificationTargetPlaceholder": "مثل ISTQB Foundation، AWS SAA",
+      "genGlossaryLabel": "المسرد المفروض",
+      "genGlossaryHint": "مصطلحات يجب الالتزام بها حرفيًا في كامل الدورة (2000 حرف كحدّ أقصى).",
+      "genGlossaryPlaceholder": "مثل «backlog = سجلّ المنتج؛ sprint = تكرار»",
+      "genNarrationSpeedLabel": "سرعة السرد",
+      "genNarrationSpeedDefault": "افتراضي (1×)",
+      "genNarrationSpeedSlow": "هادئة (0.9×)",
+      "genNarrationSpeedStandard": "قياسية (1×)",
+      "genNarrationSpeedDynamic": "حيوية (1.1×)",
+      "genNarrationSpeedFast": "سريعة (1.25×)",
+      "genSlideLanguageLabel": "لغة الشرائح",
+      "genSlideLanguageHint": "شرائح بلغة مختلفة عن السرد (مثل شرائح بالإنجليزية وصوت بالفرنسية).",
+      "genSlideLanguageSame": "نفس لغة السرد",
+      "genVerticalLabel": "نسخة عمودية 9:16",
+      "genVerticalHint": "يولّد أيضًا نسخة بصيغة المقاطع القصيرة (TikTok/Reels/YouTube Shorts).",
+      "genDialogueLabel": "صيغة الحوار (صوتان)",
+      "genDialogueHint": "سرد على شكل حوار بين المدرّب والمتعلّم — أكثر جاذبية، بصوتين مختلفين.",
+      "genDialogueVoiceLabel": "صوت المتعلّم",
+      "genDialogueVoiceDefault": "الصوت الثاني الافتراضي",
+      "genValAfterScriptsLabel": "مراجعة النصوص قبل توليد الصوت",
+      "genValAfterScriptsHint": "في وضع «التحقّق خطوة بخطوة»، يتوقّف بعد نص الفيديو (قبل توليد الصوت) — تراجعه ثم تُطلق الصوت، ما يتفادى إعادة توليد الصوت. والمخطّط يُراجَع دائمًا قبل التوليد على أي حال.",
+      "genValAfterDraftLabel": "مراجعة التمارين التطبيقية قبل لقطات الشاشة",
+      "genValAfterDraftHint": "يتوقّف بعد مسودّة التمرين التطبيقي (قبل لقطات شاشة Playwright المكلفة) — تراجع/تحرّر التمرين ثم تعيد إطلاق الالتقاط. لا تأثير على الفيديوهات/المقالات/الاختبارات.",
+      "today": "اليوم",
+      "tomorrow": "غدًا"
+    }
+  },
+  "stats": {
+    "title": "الإحصاءات والتحليلات",
+    "subtitle": "الاستهلاك حسب مزود الذكاء الاصطناعي وتطبيقات GPU (الصوت، الصور، Whisper، الأفاتار) والتكاليف المقدرة لدوراتك.",
+    "kpiTotalCost": "التكلفة الإجمالية المقدرة",
+    "kpiCalls": "استدعاءات الذكاء الاصطناعي",
+    "kpiCourses": "الدورات المعنية",
+    "kpiAvgPerCourse": "متوسط التكلفة / دورة",
+    "byNatureTitle": "توزيع التكلفة حسب النوع",
+    "providersTitle": "الاستهلاك حسب المزود والنموذج",
+    "providersHint": "نماذج الكتابة (Gemini، DeepSeek…)، محركات الصوت (Chatterbox «modal»، Qwen3-TTS)، الصور (SDXL، Z-Image)، Whisper والأفاتار — مرتبة حسب الاستخدام.",
+    "byCourseTitle": "التكلفة حسب الدورة",
+    "noData": "لا يوجد استهلاك مسجل بعد — ولّد دورة لترى إحصاءاتك.",
+    "colCourse": "الدورة",
+    "colText": "الكتابة",
+    "colVoice": "الصوت",
+    "colMedia": "الوسائط",
+    "colTotal": "الإجمالي"
   },
   "course": {
-    "title": "الدورة"
+    "title": "الدورة",
+    "savePreset": {
+      "button": "حفظ كإعداد مسبق",
+      "dialogTitle": "حفظ هذا الإعداد كإعداد مسبق",
+      "nameLabel": "اسم الإعداد المسبق",
+      "namePlaceholder": "مثال: مجموعة YouTube + Udemy FR",
+      "summary": "{count, plural, zero {لا توجد منصة محددة} one {منصة واحدة محددة} two {منصتان محددتان} few {# منصات محددة} many {# منصة محددة} other {# منصة محددة}}، الوضع «{mode}». يمكن إيجاده لاحقًا في الإعدادات ← إعداداتي المسبقة للنشر.",
+      "submit": "حفظ",
+      "toastSaveErrorTitle": "تعذر الحفظ",
+      "toastSavedTitle": "تم حفظ الإعداد المسبق",
+      "toastNetworkErrorTitle": "خطأ في الشبكة",
+      "toastNetworkErrorBody": "تعذر الوصول إلى الخادم."
+    },
+    "translate": {
+      "sectionLabel": "التوطين",
+      "title": "ترجمة هذه الدورة",
+      "description": "يترجم الترجمات الموجودة إلى اللغات المحددة ويحدّث المنصات المنشورة بالفعل. تعيد الدبلجة أيضًا توليد الصوت والفيديو (يستغرق وقتًا أطول).",
+      "prerequisite": "شرط مسبق: يجب نشر الدورة على منصة واحدة على الأقل (تُدفع الترجمات المترجمة إليها). انشر أولًا — حتى على نظام LMS الداخلي — ثم ترجِم.",
+      "dubOptionTitle": "دبلجة مقاطع الفيديو (إعادة توليد الصوت والمونتاج).",
+      "dubOptionHint": "بدون هذا الخيار، تُترجم الترجمات فقط (أسرع وأقل تكلفة).",
+      "translateButton": "ترجمة ({count})",
+      "existingVersions": "الإصدارات الموجودة",
+      "versionStats": "{subs, plural, zero {# ترجمة} one {ترجمة واحدة} two {ترجمتان} few {# ترجمات} many {# ترجمة} other {# ترجمة}} · {videos, plural, zero {# فيديو مدبلج} one {فيديو مدبلج واحد} two {فيديوهان مدبلجان} few {# فيديوهات مدبلجة} many {# فيديو مدبلج} other {# فيديو مدبلج}}",
+      "launchedTitle": "بدأت الترجمة",
+      "launchSuccessDescription": "{count, plural, zero {# لغة} one {لغة واحدة} two {لغتان} few {# لغات} many {# لغة} other {# لغة}}{mode, select, dub { مع الدبلجة} other { (الترجمة فقط)}}.",
+      "translateErrorTitle": "تعذّرت الترجمة",
+      "networkErrorTitle": "خطأ في الشبكة",
+      "networkErrorDescription": "تعذّر الوصول إلى الخادم.",
+      "statusPending": "في الطابور",
+      "statusGenerating": "قيد التنفيذ",
+      "statusReady": "جاهز",
+      "statusFailed": "فشل جزئي"
+    },
+    "drip": {
+      "title": "النشر المُجدوَل (Drip)",
+      "hide": "إخفاء",
+      "configure": "إعداد",
+      "intro": "وزّع النشر عبر الوقت، منصةً تلو الأخرى. مثال: Udemy فورًا، YouTube 3 دروس/أسبوع، TikTok مقطع واحد/يوم لمدة 30 يومًا. يُنفّذ العامل كل موعد تلقائيًا.",
+      "currentPlan": "الخطة الحالية",
+      "pause": "إيقاف مؤقت",
+      "resume": "استئناف",
+      "cancel": "إلغاء",
+      "completed": "مكتمل",
+      "publishedCount": "{count, plural, zero {# منشور} one {# منشور} two {# منشوران} few {# منشورات} many {# منشورًا} other {# منشور}}",
+      "reschedule": "إعادة الجدولة",
+      "schedule": "جدولة",
+      "cadenceFor": "الوتيرة لـ {platform}",
+      "countPerWeek": "العدد / أسبوع",
+      "countPerDay": "العدد / يوم",
+      "during": "لمدة",
+      "days": "أيام",
+      "kindImmediate": "فوري",
+      "kindPerWeek": "N في الأسبوع",
+      "kindPerDay": "N في اليوم لمدة M أيام",
+      "statusActive": "نشط",
+      "statusPaused": "متوقف مؤقتًا",
+      "statusCompleted": "مكتمل",
+      "toastPaused": "تم إيقاف الخطة مؤقتًا",
+      "toastResumed": "تم استئناف الخطة",
+      "toastCancelled": "تم إلغاء الخطة",
+      "scheduleErrorTitle": "تعذّرت الجدولة",
+      "scheduledTitle": "تمت جدولة النشر",
+      "scheduledDescription": "{count, plural, zero {# منصة مُجدولة.} one {# منصة مُجدولة.} two {# منصتان مُجدولتان.} few {# منصات مُجدولة.} many {# منصة مُجدولة.} other {# منصة مُجدولة.}}",
+      "networkErrorTitle": "خطأ في الشبكة",
+      "networkErrorDescription": "الخادم غير قابل للوصول.",
+      "actionErrorTitle": "تعذّر تنفيذ الإجراء"
+    },
+    "detail": {
+      "statusDraft": "مسودة",
+      "statusGenerating": "قيد الإنشاء",
+      "statusOutlineReview": "المخطط بانتظار المراجعة",
+      "statusReady": "جاهز",
+      "statusPublished": "منشور",
+      "statusFailed": "فشل",
+      "statusCancelled": "أُلغي",
+      "difficultyBeginner": "مبتدئ",
+      "difficultyIntermediate": "متوسط",
+      "difficultyAdvanced": "متقدم",
+      "providerFamilyLlm": "المخطط/النصوص",
+      "providerFamilyTts": "الصوت",
+      "providerFamilyImage": "الصور",
+      "backToDashboard": "العودة إلى لوحة التحكم",
+      "createdOn": "أُنشئ في {date}",
+      "sectionsAndLessons": "{sectionCount, plural, zero {# قسم} one {قسم واحد} two {قسمان} few {# أقسام} many {# قسمًا} other {# قسم}} · {lessonCount, plural, zero {# درس} one {درس واحد} two {درسان} few {# دروس} many {# درسًا} other {# درس}}",
+      "generationLabel": "الإنشاء:",
+      "analytics": "التحليلات",
+      "studentPreview": "معاينة الطالب",
+      "availableWhenHasLessons": "متاح بمجرد أن يحتوي المساق على دروس",
+      "availableOnceGenerated": "متاح بعد إنشاء المساق",
+      "downloadPack": "تنزيل الحزمة",
+      "exportPortable": "التصدير بوضع محمول",
+      "deploy": "نشر",
+      "emptyGeneratingTitle": "يجري بناء مخطط المساق…",
+      "emptyNoSectionTitle": "لا توجد أقسام بعد",
+      "emptyGeneratingDescription": "ستظهر الأقسام والدروس هنا بمجرد إنشاء المخطط.",
+      "emptyFailedDescription": "فشل الإنشاء قبل إنشاء المخطط. أعِد تشغيله من لوحة التحكم.",
+      "emptyDefaultDescription": "لا يحتوي هذا المساق على مخطط دروس بعد.",
+      "metaTitle": "تفاصيل الدورة — SallyCourse"
+    },
+    "blog": {
+      "title": "مدونة SEO",
+      "regenerate": "إعادة توليد",
+      "generationStartedTitle": "بدأ توليد المدونة",
+      "generationStartedDescription": "ستُستبدل المقالات ثم تُنشَر وفق الجدول الزمني.",
+      "generationFailedTitle": "تعذّر التوليد",
+      "errorGeneric": "حدث خطأ، يُرجى المحاولة لاحقاً.",
+      "networkErrorTitle": "خطأ في الشبكة",
+      "networkErrorDescription": "تعذّر الوصول إلى الخادم، تحقّق من اتصالك.",
+      "empty": "لا توجد مقالات بعد — يبدأ التوليد تلقائياً بعد نشر الدورة.",
+      "publishedCount": "{published} / {total, plural, zero {# مقال منشور} one {# مقال منشور} two {# مقالان منشوران} few {# مقالات منشورة} many {# مقالاً منشوراً} other {# مقال منشور}} — تُنشَر البقية تلقائياً في تاريخها المحدد.",
+      "statusPublished": "منشور",
+      "statusScheduled": "مجدول",
+      "statusDraft": "مسودة",
+      "publishedOn": "نُشر في {date}",
+      "scheduledFor": "مقرّر في {date}",
+      "keyword": "الكلمة المفتاحية: {keyword}",
+      "openArticle": "فتح المقال «{title}»"
+    },
+    "feedback": {
+      "sentimentPositive": "إيجابي",
+      "sentimentNeutral": "محايد",
+      "sentimentNegative": "سلبي",
+      "analysisStartedTitle": "بدأ التحليل",
+      "analysisStartedDesc": "يجري تحليل ملاحظات الطلاب، عد بعد لحظة.",
+      "analysisFailedTitle": "تعذّر التحليل",
+      "genericError": "حدث خطأ، يُرجى المحاولة لاحقًا.",
+      "networkErrorTitle": "خطأ في الشبكة",
+      "networkErrorDesc": "تعذّر الوصول إلى الخادم، تحقّق من اتصالك.",
+      "regenStartedTitle": "بدأت إعادة التوليد",
+      "regenStartedDesc": "تُعاد إعادة إنتاج الدرس مع هذا التحسين.",
+      "applyFailedTitle": "تعذّر التطبيق",
+      "heading": "ملاحظات الطلاب",
+      "summary": "{count, plural, zero {# مراجعة} one {مراجعة واحدة} two {مراجعتان} few {# مراجعات} many {# مراجعة} other {# مراجعة}} · متوسط التقييم {rating}/5 · تم التحليل في {date}",
+      "noAnalysis": "لا يوجد تحليل بعد.",
+      "intro": "يجلب المراجعات المنشورة (Udemy) ويحلّلها بالذكاء الاصطناعي لاستخراج المواضيع المتكرّرة واقتراحات تحسين موجَّهة.",
+      "analyzeButton": "تحليل الملاحظات",
+      "themesHeading": "المواضيع المتكرّرة",
+      "reviewsCount": "{count, plural, zero {# مراجعة} one {مراجعة واحدة} two {مراجعتان} few {# مراجعات} many {# مراجعة} other {# مراجعة}}",
+      "suggestionsHeading": "اقتراحات التحسين",
+      "lessonLabel": "الدرس:",
+      "generalImprovement": "تحسين عام للدورة",
+      "globalSuggestionHint": "اقتراح عام: لا يوجد درس لإعادة توليده تلقائيًا",
+      "applyButton": "تطبيق",
+      "noThemesExtracted": "تعذّر استخراج أي موضوع أو اقتراح من هذه المراجعات.",
+      "noReviewsYet": "لا توجد مراجعات متاحة لهذه الدورة بعد."
+    },
+    "quality": {
+      "title": "الجودة التعليمية",
+      "evaluatedOn": "قُيّم في {date}",
+      "badgeExcellent": "{score}/100 · ممتاز",
+      "badgeGood": "{score}/100 · جيد",
+      "badgeBelowThreshold": "{score}/100 · دون الحد",
+      "rubricClarity": "الوضوح",
+      "rubricProgression": "التدرّج",
+      "rubricExamples": "الأمثلة والتطبيق",
+      "rubricEngagement": "التفاعل",
+      "belowThresholdWarning": "النتيجة دون الحد الموصى به ({threshold}/100) — سيتطلب النشر تأكيداً صريحاً."
+    },
+    "progress": {
+      "liveGeneration": "التوليد المباشر",
+      "generationErrorTitle": "حدث خطأ أثناء التوليد",
+      "generationInProgressTitle": "يجري إنتاج مساقك",
+      "badgeError": "خطأ",
+      "badgeInProgress": "قيد التنفيذ",
+      "badgeReconnecting": "إعادة الاتصال…",
+      "overallProgress": "التقدّم الإجمالي",
+      "waitLessThanMinute": "أقل من دقيقة",
+      "waitMinutes": "~{minutes} د",
+      "waitHoursMinutes": "~{hours} س {minutes} د",
+      "waitHours": "~{hours} س",
+      "estimatedWait": "الوقت المقدَّر للانتظار قبل المعالجة: {label}",
+      "queuePosition": "{count, plural, zero {لا مساقات قبل مساقك في قائمة الانتظار} one {مساق واحد قبل مساقك في قائمة الانتظار} two {مساقان قبل مساقك في قائمة الانتظار} few {# مساقات قبل مساقك في قائمة الانتظار} many {# مساقًا قبل مساقك في قائمة الانتظار} other {# مساق قبل مساقك في قائمة الانتظار}}",
+      "readyAt": "سيكون مساقك جاهزًا نحو {label}",
+      "lastActivity": "آخر نشاط",
+      "waitingFirstEvents": "بانتظار الأحداث الأولى من عامل التوليد…",
+      "eventsReceived": "{count, plural, zero {# حدث مُستلَم} one {حدث واحد مُستلَم} two {حدثان مُستلَمان} few {# أحداث مُستلَمة} many {# حدثًا مُستلَمًا} other {# حدث مُستلَم}}",
+      "stepOutlineLabel": "مخطط المساق",
+      "stepOutlineDescription": "الأقسام والدروس",
+      "stepContentLabel": "كتابة المحتوى",
+      "stepContentDescription": "النصوص والمقالات والتطبيقات العملية",
+      "stepTtsLabel": "التعليق الصوتي",
+      "stepTtsDescription": "التركيب الصوتي للنصوص",
+      "stepScreenshotLabel": "لقطات الشاشة",
+      "stepScreenshotDescription": "توضيحات العروض",
+      "stepVideoLabel": "معالجة الفيديو",
+      "stepVideoDescription": "مونتاج الدروس",
+      "stepSubtitleLabel": "الترجمات",
+      "stepSubtitleDescription": "مسارات SRT / VTT",
+      "stepPackagingLabel": "التجميع",
+      "stepPackagingDescription": "تجميع الحزمة",
+      "stepDeploymentLabel": "النشر",
+      "stepDeploymentDescription": "النشر على المنصات"
+    },
+    "qa": {
+      "title": "فحص الجودة",
+      "passed": "ناجح",
+      "failed": "فشل · {count, plural, zero {# مشكلة} one {مشكلة واحدة} two {مشكلتان} few {# مشاكل} many {# مشكلة} other {# مشكلة}}",
+      "ranAt": "شُغِّل في {date} على الساعة {time}",
+      "checks": {
+        "videoDuration": "المدة الإجمالية للفيديو",
+        "sectionCount": "عدد الأقسام",
+        "videoPlayable": "فيديوهات قابلة للتشغيل (الصوت موجود)",
+        "articlePlaceholders": "لقطات شاشة المقالات",
+        "quizValid": "اختبارات صالحة",
+        "lessonsComplete": "دروس مكتملة"
+      }
+    },
+    "resources": {
+      "title": "الموارد",
+      "subtitle": "بطاقة مرجعية، دفتر تمارين، مسرد ({glossaryCount}) وروابط مفيدة ({furtherCount})",
+      "cheatsheetPdf": "بطاقة مرجعية (PDF)",
+      "workbookPdf": "دفتر التمارين العملية (PDF)",
+      "glossary": "المسرد",
+      "furtherReading": "لمزيد من التعمق",
+      "openResource": "فتح «{title}»"
+    },
+    "teamApproval": {
+      "title": "موافقة الفريق مطلوبة قبل النشر",
+      "pendingHint": "يجب أن يوافق مُراجِع أو مالك الفريق على هذه النسخة.",
+      "approvedOn": "تمت الموافقة في {date}.",
+      "statusApproved": "تمت الموافقة",
+      "statusPending": "قيد الانتظار",
+      "approveButton": "الموافقة",
+      "toastApprovedTitle": "تمت الموافقة على الدورة",
+      "toastApprovedDesc": "أصبح النشر مسموحًا الآن لهذه النسخة.",
+      "toastErrorTitle": "تعذّرت الموافقة",
+      "toastErrorDesc": "حدث خطأ، يُرجى المحاولة لاحقًا.",
+      "toastNetworkTitle": "خطأ في الشبكة",
+      "toastNetworkDesc": "تعذّر الوصول إلى الخادم، تحقّق من اتصالك."
+    },
+    "archived": {
+      "reactivationStartedTitle": "بدأت إعادة التفعيل",
+      "reactivationStartedDescription": "تتم إعادة إنشاء الوسائط المحذوفة من النصوص الموجودة.",
+      "reactivationFailedTitle": "تعذّرت إعادة التفعيل",
+      "retryLater": "أعد المحاولة لاحقًا.",
+      "networkErrorTitle": "خطأ في الشبكة",
+      "serverUnreachable": "تعذّر الوصول إلى الخادم.",
+      "title": "دورة مؤرشفة",
+      "description": "كانت هذه الدورة غير نشطة: تم حذف وسائطها (الفيديوهات والصوت والشرائح) لتوفير المساحة. تم الاحتفاظ بالمخطط والنصوص — أعد تفعيلها لإعادة إنشاء الوسائط.",
+      "reactivateButton": "إعادة تفعيل الدورة"
+    },
+    "marketing": {
+      "copied": "تم نسخ {label}",
+      "copyFailed": "تعذّر النسخ",
+      "copy": "نسخ",
+      "heroLabel": "صورة رئيسية (SDXL)",
+      "heroNote": "رسم توضيحي للدورة",
+      "udemyCoverLabel": "غلاف Udemy",
+      "youtubeThumbnailLabel": "صورة YouTube المصغّرة",
+      "title": "حزمة التسويق",
+      "imageAlt": "{label} للدورة",
+      "download": "تنزيل",
+      "udemyDescription": "وصف Udemy (SEO)",
+      "promoText": "نص ترويجي",
+      "welcomeMessage": "رسالة الترحيب",
+      "congratsMessage": "رسالة التهنئة",
+      "titleIdeas": "أفكار عناوين (مقيّمة)",
+      "scoreOutOf": "{score}/100",
+      "autoGeneratedNote": "تم إنشاؤها تلقائيًا من الدورة — أعد استخدامها كما هي أو عدّلها قبل النشر."
+    },
+    "validation": {
+      "sectionLabel": "التحقّق من الدرس المُنشأ",
+      "lessonReady": "تم إنشاء الدرس «{title}» — راجعه ثمّ صادق عليه.",
+      "remaining": "وضع التحقّق خطوة بخطوة: {count, plural, zero {لا دروس متبقّية} one {درس واحد متبقٍّ} two {درسان متبقّيان} few {# دروس متبقّية} many {# درسًا متبقّيًا} other {# درس متبقٍّ}}. لن يتمّ إنشاء الدرس التالي إلّا بعد تحقّقك.",
+      "startNextFailed": "تعذّر بدء الدرس التالي.",
+      "networkError": "خطأ في الشبكة — أعد المحاولة.",
+      "launching": "جارٍ التشغيل…",
+      "validateContinue": "صادق وتابع"
+    },
+    "lessonTree": {
+      "navLabel": "مخطط الدورة",
+      "lessonCount": "{count, plural, zero {# درس} one {درس واحد} two {درسان} few {# دروس} many {# درسًا} other {# درس}}",
+      "duration": "~{minutes} دقيقة"
+    },
+    "lessonComments": {
+      "title": "تعليقات الفريق",
+      "loading": "جارٍ التحميل…",
+      "empty": "لا توجد تعليقات بعد.",
+      "commentLabel": "تعليق",
+      "commentPlaceholder": "أضف تعليقًا للفريق…",
+      "submit": "إرسال",
+      "sendFailedTitle": "تعذر الإرسال",
+      "sendFailedDescription": "حدث خطأ، يرجى المحاولة لاحقًا.",
+      "networkErrorTitle": "خطأ في الشبكة",
+      "networkErrorDescription": "تعذر الوصول إلى الخادم، تحقق من اتصالك."
+    },
+    "lessonPanel": {
+      "typeVideo": "درس فيديو",
+      "typeArticle": "مقال",
+      "typeTp": "تمارين تطبيقية",
+      "typeQuiz": "اختبار",
+      "generatingLabel": "جارٍ إنشاء المحتوى…",
+      "generatingHint": "ستظهر العناصر (فيديو، مقال، لقطات، اختبار) هنا بمجرد أن ينتهي العامل من هذا الدرس.",
+      "failedTitle": "فشل الإنشاء",
+      "failedDescription": "حدث خطأ أوقف إنتاج هذا الدرس. أعد تشغيله عبر «إعادة إنشاء الدرس».",
+      "emptyTitle": "لا يوجد محتوى بعد",
+      "pendingDescription": "ينتظر هذا الدرس دوره في مسار الإنشاء.",
+      "noAssetDescription": "لم يُنتَج أي عنصر لهذا الدرس.",
+      "selectLessonTitle": "اختر درسًا",
+      "selectLessonDescription": "اختر درسًا من مخطط الدورة لمعاينة محتواه.",
+      "tabVideo": "فيديو",
+      "tabArticle": "مقال",
+      "tabScreenshots": "لقطات ({count})",
+      "tabQuiz": "اختبار",
+      "durationMin": "~{min} دقيقة",
+      "editScript": "تعديل النص",
+      "videoUnsupported": "متصفحك لا يدعم تشغيل الفيديو.",
+      "subtitlesAvailable": "الترجمة ({locale}) متاحة.",
+      "downloadVertical": "تنزيل النسخة العمودية 9:16 (شورتس)",
+      "editArticle": "تعديل المقال",
+      "editQuiz": "تعديل الاختبار",
+      "tabTp": "التمرين العملي",
+      "editTp": "تحرير التمرين العملي"
+    },
+    "sell": {
+      "invalidPrice": "سعر غير صالح",
+      "listingFailed": "تعذّر العرض للبيع",
+      "listed": "تم عرض الدورة للبيع",
+      "listedVisible": "ظاهرة على /marketplace.",
+      "networkError": "خطأ في الشبكة",
+      "serverUnreachable": "تعذّر الوصول إلى الخادم.",
+      "sell": "بيع",
+      "dialogTitle": "البيع في السوق",
+      "dialogDescription": "ستُدرَج الدورة علنًا على /marketplace. ترخيص «نسخة كاملة» — يحصل المشتري على نسخته الخاصة من الدورة.",
+      "priceLabel": "سعر البيع (دولار أمريكي)",
+      "descriptionLabel": "وصف العرض (اختياري)",
+      "cancel": "إلغاء",
+      "submit": "عرض للبيع"
+    },
+    "derive": {
+      "deriveThisCourse": "اشتقاق هذه الدورة",
+      "dialogDescription": "أنشئ نسخة معدّلة بإعادة استخدام المخطط المعتمد: لغة أخرى (ترجمة وصوت وشرائح جديدة) أو مستوى صعوبة آخر. يتم إنشاء دورة واحدة وتُحتسب ضمن حصتك الشهرية.",
+      "targetLanguageLabel": "اللغة المستهدفة",
+      "targetDifficultyLabel": "مستوى الصعوبة المستهدف",
+      "sourceSuffix": " (المصدر)",
+      "changeAxisHint": "غيّر اللغة أو المستوى لإنشاء نسخة معدّلة.",
+      "cancel": "إلغاء",
+      "submitButton": "اشتقاق",
+      "difficultyBeginner": "مبتدئ",
+      "difficultyIntermediate": "متوسط",
+      "difficultyAdvanced": "متقدم",
+      "toastLaunchedTitle": "بدأ الاشتقاق",
+      "toastLaunchedDescription": "يجري إنشاء النسخة المعدّلة من الدورة.",
+      "toastFailedTitle": "تعذّر الاشتقاق",
+      "errorGeneric": "حدث خطأ، يرجى المحاولة لاحقًا.",
+      "toastNetworkTitle": "خطأ في الشبكة",
+      "toastNetworkDescription": "تعذّر الوصول إلى الخادم، تحقّق من اتصالك."
+    },
+    "dmca": {
+      "errorNeedUrl": "أضف رابطًا واحدًا على الأقل للمحتوى المنسوخ.",
+      "errorGenerateFailed": "تعذّر إنشاء حزمة DMCA.",
+      "errorNetwork": "خطأ في الشبكة.",
+      "copySuccess": "تم نسخ الإشعار إلى الحافظة.",
+      "copyFailed": "تعذّر النسخ.",
+      "cardTitle": "الحماية من القرصنة — حزمة DMCA",
+      "cardDescription": "هل تنتشر نسخة من دورتك في مكان آخر؟ أنشئ إشعار الإزالة وفق DMCA وقائمة التحقق. لا يُرسَل أي شيء تلقائيًا: أنت من يراجعه ويرسله بنفسك.",
+      "urlsLabel": "رابط (روابط) المحتوى المنسوخ (رابط واحد في كل سطر)",
+      "recipientLabel": "المستلِم (وكيل DMCA للمضيف/المنصة) — اختياري",
+      "recipientPlaceholder": "وكيل DMCA، شركة الاستضافة",
+      "generating": "جارٍ الإنشاء…",
+      "generateButton": "إنشاء حزمة DMCA",
+      "takedownNoticeHeading": "إشعار الإزالة",
+      "copyButton": "نسخ",
+      "checklistHeading": "قائمة التحقق قبل الإرسال",
+      "missingToComplete": "المطلوب إكماله: {items}."
+    },
+    "review": {
+      "title": "مراجعة الدورة",
+      "description": "تحليل تلقائي للدورة كاملة: الدروس الفاشلة، الصور السيئة التوليد، الصوت المعيب، اللقطات المتدهورة — ثم إصلاح تلقائي لكل عيب مكتشف.",
+      "start": "بدء المراجعة",
+      "startedTitle": "بدأت المراجعة",
+      "startedDescription": "يجري تحليل الدورة — تبدأ الإصلاحات تلقائيًا. سيتم إشعارك عند الانتهاء.",
+      "failedTitle": "تعذر بدء المراجعة",
+      "networkError": "تعذر الوصول إلى الخادم، تحقق من اتصالك.",
+      "lastReport": "آخر مراجعة: {date} — {lessons} درسًا تم فحصه.",
+      "noIssue": "لم يُكتشف أي عيب: الدورة سليمة.",
+      "actionRegenerateLesson": "أُعيد توليد الدرس",
+      "actionRegenerateImage": "أُعيد توليد الصورة",
+      "actionRepairAudio": "دُقق الصوت",
+      "actionRecaptureTp": "أُعيد التقاط التطبيق",
+      "actionOther": "إصلاح"
+    },
+    "cover": {
+      "title": "صورة الغلاف",
+      "description": "الرسم المُولَّد يُستخدم كغلاف للدورة. يمكنك استبداله بصورتك الخاصة.",
+      "previewAlt": "غلاف الدورة الحالي",
+      "noCover": "لا يوجد غلاف بعد.",
+      "sourceUploaded": "صورة مرفوعة",
+      "sourceGenerated": "مُولَّدة بالذكاء الاصطناعي",
+      "upload": "تغيير الصورة",
+      "revert": "العودة إلى الصورة المُولَّدة",
+      "hint": "PNG أو JPEG أو WebP، 8 ميغابايت كحد أقصى. يُنصح بنسبة 16:9.",
+      "uploadedTitle": "تم تحديث الغلاف",
+      "uploadedDescription": "أصبحت صورتك الآن غلاف الدورة.",
+      "revertedTitle": "تمت إعادة تعيين الغلاف",
+      "revertedDescription": "تمت استعادة الغلاف المُولَّد بالذكاء الاصطناعي.",
+      "failedTitle": "تعذّر تنفيذ الإجراء",
+      "networkError": "تعذّر الوصول إلى الخادم، تحقق من اتصالك."
+    },
+    "theme": {
+      "title": "سمة الدورة",
+      "description": "غيّر الألوان المرئية للفيديوهات والمقالات. لا يُمس الصوت: تُعاد فقط توليد الشرائح.",
+      "current": "الحالية",
+      "apply": "تطبيق السمة",
+      "appliedTitle": "تم تطبيق السمة",
+      "appliedDescription": "{count, plural, =0 {ستستخدم العروض القادمة هذه السمة.} one {يُعاد توليد فيديو واحد بهذه السمة.} other {يُعاد توليد # فيديوهات بهذه السمة.}}",
+      "failedTitle": "تعذر تغيير السمة",
+      "networkError": "تعذر الوصول إلى الخادم، تحقق من اتصالك."
+    },
+    "addLesson": {
+      "button": "إضافة درس",
+      "dialogTitle": "إضافة درس إلى الدورة",
+      "dialogDescription": "يُنشأ الدرس الجديد في نهاية القسم ويولده الذكاء الاصطناعي دون المساس ببقية الدورة.",
+      "sectionLabel": "القسم",
+      "typeLabel": "نوع الدرس",
+      "type_video": "فيديو",
+      "type_article": "مقال",
+      "type_tp": "تطبيق عملي",
+      "type_quiz": "اختبار",
+      "titleLabel": "عنوان الدرس",
+      "titlePlaceholder": "مثال: دراسة حالة: تدقيق ESG لشركة صغيرة",
+      "summaryLabel": "موجز (اختياري)",
+      "summaryPlaceholder": "ما الذي يجب أن يغطيه الدرس، الأسلوب، الأمثلة المتوقعة…",
+      "cancel": "إلغاء",
+      "confirm": "إضافة وتوليد",
+      "startedTitle": "جارٍ توليد الدرس",
+      "startedDescription": "تمت إضافة «{title}» وبدأ إنتاجه.",
+      "failedTitle": "تعذرت إضافة الدرس",
+      "networkError": "تعذر الوصول إلى الخادم، تحقق من اتصالك."
+    },
+    "regenerate": {
+      "startedTitle": "بدأت إعادة التوليد",
+      "startedDescription": "«{title}» عادت إلى الإنتاج.",
+      "failedTitle": "تعذّرت إعادة التوليد",
+      "genericError": "حدث خطأ، يرجى المحاولة لاحقًا.",
+      "networkErrorTitle": "خطأ في الشبكة",
+      "networkErrorDescription": "تعذّر الوصول إلى الخادم، تحقّق من اتصالك.",
+      "alreadyGenerating": "التوليد قيد التنفيذ بالفعل",
+      "button": "إعادة توليد الدرس"
+    },
+    "editWithAi": {
+      "button": "التحرير بالذكاء الاصطناعي",
+      "title": "التحرير بالذكاء الاصطناعي",
+      "description": "صف ما يجب أن يغيّره الذكاء الاصطناعي في «{title}». سيُعاد توليد المحتوى ثم يُعاد عرضه (فيديو/لقطات).",
+      "promptLabel": "تعليماتك",
+      "promptPlaceholder": "مثال: بسّط المصطلحات، أضف مثالًا ملموسًا، صحّح الأخطاء، وسّع قسم CSRD…",
+      "modelLabel": "نموذج الذكاء الاصطناعي",
+      "submit": "إعادة التوليد بالذكاء الاصطناعي",
+      "cancel": "إلغاء",
+      "startedTitle": "بدأت إعادة التوليد",
+      "startedDescription": "يُعاد توليد «{title}» وفق تعليماتك.",
+      "failedTitle": "تعذّرت إعادة التوليد",
+      "networkError": "تعذّر الوصول إلى الخادم، تحقّق من اتصالك.",
+      "alreadyGenerating": "التوليد قيد التنفيذ بالفعل"
+    },
+    "deleteLesson": {
+      "button": "حذف",
+      "title": "حذف هذا الجزء؟",
+      "description": "سيُحذف «{title}» نهائيًا من الدورة. لا يمكن التراجع عن هذا الإجراء.",
+      "confirm": "حذف الجزء",
+      "cancel": "إلغاء",
+      "deletedTitle": "تم حذف الجزء",
+      "deletedDescription": "تمت إزالة «{title}» من الدورة.",
+      "failedTitle": "تعذّر الحذف",
+      "networkError": "تعذّر الوصول إلى الخادم، تحقّق من اتصالك.",
+      "alreadyGenerating": "التوليد قيد التنفيذ — الحذف غير متاح"
+    },
+    "audioRepair": {
+      "title": "إصلاح الصوت",
+      "denoiseLabel": "تنظيف سريع",
+      "denoiseHint": "تقليل الضوضاء + تطبيع الصوت، في ثوانٍ. لا يصلح الفراغات.",
+      "resynthLabel": "إعادة توليد مستهدفة",
+      "resynthHint": "يكتشف الشرائح ذات الفراغ الداخلي ويعيد توليدها. قد يستغرق عدة دقائق.",
+      "button": "إصلاح الصوت",
+      "statusRunning": "الإصلاح قيد التنفيذ…",
+      "statusReady": "اكتمل الإصلاح",
+      "statusFailed": "فشل الإصلاح",
+      "reportNoIssues": "لم يتم اكتشاف أي خلل في الصوت.",
+      "reportSummary": "تمت إعادة توليد {repaired} شريحة من أصل {gaps} فجوة مكتشفة.",
+      "reportDenoise": "تم تطبيق تنظيف الصوت.",
+      "reportError": "خطأ: {error}",
+      "startedTitle": "بدأ الإصلاح",
+      "startedDescription": "بدأ إصلاح صوت «{title}».",
+      "failedTitle": "تعذّر الإصلاح",
+      "networkErrorTitle": "خطأ في الشبكة",
+      "networkErrorDescription": "تعذّر الوصول إلى الخادم، تحقّق من اتصالك.",
+      "noVideoYet": "لا تحتوي هذه الحصة على فيديو مُنتَج بعد.",
+      "engine": {
+        "chatterbox": "Chatterbox",
+        "qwen3": "Qwen3-TTS"
+      },
+      "switchVoiceButton": "جرّب صوت {engine}",
+      "switchVoiceHint": "الصوت الحالي لهذه الحصة: {current}. يبدّل جميع الشرائح إلى المحرك الآخر (دون تشخيص) — مفيد عندما لا يكفي الإصلاح المستهدف.",
+      "switchStartedTitle": "بدأ تبديل الصوت",
+      "switchStartedDescription": "«{title}» يتحول إلى صوت {engine}.",
+      "reportSwitchVoice": "أُعيد توليد جميع الشرائح بصوت {engine}."
+    },
+    "share": {
+      "shareButton": "مشاركة",
+      "dialogTitle": "المشاركة مع فريقي",
+      "dialogDescription": "أنشئ مساحة عمل مشتركة لهذه الدورة وادعُ مراجعًا (بحساب SallyCourse موجود) للتحقق قبل النشر.",
+      "nameLabel": "اسم مساحة العمل",
+      "reviewerEmailLabel": "البريد الإلكتروني للمراجع (اختياري)",
+      "reviewerEmailPlaceholder": "reviewer@example.com",
+      "cancel": "إلغاء",
+      "createWorkspace": "إنشاء مساحة العمل",
+      "defaultWorkspaceName": "فريق — {title}",
+      "nameRequired": "الاسم مطلوب",
+      "shareFailed": "تعذّرت المشاركة",
+      "workspaceCreatedInviteIgnored": "تم إنشاء مساحة العمل — تم تجاهل الدعوة",
+      "unknownEmails": "لا يوجد حساب لـ: {emails}",
+      "workspaceCreated": "تم إنشاء مساحة العمل",
+      "networkError": "خطأ في الشبكة",
+      "serverUnreachable": "تعذّر الوصول إلى الخادم."
+    },
+    "approvePreview": {
+      "approvedToastTitle": "تمت الموافقة على المعاينة",
+      "approvedToastDescription": "جاهز للنسخة النهائية عالية الدقة.",
+      "errorTitle": "تعذّرت الموافقة",
+      "genericError": "حدث خطأ، يرجى المحاولة لاحقًا.",
+      "networkErrorTitle": "خطأ في الشبكة",
+      "networkErrorDescription": "تعذّر الوصول إلى الخادم.",
+      "approveButton": "الموافقة على المعاينة",
+      "approvedBadge": "تمت الموافقة على المعاينة",
+      "hdDeliveredBadge": "تم تسليم النسخة عالية الدقة"
+    },
+    "cancelGen": {
+      "confirmCancel": "إلغاء توليد هذه الدورة؟ سيتم الاحتفاظ بالدروس التي أُنتِجت بالفعل.",
+      "cancelFailedTitle": "تعذّر الإلغاء",
+      "cancelledTitle": "تم إلغاء التوليد",
+      "networkErrorTitle": "خطأ في الشبكة",
+      "networkErrorDesc": "تعذّر الوصول إلى الخادم.",
+      "cancelButton": "إلغاء التوليد"
+    },
+    "introVideo": {
+      "title": "فيديو تعريفي لـ Udemy",
+      "description": "مقدمة بكاميرا الويب مدتها حوالي 60 ثانية تضفي طابعًا إنسانيًا على الدورة وتقلّل من خطر الرفض أثناء مراجعة Udemy (وضع الامتثال الأقصى).",
+      "replace": "استبدال",
+      "remove": "إزالة",
+      "uploading": "جارٍ الرفع…",
+      "upload": "رفع فيديو تعريفي",
+      "uploadFailedTitle": "تعذّر الرفع",
+      "uploadFailedDescription": "أعد المحاولة بملف MP4 أصغر حجمًا.",
+      "savedTitle": "تم حفظ الفيديو التعريفي",
+      "networkErrorTitle": "خطأ في الشبكة",
+      "networkErrorDescription": "تعذّر الوصول إلى الخادم.",
+      "removedTitle": "تمت إزالة الفيديو التعريفي",
+      "removeFailedTitle": "تعذّرت الإزالة"
+    },
+    "quickPreview": {
+      "title": "معاينة فيديو سريعة",
+      "description": "ينشئ مسودة منخفضة الجودة لجميع دروس الفيديو للتحقق من المحتوى قبل بدء المعالجة عالية الدقة الأطول.",
+      "generateDraftButton": "إنشاء معاينة سريعة (مسودة)",
+      "generateFinalButton": "إنشاء النسخة النهائية عالية الدقة",
+      "draftLaunchedToast": "تم بدء المعاينة السريعة",
+      "finalLaunchedToast": "تم بدء النسخة النهائية عالية الدقة",
+      "queuedDescription": "{count, plural, zero {لا دروس في قائمة المعالجة.} one {درس واحد في قائمة المعالجة.} two {درسان في قائمة المعالجة.} few {# دروس في قائمة المعالجة.} many {# درساً في قائمة المعالجة.} other {# درس في قائمة المعالجة.}}",
+      "actionImpossibleTitle": "إجراء غير ممكن",
+      "genericError": "حدث خطأ، يرجى المحاولة مرة أخرى لاحقاً.",
+      "networkErrorTitle": "خطأ في الشبكة",
+      "networkErrorDescription": "تعذّر الوصول إلى الخادم، يرجى التحقق من اتصالك.",
+      "finalDisabledHint": "وافق على معاينة واحدة على الأقل للتفعيل"
+    },
+    "deploy": {
+      "statusPending": "في الانتظار",
+      "statusRunning": "قيد التنفيذ",
+      "statusPaused": "متوقّف مؤقتًا",
+      "statusFailed": "فشل",
+      "statusPublished": "منشور",
+      "modeAuto": "تلقائي",
+      "modeAssisted": "مُساعَد",
+      "modeManual": "يدوي",
+      "stepInit": "التهيئة",
+      "stepAuthenticate": "المصادقة",
+      "stepCreateCourse": "إنشاء الدورة",
+      "stepUpload": "رفع الدروس",
+      "stepUpdate": "تحديث الدروس",
+      "stepLanding": "صفحة العرض",
+      "stepReview": "الإرسال للمراجعة",
+      "stepDone": "اكتمل",
+      "toastDeployDoneWithFailuresTitle": "اكتمل النشر مع أخطاء",
+      "toastDeployDoneTitle": "اكتمل النشر",
+      "toastDeployDoneCount": "{count, plural, zero {لم تُنشر أي منصة} one {نُشرت منصة واحدة} two {نُشرت منصتان} few {نُشرت # منصات} many {نُشرت # منصة} other {نُشرت # منصة}}",
+      "toastDeployDoneFailedSuffix": "، {count, plural, zero {} one {واحدة فاشلة (قابلة لإعادة المحاولة).} two {اثنتان فاشلتان (قابلتان لإعادة المحاولة).} few {# فاشلة (قابلة لإعادة المحاولة).} many {# فاشلة (قابلة لإعادة المحاولة).} other {# فاشلة (قابلة لإعادة المحاولة).}}",
+      "toastLaunchFailedTitle": "تعذّر البدء",
+      "toastLaunchedTitle": "بدأ النشر",
+      "toastLaunchedDesc": "{count, plural, zero {لا منصات في الطابور} one {منصة واحدة في الطابور} two {منصتان في الطابور} few {# منصات في الطابور} many {# منصة في الطابور} other {# منصة في الطابور}} (بحد أقصى {max} بالتوازي).",
+      "toastNetworkErrorTitle": "خطأ في الشبكة",
+      "toastNetworkErrorDesc": "تعذّر الوصول إلى الخادم.",
+      "toastSuggestUnavailableTitle": "الاقتراح غير متاح",
+      "toastStrategySuggestedTitle": "تم اقتراح استراتيجية",
+      "toastStrategySuggestedDesc": "{count, plural, zero {لا منصات موصى بها} one {منصة واحدة موصى بها} two {منصتان موصى بهما} few {# منصات موصى بها} many {# منصة موصى بها} other {# منصة موصى بها}}.",
+      "toastRetryFailedTitle": "تعذّرت إعادة المحاولة",
+      "toastRetriedTitle": "أُعيد تشغيل النشر",
+      "toastSwitchFailedTitle": "تعذّر التبديل",
+      "toastSwitchAssistedTitle": "استئناف في الوضع المُساعَد",
+      "toastSwitchManualTitle": "التبديل إلى الوضع اليدوي",
+      "toastSwitchAssistedDesc": "{platform} — استؤنف من نقطة التوقّف.",
+      "toastSwitchManualDesc": "{platform} — جارٍ تحضير حزمة الخطوات المتبقّية.",
+      "toastUpdateFailedTitle": "تعذّر التحديث",
+      "toastUpdateStartedTitle": "بدأ التحديث",
+      "toastUpdateStartedDesc": "{platform} — جارٍ إعادة نشر الدروس المعدّلة.",
+      "sectionLabel": "النشر",
+      "title": "نشر الدورة",
+      "suggestStrategyButton": "اقتراح استراتيجية",
+      "badgeActiveCount": "{count} قيد التنفيذ",
+      "badgeDeploymentCount": "{count, plural, zero {لا عمليات نشر} one {عملية نشر واحدة} two {عمليتا نشر} few {# عمليات نشر} many {# عملية نشر} other {# عملية نشر}}",
+      "intro": "اختر المنصات المستهدفة، وحدّد الوضع، ثم ابدأ. يعالج العامل {max} عمليات نشر بالتوازي كحد أقصى؛ وتنتظر البقية في الطابور.",
+      "loadingPlatforms": "جارٍ تحميل المنصات…",
+      "connected": "متّصل",
+      "simulatedMode": "وضع محاكاة",
+      "browser": "متصفّح",
+      "apiDirect": "واجهة برمجة مباشرة",
+      "modeSelectAria": "وضع النشر لـ {platform}",
+      "strategyPanelTitle": "استراتيجية مقترحة",
+      "strategySourceAi": "مُولَّدة بالذكاء الاصطناعي",
+      "strategySourceLocal": "اقتراح محلي",
+      "dayZero": "يوم الإطلاق",
+      "dayOffset": "ي+{days}",
+      "calendarTitle": "جدول النشر",
+      "calendarDayZero": "ي",
+      "aiDisclosureConfirm": "أؤكّد أن هذه الدورة تحتوي على محتوى مُولَّد بالذكاء الاصطناعي.",
+      "aiDisclosureHint": "تشترط Udemy هذا الإفصاح للشفافية قبل أي نشر على منصتها. وبدونه، سيُرفض النشر إلى Udemy.",
+      "qualityConfirm": "أؤكّد رغبتي في النشر رغم درجة الجودة التعليمية {score}/100 (دون العتبة الموصى بها {threshold}/100).",
+      "qualityConfirmHint": "راجع تفاصيل معايير التقييم والتوصيات في أسفل الصفحة.",
+      "estimationLabel": "التقدير",
+      "estimationNone": "لا توجد منصة",
+      "estimationSummary": "{count, plural, zero {لا منصات} one {منصة واحدة} two {منصتان} few {# منصات} many {# منصة} other {# منصة}} · {duration}",
+      "modeHint": "يُضبط الوضع منصةً بمنصة على كل بطاقة محددة.",
+      "riskyWarning": "{count, plural, zero {} one {منصة واحدة تعتمد على أتمتة المتصفّح (الوضع التلقائي)} two {منصتان تعتمدان على أتمتة المتصفّح (الوضع التلقائي)} few {# منصات تعتمد على أتمتة المتصفّح (الوضع التلقائي)} many {# منصة تعتمد على أتمتة المتصفّح (الوضع التلقائي)} other {# منصة تعتمد على أتمتة المتصفّح (الوضع التلقائي)}} — تحقّق من شروط الخدمة الخاصة بها.",
+      "needsAiDisclosureHint": "فعّل إقرار المحتوى المُولَّد بالذكاء الاصطناعي أعلاه للنشر على Udemy.",
+      "needsQualityHint": "فعّل تأكيد الجودة أعلاه للنشر على أي حال.",
+      "launchButton": "بدء النشر",
+      "updatePlatformsTitle": "تحديث المنصات",
+      "modifiedLessonsBadge": "{count, plural, zero {لا دروس معدّلة} one {درس واحد معدّل} two {درسان معدّلان} few {# دروس معدّلة} many {# درسًا معدّلًا} other {# درس معدّل}}",
+      "updateIntro": "أُعيد توليد بعض الدروس منذ آخر عملية نشر. تعيد إعادة النشر رفع الدروس المتأثّرة فقط.",
+      "toUpdateBadge": "{count} للتحديث",
+      "lessonNew": "(جديد)",
+      "lessonModified": "(معدّل)",
+      "moreLessons": "+ {count, plural, zero {} one {درس آخر} two {درسان آخران} few {# أخرى} many {# أخرى} other {# أخرى}}…",
+      "updateButton": "تحديث",
+      "deploymentsLabel": "عمليات النشر",
+      "lessonProgress": "الدرس {current}/{total}",
+      "viewLink": "عرض",
+      "retryButton": "إعادة المحاولة",
+      "hideLogs": "إخفاء السجلات",
+      "showLogs": "عرض السجلات",
+      "resumeTitle": "استئناف النشر",
+      "resumeStoppedAt": "توقّف عند خطوة «{step}»",
+      "resumeLessonSuffix": " (الدرس {current}/{total})",
+      "resumeInstructions": ". استأنف دون البدء من جديد: تابع في الوضع المُساعَد، أو انتقل إلى اليدوي مع حزمة الخطوات المتبقّية.",
+      "switchAssistedButton": "التبديل إلى المُساعَد",
+      "switchManualButton": "الانتقال إلى اليدوي (الاستئناف عند «{step}»)",
+      "noLogs": "لا توجد سجلات بعد.",
+      "toastPublishedTitle": "نُشرت الدورة",
+      "toastPublishedDesc": "{platform} — تم وضع علامة منشور.",
+      "toastSaveFailedTitle": "تعذّر الحفظ",
+      "manualPublishTitle": "النشر اليدوي",
+      "stepsBadge": "{done}/{total} {total, plural, zero {خطوة} one {خطوة} two {خطوتان} few {خطوات} many {خطوة} other {خطوة}}",
+      "manualPublishIntro": "انشر الدورة بنفسك على {platform}، وفعّل كل خطوة أنجزتها، ثم الصق الرابط النهائي. بمجرد تفعيل الكل وإدخال الرابط، ينتقل النشر إلى «منشور».",
+      "urlLabel": "الرابط العام للدورة",
+      "markPublishedButton": "وضع علامة منشور",
+      "cannotPublishHint": "فعّل جميع الخطوات وأدخل رابط http(s) صالحًا لتفعيل النشر.",
+      "capabilityMatrixTitle": "مصفوفة القدرات",
+      "colPlatform": "المنصة",
+      "supported": "مدعوم",
+      "notSupported": "غير مدعوم",
+      "browserAutomationNote": "تركيبة تعتمد على أتمتة المتصفّح — تحقّق من شروط خدمة المنصة."
+    },
+    "download": {
+      "networkErrorTitle": "خطأ في الشبكة",
+      "networkErrorDesc": "تعذّر الوصول إلى الخادم، تحقّق من اتصالك.",
+      "readyDesc": "التنزيل متاح الآن.",
+      "errorDesc": "حدث خطأ، أعد المحاولة لاحقًا.",
+      "report": {
+        "timeoutTitle": "التقرير يستغرق وقتًا طويلاً",
+        "timeoutDesc": "توليد التقرير يستغرق وقتًا أطول من المتوقع، أعد المحاولة.",
+        "readyTitle": "التقرير جاهز",
+        "errorTitle": "تعذّر إنشاء التقرير",
+        "linkLabel": "تنزيل التقرير",
+        "building": "جارٍ التوليد…",
+        "idleLabel": "تقرير النشر"
+      },
+      "pack": {
+        "timeoutTitle": "التحزيم يستغرق وقتًا طويلاً",
+        "timeoutDesc": "بناء الحزمة يستغرق وقتًا أطول من المتوقع، أعد المحاولة.",
+        "readyTitle": "الحزمة جاهزة",
+        "errorTitle": "تعذّر التحزيم",
+        "linkLabel": "تنزيل الحزمة",
+        "building": "جارٍ البناء…",
+        "idleLabel": "توليد الحزمة"
+      },
+      "portable": {
+        "timeoutTitle": "التصدير يستغرق وقتًا طويلاً",
+        "timeoutDesc": "بناء الموقع المحمول يستغرق وقتًا أطول من المتوقع، أعد المحاولة.",
+        "readyTitle": "التصدير المحمول جاهز",
+        "errorTitle": "تعذّر التصدير",
+        "linkLabel": "تنزيل (الوضع المحمول)",
+        "building": "جارٍ البناء…",
+        "idleLabel": "التصدير بالوضع المحمول"
+      },
+      "master": {
+        "timeoutTitle": "الأرشيف يستغرق وقتًا طويلاً",
+        "timeoutDesc": "بناء الأرشيف يستغرق وقتًا أطول من المتوقع، أعد المحاولة.",
+        "readyTitle": "الأرشيف جاهز",
+        "errorTitle": "تعذّر إنشاء الأرشيف",
+        "linkLabel": "تنزيل الأرشيف الرئيسي",
+        "building": "جارٍ البناء…",
+        "idleLabel": "الأرشيف الرئيسي (قابل لإعادة الاستيراد)"
+      },
+      "guide": {
+        "timeoutTitle": "التوليد يستغرق وقتًا طويلاً",
+        "timeoutDesc": "بناء الدليل يستغرق وقتًا أطول من المتوقع، أعد المحاولة.",
+        "readyTitle": "الدليل جاهز",
+        "readyDesc": "دليل {platform} متاح.",
+        "errorTitle": "تعذّر التوليد",
+        "building": "جارٍ التوليد…",
+        "linkLabelComplete": "تنزيل الدليل ({platform})",
+        "linkLabelResume": "تنزيل الحزمة الجزئية ({platform})",
+        "idleLabelComplete": "توليد الدليل اليدوي ({platform})",
+        "idleLabelResume": "توليد حزمة الخطوات المتبقية ({platform})"
+      },
+      "scorm": {
+        "timeoutTitle": "التصدير يستغرق وقتًا طويلاً",
+        "timeoutDesc": "بناء حزمة SCORM يستغرق وقتًا أطول من المتوقع، أعد المحاولة.",
+        "readyTitle": "حزمة SCORM جاهزة",
+        "errorTitle": "تعذّر تصدير SCORM",
+        "linkLabel": "تنزيل حزمة SCORM",
+        "building": "جارٍ البناء…",
+        "idleLabel": "التصدير إلى SCORM"
+      }
+    },
+    "editor": {
+      "recoveredDraft": "عُثر على مسودة غير متزامنة على هذا الجهاز وأُعيد تحميلها — لا تنسَ حفظها.",
+      "unsaved": "غير محفوظ",
+      "saving": "جارٍ الحفظ…",
+      "close": "إغلاق",
+      "save": "حفظ",
+      "autosaveError": "فشل الحفظ التلقائي",
+      "autosaveSavedAt": "حُفِظ في {time}",
+      "discardConfirm": "ستفقد التغييرات غير المحفوظة. هل تريد المتابعة؟",
+      "saveErrorTitle": "تعذّر الحفظ",
+      "saveErrorDesc": "حدث خطأ، أعد المحاولة لاحقًا. تبقى مسودتك محفوظة محليًا.",
+      "genericErrorDesc": "حدث خطأ، أعد المحاولة لاحقًا.",
+      "networkError": "خطأ في الشبكة",
+      "serverUnreachable": "تعذّر الوصول إلى الخادم.",
+      "article": {
+        "title": "تحرير المقال",
+        "markdown": "Markdown",
+        "preview": "معاينة",
+        "previewEmpty": "تظهر المعاينة هنا بمجرد كتابتك Markdown.",
+        "savedTitle": "تم حفظ المقال",
+        "savedDesc": "سيُعاد توليد اللقطات المشتقة في الإنتاج القادم."
+      },
+      "video": {
+        "titleWithCount": "تحرير نص الفيديو · {count, plural, zero {# شريحة} one {شريحة واحدة} two {شريحتان} few {# شرائح} many {# شريحة} other {# شريحة}}",
+        "regenerate": "إعادة توليد هذا الفيديو",
+        "moveUp": "تحريك الشريحة لأعلى",
+        "moveDown": "تحريك الشريحة لأسفل",
+        "deleteSlide": "حذف الشريحة",
+        "slideLabel": "شريحة {number} · {template}",
+        "fieldTitle": "العنوان",
+        "bullets": "النقاط",
+        "noBullets": "لا توجد نقاط — أضف عند الحاجة.",
+        "deleteBullet": "حذف النقطة",
+        "addBullet": "إضافة نقطة",
+        "narration": "السرد",
+        "savedTitle": "تم حفظ النص",
+        "savedDesc": "الفيديو الحالي مُعلَّم كقديم — أعد توليده لتطبيق التغييرات.",
+        "regenStartedTitle": "بدأت إعادة التوليد",
+        "regenStartedDesc": "يعود الفيديو إلى الإنتاج انطلاقًا من النص المحرَّر.",
+        "regenErrorTitle": "تعذّرت إعادة التوليد",
+        "image": {
+          "title": "رسم توضيحي للشريحة",
+          "statusPending": "جارٍ التوليد…",
+          "statusFailed": "فشل",
+          "previewAlt": "رسم توضيحي للشريحة",
+          "promptPlaceholder": "صِف الصورة المطلوبة (اختياري)",
+          "regenerate": "إعادة التوليد",
+          "replace": "استبدال",
+          "remove": "إزالة",
+          "startedTitle": "بدأت إعادة التوليد",
+          "startedDescription": "ستكون الصورة الجديدة جاهزة خلال دقائق قليلة (معالج رسومي عند الطلب).",
+          "uploadedTitle": "تم استبدال الصورة",
+          "uploadedDescription": "تم حفظ الصورة المرفوعة على هذه الشريحة.",
+          "failedTitle": "تعذّر تنفيذ الإجراء",
+          "networkErrorTitle": "خطأ في الشبكة",
+          "networkErrorDescription": "تحقق من اتصالك وأعد المحاولة.",
+          "engine": {
+            "sdxl": "SDXL",
+            "zimage": "Z-Image Turbo"
+          },
+          "switchEngineButton": "جرّب {engine}",
+          "switchStartedTitle": "بدأ تبديل النموذج",
+          "switchStartedDescription": "هذه الشريحة تتحول إلى {engine}."
+        },
+        "applyMedia": "تطبيق التغييرات على الفيديو",
+        "applyMediaStartedTitle": "بدأ التطبيق",
+        "applyMediaStartedDesc": "يُعاد عرض الفيديو بالصور والتسجيلات الصوتية الحالية للشرائح (دون تغيير النص أو التعليق الصوتي).",
+        "applyMediaErrorTitle": "تعذّر تطبيق التغييرات",
+        "audio": {
+          "title": "تعليق الشريحة الصوتي",
+          "sourceManual": "تسجيل يدوي",
+          "statusPending": "قيد المعالجة…",
+          "statusFailed": "فشل",
+          "recordMic": "التسجيل عبر الميكروفون",
+          "useRecording": "استخدام هذا التسجيل",
+          "cancelRecording": "إلغاء",
+          "uploadFile": "رفع ملف",
+          "revertToTts": "العودة إلى الصوت الاصطناعي",
+          "startedTitle": "تم إرسال التسجيل",
+          "startedDescription": "ستكون المعايرة الصوتية جاهزة خلال لحظات.",
+          "failedTitle": "تعذّر تنفيذ الإجراء",
+          "networkErrorTitle": "خطأ في الشبكة",
+          "networkErrorDescription": "تحقق من اتصالك وأعد المحاولة.",
+          "micUnavailableTitle": "الميكروفون غير متاح",
+          "micUnavailableDescription": "متصفحك لا يدعم تسجيل الصوت.",
+          "micDeniedTitle": "تم رفض الوصول إلى الميكروفون",
+          "micDeniedDescription": "اسمح بالوصول إلى الميكروفون لتسجيل تعليقك الصوتي.",
+          "emptyRecordingTitle": "تسجيل فارغ",
+          "emptyRecordingDescription": "لم يتم رصد أي صوت — أعد المحاولة."
+        }
+      },
+      "quiz": {
+        "titleWithCount": "تحرير الاختبار · {count, plural, zero {# سؤال} one {سؤال واحد} two {سؤالان} few {# أسئلة} many {# سؤالاً} other {# سؤال}}",
+        "deleteQuestion": "حذف السؤال",
+        "questionLabel": "السؤال {number}",
+        "questionPlaceholder": "نص السؤال",
+        "choicesLegend": "الخيارات (حدّد الإجابة الصحيحة)",
+        "markCorrect": "تعيين الخيار {letter} كإجابة صحيحة",
+        "choicePlaceholder": "الخيار {letter}",
+        "explanation": "التفسير",
+        "explanationPlaceholder": "لماذا هذه الإجابة صحيحة",
+        "addQuestion": "إضافة سؤال",
+        "savedTitle": "تم حفظ الاختبار",
+        "savedDesc": "تم تحديث الأسئلة.",
+        "incompleteTitle": "اختبار غير مكتمل",
+        "vAtLeastOne": "يجب أن يحتوي الاختبار على سؤال واحد على الأقل.",
+        "vEmptyTitle": "السؤال {number}: النص فارغ.",
+        "vChoicesCount": "السؤال {number}: مطلوب {count} خيارات.",
+        "vChoicesFilled": "السؤال {number}: يجب ملء جميع الخيارات.",
+        "vInvalidCorrect": "السؤال {number}: الإجابة الصحيحة غير صالحة."
+      },
+      "history": {
+        "open": "السجل",
+        "dialogTitle": "سجل الإصدارات",
+        "dialogDescription": "يُحفظ إصدار قبل كل تغيير مهم. تؤدي استعادة إصدار إلى إعادة تطبيق محتواه فورًا.",
+        "loading": "جارٍ التحميل…",
+        "empty": "لا يوجد إصدار سابق محفوظ لهذا الدرس.",
+        "hideDiff": "إخفاء الفرق",
+        "showDiff": "عرض الفرق",
+        "restore": "استعادة",
+        "restoredTitle": "تمت استعادة الإصدار",
+        "restoredDesc": "أُعيد تطبيق المحتوى السابق.",
+        "restoreErrorTitle": "تعذّرت الاستعادة"
+      },
+      "tp": {
+        "title": "تحرير التمرين العملي",
+        "objective": "الهدف",
+        "environment": "البيئة",
+        "noEnvironment": "لا توجد متطلبات مسبقة — أضف إذا لزم الأمر.",
+        "addEnvironment": "إضافة متطلب",
+        "deleteEnvironment": "حذف المتطلب",
+        "steps": "{count, plural, one {# خطوة} other {# خطوات}}",
+        "stepLabel": "الخطوة {number}",
+        "instruction": "التعليمات",
+        "command": "الأمر (اختياري)",
+        "commandPlaceholder": "مثال: npm install",
+        "expectedResult": "النتيجة المتوقعة",
+        "addStep": "إضافة خطوة",
+        "deleteStep": "حذف الخطوة",
+        "moveUp": "نقل الخطوة لأعلى",
+        "moveDown": "نقل الخطوة لأسفل",
+        "validation": "التحقق",
+        "noValidation": "لا توجد معايير تحقق — أضف إذا لزم الأمر.",
+        "addValidation": "إضافة معيار",
+        "deleteValidation": "حذف المعيار",
+        "troubleshooting": "استكشاف الأخطاء",
+        "noTroubleshooting": "لا توجد نصائح لاستكشاف الأخطاء — أضف إذا لزم الأمر.",
+        "addTroubleshooting": "إضافة نصيحة",
+        "deleteTroubleshooting": "حذف النصيحة",
+        "savedTitle": "تم حفظ التمرين العملي",
+        "savedDesc": "لقطات الشاشة الحالية لم تتغيّر — استبدلها يدويًا أو أعد تشغيل الالتقاط التلقائي عند الحاجة."
+      }
+    },
+    "preview": {
+      "metaTitle": "معاينة الطالب — SallyCourse",
+      "backToCourse": "العودة إلى الدورة",
+      "studentPreview": "معاينة الطالب",
+      "progressLabel": "التقدّم: {done} / {total, plural, zero {# درس} one {درس واحد} two {درسان} few {# دروس} many {# درسًا} other {# درس}}",
+      "localProgress": "تقدّم محلي (غير محفوظ)",
+      "progressAria": "تقدّم المعاينة",
+      "noLessons": "لا تحتوي هذه الدورة على دروس للمعاينة بعد.",
+      "planAria": "مخطط الدورة",
+      "finishedTitle": "اكتملت المعاينة",
+      "finishedDesc": "لقد اطّلعت على جميع الدروس كطالب. تعكس هذه الرحلة تجربة التعلّم في دورتك.",
+      "prev": "السابق",
+      "next": "التالي",
+      "typeVideo": "فيديو",
+      "typeArticle": "مقال",
+      "typeTp": "تدريب عملي",
+      "typeQuiz": "اختبار",
+      "lessonPosition": "الدرس {position} / {total}",
+      "markViewed": "تعليمها كمُشاهَدة",
+      "viewed": "تمت المشاهدة",
+      "quizDone": "مكتمل",
+      "videoUnavailable": "فيديو هذا الدرس غير متاح بعد.",
+      "captions": "الترجمة",
+      "downloadTranscript": "تنزيل النص (.txt)",
+      "articleUnavailable": "مقال هذا الدرس غير متاح بعد.",
+      "quizNoQuestions": "لا يحتوي هذا الاختبار على أسئلة بعد.",
+      "tpNote": "تُنفَّذ التدريبات العملية في البيئة المرفقة مع الدورة. تعرض هذه المعاينة عنوانها.",
+      "quiz": {
+        "result": "النتيجة",
+        "correctAnswers": "الإجابات الصحيحة",
+        "passed": "اجتزت الاختبار",
+        "belowThreshold": "أقل من الحد الأدنى (٧٠٪)",
+        "restart": "إعادة الاختبار",
+        "answeredProgress": "{answered} / {total, plural, zero {# سؤال مُجاب} one {سؤال واحد مُجاب} two {سؤالان مُجابان} few {# أسئلة مُجابة} many {# سؤالًا مُجابًا} other {# سؤال مُجاب}}",
+        "progressAria": "تقدّم الاختبار",
+        "explanationLabel": "التفسير: ",
+        "submit": "إرسال الاختبار",
+        "answerAllToSubmit": "أجب عن جميع الأسئلة للإرسال."
+      },
+      "quizAuthor": {
+        "noQuestions": "لا يحتوي هذا الاختبار على أي سؤال بعد.",
+        "scoreFinal": "النتيجة النهائية",
+        "msgPerfect": "بلا أخطاء — الاختبار جاهز للنشر.",
+        "msgGood": "مستوى صعوبة جيد لمتعلّميك.",
+        "msgHard": "اختبار صعب — راجع التفسيرات قبل النشر.",
+        "questionCounter": "السؤال {index} / {total}",
+        "correctCountLabel": "{count, plural, zero {# إجابة صحيحة} one {إجابة صحيحة واحدة} two {إجابتان صحيحتان} few {# إجابات صحيحة} many {# إجابة صحيحة} other {# إجابة صحيحة}}",
+        "goodAnswer": "إجابة صحيحة!",
+        "badAnswer": "إجابة خاطئة",
+        "nextQuestion": "السؤال التالي",
+        "seeScore": "عرض النتيجة"
+      }
+    },
+    "screenshotGallery": {
+      "stepAlt": "الخطوة {number}",
+      "replace": "استبدال",
+      "remove": "حذف",
+      "add": "إضافة",
+      "savedTitle": "تم حفظ اللقطة",
+      "failedTitle": "تعذّر تنفيذ الإجراء",
+      "networkErrorTitle": "خطأ في الشبكة",
+      "networkErrorDescription": "تحقق من اتصالك وأعد المحاولة.",
+      "recapture": "إعادة الالتقاط",
+      "recaptureStartedTitle": "بدأت إعادة الالتقاط",
+      "recaptureStartedDescription": "سيتم تجديد جميع لقطات «{title}» تلقائيًا (سيتم استبدال أي تعديل يدوي)."
+    }
+  },
+  "paths": {
+    "navLabel": "المسارات",
+    "catalogTitle": "مسارات التعلّم",
+    "catalogSubtitle": "عدة دورات مرتبة بالتسلسل، سعر واحد، وشهادة مسار واحدة.",
+    "courseCount": "{count} دورات",
+    "separateTotal": "سعر الدورات منفصلة: {amount}",
+    "savings": "وفّر {amount}",
+    "program": "برنامج المسار",
+    "outcomes": "ما ستتمكن من فعله",
+    "audience": "لمن هذا المسار",
+    "faq": "الأسئلة الشائعة",
+    "enroll": "انضم إلى المسار",
+    "enrolling": "جارٍ التسجيل…",
+    "enrolled": "أنت مسجَّل في هذا المسار",
+    "loginToEnroll": "سجّل الدخول للانضمام إلى المسار",
+    "progress": "تقدّم المسار",
+    "progressValue": "{completed} / {total} دورات مكتملة",
+    "certificate": "شهادة المسار",
+    "certificateLocked": "أكمل جميع دورات المسار للحصول على الشهادة.",
+    "locked": "مقفل — أكمل الدورة السابقة",
+    "completed": "مكتملة",
+    "openCourse": "فتح الدورة",
+    "dashboardTitle": "المسارات",
+    "dashboardSubtitle": "اربط دوراتك المنشورة على المنصة في مسار يُباع كحزمة.",
+    "newPath": "مسار جديد",
+    "titleField": "عنوان المسار",
+    "descriptionField": "الوصف",
+    "coursesField": "دورات المسار (بالترتيب)",
+    "addCourse": "إضافة دورة",
+    "remove": "إزالة",
+    "moveUp": "تحريك لأعلى",
+    "moveDown": "تحريك لأسفل",
+    "requiresPrevious": "اشتراط إكمال الدورة السابقة",
+    "priceField": "سعر المسار (بالسنتيم)",
+    "currencyField": "العملة",
+    "create": "إنشاء المسار",
+    "save": "حفظ",
+    "publish": "نشر",
+    "unpublish": "إلغاء النشر",
+    "delete": "حذف",
+    "deleteConfirmTitle": "حذف هذا المسار؟",
+    "deleteConfirmBody": "سيُحذف المسار وتقدّم جميع المتعلّمين المسجّلين نهائيًا. لا يمكن التراجع عن هذا الإجراء.",
+    "cancel": "إلغاء",
+    "confirmDelete": "حذف نهائي",
+    "generateSalesPage": "توليد صفحة البيع",
+    "generating": "جارٍ التوليد…",
+    "salesPageReady": "تم توليد صفحة البيع.",
+    "salesPageMissing": "لم يتم توليد صفحة بيع بعد.",
+    "viewPublic": "عرض صفحة البيع",
+    "published": "منشور",
+    "draft": "مسودة",
+    "noPublishedCourses": "انشر دورات على المنصة الداخلية أولاً لتكوين مسار.",
+    "empty": "لا يوجد أي مسار بعد.",
+    "emptyCatalog": "لا توجد مسارات منشورة بعد.",
+    "path": {
+      "metaTitle": "{title} — SallyCourse Academy",
+      "metaTitleFallback": "مسار — SallyCourse Academy"
+    },
+    "list": {
+      "metaTitle": "دليل الدورات — SallyCourse Academy",
+      "metaDescription": "تصفّح الدورات المنشورة وسجّل بنقرة واحدة.",
+      "free": "مجاني",
+      "title": "دليل الدورات",
+      "intro": "دورات متكاملة — مقاطع فيديو ومقالات واختبارات — مُنشأة ومنشورة على SallyCourse Academy. سجّل وتابع تقدّمك واحصل على شهادتك.",
+      "emptyTitle": "لا توجد دورات منشورة بعد",
+      "emptyDescription": "ستظهر هنا الدورات المنشورة على نظام إدارة التعلّم الداخلي.",
+      "lessonCount": "{count, plural, zero {# درس} one {# درس} two {# درسان} few {# دروس} many {# درسًا} other {# درس}}",
+      "durationMin": "{minutes} دقيقة"
+    }
   },
   "auth": {
     "authRequired": "المصادقة مطلوبة.",
@@ -51,13 +1600,513 @@
     "logout": "تسجيل الخروج",
     "signup": "إنشاء حساب",
     "email": "البريد الإلكتروني",
-    "password": "كلمة المرور"
+    "password": "كلمة المرور",
+    "loginPage": {
+      "metaTitle": "تسجيل الدخول — SallyCourse",
+      "metaDescription": "سجّل الدخول للتحكم في إنشاء دوراتك."
+    },
+    "google": {
+      "continueWithGoogle": "المتابعة باستخدام Google"
+    },
+    "registerPage": {
+      "metaTitle": "إنشاء حساب — SallyCourse",
+      "metaDescription": "انضم إلى SallyCourse وأنشئ دورتك الأولى في بضع دقائق."
+    },
+    "divider": {
+      "or": "أو"
+    },
+    "loginForm": {
+      "errorInvalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+      "toastRefusedTitle": "تم رفض تسجيل الدخول",
+      "toastRefusedDescription": "تحقق من بيانات الاعتماد ثم حاول مرة أخرى.",
+      "toastWelcomeBackTitle": "مرحبًا بعودتك!",
+      "toastUnexpectedTitle": "خطأ غير متوقع",
+      "toastUnexpectedDescription": "تعذّر تسجيل دخولك، يرجى المحاولة بعد لحظة.",
+      "title": "تسجيل الدخول",
+      "description": "استعد دوراتك وعمليات الإنشاء بنقرة واحدة.",
+      "emailLabel": "عنوان البريد الإلكتروني",
+      "passwordLabel": "كلمة المرور",
+      "submit": "تسجيل الدخول",
+      "noAccountPrompt": "ليس لديك حساب بعد؟",
+      "createAccount": "إنشاء حساب"
+    },
+    "altcha": {
+      "loading": "جارٍ تحميل التحقق من مكافحة الروبوتات…",
+      "solving": "جارٍ التحقق من مكافحة الروبوتات…",
+      "solved": "نجح التحقق من مكافحة الروبوتات.",
+      "error": "التحقق من مكافحة الروبوتات غير متاح، يُرجى المحاولة مرة أخرى."
+    },
+    "registerForm": {
+      "errorNameTooShort": "يجب أن يتكوّن الاسم من حرفين على الأقل.",
+      "errorEmailInvalid": "عنوان البريد الإلكتروني غير صالح.",
+      "errorPasswordTooShort": "‏8 أحرف على الأقل.",
+      "errorPasswordMismatch": "كلمتا المرور غير متطابقتين.",
+      "toastCaptchaTitle": "جارٍ التحقق من أنك لست روبوتًا",
+      "toastCaptchaDescription": "يرجى الانتظار قليلًا ثم إعادة المحاولة.",
+      "errorEmailTaken": "يوجد حساب بالفعل بهذا البريد الإلكتروني.",
+      "toastEmailTakenTitle": "البريد الإلكتروني مُستخدَم بالفعل",
+      "toastEmailTakenDescription": "سجّل الدخول أو استخدم عنوانًا آخر.",
+      "toastRegisterFailedTitle": "تعذّر إنشاء الحساب",
+      "toastRegisterFailedDescription": "تحقّق من معلوماتك ثم أعد المحاولة.",
+      "toastAccountCreatedTitle": "تم إنشاء الحساب",
+      "toastAccountCreatedDescription": "سجّل الدخول باستخدام بيانات اعتمادك الجديدة.",
+      "toastWelcome": "مرحبًا بك في SallyCourse!",
+      "toastUnexpectedErrorTitle": "خطأ غير متوقع",
+      "toastUnexpectedErrorDescription": "أعد المحاولة بعد لحظات.",
+      "title": "إنشاء حساب",
+      "description": "أول دورة لك تُنشَأ في بضع دقائق.",
+      "labelName": "الاسم الكامل",
+      "labelEmail": "عنوان البريد الإلكتروني",
+      "labelPassword": "كلمة المرور",
+      "hintPassword": "‏8 أحرف كحد أدنى.",
+      "labelConfirmPassword": "تأكيد كلمة المرور",
+      "submit": "إنشاء حسابي",
+      "googleLabel": "التسجيل عبر Google",
+      "alreadyRegistered": "مسجَّل بالفعل؟",
+      "loginLink": "تسجيل الدخول"
+    }
   },
   "pricing": {
     "title": "الأسعار"
   },
   "settings": {
-    "title": "الإعدادات"
+    "title": "الإعدادات",
+    "publicPage": {
+      "title": "الصفحة العامة",
+      "description": "احجز معرّفك وانشر صفحتك كمدرّب: نبذة، قائمة دوراتك المنشورة، وآراء المتعلمين. لا تظهر أي بيانات خاصة.",
+      "handleLabel": "معرّفك",
+      "handleHelp": "من 3 إلى 30 حرفًا: أحرف صغيرة وأرقام وشرطة أو شرطة سفلية.",
+      "handleSaved": "تم حفظ المعرّف.",
+      "handleTaken": "هذا المعرّف محجوز بالفعل.",
+      "handleInvalid": "صيغة غير صالحة: من 3 إلى 30 حرفًا، أحرف صغيرة وأرقام وشرطة أو شرطة سفلية.",
+      "handleReserved": "هذا الاسم محجوز من طرف المنصة.",
+      "handleError": "تعذّر حفظ هذا المعرّف.",
+      "save": "حفظ المعرّف",
+      "linkLabel": "رابط صفحتك العامة",
+      "copy": "نسخ الرابط",
+      "copied": "تم نسخ الرابط.",
+      "open": "فتح صفحتي",
+      "bioTitle": "النبذة العامة",
+      "bioEmpty": "لم يتم إنشاء نبذة بعد.",
+      "bioGeneratedAt": "أُنشئت في {date}",
+      "generate": "إنشاء نبذتي",
+      "regenerate": "إعادة إنشاء نبذتي",
+      "generating": "جارٍ الإنشاء…",
+      "bioGenerated": "تم إنشاء النبذة.",
+      "bioError": "الإنشاء غير متاح حاليًا.",
+      "noCourse": "انشر دورة واحدة على الأقل قبل إنشاء نبذتك.",
+      "rateLimited": "عدد كبير من عمليات الإنشاء، حاول لاحقًا.",
+      "handleFirst": "اختر معرّفًا أولًا لتفعيل صفحتك العامة.",
+      "metaTitle": "الصفحة العامة — SallyCourse",
+      "metaDescription": "صفحتك العامة كمُدرّب: المُعرّف، والسيرة الذاتية المُولّدة، وكتالوج دوراتك."
+    },
+    "accountPage": {
+      "metaTitle": "الحساب — SallyCourse",
+      "metaDescription": "صدّر بياناتك أو احذف حساب SallyCourse نهائيًا.",
+      "title": "الحساب",
+      "description": "أدر بياناتك الشخصية وفقًا للائحة العامة لحماية البيانات (GDPR): نزّل نسخة كاملة من بياناتك، أو احذف حساب SallyCourse نهائيًا.",
+      "activityLink": "عرض نشاطي (عمليات تسجيل الدخول، عمليات النشر، عمليات الحذف...)"
+    },
+    "apiKeysPage": {
+      "metaTitle": "API وWebhooks — SallyCourse",
+      "metaDescription": "أدِر مفاتيح API وويب هوك الخاصة بك لدمج SallyCourse.",
+      "heading": "API وWebhooks",
+      "intro": "ادمج SallyCourse مع أدواتك: أنشئ مفاتيح للـ API العام واشترك في ويب هوك لأحداث دوراتك. تُعرض المفاتيح والأسرار مرة واحدة فقط عند إنشائها."
+    },
+    "platformsPage": {
+      "metaTitle": "المنصات — SallyCourse",
+      "metaDescription": "اربط حسابات النشر الخاصة بك لنشر دوراتك.",
+      "heading": "المنصات",
+      "description": "اربط حسابات النشر الخاصة بك لنشر دوراتك تلقائيًا. تُشفَّر بيانات اعتمادك من جانب الخادم ولا تغادر قاعدة البيانات أبدًا بنص واضح."
+    },
+    "nav": {
+      "ariaLabel": "أقسام الإعدادات",
+      "account": "الحساب",
+      "voice": "صوتي",
+      "avatar": "صورتي الرمزية",
+      "billing": "الفوترة",
+      "platforms": "المنصات",
+      "deployPresets": "إعدادات النشر المسبقة",
+      "branding": "العلامة البيضاء",
+      "publicPage": "الصفحة العامة",
+      "coupons": "القسائم",
+      "apiKeys": "API وWebhooks",
+      "activity": "نشاطي"
+    },
+    "account": {
+      "toast": {
+        "exportFailedTitle": "تعذّر التصدير",
+        "exportFailedDescription": "يرجى المحاولة لاحقًا.",
+        "exportReadyTitle": "التصدير جاهز",
+        "exportReadyDescription": "بدأ التنزيل.",
+        "networkErrorTitle": "خطأ في الشبكة",
+        "networkErrorDescription": "تعذّر الوصول إلى الخادم.",
+        "deleteFailedTitle": "تعذّر الحذف",
+        "accountDeletedTitle": "تم حذف الحساب",
+        "accountDeletedDescription": "تم محو جميع بياناتك."
+      },
+      "export": {
+        "title": "تصدير بياناتي",
+        "description": "نزّل أرشيف ZIP يحتوي على ملفك الشخصي ودوراتك ومنصّاتك المتصلة (البيانات الوصفية فقط، وليس الأسرار أبدًا) وسجلّ استخدامك.",
+        "button": "تنزيل بياناتي (.zip)"
+      },
+      "delete": {
+        "title": "حذف حسابي",
+        "description": "حذف نهائي وفوري لحسابك وجميع دوراتك ووسائطها واتصالاتك بالمنصّات. هذا الإجراء لا يمكن التراجع عنه.",
+        "button": "حذف حسابي نهائيًا"
+      },
+      "dialog": {
+        "title": "تأكيد الحذف",
+        "description": "يحذف هذا الإجراء نهائيًا حسابك ودوراتك ووسائطك واتصالاتك بالمنصّات. لا يمكن الاستعادة بأي شكل. للتأكيد، أعد كتابة بريدك الإلكتروني:",
+        "emailLabel": "أكّد بريدك الإلكتروني",
+        "cancel": "إلغاء",
+        "confirm": "حذف نهائي"
+      }
+    },
+    "voicePage": {
+      "metaTitle": "صوتي — SallyCourse",
+      "metaDescription": "استنسخ صوتك لرواية دوراتك المرئية بنبرتك الخاصة.",
+      "heading": "صوتي",
+      "description": "أدر استنساخ الصوت المستخدم لرواية دوراتك المرئية."
+    },
+    "brandingPage": {
+      "metaTitle": "العلامة البيضاء — SallyCourse",
+      "metaDescription": "خصّص شهادة طلابك بشعار مدرستك وألوانها.",
+      "title": "العلامة البيضاء",
+      "description": "استبدل علامة SALISTAR بشعار مدرستك وألوانها على شهادة الإتمام الممنوحة لطلابك."
+    },
+    "platforms": {
+      "kindPassword": "كلمة المرور",
+      "kindApiKey": "مفتاح API",
+      "kindOAuth": "OAuth",
+      "testSuccessTitle": "الاتصال ناجح",
+      "testFailTitle": "فشل الاتصال",
+      "mockSuffix": "{message} (وضع تجريبي)",
+      "error": "خطأ",
+      "testError": "تعذّر إجراء الاختبار.",
+      "disconnected": "تم قطع الاتصال",
+      "disconnectError": "تعذّر قطع الاتصال.",
+      "connected": "تم ربط {label}",
+      "accountsBadge": "{count, plural, zero {غير متصل} one {متصل} two {حسابان} few {# حسابات} many {# حسابًا} other {# حساب}}",
+      "notConnected": "غير متصل",
+      "test": "اختبار",
+      "disconnect": "قطع الاتصال",
+      "addAccount": "إضافة حساب",
+      "connect": "ربط",
+      "addError": "تعذّرت الإضافة",
+      "networkError": "الشبكة غير متوفرة.",
+      "accountLabel": "اسم الحساب",
+      "save": "حفظ",
+      "cancel": "إلغاء"
+    },
+    "deployPresetsPage": {
+      "metaTitle": "إعدادات النشر المُسبقة — SallyCourse",
+      "metaDescription": "احفظ إعداد نشر وطبّقه بنقرة واحدة.",
+      "heading": "إعدادات النشر المُسبقة الخاصة بي",
+      "intro": "احفظ مجموعة من المنصات والأوضاع والحسابات، ثم طبّقها بنقرة واحدة على أي دورة جاهزة أخرى. شارك إعدادًا مُسبقًا بشكل عام ليستفيد منه المستخدمون الآخرون (لا تُشارك أبدًا بيانات اعتمادك، بل الإعداد فقط)."
+    },
+    "billingPage": {
+      "metaTitle": "الفوترة — SallyCourse",
+      "metaDescription": "أدخل معلوماتك الضريبية المغربية واطّلع على فواتيرك.",
+      "heading": "الفوترة",
+      "description": "أدخل وضعك الضريبي (مقاول ذاتي أو شركة) لتلقّي فواتير مطابقة، مع رقم ICE وIF عند الاقتضاء. اطّلع على سجلّ فوترتك وصدّره."
+    },
+    "branding": {
+      "title": "الشهادة — العلامة البيضاء",
+      "description": "يحل الشعار والألوان المختارة أدناه محل علامة SALISTAR على شهادة PDF الممنوحة لطلابك. ميزة مخصصة لخطة Business.",
+      "statusActive": "العلامة البيضاء مفعّلة",
+      "statusDefault": "SALISTAR افتراضيًا",
+      "businessOnly": "مخصص لخطة Business",
+      "schoolNameLabel": "اسم المدرسة",
+      "primaryColor": "اللون الأساسي",
+      "accentColor": "لون التمييز",
+      "subdomainLabel": "النطاق الفرعي للعلامة البيضاء",
+      "subdomainPlaceholder": "academie-client",
+      "subdomainHelp": "سيكون كتالوج دوراتك المنشورة متاحًا على هذا العنوان، باسمك وألوانك. اتركه فارغًا للتعطيل. يلزم إعداد DNS في الإنتاج (انظر docs/WHITE-LABEL-DNS.md).",
+      "logo": "الشعار",
+      "logoAlt": "شعار المدرسة",
+      "uploading": "جارٍ الرفع…",
+      "uploadLogo": "رفع شعار",
+      "save": "حفظ",
+      "backToSalistar": "العودة إلى SALISTAR",
+      "hexInvalid": "لون سداسي عشري غير صالح (#RRGGBB).",
+      "schoolNameRequired": "اسم المدرسة مطلوب",
+      "colorInvalidTitle": "لون غير صالح",
+      "colorInvalidDesc": "استخدم التنسيق #RRGGBB.",
+      "subdomainInvalidTitle": "نطاق فرعي غير صالح",
+      "subdomainInvalidDesc": "أحرف صغيرة وأرقام وشرطات، 3 أحرف كحد أدنى.",
+      "saveErrorTitle": "تعذّر الحفظ",
+      "saveSuccess": "تم حفظ العلامة البيضاء",
+      "networkErrorTitle": "خطأ في الشبكة",
+      "networkErrorDesc": "الخادم غير قابل للوصول.",
+      "uploadErrorTitle": "تعذّر الرفع",
+      "logoUpdated": "تم تحديث الشعار",
+      "resetSuccess": "تمت إعادة تعيين العلامة البيضاء (العودة إلى SALISTAR)",
+      "resetErrorTitle": "تعذّرت إعادة التعيين"
+    },
+    "apiKeys": {
+      "copied": "تم النسخ",
+      "copyFailed": "تعذّر النسخ",
+      "revealHint": "انسخ هذه القيمة الآن — لن تظهر مرة أخرى.",
+      "copy": "نسخ",
+      "iCopied": "لقد نسختها",
+      "events": {
+        "outlineReady": "المخطط جاهز",
+        "generationComplete": "اكتمل الإنشاء",
+        "deployed": "تم النشر",
+        "reviewApproved": "تمت الموافقة على المراجعة"
+      },
+      "createFailed": "تعذّر الإنشاء",
+      "errorTitle": "خطأ",
+      "networkUnavailable": "الشبكة غير متاحة.",
+      "keyRevoked": "تم إبطال المفتاح",
+      "revokeFailed": "تعذّر الإبطال.",
+      "apiKeysTitle": "مفاتيح API",
+      "apiKeysHint": "صادِق على طلباتك إلى واجهة API العامة v1 (الترويسة <code></code>).",
+      "keyLabelLabel": "تسمية المفتاح",
+      "keyLabelPlaceholder": "CI GitHub",
+      "createKey": "إنشاء مفتاح",
+      "noKeys": "لا توجد مفاتيح. أنشئ واحدًا للبدء.",
+      "usedOn": " · اُستخدم في {date}",
+      "neverUsed": " · لم يُستخدم قط",
+      "revoke": "إبطال",
+      "webhooksTitle": "Webhooks",
+      "webhooksHint": "استقبل طلب POST موقّعًا (HMAC-SHA256، الترويسة <code></code>) عند كل حدث في دوراتك.",
+      "webhookUrlLabel": "عنوان URL الوجهة",
+      "addWebhook": "إضافة Webhook",
+      "noWebhooks": "لا يوجد Webhook مُهيّأ.",
+      "updateFailed": "تعذّر التحديث.",
+      "webhookDeleted": "تم حذف الـ Webhook",
+      "deleteFailed": "تعذّر الحذف.",
+      "active": "نشط",
+      "inactive": "غير نشط",
+      "deactivate": "تعطيل",
+      "activate": "تفعيل"
+    },
+    "activity": {
+      "metaTitle": "نشاطي — SallyCourse",
+      "metaDescription": "سجل إجراءاتك الحساسة: تسجيلات الدخول، بيانات الاعتماد، عمليات النشر، عمليات الحذف.",
+      "title": "نشاطي",
+      "description": "سجل إجراءاتك الحساسة على هذا الحساب: تسجيلات الدخول، وتغييرات بيانات اعتماد المنصات، وعمليات النشر، وحذف الدورات. يُحفظ لمدة 12 شهرًا، وغير قابل للتعديل أبدًا.",
+      "empty": {
+        "title": "لا يوجد نشاط مُسجَّل",
+        "description": "لا شيء لعرضه في الوقت الحالي."
+      },
+      "table": {
+        "date": "التاريخ",
+        "action": "الإجراء",
+        "detail": "التفاصيل"
+      },
+      "actions": {
+        "login": "تسجيل دخول ناجح",
+        "loginFailed": "محاولة تسجيل دخول فاشلة",
+        "register": "إنشاء الحساب",
+        "logout": "تسجيل الخروج",
+        "credentialsChanged": "تم تغيير بيانات اعتماد المنصة",
+        "credentialsDeleted": "تم حذف بيانات اعتماد المنصة",
+        "deploymentCreated": "بدأ النشر",
+        "courseDeleted": "تم حذف الدورة",
+        "adminAccess": "الوصول إلى منطقة الإدارة"
+      }
+    },
+    "avatarPage": {
+      "metaTitle": "صورتي الرمزية — SallyCourse",
+      "metaDescription": "ارفع صورة مقدّم متحركة كصورة رمزية بالفيديو لدوراتك.",
+      "heading": "صورتي الرمزية",
+      "description": "أدِر صورة المقدّم المستخدَمة في الصورة الرمزية بالفيديو من نوع «talking-head» لدوراتك."
+    },
+    "voice": {
+      "statusNone": "لا يوجد صوت مستنسخ",
+      "statusPending": "الاستنساخ قيد التنفيذ",
+      "statusReady": "الصوت جاهز",
+      "statusFailed": "فشل الاستنساخ",
+      "cardTitle": "صوتي",
+      "description": "استنسخ صوتك (ElevenLabs) لسرد دوراتك المرئية بنبرتك الخاصة بدلاً من صوت اصطناعي عام. تعطي عينة لا تقل مدتها عن {seconds} ثانية، واضحة وخالية من ضوضاء الخلفية، أفضل النتائج.",
+      "sampleDuration": "عينة مدتها {seconds} ثانية",
+      "useVoiceHint": "اختر هذا الصوت في الخيارات المتقدمة عند إنشاء دورة لاستخدامه في السرد.",
+      "removeButton": "حذف صوتي المستنسخ",
+      "consentLabel": "أوافق صراحةً على أن ينشئ SallyCourse نسخة مستنسخة من صوتي من العينة (المرفوعة أو المسجلة بالميكروفون)، وأن يستخدمها لتوليد سرد دوراتي.",
+      "consentBlockedHint": "يظل الرفع والتسجيل محظورين حتى يتم تحديد خانة الموافقة.",
+      "uploadButton": "رفع عينة صوتية",
+      "uploadingButton": "جارٍ الاستنساخ…",
+      "orRecordMic": "أو سجّل بالميكروفون",
+      "recordingMinAbbrev": "كحد أدنى",
+      "recordMoreHint": "سجّل {remaining} ثانية إضافية (بحد أدنى {min} ثانية) قبل أن تتمكن من استخدام هذا التسجيل.",
+      "useRecordingButton": "استخدام هذا التسجيل",
+      "cancelButton": "إلغاء",
+      "recordMicButton": "التسجيل بالميكروفون",
+      "toastCloneFailedTitle": "تعذّر الاستنساخ",
+      "toastClonedTitle": "تم استنساخ الصوت",
+      "toastClonedMock": "الوضع المحاكى (لا يوجد مفتاح ElevenLabs): تم تعيين مُعرّف وهمي.",
+      "toastClonedReady": "صوتك جاهز للاستخدام في دوراتك.",
+      "toastNetworkError": "خطأ في الشبكة",
+      "toastServerUnreachable": "تعذّر الوصول إلى الخادم.",
+      "toastConsentRequiredTitle": "الموافقة مطلوبة",
+      "toastConsentRequiredUpload": "حدّد خانة الموافقة قبل رفع عينتك.",
+      "toastConsentRequiredRecord": "حدّد خانة الموافقة قبل تسجيل صوتك.",
+      "toastTooShortTitle": "العينة قصيرة جدًا",
+      "toastTooShortDescription": "المدة المكتشفة: {detected} ثانية (الحد الأدنى الموصى به: {min} ثانية).",
+      "toastMicUnavailableTitle": "الميكروفون غير متاح",
+      "toastMicUnavailableDescription": "متصفحك لا يدعم التسجيل بالميكروفون.",
+      "toastMicDeniedTitle": "تم رفض الميكروفون",
+      "toastMicDeniedDescription": "اسمح بالوصول إلى الميكروفون لتسجيل صوتك.",
+      "toastEmptyRecordingTitle": "تسجيل فارغ",
+      "toastEmptyRecordingDescription": "لم يلتقط الميكروفون أي شيء.",
+      "toastRemovedTitle": "تم حذف الصوت المستنسخ",
+      "toastRemoveFailedTitle": "تعذّر الحذف"
+    },
+    "deployPresets": {
+      "myPresets": "إعداداتي المسبقة",
+      "newPreset": "إعداد مسبق جديد",
+      "emptyState": "لا توجد إعدادات مسبقة بعد. أنشئ واحداً لإعادة استخدام مجموعة من المنصات بنقرة واحدة في دوراتك القادمة.",
+      "communityPresets": "إعدادات مسبقة مشتركة من المجتمع",
+      "publicBadge": "عام",
+      "applyToCourse": "تطبيق على دورة",
+      "delete": "حذف",
+      "modeAuto": "تلقائي",
+      "modeAssisted": "مُساعَد",
+      "modeManual": "يدوي",
+      "toastDeletedTitle": "تم حذف الإعداد المسبق",
+      "toastDeleteErrorTitle": "خطأ",
+      "toastDeleteErrorDesc": "تعذّر الحذف.",
+      "toastSavedTitle": "تم حفظ الإعداد المسبق",
+      "createErrorTitle": "تعذّر الإنشاء",
+      "networkErrorTitle": "خطأ في الشبكة",
+      "networkErrorDesc": "تعذّر الوصول إلى الخادم.",
+      "createDialogTitle": "إعداد نشر مسبق جديد",
+      "presetNameLabel": "اسم الإعداد المسبق",
+      "presetNamePlaceholder": "مثال: مجموعة YouTube + Udemy FR",
+      "platforms": "المنصات",
+      "modeLabel": "الوضع",
+      "sharePublicly": "المشاركة علناً",
+      "sharePubliclyHint": "سيتمكن مستخدمون آخرون من تطبيق هذا الإعداد المسبق (لن تُشارك بيانات اعتمادك أبداً).",
+      "save": "حفظ",
+      "applyErrorTitle": "تعذّر التطبيق",
+      "appliedTitle": "تم تطبيق الإعداد المسبق",
+      "appliedDesc": "{count, plural, zero {# منصة في قائمة الانتظار لهذه الدورة.} one {منصة واحدة في قائمة الانتظار لهذه الدورة.} two {منصتان في قائمة الانتظار لهذه الدورة.} few {# منصات في قائمة الانتظار لهذه الدورة.} many {# منصة في قائمة الانتظار لهذه الدورة.} other {# منصة في قائمة الانتظار لهذه الدورة.}}",
+      "applyDialogTitle": "تطبيق «{name}»",
+      "loadingCourses": "جارٍ تحميل دوراتك…",
+      "noCoursesReady": "لا توجد دورة جاهزة للنشر بعد. أنشئ دورة أولاً.",
+      "targetCourseLabel": "الدورة المستهدفة",
+      "selectCourse": "اختر دورة…",
+      "launchDeploy": "بدء النشر"
+    },
+    "changePlan": {
+      "confirmMockPayment": "بوابة الدفع غير مُهيّأة — تفعيل الخطة في وضع المحاكاة (التطوير)؟",
+      "activationFailed": "تعذّر التفعيل",
+      "planActivatedSimulated": "تم تفعيل خطة {plan} (محاكاة)",
+      "paymentFailed": "تعذّر الدفع",
+      "networkError": "خطأ في الشبكة",
+      "serverUnreachable": "تعذّر الوصول إلى الخادم.",
+      "sectionLabel": "الباقة",
+      "title": "تغيير الباقة",
+      "currentPlanLabel": "الباقة الحالية:",
+      "perMonthApprox": "/ شهريًا · ≈",
+      "currentPlanButton": "الباقة الحالية",
+      "switchTo": "الترقية إلى {label}",
+      "proPerks": "10 دورات/شهر · بدون علامة مائية · نشر متعدد المنصات",
+      "businessPerks": "دورات غير محدودة · واجهة برمجة التطبيقات وخطافات الويب · حسابات منصات متعددة"
+    },
+    "couponsPage": {
+      "metaTitle": "كوبونات — SallyCourse",
+      "metaDescription": "أنشئ وأدر رموزك الترويجية (خصم بالنسبة المئوية، مبلغ، فترة، حصة).",
+      "title": "كوبونات",
+      "intro": "أنشئ رموزًا ترويجية لدوراتك: خصم بالنسبة المئوية أو مبلغ ثابت، فترة صلاحية، وحصة استخدام. لا يمنح الكوبون خصمًا إلا على محتواك أنت."
+    },
+    "billing": {
+      "taxInfoTitle": "المعلومات الضريبية (المغرب)",
+      "taxInfoDescription": "أدخل وضعك الضريبي لتلقّي فواتير مطابقة. يظهر ICE وIF على كل فاتورة تُصدَر من الآن فصاعدًا — أما الفواتير الصادرة سابقًا فلا تُعدَّل بأثر رجعي.",
+      "statusLabel": "الوضع الضريبي",
+      "statusUnspecified": "غير محدد",
+      "statusAutoEntrepreneur": "مقاول ذاتي",
+      "statusCompany": "شركة",
+      "companyNameLabel": "الاسم التجاري / الاسم المفوتر",
+      "requiredSuffix": "(إلزامي)",
+      "icePlaceholder": "15 رقمًا",
+      "iceHint": "المعرّف الموحد للمقاولة",
+      "ifPlaceholder": "من 6 إلى 8 أرقام",
+      "ifHint": "المعرّف الضريبي",
+      "addressLabel": "عنوان الفوترة",
+      "saveButton": "حفظ",
+      "toastSaveErrorTitle": "تعذّر الحفظ",
+      "toastSavedTitle": "تم حفظ إعدادات الفوترة",
+      "toastNetworkErrorTitle": "خطأ في الشبكة",
+      "toastNetworkErrorDescription": "تعذّر الوصول إلى الخادم.",
+      "invoicesTitle": "سجل الفواتير",
+      "exportButton": "تصدير محاسبي (.csv)",
+      "invoicesDescription": "تُصدَر فاتورة تلقائيًا عند كل عملية دفع ناجحة. انقر على فاتورة لفتحها بصيغة قابلة للطباعة (اطبع ← PDF من متصفحك).",
+      "emptyInvoices": "لا توجد فواتير حتى الآن.",
+      "colInvoice": "الفاتورة",
+      "colDate": "التاريخ",
+      "colStatus": "الحالة",
+      "colHT": "بدون ضريبة",
+      "colTVA": "ض.ق.م",
+      "colTTC": "شامل الضريبة"
+    },
+    "avatar": {
+      "consentRequiredTitle": "الموافقة مطلوبة",
+      "consentRequiredDesc": "حدّد خانة الموافقة قبل رفع صورتك.",
+      "uploadFailedTitle": "تعذّر الرفع",
+      "photoSavedTitle": "تم حفظ الصورة",
+      "photoSavedDesc": "صورتك الرمزية جاهزة للاستخدام.",
+      "networkErrorTitle": "خطأ في الشبكة",
+      "serverUnreachable": "تعذّر الوصول إلى الخادم.",
+      "photoDeletedTitle": "تم حذف الصورة",
+      "deleteFailedTitle": "تعذّر الحذف",
+      "title": "صورتي الرمزية",
+      "description": "ارفع صورة لوجهك (لقطة أمامية، بإضاءة جيدة، دون نظارات شمسية). ستُحرَّك كمقدّم على هيئة «رأس متحدّث» يقدّم كل قسم من دوراتك المرئية ويختمه، مع مزامنة حركة الشفاه مع السرد.",
+      "badgeSaved": "تم حفظ الصورة",
+      "badgeNone": "لا توجد صورة",
+      "previewAlt": "معاينة الصورة الرمزية",
+      "useHint": "فعّل خيار «الصورة الرمزية للمقدّم» ضمن الخيارات المتقدّمة عند إنشاء دورة لاستخدامه.",
+      "replacePhoto": "استبدال الصورة",
+      "remove": "حذف",
+      "consentLabel": "أوافق على أن تُحرّك SallyCourse صورة وجهي هذه لإنشاء مقدّم مرئي، وأؤكّد أنني الشخص الظاهر فيها (أو أملك إذنه).",
+      "uploadBlockedHint": "الرفع محظور ما لم تُحدَّد خانة الموافقة.",
+      "uploading": "جارٍ الرفع…",
+      "uploadPhoto": "رفع صورة"
+    },
+    "coupons": {
+      "newCoupon": "قسيمة جديدة",
+      "labelCode": "الرمز (فارغ = تلقائي)",
+      "labelDiscountType": "نوع الخصم",
+      "optionPercent": "نسبة مئوية",
+      "optionFixedAmount": "مبلغ ثابت",
+      "labelDiscountPercent": "الخصم (٪)",
+      "labelAmount": "المبلغ (عملة الدورة)",
+      "labelValidity": "الصلاحية (بالأيام)",
+      "labelQuota": "الحصة (فارغ = غير محدودة)",
+      "labelPlatform": "المنصة",
+      "platformInternal": "نظام التعلّم الداخلي",
+      "labelTargetCourse": "الدورة المستهدفة (فارغ = جميع دوراتك)",
+      "optionAllMyCourses": "جميع دوراتي",
+      "createButton": "إنشاء القسيمة",
+      "selectTargetTitle": "اختر دورة مستهدفة",
+      "suggestPromoButton": "اقتراح تقويم عروض",
+      "suggestedPromoPeriods": "فترات العروض المقترحة",
+      "useButton": "استخدام",
+      "emptyTitle": "لا توجد قسائم",
+      "emptyDescription": "ستظهر رموز العروض الخاصة بك هنا.",
+      "expired": "منتهية الصلاحية",
+      "deleteButton": "حذف",
+      "validUntilPrefix": "حتى",
+      "allYourCourses": "جميع دوراتك",
+      "fixedSuffix": "(ثابت)",
+      "uses": "{count, plural, zero {استخدام} one {استخدام} two {استخدامان} few {استخدامات} many {استخدامًا} other {استخدام}}",
+      "confirmDelete": "حذف القسيمة {code}؟",
+      "toastInvalidDuration": "مدة غير صالحة",
+      "toastInvalidDiscount": "خصم غير صالح (1-100٪)",
+      "toastInvalidAmount": "مبلغ غير صالح",
+      "toastCreateFailed": "تعذّر الإنشاء",
+      "toastCreated": "تم إنشاء القسيمة",
+      "toastNetworkError": "خطأ في الشبكة",
+      "toastSelectCourse": "اختر دورة",
+      "toastSelectCourseDesc": "تقويم العروض خاص بدورة واحدة.",
+      "toastSuggestUnavailable": "الاقتراح غير متاح",
+      "toastPromoApplied": "تم تطبيق «{name}»",
+      "toastDeleteFailed": "تعذّر الحذف",
+      "toastDeleted": "تم حذف القسيمة"
+    }
   },
   "marketing": {
     "nav": {
@@ -65,7 +2114,11 @@
       "pricing": "الأسعار",
       "showcase": "المعرض",
       "login": "تسجيل الدخول",
-      "cta": "إنشاء دورتي الأولى"
+      "cta": "إنشاء دورتي الأولى",
+      "header": {
+        "marketplace": "المتجر",
+        "menu": "القائمة"
+      }
     },
     "hero": {
       "badge": "توليد الدورات بالذكاء الاصطناعي",
@@ -192,9 +2245,1716 @@
         "signup": "إنشاء حساب",
         "cgu": "الشروط",
         "cgv": "شروط البيع",
-        "privacy": "الخصوصية"
+        "privacy": "الخصوصية",
+        "blog": "المدونة"
       },
       "rights": "جميع الحقوق محفوظة."
+    },
+    "showcase": {
+      "metaTitle": "المعرض — SallyCourse",
+      "metaDescription": "اكتشف الدورات التي أنشأها مجتمع المدرّبين لدينا باستخدام SallyCourse.",
+      "difficulty": {
+        "beginner": "مبتدئ",
+        "intermediate": "متوسط",
+        "advanced": "متقدّم"
+      },
+      "starRatingLabel": "تقييم {rating} من 5",
+      "badge": "معرض المجتمع",
+      "heading": "دورات أُنشئت باستخدام SallyCourse",
+      "subtitle": "مجموعة مختارة من الدورات التي نشرها مدرّبون اختاروا مشاركة إبداعهم.",
+      "emptyState": "لا توجد أي دورة معروضة هنا بعد. انشر دورتك وفعّل خيار «العرض في المعرض» لتكون من الأوائل الظاهرين."
+    },
+    "marketplace": {
+      "metaTitle": "متجر الدورات — SallyCourse",
+      "metaDescription": "اشترِ دورات أو قوالب أنشأها مستخدمو SallyCourse الآخرون.",
+      "licenseCourseCopy": "نسخة كاملة",
+      "licenseTemplateOnly": "قالب فقط",
+      "title": "متجر الدورات",
+      "intro": "اشترِ نسخة من دورة تم إنشاؤها مسبقًا أو قالب خطة تعليمية أنشأه مستخدمون آخرون. يمنحك الشراء نسختك المستقلة الخاصة، الجاهزة للتخصيص والنشر.",
+      "categoriesLabel": "الفئات",
+      "allCategories": "الكل",
+      "emptyTitle": "لا توجد قوائم بعد",
+      "emptyDescription": "ستظهر هنا الدورات التي يعرضها المنشئون للبيع.",
+      "courseFallback": "دورة",
+      "sales": "{count, plural, zero {لا مبيعات} one {مبيعة واحدة} two {مبيعتان} few {# مبيعات} many {# مبيعة} other {# مبيعة}}"
+    },
+    "mobileNav": {
+      "close": "إغلاق"
+    },
+    "demoForm": {
+      "errors": {
+        "minLength": "أدخل 4 أحرف على الأقل.",
+        "generic": "تعذّر إنشاء العرض التجريبي في الوقت الحالي.",
+        "network": "خطأ في الشبكة، يرجى المحاولة مرة أخرى."
+      },
+      "titleLabel": "عنوان دورتك",
+      "titlePlaceholder": "مثال: تصوير الطعام للمبتدئين",
+      "submit": "جرّبه مجانًا"
+    },
+    "home": {
+      "metaTitle": "SallyCourse — أنشئ دورة تدريبية كاملة عبر الإنترنت في دقائق",
+      "demoPrompt": "أو جرّبه الآن، دون حساب — أدخل عنوانًا:",
+      "coursesPerMonth": "{count, plural, zero {# دورة / شهر} one {دورة / شهر} two {# دورتان / شهر} few {# دورات / شهر} many {# دورة / شهر} other {# دورة / شهر}}",
+      "unlimitedCourses": "دورات غير محدودة",
+      "fallbackAuthor": "مدرّب SallyCourse",
+      "starRating": "التقييم {rating} من 5"
+    },
+    "pricing": {
+      "metaTitle": "الأسعار — SallyCourse",
+      "metaDescription": "اختر خطتك: من الخطة المجانية إلى خطة Business غير المحدودة مع API وتعدد الحسابات.",
+      "coursesPerMonthValue": "{count, plural, zero {# دورة / شهر} one {دورة واحدة / شهر} two {دورتان / شهر} few {# دورات / شهر} many {# دورة / شهر} other {# دورة / شهر}}",
+      "coursesUnlimited": "دورات غير محدودة",
+      "planFreeTagline": "لتجربة توليد الدورات.",
+      "planFreePeriod": "إلى الأبد",
+      "planFreeCta": "ابدأ مجانًا",
+      "planProTagline": "للمنشئين المنتظمين.",
+      "planProPeriod": "شهريًا",
+      "planProCta": "الترقية إلى Pro",
+      "planBusinessTagline": "للفرق والأتمتة.",
+      "planBusinessPeriod": "شهريًا",
+      "planBusinessCta": "تواصل مع المبيعات",
+      "featureCoursesLabel": "الدورات المولّدة شهريًا",
+      "featureDeployLabel": "النشر متعدد المنصات",
+      "featureNoWatermarkLabel": "بدون علامة مائية",
+      "featureApiLabel": "الوصول إلى API",
+      "featureMultiAccountsLabel": "حسابات متعددة للمنصات",
+      "deployPlatformsValue": "{count, plural, zero {# في المرة الواحدة} one {# في المرة الواحدة} two {# في المرة الواحدة} few {# في المرة الواحدة} many {# في المرة الواحدة} other {# في المرة الواحدة}}",
+      "deployEverywhere": "في كل مكان",
+      "included": "مُضمَّن",
+      "excluded": "غير مُضمَّن",
+      "badge": "أسعار بسيطة",
+      "heroTitle": "دورة كاملة في دقائق معدودة",
+      "heroSubtitle": "ابدأ مجانًا وتوسّع عندما تكون جاهزًا. بدون التزام، وبدّل خطتك في أي وقت.",
+      "popularBadge": "الأكثر شيوعًا",
+      "comparisonTitle": "قارن الخطط بالتفصيل",
+      "comparisonFeatureHeader": "الميزة",
+      "footerCta": "هل أنت مستعد لتوليد دورتك الأولى؟",
+      "footerButton": "أنشئ حسابًا مجانيًا"
+    }
+  },
+  "blog": {
+    "title": "مدونة SallyCourse",
+    "subtitle": "أدلة ومناهج وخبرات عملية حول المواضيع التي تغطيها دوراتنا عبر الإنترنت.",
+    "read": "اقرأ المقال",
+    "back": "العودة إلى المدونة",
+    "faq": "الأسئلة الشائعة",
+    "empty": {
+      "title": "لا توجد مقالات بعد",
+      "description": "ستظهر المقالات الأولى فور نشر دوراتنا القادمة."
+    },
+    "pagination": {
+      "label": "تصفّح المدونة",
+      "previous": "السابق",
+      "next": "التالي",
+      "position": "الصفحة {current} من {total}"
+    },
+    "cta": {
+      "eyebrow": "الدورة المرتبطة",
+      "description": "انتقل من النظرية إلى التطبيق: فيديوهات وتمارين مصححة واختبارات ضمن مسار موجّه.",
+      "action": "اكتشف الدورة"
+    },
+    "blogPost": {
+      "metaTitle": "مقال — SallyCourse"
+    },
+    "metaTitle": "المدوّنة — SallyCourse",
+    "metaDescription": "أدلّة وطرق وتجارب عملية للتقدّم في المواضيع التي تغطّيها دوراتنا عبر الإنترنت."
+  },
+  "instructor": {
+    "coursesTitle": "الدورات المنشورة",
+    "coursesEmpty": "لا توجد دورة منشورة حتى الآن.",
+    "expertise": "مجالات الخبرة",
+    "bioDisclosure": "نبذة مكتوبة بمساعدة الذكاء الاصطناعي انطلاقًا من الدورات المنشورة.",
+    "viewCourse": "عرض الدورة",
+    "alsoOn": "متاحة أيضًا على",
+    "free": "مجاني",
+    "lessons": "{count} درسًا",
+    "duration": "{minutes} دقيقة",
+    "reviewsTitle": "آراء المتعلمين",
+    "reviewsSummary": "{average}/5 · {count} رأيًا موثقًا",
+    "reviewsNote": "آراء نشرها متعلمون مسجّلون في سالي كورس.",
+    "stats": {
+      "courses": "الدورات",
+      "lessons": "الدروس",
+      "hours": "ساعات المحتوى",
+      "students": "المتعلمون",
+      "platforms": "المنصات"
+    },
+    "metaDescription": "{name} — {count} دورة على الإنترنت في سالي كورس.",
+    "anonymousLabel": "متعلّم"
+  },
+  "courseReview": {
+    "title": "رأيك",
+    "description": "قيّم هذه الدورة. قد يظهر تقييمك وتعليقك في الصفحة العامة للمدرّب باسم «الاسم الأول وحرف اللقب».",
+    "rating": "التقييم",
+    "star": "{count} من 5",
+    "comment": "تعليق (اختياري)",
+    "placeholder": "ما الذي أضافته لك هذه الدورة…",
+    "submit": "نشر رأيي",
+    "update": "تحديث رأيي",
+    "saved": "تم حفظ الرأي.",
+    "error": "تعذّر حفظ رأيك.",
+    "rateLimited": "عدد كبير من الآراء المرسلة، حاول لاحقًا."
+  },
+  "screencast": {
+    "title": "تسجيل شاشة مع سرد",
+    "description": "ارفع تسجيل شاشة، أضف نصًّا سرديًّا (صوت الدورة) وتعليقات موقوتة: ينتج التطبيق فيديو نهائيًّا مسرودًا مع التعليقات المتزامنة.",
+    "statusRendering": "جارٍ التصيير…",
+    "statusReady": "جاهز",
+    "statusFailed": "فشل",
+    "failedHelp": "فشل التصيير. تحقق من التسجيل وأعد المحاولة.",
+    "recordingLabel": "تسجيل الشاشة",
+    "pickFile": "اختر ملفًّا",
+    "replaceFile": "استبدال الملف",
+    "recordingHint": "MP4 أو MOV أو WebM. يُنصح بـ30 إطارًا/ثانية و1080p، بدون صوت (يُولَّد السرد).",
+    "narrationLabel": "نص السرد",
+    "narrationPlaceholder": "ما ينبغي أن يقوله الصوت أثناء العرض…",
+    "captionsTitle": "تعليقات موقوتة",
+    "addCaption": "إضافة تعليق",
+    "captionsEmpty": "لا توجد تعليقات — سيُسرَد التسجيل دون طبقات نصّية.",
+    "captionText": "النص",
+    "captionStart": "البداية (ث)",
+    "captionEnd": "النهاية (ث)",
+    "captionPosition": "الموضع",
+    "positionBottom": "أسفل",
+    "positionTop": "أعلى",
+    "positionCenter": "الوسط",
+    "removeCaption": "حذف التعليق",
+    "submit": "بدء التصيير",
+    "remove": "إزالة التسجيل",
+    "needFile": "اختر تسجيلًا أولًا.",
+    "needNarration": "أدخل نص السرد.",
+    "invalidCaption": "أحد التعليقات غير صالح (يجب أن تكون النهاية بعد البداية).",
+    "error": "تعذّر التصيير.",
+    "started": "بدأ التصيير — تابع التقدّم هنا.",
+    "network": "الخادم غير متاح.",
+    "removed": "تمت إزالة التسجيل."
+  },
+  "agency": {
+    "page": {
+      "metaTitle": "وضع الوكالة — SallyCourse",
+      "metaDescription": "أدِر عملاءك وأنشئ الدورات نيابةً عنهم.",
+      "heading": "وضع الوكالة",
+      "intro": "أدِر عملاءك وأنشئ الدورات نيابةً عنهم. تستخدم عمليات نشر أي دورة أُنشئت في سياق عميل حسابات النشر الخاصة بذلك العميل حصريًا — لا حساباتك أبدًا."
+    },
+    "contextActive": "السياق: {name}",
+    "defaultClient": "عميل",
+    "contextDisabled": "تم تعطيل سياق الوكالة",
+    "contextSwitchedToClient": "سيتم ربط الدورات المُنشأة الجديدة بهذا العميل.",
+    "contextSwitchedToAgency": "سيتم ربط الدورات المُنشأة الجديدة بحساب وكالتك.",
+    "clientDeleted": "تم حذف العميل",
+    "error": "خطأ",
+    "deleteFailed": "تعذّر الحذف.",
+    "billingUnavailable": "الفوترة غير متاحة.",
+    "clientCreated": "تم إنشاء العميل",
+    "contextTitle": "سياق العمل",
+    "contextDescription": "اختر العميل الذي تعمل لصالحه: سيتم ربط الدورات المُنشأة الجديدة وعمليات نشرها بهذا العميل.",
+    "myAgencyAccount": "حساب وكالتي",
+    "myClients": "عملائي",
+    "newClient": "عميل جديد",
+    "emptyClientsTitle": "لا يوجد عملاء بعد",
+    "emptyClientsDescription": "أنشئ عميلك الأول لإنشاء دورات نيابةً عنه.",
+    "accountsCount": "{count, plural, zero {# حساب} one {حساب واحد} two {حسابان} few {# حسابات} many {# حسابًا} other {# حساب}}",
+    "delete": "حذف",
+    "billingTitle": "الفوترة حسب العميل",
+    "calculateCosts": "احتساب التكاليف",
+    "emptyBillingTitle": "لا توجد تكاليف للفوترة",
+    "emptyBillingDescription": "لم تُنشئ أي دورة باسم عميل أي تكلفة بعد.",
+    "billedCourses": "{count, plural, zero {# دورة مُفوترة} one {دورة واحدة مُفوترة} two {دورتان مُفوترتان} few {# دورات مُفوترة} many {# دورة مُفوترة} other {# دورة مُفوترة}}",
+    "createClientFailed": "تعذّر الإنشاء",
+    "networkUnavailable": "الشبكة غير متاحة.",
+    "clientNameLabel": "اسم العميل",
+    "clientNamePlaceholder": "أكاديمية ديبون",
+    "contactEmailLabel": "البريد الإلكتروني للتواصل",
+    "contactEmailPlaceholder": "contact@dupont-academy.com",
+    "create": "إنشاء",
+    "cancel": "إلغاء"
+  },
+  "certificate": {
+    "metaTitle": "التحقق من الشهادة — {id}… — SallyCourse",
+    "metaDescription": "تحقّق من صحّة شهادة إتمام من SallyCourse.",
+    "authentic": "شهادة أصلية",
+    "verifiedWith": "تم التحقق منها لدى SallyCourse",
+    "student": "الطالب",
+    "courseSubject": "الدورة المكتملة",
+    "pathSubject": "المسار المكتمل",
+    "completionDate": "تاريخ الإتمام",
+    "issuedBy": "صادرة عن <b>{name}</b> عبر منصة SallyCourse.",
+    "notVerified": "الشهادة غير مُتحقَّق منها",
+    "notVerifiedHint": "المُعرّف غير موجود أو الدورة غير مكتملة",
+    "notVerifiedBody": "لا توجد شهادة صالحة تطابق هذا المُعرّف. تحقّق من الرابط أو رمز QR الموجود على المستند، أو تواصل مع جهة إصدار الشهادة.",
+    "learnerFallback": "متعلّم"
+  },
+  "learn": {
+    "layout": {
+      "metaTitle": "الكتالوج — SallyCourse",
+      "metaDescription": "اكتشف وتابع الدورات المنشورة على نظام SallyCourse للتعلّم.",
+      "nav": {
+        "catalog": "الكتالوج",
+        "mySpace": "مساحتي",
+        "signIn": "تسجيل الدخول"
+      }
+    },
+    "course": {
+      "metaTitle": "{title} — SallyCourse Academy",
+      "metaTitleFallback": "دورة — SallyCourse Academy"
+    },
+    "chatbot": {
+      "title": "مساعد الدورة",
+      "openLabel": "فتح مساعد الدورة",
+      "closeLabel": "إغلاق المساعد",
+      "emptyState": "اطرح سؤالاً عن محتوى هذه الدورة — يجيب المساعد بالاعتماد على الدروس المتاحة بالفعل ويذكر مصادره.",
+      "sourcesLabel": "المصادر:",
+      "thinking": "المساعد يفكر…",
+      "placeholder": "سؤالك عن هذه الدورة…",
+      "questionLabel": "سؤالك عن هذه الدورة",
+      "sendLabel": "إرسال السؤال",
+      "errorUnavailable": "المساعد غير متوفر مؤقتًا.",
+      "errorConnection": "تعذّر الاتصال — أعد المحاولة لاحقًا."
+    },
+    "streak": {
+      "permissionDeniedTitle": "لم يتم تفعيل التذكيرات",
+      "permissionDeniedDescription": "الإشعارات محظورة لهذا الموقع.",
+      "enabledTitle": "تم تفعيل التذكيرات",
+      "enabledDescription": "سننبّهك إذا كانت سلسلتك في خطر.",
+      "enableErrorTitle": "تعذّر التفعيل",
+      "disabledTitle": "تم إيقاف التذكيرات",
+      "disableErrorTitle": "تعذّر الإيقاف",
+      "statusOn": "تذكيرات السلسلة مفعّلة على هذا المتصفح.",
+      "statusOff": "احصل على تذكير عندما تكون سلسلتك في خطر.",
+      "disabling": "جارٍ الإيقاف…",
+      "disable": "إيقاف",
+      "enabling": "جارٍ التفعيل…",
+      "enable": "تفعيل التذكيرات"
+    },
+    "gamification": {
+      "level": "المستوى {level}",
+      "xpToNextLevel": "· {remaining} XP قبل المستوى {level}",
+      "streakRecordTitle": "الرقم القياسي: {longest, plural, zero {# يوم} one {يوم واحد} two {يومان} few {# أيام} many {# يوماً} other {# يوم}}",
+      "streakDaysInARow": "{count, plural, zero {أيام} one {يوم} two {يومان} few {أيام} many {يوماً} other {يوم}} متتالية · الرقم القياسي {longest}",
+      "levelProgressLabel": "التقدّم نحو المستوى {level}",
+      "levelUpTitle": "تم بلوغ المستوى {level}!",
+      "dailyBonus": "منها {bonus} XP للمواظبة",
+      "badgeUnlocked": "شارة مُفتحة: {badges}"
+    },
+    "leaderboard": {
+      "title": "ترتيب الدورة",
+      "count": "({count, plural, zero {لا متعلّمين} one {متعلّم واحد} two {متعلّمان} few {# متعلّمين} many {# متعلّمًا} other {# متعلّم}})",
+      "hideMyName": "إخفاء اسمي",
+      "showMyFirstName": "إظهار اسمي الأول",
+      "empty": "لم يكسب أحد أي نقاط خبرة في هذه الدورة بعد — أكمل درسًا لفتح الترتيب.",
+      "you": "(أنت)",
+      "toastAnonymized": "تظهر الآن باسم «متعلّم»",
+      "toastNameShown": "يظهر اسمك الأول الآن",
+      "toastError": "لم يتم حفظ التفضيل"
+    },
+    "video": {
+      "notAvailable": "فيديو هذا الدرس غير متوفّر بعد.",
+      "captionsLabel": "الترجمة النصية",
+      "preparingCopy": "جارٍ تجهيز نسختك المخصّصة… تظل المشاهدة متاحة أثناء ذلك."
+    },
+    "quiz": {
+      "errorGenTitle": "تعذّر التوليد",
+      "errorGenRetry": "يُرجى المحاولة لاحقاً.",
+      "errorNetwork": "خطأ في الشبكة.",
+      "emptyQuiz": "لا يحتوي هذا الاختبار على أي أسئلة بعد.",
+      "resultLabel": "النتيجة",
+      "correctAnswersLabel": "الإجابات الصحيحة",
+      "quizPassed": "تم اجتياز الاختبار",
+      "belowThreshold": "أقل من الحد الأدنى (70%)",
+      "restart": "إعادة الاختبار",
+      "generating": "جارٍ التوليد…",
+      "moreExercises": "المزيد من التمارين",
+      "progress": "{answered} / {total} {total, plural, zero {سؤال مُجاب} one {سؤال مُجاب} two {سؤالان مُجابان} few {أسئلة مُجابة} many {سؤالاً مُجاباً} other {سؤال مُجاب}}",
+      "quizProgressLabel": "تقدّم الاختبار",
+      "explanationLabel": "الشرح: ",
+      "submit": "إرسال الاختبار",
+      "answerAllPrompt": "أجب عن جميع الأسئلة للإرسال.",
+      "personalizedExercises": "تمارين مخصّصة",
+      "targetedOn": "— تستهدف: {themes}"
+    },
+    "experience": {
+      "free": "مجاني",
+      "paymentSoonTitle": "الدفع متاح قريبًا",
+      "paymentSoonDescription": "هذه الدورة مدفوعة والدفع عبر الإنترنت غير متاح بعد. يُرجى المحاولة قريبًا.",
+      "enrollFailedTitle": "تعذّر التسجيل",
+      "enrollConfirmedTitle": "تم تأكيد التسجيل",
+      "enrollConfirmedDescription": "تعلّم ممتع!",
+      "courseCompletedTitle": "اكتملت الدورة!",
+      "courseCompletedDescription": "شهادتك متاحة الآن.",
+      "progressNotSavedTitle": "لم يُحفظ التقدم",
+      "promoBadge": "الرمز {code}",
+      "enrollPrompt": "سجّل لمتابعة تقدمك والحصول على شهادة.",
+      "enrollCta": "التسجيل في الدورة",
+      "loginToEnrollCta": "تسجيل الدخول للتسجيل",
+      "progressCount": "التقدم: {done} / {total} {total, plural, zero {درس} one {درس} two {درسان} few {دروس} many {درسًا} other {دروس}}",
+      "viewCertificate": "عرض شهادتي",
+      "courseProgressLabel": "تقدم الدورة",
+      "coursePlanAria": "مخطط الدورة",
+      "noLessons": "لا تحتوي هذه الدورة على أي دروس بعد.",
+      "lessonDone": "مكتمل",
+      "markComplete": "وضع علامة كمكتمل",
+      "enrollToWatch": "سجّل في هذه الدورة لمشاهدة الفيديو.",
+      "downloadTranscript": "تنزيل النص المكتوب (.txt)",
+      "enrollToRead": "سجّل في هذه الدورة لقراءة هذا المقال.",
+      "articleUnavailable": "مقال هذا الدرس غير متاح بعد.",
+      "enrollToQuiz": "سجّل في هذه الدورة لأداء هذا الاختبار.",
+      "quizNoQuestions": "لا يحتوي هذا الاختبار على أي أسئلة بعد.",
+      "tpInstructions": "تُنجَز التمارين العملية في البيئة المتوفرة مع الدورة.",
+      "sandboxStarter": "الشيفرة الأولية",
+      "sandboxSolution": "الحل",
+      "sandboxPanelTitle": "تمرين تفاعلي ({language}) — افتح المشروع مباشرةً في متصفحك",
+      "openInStackblitz": "فتح في StackBlitz",
+      "openInCodesandbox": "فتح في CodeSandbox"
+    }
+  },
+  "apiErrors": {
+    "courseNotFound": "الدورة غير موجودة.",
+    "invalidJson": "متن JSON غير صالح.",
+    "lessonNotFound": "الدرس غير موجود.",
+    "invalidData": "بيانات غير صالحة.",
+    "userNotFound": "المستخدم غير موجود.",
+    "invalidMultipart": "طلب multipart غير صالح.",
+    "pathNotFound": "المسار غير موجود.",
+    "presetNotFound": "الإعداد المسبق غير موجود.",
+    "enrollmentRequired": "التسجيل مطلوب.",
+    "notFound": "غير موجود.",
+    "invalidId": "معرّف غير صالح.",
+    "clientNotFound": "العميل غير موجود.",
+    "unknownPlatform": "منصة غير معروفة.",
+    "deploymentNotFound": "عملية النشر غير موجودة.",
+    "webhookNotFound": "الـ Webhook غير موجود.",
+    "adminOnly": "الوصول مقصور على المسؤولين.",
+    "agencyOnly": "مقصور على حسابات الوكالة.",
+    "internalError": "خطأ داخلي، أعد المحاولة لاحقًا.",
+    "invalidCourseId": "courseId غير صالح.",
+    "courseNotReadyForDeploy": "يجب توليد الدورة (جاهزة) قبل أي عملية نشر.",
+    "courseStillGenerating": "الدورة لا تزال قيد التوليد — أعد المحاولة عندما تصبح جاهزة.",
+    "invalidRequest": "طلب غير صالح.",
+    "certificateWhiteLabelBusiness": "العلامة البيضاء للشهادة مقصورة على خطة Business.",
+    "handleTaken": "هذا المعرّف مأخوذ بالفعل.",
+    "platformAccountsNotFound": "تعذّر العثور على حساب منصة واحد أو أكثر مُشار إليه.",
+    "keyNotFound": "المفتاح غير موجود.",
+    "tooManyRequests": "طلبات كثيرة جدًا، أعد المحاولة لاحقًا.",
+    "emailAlreadyExists": "يوجد حساب بالفعل بهذا البريد الإلكتروني.",
+    "invoiceNotFound": "الفاتورة غير موجودة.",
+    "couponNotFound": "القسيمة غير موجودة.",
+    "cannotStartGeneration": "تعذّر بدء التوليد، أعد المحاولة لاحقًا.",
+    "missingFile": "ملف مفقود (الحقل « file »).",
+    "unsupportedVideoFormat": "تنسيق غير مدعوم (المتوقع MP4 أو MOV أو WebM).",
+    "emptyRecording": "تسجيل فارغ.",
+    "recordingStorageFailed": "فشل تخزين التسجيل.",
+    "invalidManualPlatform": "منصة يدوية غير صالحة.",
+    "lessonNotArticle": "هذا الدرس ليس مقالًا.",
+    "sectionNotFound": "القسم غير موجود.",
+    "cannotRegenerate": "تعذّر بدء إعادة التوليد، أعد المحاولة لاحقًا.",
+    "versionNotFound": "الإصدار غير موجود.",
+    "versionCorrupted": "إصدار تالف.",
+    "duplicateCourseInPath": "لا يمكن أن تظهر الدورة نفسها مرتين في مسار.",
+    "pathUnavailable": "المسار غير متاح.",
+    "invalidPlan": "خطة غير صالحة (المتوقع pro | business).",
+    "invalidSignature": "توقيع غير صالح.",
+    "credentialNotFound": "بيانات الاعتماد غير موجودة.",
+    "unknownError": "حدث خطأ، أعد المحاولة لاحقًا.",
+    "subscriptionNotFound": "الاشتراك غير موجود.",
+    "dictationNotFound": "الإملاء غير موجود.",
+    "missingImage": "الصورة مفقودة (حقل « file »).",
+    "unsupportedImageFormat": "صيغة غير مدعومة (المتوقع PNG أو JPEG أو WebP).",
+    "invalidIceCompany": "ICE غير صالح (المتوقع 15 رقماً) — إلزامي للشركة.",
+    "invalidIfCompany": "IF غير صالح (المتوقع من 6 إلى 8 أرقام) — إلزامي للشركة.",
+    "invalidIce": "ICE غير صالح (المتوقع 15 رقماً).",
+    "subdomainTaken": "هذا النطاق الفرعي مستخدم بالفعل.",
+    "missingLogo": "الشعار مفقود (حقل « file »).",
+    "unsupportedLogoFormat": "صيغة غير مدعومة (المتوقع PNG أو JPEG أو WebP أو SVG).",
+    "emailConfirmationMismatch": "التأكيد لا يطابق عنوان بريدك الإلكتروني.",
+    "missingHandle": "المُعرِّف مفقود.",
+    "tooManyGenerations": "عدد كبير جداً من عمليات التوليد، أعد المحاولة لاحقاً.",
+    "accountNotFound": "الحساب غير موجود.",
+    "publishCourseBeforeBio": "انشر دورة واحدة على الأقل على LMS قبل توليد سيرتك الذاتية.",
+    "bioGenerationUnavailable": "توليد السيرة الذاتية غير متاح في الوقت الحالي، أعد المحاولة لاحقاً.",
+    "missingAudioSample": "العينة الصوتية مفقودة (حقل « file »).",
+    "unsupportedAudioFormat": "صيغة غير مدعومة (المتوقع MP3 أو WAV أو WebM أو M4A).",
+    "voiceCloneConsentRequired": "مطلوب موافقة صريحة (خانة « voiceCloneConsent ») قبل أي استنساخ صوتي.",
+    "invalidSampleDuration": "مدة العينة مفقودة أو غير صالحة.",
+    "blogGenerationStartFailed": "تعذّر بدء توليد المدوّنة، حاول مرة أخرى لاحقًا.",
+    "courseGenerationNotRunning": "توليد هذه الدورة ليس قيد التنفيذ.",
+    "lessonAlreadyGenerating": "هناك درس قيد التوليد بالفعل — انتظر حتى ينتهي.",
+    "mediaStartFailed": "تعذّر بدء الوسائط، حاول مرة أخرى لاحقًا.",
+    "nextLessonStartFailed": "تعذّر بدء الدرس التالي، حاول مرة أخرى لاحقًا.",
+    "aiContentDisclosureRequired": "يجب عليك تأكيد إشعار « contenu généré par IA » قبل النشر على Udemy.",
+    "courseMustBeReadyToSchedule": "يجب أن تكون الدورة مُولَّدة (جاهزة) قبل جدولة نشرها.",
+    "unknownAction": "إجراء غير معروف.",
+    "noScheduledPublicationPlan": "لا توجد خطة نشر مجدولة.",
+    "planAlreadyCompleted": "الخطة مكتملة بالفعل.",
+    "reportStartFailed": "تعذّر بدء التقرير، حاول مرة أخرى لاحقًا.",
+    "tooManyUpdates": "عدد كبير جدًا من التحديثات، حاول مرة أخرى بعد لحظة.",
+    "invalidPublicationUrl": "عنوان URL للنشر غير صالح: قدّم عنوان http(s) كاملًا.",
+    "deploymentNotManualMode": "هذا النشر ليس في الوضع اليدوي.",
+    "invalidTargetMode": "الوضع المستهدف غير صالح (assisted أو manual).",
+    "tooManyToggles": "عدد كبير جدًا من عمليات التبديل، حاول مرة أخرى بعد لحظة.",
+    "onlyPausedOrFailedDeploymentSwitchable": "لا يمكن تبديل سوى نشر متوقف مؤقتًا أو فاشل.",
+    "noReferenceDeployment": "لا يوجد نشر مرجعي: انشر الدورة على هذه المنصة أولًا.",
+    "invalidVariantParameters": "معلمات الاشتقاق غير صالحة.",
+    "noValidatedPlanToVary": "لا تحتوي هذه الدورة بعد على خطة معتمدة لاشتقاق نسخة منها.",
+    "proofNotFound": "لم يتم العثور على الإثبات.",
+    "invalidCommandLength": "أمر غير صالح (من 1 إلى 500 حرف).",
+    "tooManySignupAttempts": "عدد كبير جدًا من محاولات التسجيل من هذا العنوان، حاول مرة أخرى لاحقًا.",
+    "invalidPromoCodeFormat": "صيغة رمز الترويج غير صالحة.",
+    "promoCodeAlreadyExists": "رمز الترويج هذا موجود بالفعل.",
+    "tooManyCourseCreations": "عدد كبير جدًا من عمليات إنشاء الدورات، حاول مرة أخرى لاحقًا.",
+    "invalidAgencyClient": "عميل الوكالة غير صالح.",
+    "agencyClientNotFound": "لم يتم العثور على عميل الوكالة.",
+    "missingCsvField": "الحقل « csv » مفقود.",
+    "noValidRowToGenerate": "لا يوجد صف صالح للإنشاء.",
+    "tooManyRecentImports": "عدد كبير جدًا من عمليات الاستيراد الأخيرة، حاول مرة أخرى بعد بضع دقائق.",
+    "fileReadFailed": "تعذّر قراءة الملف.",
+    "reimportFailed": "فشل إعادة الاستيراد، حاول مرة أخرى لاحقًا.",
+    "noApplicablePlatformInPreset": "لا توجد منصة قابلة للتطبيق في هذا الإعداد المسبق.",
+    "courseNotFoundOrUnauthorized": "لم يتم العثور على الدورة أو الإجراء غير مسموح به.",
+    "courseHasNoTeamNoApproval": "هذه الدورة لا تنتمي إلى أي فريق — لا حاجة إلى أي موافقة.",
+    "invalidPlan2": "خطة غير صالحة.",
+    "cannotStartGeneration2": "تعذّر بدء الإنشاء، حاول مرة أخرى لاحقًا.",
+    "tooManyRegenerations": "تم طلب عدد كبير جدًا من عمليات إعادة الإنشاء، حاول مرة أخرى لاحقًا.",
+    "publishToLmsBeforeSeoBlog": "انشر الدورة على LMS قبل إنشاء مدونة SEO الخاصة بها.",
+    "variantMustChangeLanguageOrLevel": "يجب أن يغيّر الاشتقاق اللغة أو مستوى الصعوبة.",
+    "variantCreationFailed": "تعذّر إنشاء الاشتقاق.",
+    "variantLaunchFailed": "تعذّر بدء الاشتقاق، أعد المحاولة لاحقًا.",
+    "noApprovedLesson": "لا يوجد درس معتمد — تحقّق أولًا من المعاينة السريعة لكل درس.",
+    "finalVersionLaunchFailed": "تعذّر بدء النسخة النهائية، أعد المحاولة لاحقًا.",
+    "unsupportedDocFormat": "صيغة غير مدعومة (المتوقع PDF أو PPTX أو Markdown).",
+    "fileSaveFailed": "فشل حفظ الملف، أعد المحاولة.",
+    "missingVideoFile": "ملف الفيديو مفقود (الحقل « file »).",
+    "videoSaveFailed": "فشل حفظ الفيديو، أعد المحاولة.",
+    "deletionFailed": "تعذّر الحذف، أعد المحاولة.",
+    "tooManyRenders": "عدد كبير من طلبات المعالجة، أعد المحاولة لاحقًا.",
+    "missingRecording": "التسجيل مفقود (الحقل « file »).",
+    "invalidJsonCaptions": "تسميات JSON غير صالحة.",
+    "invalidNarrationOrCaptions": "السرد أو التسميات غير صالحة.",
+    "renderStartFailed": "تعذّر بدء المعالجة، أعد المحاولة لاحقًا.",
+    "guideGenerationLaunchFailed": "تعذّر بدء توليد الدليل، أعد المحاولة لاحقًا.",
+    "tooManyArchiveRequests": "عدد كبير من طلبات الأرشفة، أعد المحاولة بعد بضع دقائق.",
+    "archivingLaunchFailed": "تعذّر بدء الأرشفة، أعد المحاولة لاحقًا.",
+    "packagingLaunchFailed": "تعذّر بدء التجميع، أعد المحاولة لاحقًا.",
+    "portableExportLaunchFailed": "تعذّر بدء التصدير المحمول، أعد المحاولة لاحقًا.",
+    "invalidComment": "تعليق غير صالح.",
+    "articleRestoreFailed": "تعذّرت استعادة المقال، حاول مرة أخرى لاحقًا.",
+    "invalidQuestionLength": "سؤال غير صالح (من 3 إلى 500 حرف).",
+    "tooManyQuestions": "عدد الأسئلة كبير جدًا، حاول مرة أخرى لاحقًا.",
+    "enrollmentRequiredForAssistant": "يلزم التسجيل لاستخدام مساعد الدورة.",
+    "courseAssistantUnavailable": "مساعد الدورة غير متاح حاليًا، حاول مرة أخرى لاحقًا.",
+    "infringingUrlRequired": "قدّم رابط URL واحدًا على الأقل للمحتوى المخالف.",
+    "invalidRequestDeviceId": "طلب غير صالح (deviceId مطلوب).",
+    "lessonNotVideo": "هذا الدرس ليس فيديو.",
+    "tooManyExerciseGenerations": "عدد عمليات إنشاء التمارين كبير جدًا، حاول مرة أخرى لاحقًا.",
+    "customExercisesQuizOnly": "التمارين المخصّصة متاحة فقط لدروس من نوع الاختبار (quiz).",
+    "noWrongAnswersForTargetedExercises": "لا توجد إجابات خاطئة مسجّلة لهذا الدرس — اجتَز الاختبار مرة واحدة على الأقل للحصول على تمارين موجّهة.",
+    "exerciseGenerationUnavailable": "إنشاء التمارين غير متاح حاليًا، حاول مرة أخرى لاحقًا.",
+    "fullCopySaleRequiresGeneratedCourse": "لا يمكن بيع النسخة الكاملة إلا لدورة مُنشأة بالكامل (جاهزة أو منشورة).",
+    "noValidatedPlanToSellAsTemplate": "لا تملك هذه الدورة بعد خطة معتمدة لبيعها كقالب.",
+    "invalidListingParams": "معلمات الإدراج غير صالحة.",
+    "courseAlreadyListedWithLicense": "هذه الدورة مُدرَجة بالفعل في السوق بهذا الترخيص.",
+    "listingNotFound": "الإدراج غير موجود.",
+    "listingNotFoundOrRemoved": "الإدراج غير موجود أو تمت إزالته.",
+    "cannotBuyOwnCourse": "لا يمكنك شراء دورتك الخاصة.",
+    "invalidStepParam": "معامل \"step\" غير صالح.",
+    "noVideoLessonWithScript": "لا يوجد درس فيديو بنص مُولَّد — ابدأ توليد المحتوى قبل المعاينة.",
+    "cannotStartQuickPreview": "تعذّر بدء المعاينة السريعة، أعد المحاولة لاحقًا.",
+    "courseNotArchived": "هذه الدورة غير مؤرشفة.",
+    "cannotRestartGeneration": "تعذّرت إعادة تشغيل التوليد، أعد المحاولة لاحقًا.",
+    "invalidInstructions": "تعليمات غير صالحة.",
+    "cannotRestartPlanGeneration": "تعذّرت إعادة تشغيل توليد المخطط، أعد المحاولة لاحقًا.",
+    "cannotStartFeedbackAnalysis": "تعذّر بدء تحليل الملاحظات، أعد المحاولة لاحقًا.",
+    "courseMustBeDeployedBeforeTranslate": "يجب نشر هذه الدورة على منصة واحدة على الأقل قبل ترجمتها.",
+    "cannotStartTranslation": "تعذّر بدء الترجمة، أعد المحاولة لاحقًا.",
+    "tooManyDemosFromAddress": "تم توليد عدد كبير جدًا من العروض التجريبية من هذا العنوان، أعد المحاولة لاحقًا.",
+    "completeAllLessonsForCertificate": "أكمل جميع الدروس للحصول على شهادتك.",
+    "courseNotAvailableOnLms": "الدورة غير متوفرة على LMS.",
+    "invalidReview": "مراجعة غير صالحة: تقييم من 1 إلى 5، تعليق بحد أقصى 600 حرف.",
+    "tooManyReviewsSent": "تم إرسال عدد كبير جدًا من المراجعات، أعد المحاولة لاحقًا.",
+    "enrollmentRequiredForReview": "التسجيل مطلوب لترك مراجعة.",
+    "cannotSaveArticle": "تعذّر حفظ المقال، أعد المحاولة لاحقًا.",
+    "lessonHasNoVideoScript": "هذا الدرس لا يحتوي على نص فيديو.",
+    "invalidInstruction": "تعليمة غير صالحة.",
+    "lessonHasNoPendingPreview": "هذا الدرس لا يحتوي على معاينة بانتظار التحقق.",
+    "invalidRequestIdOrAll": "طلب غير صالح (قدّم { id } أو { all: true }).",
+    "invalidPushSubscription": "اشتراك غير صالح (endpoint/keys.p256dh/keys.auth مطلوبة).",
+    "endpointRequired": "endpoint مطلوب.",
+    "addCourseBeforePublishPath": "أضف دورة واحدة على الأقل قبل نشر المسار.",
+    "completeAllPathCoursesForCertificate": "أكمل جميع دورات المسار للحصول على شهادتك.",
+    "addCourseBeforeSalesPage": "أضف دورة واحدة على الأقل قبل إنشاء صفحة البيع.",
+    "salesPageGenerationFailed": "فشل إنشاء صفحة البيع. أعد المحاولة بعد لحظة.",
+    "cmiPaymentNotConfigured": "لم يتم إعداد دفع CMI. في وضع التطوير، استخدم الدفع المحاكى.",
+    "priceUnavailableForPlan": "السعر غير متاح لهذه الخطة.",
+    "unsupportedProofFormat": "صيغة الإثبات غير مدعومة (المتوقع PNG أو JPEG أو WebP أو PDF).",
+    "simulatedPaymentUnavailable": "الدفع المحاكى غير متاح.",
+    "webhookNotConfigured": "لم يتم إعداد Webhook.",
+    "signatureHeaderMissing": "ترويسة التوقيع مفقودة.",
+    "processingFailed": "فشلت المعالجة.",
+    "unsupportedPlatform": "المنصة غير مدعومة.",
+    "tooManyDictations": "عدد كبير جدًا من الإملاءات، أعد المحاولة لاحقًا.",
+    "audioRecordingMissing": "التسجيل الصوتي مفقود (حقل « file »).",
+    "unsupportedAudioFormatWebm": "صيغة غير مدعومة (المتوقع WebM أو MP3 أو WAV أو OGG أو M4A).",
+    "cannotStartDictationProcessing": "تعذّر بدء معالجة الإملاء.",
+    "cannotStartProcessing": "تعذّر بدء المعالجة، أعد المحاولة لاحقًا.",
+    "approveOutlinePlanNotUnderReview": "الخطة ليست في انتظار المصادقة (الحالة: {status}).",
+    "cancelCourseNotCancellable": "لا يمكن إلغاء هذه الدورة (الحالة: {status}).",
+    "deploySchedulePlatformsUnknown": "منصة (منصات) غير معروفة: {platforms}.",
+    "brandingLogoTooLarge": "الشعار كبير جدًا (الحد الأقصى {max} م.ب).",
+    "brandingUploadFailed": "فشل الرفع: {message}",
+    "avatarFaceImageTooLarge": "الصورة كبيرة جدًا (الحد الأقصى {max} م.ب).",
+    "avatarFaceUploadFailed": "فشل رفع الصورة: {message}",
+    "voiceCloneSampleTooLarge": "العينة الصوتية كبيرة جدًا (الحد الأقصى {max} م.ب).",
+    "voiceCloneSampleTooShort": "العينة الصوتية قصيرة جدًا: {seconds}ث (الحد الأدنى الموصى به: {minSeconds}ث).",
+    "voiceCloneFailed": "فشل استنساخ الصوت: {message}",
+    "introVideoTooLarge": "الفيديو كبير جدًا (الحد الأقصى {max} م.ب).",
+    "importMaterialFileTooLarge": "الملف كبير جدًا (الحد الأقصى {max} م.ب).",
+    "importMaterialMaxFilesReached": "تم بلوغ الحد الأقصى لعدد المواد ({max}).",
+    "switchModeTargetModeUnavailable": "الوضع «{mode}» غير متاح لهذه المنصة.",
+    "screencastRecordingTooLargeDeclared": "التسجيل كبير جدًا (الحد الأقصى {max} م.ب).",
+    "screencastRecordingTooLarge": "التسجيل كبير جدًا (الحد الأقصى {max} م.ب).",
+    "regenOutlineCannotRegenerateStatus": "لا يمكن إعادة توليد المخطط (الحالة: {status}).",
+    "deriveMonthlyQuotaReached": "تم بلوغ الحصة الشهرية ({limit} دورة/شهر لخطة {plan}).",
+    "deployUnknownPlatforms": "منصة (منصات) غير معروفة: {platforms}.",
+    "deployInvalidCredential": "حساب غير صالح لـ {platform}.",
+    "deployCredentialNotFoundAgency": "الحساب غير موجود لـ {platform} (خارج نطاق العميل).",
+    "deployCredentialNotFound": "الحساب غير موجود لـ {platform}.",
+    "reviewsAnalyzeNoStudentFeedback": "لا توجد ملاحظات طلابية متاحة (الحالة: {status}).",
+    "importArchiveArchiveTooLarge": "الأرشيف كبير جدًا (الحد الأقصى {max} م.ب).",
+    "importArchiveInvalidArchive": "أرشيف غير صالح: {message}",
+    "deployPresetsUnknownPlatforms": "منصة (منصات) غير معروفة: {platforms}.",
+    "purchaseFailed": "تعذّر الشراء ({reason}).",
+    "batchQuotaExceeded": "تم رفض دفعة من {count} دورة: الحصة المتبقية {remaining}/{limit} على خطة {plan}.",
+    "v1DeployUnknownPlatforms": "منصة (منصات) غير معروفة: {platforms}.",
+    "zapierSampleUnknownEvent": "حدث غير معروف. القيم الممكنة: {events}.",
+    "dictationRecordingTooLarge": "التسجيل كبير جدًا (الحد الأقصى {max} م.ب).",
+    "platformsMissingRequiredField": "حقل مطلوب مفقود: {field}.",
+    "manualPaymentProofTooLarge": "الإثبات كبير جدًا (الحد الأقصى {max} م.ب).",
+    "quota_exceeded": "تم بلوغ الحصة الشهرية: {limit} دورة/شهر في خطة {plan}.",
+    "quality_score_below_threshold": "درجة الجودة التعليمية {score}/100، أقل من الحد الموصى به {threshold}/100. حسّن الدورة قبل النشر، أو أكّد صراحةً للنشر رغم ذلك.",
+    "deploy_plan_limit": "خطة {plan} {limit, plural, zero {تقصر النشر على # منصة لكل دفعة.} one {تنشر على منصة واحدة فقط في كل مرة. رقِّ خطتك للنشر في كل مكان.} two {تقصر النشر على منصتين لكل دفعة.} few {تقصر النشر على # منصات لكل دفعة.} many {تقصر النشر على # منصة لكل دفعة.} other {تقصر النشر على # منصة لكل دفعة.}}",
+    "invalidInput": "بيانات غير صالحة.",
+    "cronTriggerFailed": "تعذّر التشغيل في الوقت الحالي."
+  },
+  "nicheResearch": {
+    "page": {
+      "metadataTitle": "ابحث عن موضوع — SallyCourse",
+      "metadataDescription": "استكشف مواضيع الدورات حسب الطلب والمنافسة المقدّرين، حسب الفئة."
+    },
+    "opportunity": {
+      "strong": "فرصة قوية",
+      "correct": "فرصة جيدة",
+      "saturated": "سوق مشبع"
+    },
+    "candidate": {
+      "demand": "الطلب",
+      "competition": "المنافسة",
+      "existingCourses": "الدورات الموجودة (تقديري)",
+      "avgPriceLabel": "السعر المتوسط (تقديري)",
+      "createCourse": "إنشاء دورة"
+    },
+    "toast": {
+      "searchUnavailableTitle": "البحث غير متاح",
+      "genericErrorDescription": "حدث خطأ — أعد المحاولة بعد لحظة."
+    },
+    "badge": "بحث عن مجال",
+    "title": "اعثر على موضوع مطلوب",
+    "subtitle": "اختر فئة: نجمع بين الاتجاهات المعروفة وإشارة رواج تقريبية لتقدير الطلب والمنافسة لكل موضوع.",
+    "categoryLabel": "الفئة",
+    "searching": "جارٍ البحث…",
+    "searchButton": "اعثر على موضوع",
+    "liveSignalNote": "إشارة رواج خارجية معززة (أفضل جهد).",
+    "empty": "لم يُعثر على أي مرشح لهذه الفئة.",
+    "disclaimerTitle": "تقديرات إرشادية.",
+    "disclaimerBody": "درجات الطلب/المنافسة وقيم «الدورات الموجودة» / «السعر المتوسط» هي معايير قائمة على تقدير الخبراء، وقد تُحسَّن بإشارة رواج خارجية — وهي ليست بيانات سوق آنية. استخدمها لمقارنة المواضيع فيما بينها، لا كأرقام دقيقة.",
+    "suggestedTopicsAriaLabel": "المواضيع المقترحة"
+  },
+  "affiliate": {
+    "page": {
+      "metadata": {
+        "title": "برنامج الإحالة — SallyCourse",
+        "description": "شارك رابطك واكسب عمولة على كل اشتراك يتم تحويله."
+      },
+      "heading": "برنامج الإحالة",
+      "description": "شارك رابطك الشخصي: كل اشتراك مدفوع جديد يتم خلال 30 يومًا من النقرة يمنحك عمولة."
+    },
+    "linkCopied": "تم نسخ الرابط",
+    "copyFailed": "تعذّر النسخ",
+    "title": "رابط الإحالة الخاص بك",
+    "commissionNote": "عمولة <badge>{rate}%</badge> على أول دفعة لكل شخص تُحيله، تُضاف تلقائياً عند تفعيل اشتراكه.",
+    "copyLink": "نسخ الرابط",
+    "clicks": "النقرات",
+    "conversions": "التحويلات",
+    "pendingEarnings": "الأرباح المعلّقة",
+    "alreadyPaid": "المدفوع بالفعل: <strong>{amount}</strong>"
+  },
+  "batch": {
+    "page": {
+      "metaTitle": "التوليد الجماعي — SallyCourse",
+      "metaDescription": "استورد ملف CSV لإطلاق توليد عدة دورات دفعة واحدة.",
+      "planFree": "مجاني",
+      "planPro": "Pro",
+      "planBusiness": "Business"
+    },
+    "title": "الإنشاء بالدفعات",
+    "intro": {
+      "description": "استورد ملف CSV (العنوان، المستوى، اللغة، المنصات) لإطلاق عدة دورات دفعة واحدة. خطة {planLabel} —",
+      "unlimited": "دورات غير محدودة",
+      "remaining": "{count, plural, zero {# رصيد متبقٍ} one {رصيد واحد متبقٍ} two {رصيدان متبقيان} few {# أرصدة متبقية} many {# رصيدًا متبقيًا} other {# رصيد متبقٍ}}"
+    },
+    "import": {
+      "title": "1 · استيراد الملف",
+      "columnsLabel": "الأعمدة:",
+      "required": "(إلزامي)",
+      "platformsHint": "(مفصولة بـ «؛»)",
+      "chooseFile": "اختر ملف CSV",
+      "downloadTemplate": "تنزيل قالب"
+    },
+    "launch": {
+      "button": "إطلاق {count} دورة",
+      "overQuota": "تتجاوز الدفعة حصتك المتبقية ({remaining}). قلّص الملف أو قم بالترقية إلى خطة أعلى."
+    },
+    "tracking": {
+      "title": "متابعة الدفعة",
+      "progress": "{done, plural, zero {#/{total} مكتمل — تحديث تلقائي.} one {#/{total} مكتمل — تحديث تلقائي.} two {#/{total} مكتمل — تحديث تلقائي.} few {#/{total} مكتملة — تحديث تلقائي.} many {#/{total} مكتملًا — تحديث تلقائي.} other {#/{total} مكتمل — تحديث تلقائي.}}",
+      "validateOutline": "صادق على المخطط لبدء الإنشاء ←"
+    },
+    "empty": {
+      "title": "لم يتم استيراد أي ملف",
+      "description": "اختر ملف CSV للمعاينة ثم إطلاق دفعة دوراتك."
+    },
+    "status": {
+      "draft": "مسودة",
+      "generating": "قيد الإنشاء",
+      "outlineReview": "مخطط بانتظار المراجعة",
+      "ready": "جاهز",
+      "published": "منشور",
+      "failed": "فشل"
+    },
+    "toast": {
+      "invalidCsv": "ملف CSV غير صالح",
+      "rejected": "تم رفض الدفعة",
+      "launched": {
+        "title": "{count, plural, zero {لم يتم إطلاق أي دورة} one {تم إطلاق دورة واحدة} two {تم إطلاق دورتين} few {تم إطلاق # دورات} many {تم إطلاق # دورة} other {تم إطلاق # دورة}}",
+        "skipped": "{count, plural, zero {تم تجاهل # سطر.} one {تم تجاهل سطر واحد.} two {تم تجاهل سطرين.} few {تم تجاهل # أسطر.} many {تم تجاهل # سطرًا.} other {تم تجاهل # سطر.}}",
+        "inProgress": "الإنشاء قيد التقدم…"
+      },
+      "networkError": {
+        "title": "خطأ في الشبكة",
+        "description": "يرجى المحاولة لاحقًا."
+      }
+    },
+    "preview": {
+      "valid": "{count, plural, zero {# صالح} one {صالح واحد} two {صالحان} few {# صالحة} many {# صالحًا} other {# صالح}}",
+      "rejected": "{count, plural, zero {# مرفوض} one {مرفوض واحد} two {مرفوضان} few {# مرفوضة} many {# مرفوضًا} other {# مرفوض}}",
+      "quotaRemaining": "الحصة المتبقية: {remaining}",
+      "colTitle": "العنوان",
+      "colLevel": "المستوى",
+      "colLanguage": "اللغة",
+      "colPlatforms": "المنصات",
+      "rejectedTitle": "الصفوف المرفوضة",
+      "lineLabel": "السطر {line}:",
+      "moreRows": "{count, plural, zero {… و# آخر.} one {… وآخر واحد.} two {… وآخران.} few {… و# أخرى.} many {… و# أخرى.} other {… و# أخرى.}}"
+    }
+  },
+  "analytics": {
+    "page": {
+      "metaTitle": "تحليلات الدورة — SallyCourse",
+      "backToCourse": "العودة إلى الدورة",
+      "heading": "التحليلات",
+      "exportXapi": "تصدير xAPI",
+      "noMetricsTitle": "لا توجد مقاييس بعد",
+      "emptyTitle": "لا توجد بيانات بعد",
+      "emptyDescription": "ستظهر المقاييس هنا بمجرد نشر الدورة على منصة وتنفيذ التحديث التالي.",
+      "simulatedWarning": "⚠️ بيانات محاكاة: لم يتم تكوين أي رمز تحليلات (YouTube/Udemy) — هذه الأرقام أمثلة حتمية وليست مقاييس حقيقية."
+    },
+    "heatmap": {
+      "title": "الخريطة الحرارية للتسرب حسب الدرس",
+      "empty": {
+        "title": "لا توجد دروس بعد",
+        "description": "ستظهر الخريطة الحرارية بمجرد أن يحتوي المساق على دروس ومتعلمين مسجّلين."
+      },
+      "suggestion": "اقتراح",
+      "dropoutRate": "{rate}% تسرب"
+    },
+    "abTesting": {
+      "title": "اختبار A/B — عناوين صفحات الهبوط ({platformLabel})",
+      "empty": {
+        "title": "لا توجد نسخ مُختبَرة بعد",
+        "description": "ستظهر النسخ بعد أول تدوير أسبوعي."
+      },
+      "columns": {
+        "title": "العنوان",
+        "status": "الحالة",
+        "impressions": "مرات الظهور",
+        "conversions": "التحويلات",
+        "rate": "المعدل"
+      },
+      "status": {
+        "active": "نشطة",
+        "historical": "سابقة",
+        "best": "الأفضل"
+      }
+    },
+    "dashboard": {
+      "kpi": {
+        "enrollments": "التسجيلات",
+        "views": "المشاهدات",
+        "revenue": "الإيرادات",
+        "platforms": "المنصات"
+      },
+      "revenueByPlatform": "الإيرادات حسب المنصة",
+      "averageRating": "متوسط التقييم",
+      "detailByPlatform": "التفصيل حسب المنصة",
+      "table": {
+        "platform": "المنصة",
+        "enrollments": "التسجيلات",
+        "views": "المشاهدات",
+        "rating": "التقييم",
+        "revenue": "الإيرادات",
+        "updated": "آخر تحديث"
+      },
+      "ratingGauge": {
+        "aria": "متوسط التقييم {rating} من 5"
+      }
+    }
+  },
+  "admin": {
+    "nav": {
+      "ariaLabel": "أقسام الإدارة",
+      "tabs": {
+        "overview": "نظرة عامة",
+        "users": "المستخدمون",
+        "courses": "الدورات",
+        "costs": "التكاليف",
+        "revenue": "الإيرادات",
+        "manualPayments": "المدفوعات اليدوية",
+        "jobs": "المهام",
+        "resilience": "المرونة",
+        "prompts": "المطالبات",
+        "audit": "التدقيق"
+      }
+    },
+    "promptsPage": {
+      "metaTitle": "الإدارة — Prompts — SallyCourse",
+      "title": "الـ Prompts",
+      "description": "حرِّر الـ prompts الخاصة بالتوليد وأنشئ إصداراتها دون إعادة النشر. يتجاوز الإصدار النشط في قاعدة البيانات الـ prompt المضمّن في المولِّد؛ ويقارن زر «اختبار» الإصدار قيد التحرير حاليًا بالإصدار النشط السابق."
+    },
+    "courses": {
+      "metaTitle": "المشرف — الدورات — SallyCourse",
+      "heading": "الدورات",
+      "subtitle": "جميع دورات المنصة، قابلة للتصفية حسب الحالة.",
+      "filterAll": "الكل",
+      "filterAriaLabel": "التصفية حسب الحالة",
+      "emptyTitle": "لا توجد دورات في هذه التصفية",
+      "emptyDescription": "لا توجد دورة تطابق هذه الحالة.",
+      "colCourse": "الدورة",
+      "colAuthor": "المؤلف",
+      "colStatus": "الحالة",
+      "colDifficulty": "الصعوبة",
+      "colPlatforms": "المنصات",
+      "colCreated": "تاريخ الإنشاء",
+      "deletedUser": "مستخدم محذوف"
+    },
+    "jobs": {
+      "metaTitle": "المشرف — مهام التوليد — SallyCourse",
+      "title": "مهام التوليد",
+      "subtitle": "الإشراف على المسار: أعد تشغيل الخطوات الفاشلة، فرديًا أو بالجملة.",
+      "retryAllFailed": "إعادة تشغيل كل الفاشلة ({count})",
+      "filterByStatus": "تصفية حسب الحالة",
+      "filters": {
+        "failed": "فاشلة",
+        "running": "قيد التشغيل",
+        "done": "مكتملة",
+        "all": "الكل"
+      },
+      "status": {
+        "failed": "فشل",
+        "done": "مكتمل",
+        "running": "قيد التشغيل"
+      },
+      "empty": {
+        "title": "لا توجد مهام في هذه التصفية",
+        "descriptionFailed": "خبر جيد: لا توجد مهام فاشلة في الوقت الحالي.",
+        "descriptionOther": "لا توجد مهام تطابق هذه الحالة."
+      },
+      "columns": {
+        "course": "الدورة",
+        "step": "الخطوة",
+        "status": "الحالة",
+        "progress": "التقدم",
+        "error": "الخطأ",
+        "attempts": "المحاولات",
+        "updatedAt": "آخر تحديث",
+        "action": "إجراء"
+      },
+      "deletedCourse": "دورة محذوفة",
+      "progressLabel": "التقدم {value}٪",
+      "retry": "إعادة التشغيل"
+    },
+    "home": {
+      "metaTitle": "المشرف — نظرة عامة — SallyCourse",
+      "title": "نظرة عامة",
+      "subtitle": "إحصائيات عامة للمنصة خلال آخر {days} يومًا.",
+      "kpi": {
+        "coursesPerDay": "الدورات / يوم",
+        "coursesPerDayHint": "{count} خلال {days} يوم",
+        "approval": "موافقة Udemy",
+        "approvalHint": "{published} منشورة / {terminal} مكتملة",
+        "topPlatform": "المنصة الأولى",
+        "topPlatformHint": "{count} عملية نشر",
+        "noDeployment": "لا يوجد نشر",
+        "users": "المستخدمون",
+        "usersHint": "{count} دورة إجمالًا"
+      },
+      "chart": {
+        "title": "الدورات المُنشأة يوميًا",
+        "barTitle": "{day}: {count}",
+        "footer": "تم إنشاء {count} دورة، الذروة {peak}/يوم."
+      },
+      "statusSection": {
+        "title": "الدورات حسب الحالة"
+      },
+      "platformsSection": {
+        "title": "المنصات المستخدمة",
+        "empty": "لا يوجد نشر بعد."
+      },
+      "plansSection": {
+        "title": "المستخدمون حسب الخطة"
+      },
+      "jobs": {
+        "failed": "{count, plural, zero {# مهمة فاشلة} one {# مهمة فاشلة} two {# مهمتان فاشلتان} few {# مهام فاشلة} many {# مهمة فاشلة} other {# مهمة فاشلة}}",
+        "superviseLink": "الإشراف"
+      },
+      "templates": {
+        "label": "قوالب الشرائح",
+        "openLink": "فتح ساحة التجارب"
+      }
+    },
+    "revenue": {
+      "metaTitle": "الإدارة — الإيرادات — SallyCourse",
+      "title": "الإيرادات المجمّعة",
+      "subtitle": "جميع المصادر مجتمعة، محوّلة إلى الدولار الأمريكي (أسعار ثابتة موثّقة في {path}).",
+      "exportCsv": "تصدير CSV محاسبي",
+      "totalRevenue": "إجمالي الإيرادات",
+      "source": {
+        "udemy": "Udemy",
+        "youtube": "YouTube",
+        "subscription": "الاشتراكات (SaaS)",
+        "gumroad": "Gumroad"
+      },
+      "gumroadNotExposed": "غير متاح عبر واجهة برمجة تطبيقات Gumroad المستخدمة (لا يوجد حقل إيرادات موثوق).",
+      "monthlyRevenueTitle": "الإيرادات الشهرية (آخر 12 شهرًا)",
+      "monthlyDetailTitle": "التفصيل الشهري حسب المصدر",
+      "colMonth": "الشهر",
+      "colSubscriptions": "الاشتراكات",
+      "colTotal": "الإجمالي",
+      "fxNote": "التحويل إلى الدولار الأمريكي عبر جدول أسعار ثابت (موثّق وقابل للتعديل) — انظر {path} لربط واجهة برمجة تطبيقات صرف حقيقية عند الحاجة."
+    },
+    "resilience": {
+      "metaTitle": "الإدارة — المرونة — SallyCourse",
+      "title": "المرونة",
+      "subtitle": "الوضع المتدهور: حالة قواطع الدارة الخاصة بالعامل (تبديل تلقائي إلى بديل عند تعطّل مزوّد خارجي) وعزل عمليات النشر متعددة المنصّات.",
+      "cards": {
+        "monitored": "القواطع المراقَبة",
+        "degraded": "في حالة تدهور"
+      },
+      "sections": {
+        "breakers": "قواطع الدارة",
+        "deployment": "النشر متعدد المنصّات"
+      },
+      "empty": {
+        "title": "لا يوجد أي قاطع مُسجَّل",
+        "description": "تظهر القواطع بمجرد أول تغيير في حالتها (مثلاً أول فشل لـ ElevenLabs). عدم وجود أي إدخال هنا يعني أنه لم يُكتشف أي حادث بعد."
+      },
+      "table": {
+        "breaker": "القاطع",
+        "state": "الحالة",
+        "failures": "حالات الفشل",
+        "lastError": "آخر خطأ",
+        "nextAttempt": "المحاولة التالية"
+      },
+      "state": {
+        "closed": "مغلق (طبيعي)",
+        "halfOpen": "نصف مفتوح (محاولة جارية)",
+        "open": "مفتوح (غير متاح)"
+      },
+      "fallbackNote": "البديل المُعدّ: تركيب الصوت ElevenLabs ← OpenAI TTS (5 حالات فشل متتالية تفتح الدارة، مع إعادة المحاولة بعد 60 ثانية). استدعاءات Claude: قائمة انتظار محلية بتأخير متزايد عند تكرار 429 (1ث/2ث/4ث/8ث)، دون أي بنية تحتية جديدة.",
+      "deploymentBody": "تُعالَج كل منصّة (Udemy وYouTube وPodia و…) بواسطة مهمة BullMQ مستقلة على قائمة الانتظار <code>deployment</code> (مهمة واحدة = زوج دورة/منصّة). إذا فشلت منصّة، تفشل مهمتها وحدها — أما بقية المهام في نفس موجة النشر فلا تُحظر ولا تُلغى (عزل أصلي لقائمة الانتظار). الحالة التفصيلية لكل منصّة: <link>عرض المهام</link>."
+    },
+    "rejectForm": {
+      "reject": "رفض",
+      "reasonLabel": "السبب (اختياري)",
+      "confirm": "تأكيد"
+    },
+    "playground": {
+      "editor": "المحرر",
+      "promptKeyLabel": "مفتاح الموجّه",
+      "activeVersionPrefix": "النسخة النشطة:",
+      "byAuthor": "— بواسطة",
+      "noVersionInDb": "لا توجد نسخة في قاعدة البيانات لهذا المفتاح — يستخدم المسار حاليًا الموجّه المضمّن في المولّد ({generator}.ts).",
+      "promptContentLabel": "محتوى الموجّه",
+      "contentHint": "يؤدي الحفظ إلى إنشاء نسخة تزايدية جديدة وتفعيلها فورًا (سيقرأها مسار التوليد في التشغيل التالي).",
+      "exampleUserMessageLabel": "رسالة مستخدم نموذجية (لزر الاختبار)",
+      "saving": "جارٍ الحفظ…",
+      "saveNewVersion": "حفظ (نسخة جديدة)",
+      "testing": "جارٍ الاختبار…",
+      "test": "اختبار",
+      "abComparison": "مقارنة أ/ب",
+      "abComparisonDesc": "نتيجة النسخة قيد التحرير على اليسار، والنسخة النشطة سابقًا على اليمين.",
+      "versionsHistory": "سجل النسخ",
+      "noVersionsSaved": "لا توجد نسخة محفوظة لهذا المفتاح.",
+      "reactivate": "إعادة التفعيل",
+      "noPreviousToCompare": "لا توجد نسخة سابقة للمقارنة.",
+      "loading": "جارٍ التحميل…",
+      "loadFailed": "تعذّر التحميل",
+      "versionSavedActivated": "تم حفظ النسخة {version} وتفعيلها",
+      "saveFailed": "تعذّر الحفظ",
+      "versionReactivated": "تمت إعادة تفعيل النسخة {version}",
+      "activationFailed": "تعذّر التفعيل",
+      "currentEditingVersion": "النسخة قيد التحرير",
+      "previousVersion": "النسخة السابقة (v{version})",
+      "testFailed": "تعذّر الاختبار"
+    },
+    "planSelect": {
+      "changePlanAria": "تغيير الخطة"
+    },
+    "payments": {
+      "metaTitle": "المشرف — المدفوعات اليدوية — SallyCourse",
+      "title": "المدفوعات اليدوية",
+      "subtitle": "تحويلات مصرفية دولية (بدون عمولة) في انتظار التحقق — {pendingCount} قيد الانتظار من أصل {total, plural, zero {# طلب} one {# طلب} two {# طلبان} few {# طلبات} many {# طلبًا} other {# طلب}}.",
+      "empty": {
+        "title": "لا توجد طلبات",
+        "description": "لم يقدّم أي مستخدم طلب دفع يدوي بعد."
+      },
+      "table": {
+        "user": "المستخدم",
+        "plan": "الخطة",
+        "amount": "المبلغ المُصرّح به",
+        "proof": "الإثبات",
+        "status": "الحالة",
+        "submitted": "تاريخ التقديم",
+        "actions": "الإجراءات"
+      },
+      "deletedUser": "(مستخدم محذوف)",
+      "viewProof": "عرض الإثبات",
+      "noProof": "لا يوجد",
+      "status": {
+        "pending": "قيد الانتظار",
+        "approved": "مقبولة",
+        "rejected": "مرفوضة"
+      },
+      "approve": "قبول",
+      "processed": "تمت المعالجة"
+    },
+    "audit": {
+      "metaTitle": "المشرف — التدقيق الشامل — SallyCourse",
+      "title": "التدقيق الشامل",
+      "description": "سجلّ غير قابل للتعديل للإجراءات الحساسة (تسجيلات الدخول، بيانات اعتماد المنصة، عمليات النشر، حذف الدورات، وصول المشرف). الاحتفاظ لمدة 12 شهرًا، ويُطهَّر تلقائيًا (عامل cron).",
+      "exportCsv": "تصدير CSV",
+      "actionLabel": "الإجراء",
+      "allActions": "الكل",
+      "emailLabel": "البريد الإلكتروني للمستخدم",
+      "fromLabel": "من",
+      "toLabel": "إلى",
+      "filter": "تصفية",
+      "reset": "إعادة تعيين",
+      "emptyTitle": "لا توجد إدخالات",
+      "emptyDescription": "لا يوجد إجراء يطابق هذه المرشحات.",
+      "colDate": "التاريخ",
+      "colUser": "المستخدم",
+      "colAction": "الإجراء",
+      "colTarget": "الهدف",
+      "colIp": "IP",
+      "actions": {
+        "login": "تسجيل الدخول",
+        "loginFailed": "فشل تسجيل الدخول",
+        "register": "التسجيل",
+        "logout": "تسجيل الخروج",
+        "credentialsChanged": "تم تعديل بيانات الاعتماد",
+        "credentialsDeleted": "تم حذف بيانات الاعتماد",
+        "deploymentCreated": "تم بدء النشر",
+        "courseDeleted": "تم حذف الدورة",
+        "adminAccess": "وصول المشرف"
+      }
+    },
+    "users": {
+      "metadataTitle": "المشرف — المستخدمون — SallyCourse",
+      "title": "المستخدمون",
+      "subtitle": "{count, plural, zero {لا توجد حسابات — الخطة والاستخدام والتكاليف المقدّرة.} one {حساب واحد من الأحدث — الخطة والاستخدام والتكاليف المقدّرة.} two {حسابان من الأحدث — الخطة والاستخدام والتكاليف المقدّرة.} few {# حسابات من الأحدث — الخطة والاستخدام والتكاليف المقدّرة.} many {# حسابًا من الأحدث — الخطة والاستخدام والتكاليف المقدّرة.} other {# حساب من الأحدث — الخطة والاستخدام والتكاليف المقدّرة.}}",
+      "empty": {
+        "title": "لا يوجد مستخدمون",
+        "description": "لا تحتوي قاعدة البيانات على أي حساب بعد."
+      },
+      "columns": {
+        "user": "المستخدم",
+        "plan": "الخطة",
+        "monthlyUsage": "استخدام الشهر",
+        "totalCourses": "الدورات (الإجمالي)",
+        "estimatedCost": "التكلفة المقدّرة",
+        "registered": "تاريخ التسجيل",
+        "actions": "الإجراءات"
+      },
+      "badge": {
+        "admin": "مشرف",
+        "banned": "محظور"
+      },
+      "selfActionDisabled": "لا يمكن تنفيذ هذا الإجراء على حسابك الخاص",
+      "agency": "وكالة",
+      "agencyActive": "وكالة ✓",
+      "reactivate": "إعادة التفعيل",
+      "ban": "حظر"
+    },
+    "usageCharts": {
+      "kind": {
+        "claude": "نص (LLM)",
+        "tts": "صوت (TTS)",
+        "render": "فيديو",
+        "image": "صور",
+        "transcribe": "نسخ صوتي",
+        "avatar": "أفاتار"
+      },
+      "costPerDay": "التكلفة اليومية ({count} ي)",
+      "callsOverPeriod": "{count, plural, zero {لا استدعاءات خلال الفترة} one {استدعاء واحد خلال الفترة} two {استدعاءان خلال الفترة} few {# استدعاءات خلال الفترة} many {# استدعاءً خلال الفترة} other {# استدعاء خلال الفترة}}",
+      "timelineAriaLabel": "رسم بياني للتكلفة اليومية حسب النوع",
+      "callsCount": "{count, plural, zero {لا استدعاءات} one {استدعاء واحد} two {استدعاءان} few {# استدعاءات} many {# استدعاءً} other {# استدعاء}}",
+      "noCallsYet": "لا توجد استدعاءات مسجلة حتى الآن.",
+      "free": "مجاني"
+    },
+    "costsPage": {
+      "metaTitle": "الإدارة — التكاليف — SallyCourse",
+      "heading": "تكاليف التوليد",
+      "intro": "التكلفة لكل دورة، والهامش لكل خطة، والتنبيهات. مُقدَّرة من جدول الأسعار (عتبة التنبيه: {threshold}).",
+      "summary": {
+        "totalCost": "التكلفة الإجمالية",
+        "trackedCourses": "الدورات المتابَعة",
+        "alertCourses": "الدورات في حالة تنبيه"
+      },
+      "providers": {
+        "heading": "الاستخدام حسب المزوّد",
+        "colProviderModel": "المزوّد / النموذج",
+        "colCalls": "الطلبات",
+        "colCost": "التكلفة",
+        "note": "كل طلب LLM (نص) وكل مقطع صوتي يُحتسب كطلب واحد. النماذج السحابية المجانية (Gemini، GLM-4.5 Flash) والأصوات المحلية/Edge تُحتسب بصفر؛ صوت Modal (GPU) وElevenLabs/OpenAI تُقدَّر حسب الاستخدام. السجل خلال آخر 30 يومًا (UTC)."
+      },
+      "margin": {
+        "heading": "الهامش حسب الخطة",
+        "colPlan": "الخطة",
+        "colRevenue": "الإيراد (USD)",
+        "colCost": "التكلفة (USD)",
+        "colMargin": "الهامش (USD)"
+      },
+      "byCourse": {
+        "heading": "التكلفة لكل دورة",
+        "emptyTitle": "لا توجد تكاليف مسجَّلة",
+        "emptyDescription": "تظهر التكاليف بمجرد مرور الدورة بعملية التوليد (Claude، الصوت، الفيديو، الصور).",
+        "colCourse": "الدورة",
+        "colClaude": "Claude",
+        "colVoice": "الصوت",
+        "colVideo": "الفيديو",
+        "colImages": "الصور",
+        "colTotal": "الإجمالي",
+        "alertBadge": "تنبيه",
+        "deletedCourse": "دورة محذوفة",
+        "note": "التوزيع حسب النوع — {kinds}. المبالغ بالدولار الأمريكي."
+      },
+      "costKind": {
+      "transcribe": "النسخ الصوتي",
+      "avatar": "الأفاتار",
+        "claude": "Claude",
+        "tts": "الصوت",
+        "render": "الفيديو",
+        "image": "الصور"
+      },
+      "compare": {
+        "heading": "السحابة مقابل OSS",
+        "cloudCurrent": "تكلفة السحابة (الحالية)",
+        "fullOss": "التكلفة عند اعتماد OSS بالكامل",
+        "potentialSavings": "التوفير المحتمل",
+        "emptyTitle": "لا توجد دورة للمقارنة",
+        "emptyDescription": "تظهر أداة المقارنة بمجرد أن يكون للدورة تكاليف مسجَّلة.",
+        "colCourse": "الدورة",
+        "colCloudCost": "تكلفة السحابة",
+        "colOssCost": "تكلفة OSS",
+        "colRecommendedMix": "المزيج المُوصى به",
+        "colActualMix": "المزيج المستخدَم فعليًا",
+        "note": "تكلفة OSS = حوسبة Hetzner فقط (ساعات معالج ffmpeg/ollama/piper بسعر {rate}/ساعة)، دون فوترة حسب الرمز/الحرف. التوصية: لغة نادرة أو خطة أعمال ← السحابة للخطة/النصوص (llm)، وOSS لبقية المكوّنات؛ وإلا OSS بالكامل. يعكس المزيج «المستخدَم فعليًا» قيمة Course.providerMix (الافتراضي OSS إن لم يُسجَّل قط — دورات سابقة لأداة المقارنة هذه)."
+      },
+      "cache": {
+        "heading": "ذاكرة التخزين المؤقت",
+        "overallHitRate": "معدل الإصابة الإجمالي",
+        "estimatedSavings": "التوفير المُقدَّر",
+        "colCache": "ذاكرة التخزين المؤقت",
+        "colHits": "الإصابات",
+        "colMiss": "الإخفاقات",
+        "colHitRate": "معدل الإصابة",
+        "colSavings": "التوفير المُقدَّر",
+        "note": "التوفير = عدد الإصابات × متوسط التكلفة المُتجنَّبة (مُقدَّرة من جدول الأسعار، بحجم طلب نموذجي لخط الإنتاج). ذاكرة Claude (30 يومًا، المفتاح = بصمة النظام+الرسالة+النموذج)، ذاكرة TTS (دائمة، المفتاح = بصمة النص+الصوت، مطبَّقة سلفًا)، ذاكرة لقطات الشاشة حسب المحتوى (دائمة، المفتاح = بصمة المواصفة — يُعاد استخدامها بين الدروس والدورات)."
+      },
+      "cacheNamespace": {
+        "claude": "طلبات Claude",
+        "tts": "التوليف الصوتي (TTS)",
+        "screenshot": "لقطات الشاشة"
+      }
+    },
+    "status": {
+      "draft": "مسودة",
+      "generating": "جارٍ التوليد…",
+      "outline-review": "مراجعة المخطط",
+      "ready": "جاهز",
+      "published": "منشور",
+      "failed": "فشل",
+      "cancelled": "ملغى"
+    },
+    "crons": {
+      "title": "تشغيل مهمة مجدولة",
+      "subtitle": "أعد تشغيل مهمة مجدولة يدويًا دون انتظار المُجدوِل (تصحيح، حادث، عرض).",
+      "runButton": "تشغيل",
+      "successTitle": "تم تشغيل المهمة",
+      "successDesc": "تمت جدولة «{cron}».",
+      "errorTitle": "تعذّر التشغيل",
+      "networkError": "خطأ في الشبكة، أعد المحاولة.",
+      "labels": {
+        "retention": "أرشفة الاحتفاظ",
+        "analytics": "تحديث التحليلات",
+        "emailSequence": "تسلسلات البريد المستحقة",
+        "deploySchedule": "عمليات النشر المجدولة المستحقة",
+        "courseRefresh": "تحديث الدورات",
+        "streakReminder": "تذكيرات التتابع",
+        "abTesting": "اختبار A/B للصفحة",
+        "reviewPoll": "جمع التقييمات"
+      },
+      "descriptions": {
+        "retention": "يؤرشف الدورات والوسائط المؤهلة للحذف.",
+        "analytics": "يعيد حساب مجاميع تحليلات لوحة التحكم.",
+        "emailSequence": "يرسل رسائل التسلسل المستحقة.",
+        "deploySchedule": "يشغّل عمليات النشر المجدولة المستحقة.",
+        "courseRefresh": "يراجع الدورات للتحديث الدوري.",
+        "streakReminder": "يُنبّه المتعلمين للحفاظ على تتابعهم.",
+        "abTesting": "يُدوّر متغيرات A/B للصفحة الرئيسية.",
+        "reviewPoll": "يجمع التقييمات الجديدة من المنصات."
+      }
+    }
+  },
+  "legal": {
+    "lastUpdated": "آخر تحديث: {date}",
+    "navAriaLabel": "المستندات القانونية",
+    "nav": {
+      "cgu": "شروط الاستخدام",
+      "cgv": "شروط البيع",
+      "privacy": "الخصوصية"
+    }
+  },
+  "design": {
+    "motion": {
+      "title": "الحركة",
+      "lead": "خمس مُدد، أربعة منحنيات، ثلاث حركات دخول: مفردات قصيرة وصارمة. تبقى التفاعلات الدقيقة دون 250 مللي ثانية؛ ويُخصَّص الارتداد الزنبركي (spring) للاحتفالات. تُحترم دائمًا خاصية prefers-reduced-motion.",
+      "back": "رجوع",
+      "start": "انطلاق",
+      "replay": "إعادة التشغيل",
+      "entranceLabel": "حركات الدخول القياسية",
+      "durationsLegend": "المُدد — المنحنى نفسه (standard)، خمسة إيقاعات",
+      "durationsNote": "تقطع كل كرة المسافة نفسها: تتغيّر المدة فقط. في وضع RTL ينعكس السباق تلقائيًا (تحرّك عبر الهامش المنطقي).",
+      "easingsLegend": "المنحنيات — المدة نفسها (slower)، أربعة طبائع",
+      "easingsNote": "لاحظ كيف يتجاوز الارتداد الزنبركي (spring) هدفه قليلًا قبل أن يستقرّ — يُخصَّص للحظات الاحتفال.",
+      "dur": {
+        "instant": "استجابة الضغط",
+        "fast": "التحويم، التركيز",
+        "base": "الانتقالات الافتراضية",
+        "slow": "دخول الألواح",
+        "slower": "التسلسلات المنسّقة"
+      },
+      "ease": {
+        "standard": "المنحنى الافتراضي",
+        "out": "الدخول (تباطؤ)",
+        "in": "الخروج (تسارع)",
+        "spring": "الاحتفالات، الشارات"
+      },
+      "entrance": {
+        "fadeIn": "ظهور خفيف",
+        "fadeInUp": "محتوى يستقرّ",
+        "scaleIn": "النوافذ المنبثقة، الاحتفالات"
+      }
+    },
+    "illustrations": {
+      "sectionTitle": "الرسوم التوضيحية",
+      "lead": "لغة «التدفق»: شرارة الموجّه تعبر تيارات بنفسجية وتتجسّد معرفةً منظّمة. هندسة تجريدية، خطوط بسماكة 1٫5 بكسل، الذهبي كعلامة ترقيم فقط — لا تعبئة صمّاء أبداً.",
+      "cards": {
+        "fluxCours": {
+          "name": "تدفق الموجّه ← الدورة",
+          "usage": "رسم توضيحي رئيسي — الصفحة الرئيسية، شاشات التوليد. <IllustrationFluxCours />",
+          "title": "شرارة تتفرّع إلى ثلاثة تيارات تتحوّل إلى وحدات للدورة"
+        },
+        "constellation": {
+          "name": "كوكبة",
+          "usage": "المكتبة، حالات فارغة غنية. <IllustrationConstellation />",
+          "title": "رسم بياني لمفاهيم مترابطة حول عقدة ذهبية"
+        },
+        "strates": {
+          "name": "طبقات المعرفة",
+          "usage": "التقدّم، المراحل. <IllustrationStrates />",
+          "title": "طبقات متساوية القياس يخترقها خيط ذهبي صاعد"
+        }
+      },
+      "etincelle": {
+        "label": "الشرارة — زخرفة ترقيم",
+        "title": "شرارة SALISTAR",
+        "description": "أربعة أفرع مقعّرة، ذهبي على دائرة بنفسجية. تُستخدم كعلامة قائمة أو لمسة احتفال أو توقيع خفيّ — واحدة في كل شاشة تكفي."
+      },
+      "rules": {
+        "strokes": {
+          "term": "الخطوط",
+          "desc": "— 1٫5 بكسل، نهايات دائرية، violet 400/500 بعتامة 30–70٪."
+        },
+        "gradient": {
+          "term": "تدرّج",
+          "desc": "— violet → ذهبي مخصّص للمسارات والحدود، لا للتعبئة أبداً."
+        },
+        "gold": {
+          "term": "الذهبي",
+          "desc": "— نقطة تركيز ذهبية واحدة لكل رسم: الفكرة، الدورة، الإنجاز."
+        }
+      }
+    },
+    "palette": {
+      "title": "لوحة الألوان",
+      "lead": "سبعة تدرّجات 50→950 مشتقّة من tokens.ts — بنفسجي العلامة، وذهبي مميّز، ومحايدات دافئة مائلة للبنفسجي، وأربع حالات منسّقة. النقر على عيّنة لونية ينسخ قيمتها الست عشرية؛ الحلقة الذهبية تحدّد درجة العلامة.",
+      "families": {
+        "violet": {
+          "label": "بنفسجي — أساسي",
+          "usage": "الإجراءات والروابط والهوية. ‎#5B2A86‎ موضوع عند الدرجة 700."
+        },
+        "gold": {
+          "label": "ذهبي — تمييز",
+          "usage": "باعتدال: التمييزات والاحتفالات. ‎#D4A017‎ عند الدرجة 500."
+        },
+        "neutral": {
+          "label": "محايدات دافئة",
+          "usage": "النصوص والحدود والأسطح — مائلة للبنفسجي، وليست رمادية باردة أبدًا. خلفية العلامة ‎#0D0714‎ عند الدرجة 950."
+        },
+        "success": {
+          "label": "نجاح",
+          "usage": "التحقّقات والاختبارات الناجحة والتقدّم المكتمل."
+        },
+        "warning": {
+          "label": "تحذير",
+          "usage": "الحالات التي تستدعي المراقبة، والحصص، والمسودّات."
+        },
+        "danger": {
+          "label": "خطر",
+          "usage": "الأخطاء، وعمليات الحذف، وإخفاقات التوليد."
+        },
+        "info": {
+          "label": "معلومة",
+          "usage": "الرسائل المعلوماتية، والنصائح، والمعالجة الجارية."
+        }
+      },
+      "swatch": {
+        "copyTitle": "نسخ {hex}",
+        "copied": "تم النسخ ✓"
+      },
+      "roles": {
+        "heading": "الأدوار الدلالية (تتغيّر حسب السمة — بدّل بين الفاتح/الداكن أعلاه)",
+        "background": {
+          "note": "خلفية الصفحة"
+        },
+        "surface": {
+          "note": "البطاقات واللوحات"
+        },
+        "surfaceSubtle": {
+          "note": "الأشرطة والمناطق الغائرة"
+        },
+        "primary": {
+          "note": "الإجراء الأساسي"
+        },
+        "primarySoft": {
+          "note": "تحويم ناعم، أقراص"
+        },
+        "accent": {
+          "note": "ذهبي — باعتدال"
+        },
+        "success": {
+          "note": "تحقّق"
+        },
+        "warning": {
+          "note": "حذر"
+        },
+        "danger": {
+          "note": "خطأ"
+        },
+        "info": {
+          "note": "معلومة"
+        },
+        "muted": {
+          "note": "نص ثانوي"
+        },
+        "ring": {
+          "note": "تركيز لوحة المفاتيح"
+        }
+      }
+    },
+    "typography": {
+      "title": "الطباعة",
+      "lead": "يجسّد Fraunces الصوت التحريري، ويحمل Figtree القراءة، ويتكفّل IBM Plex Sans Arabic بالعربية وحده — العناوين والنصوص. يضبط سُلّم معياري بنسبة 1.25 الإيقاع في كل مكان.",
+      "specimenLatin": {
+        "label": "لاتيني — Fraunces (العناوين) · Figtree (النصوص)"
+      },
+      "specimenArabic": {
+        "label": "عربي — IBM Plex Sans Arabic (العناوين والنصوص، دون مائل أبدًا)"
+      },
+      "scale": {
+        "label": "سُلّم معياري — نسبة 1.25 (رابعة كبيرة)، أساس 16 بكسل"
+      },
+      "weights": {
+        "label": "أوزان موحّدة"
+      },
+      "pairing": {
+        "label": "قواعد الاقتران",
+        "item1": "الفرنسية/الإنجليزية: العناوين بخط <strong>font-display</strong> (Fraunces)، والنصوص بخط <strong>font-sans</strong> (Figtree).",
+        "item2": "العربية: العناوين والنصوص معًا بخط <strong>font-arabic</strong> — وزن ≥ 600 للعناوين، دون serif أو مائل.",
+        "item3": "نص مختلط: تتبع العائلة اللغة السائدة في الكتلة، وتغطّي الخطوط الاحتياطية الإدراجات العرضية من الكتابة الأخرى."
+      },
+      "roles": {
+        "6xl": "عرض استثنائي",
+        "5xl": "Hero",
+        "4xl": "H1",
+        "3xl": "H2",
+        "2xl": "H3",
+        "xl": "H4",
+        "lg": "Lead",
+        "base": "المتن المرجعي",
+        "sm": "واجهة كثيفة",
+        "xs": "التسميات التوضيحية",
+        "2xs": "ملاحظات دقيقة"
+      }
+    },
+    "toolbar": {
+      "theme": {
+        "label": "السمة",
+        "light": "سمة فاتحة",
+        "dark": "سمة داكنة"
+      },
+      "direction": {
+        "label": "اتجاه القراءة للعروض التوضيحية",
+        "ltr": "من اليسار إلى اليمين (FR/EN)",
+        "rtl": "من اليمين إلى اليسار (AR)"
+      },
+      "grain": "حبيبات"
+    },
+    "foundations": {
+      "section": {
+        "title": "المسافات · أنصاف الأقطار · الظلال",
+        "lead": "شبكة 4 بكسل بلا استثناء (أو تقريبًا)، وثلاثة أنصاف أقطار هيكلية، وظلال بلون بنفسجي عميق: المادة الهادئة التي تماسك كل شاشة."
+      },
+      "spacing": {
+        "label": "المسافات — شبكة صارمة 4 بكسل (الاستثناء الوحيد: 2 بكسل)"
+      },
+      "radii": {
+        "label": "أنصاف الأقطار — ثلاث درجات هيكلية (8 / 12 / 16) + xl وpill",
+        "default": "افتراضي",
+        "usage": {
+          "sm": "الأزرار، حقول الإدخال، الشارات",
+          "md": "البطاقات، القوائم المنسدلة",
+          "lg": "النوافذ المنبثقة، اللوحات",
+          "xl": "كتل البطل، الرسوم التوضيحية",
+          "full": "الأقراص، الصور الرمزية"
+        }
+      },
+      "shadows": {
+        "label": "الظلال — دائمًا بلون بنفسجي، وليست سوداء خالصة أبدًا",
+        "usage": {
+          "sm": "بروز خفيف (حقول الإدخال)",
+          "md": "البطاقات في وضع السكون",
+          "lg": "البطاقات عند التمرير، النوافذ المنبثقة",
+          "xl": "النوافذ المنبثقة، اللوحات العائمة",
+          "glow": "هالة مميّزة — دعوة لاتخاذ إجراء، إبراز"
+        },
+        "note": "في السمة الداكنة تتلاشى الظلال لصالح الحدود والهالات: بدّل إلى الفاتحة لقراءة كامل عمق المقياس."
+      }
+    },
+    "styleguide": {
+      "toc": {
+        "palette": "لوحة الألوان",
+        "typography": "الطباعة",
+        "foundations": "الأسس",
+        "motion": "الحركة",
+        "illustrations": "الرسوم التوضيحية"
+      },
+      "heroKicker": "SALISTAR · الإدارة الفنية",
+      "heroTitle": "الاستوديو حيث تتحوّل كل<br></br>فكرة إلى دورة.",
+      "heroDescription": "خلفيات داكنة عميقة مائلة إلى البنفسجي، وذهب بلمسات نادرة، وزجاج مصنفر وحبيبات فيلمية: تستلهم SallyCourse رموزها من استوديوهات الإنتاج الراقية. هذا الدليل الحي هو مرجعها — تأمّل كل أساس في وضع light وdark وRTL.",
+      "tocAriaLabel": "فهرس دليل التصميم",
+      "heroIllustrationTitle": "رسم توضيحي للتدفق: من شرارة موجّه (prompt) تنشأ وحدات الدورة",
+      "footerSourceLabel": "مصدر الحقيقة:",
+      "footerNoHex": "— لا يوجد أي لون hex في أي مكان آخر.",
+      "footerComponentsLabel": "المكوّنات:"
+    },
+    "motionPage": {
+      "header": {
+        "badge": "نظام التصميم · D4",
+        "title": "الحركة والتفاعلات الدقيقة",
+        "intro": "تنقل حركة SALISTAR حالة — الدخول والتقدّم والنجاح والتفاعلية. تأتي المدد والمنحنيات من الرموز؛ وكل شيء يحترم <code>prefers-reduced-motion</code>.",
+        "componentsLink": "معرض المكوّنات",
+        "transitionNote": "— يؤدي التنقّل بين الصفحتين إلى إعادة تشغيل انتقال الصفحة (تلاشٍ + انزلاق 200 مللي ثانية عبر <code>template.tsx</code>)."
+      },
+      "steps": {
+        "analyse": {
+          "label": "تحليل الموضوع",
+          "description": "العنوان والمستوى والجمهور المستهدف"
+        },
+        "plan": {
+          "label": "بناء المخطّط",
+          "description": "الأقسام والفصول والمتطلّبات المسبقة"
+        },
+        "contenu": {
+          "label": "كتابة الدروس",
+          "description": "مقاطع فيديو ومقالات وتمارين تطبيقية"
+        },
+        "quiz": {
+          "label": "إنشاء الاختبارات",
+          "description": "أسئلة متوافقة مع كل فصل"
+        },
+        "assemblage": {
+          "label": "التجميع النهائي",
+          "description": "المراجعة والبيانات الوصفية والنشر"
+        }
+      },
+      "status": {
+        "idle": "قيد الانتظار",
+        "running": "جارٍ الإنشاء…",
+        "done": "الدورة جاهزة",
+        "failed": "فشل"
+      },
+      "timeline": {
+        "cardTitle": "«React 19 للمبتدئين» — المستوى مبتدئ",
+        "cardDescription": "يمتلئ الشريط مع تقدّم الخطوات؛ وتنبض الخطوة النشطة أثناء عمل النظام؛ ويطلق الاكتمال الاحتفال.",
+        "simulateSuccess": "محاكاة نجاح",
+        "simulateFailure": "محاكاة فشل",
+        "reset": "إعادة تعيين"
+      },
+      "stagger": {
+        "replay": "إعادة تشغيل الدخول",
+        "lessonsGenerated": "{count} درسًا تم إنشاؤها"
+      },
+      "levels": {
+        "beginner": "مبتدئ",
+        "intermediate": "متوسّط",
+        "advanced": "متقدّم"
+      },
+      "courses": {
+        "react": {
+          "title": "React 19 للمبتدئين"
+        },
+        "nest": {
+          "title": "NestJS: واجهات برمجة قوية"
+        },
+        "ts": {
+          "title": "TypeScript متقدّم"
+        },
+        "tailwind": {
+          "title": "أنظمة التصميم مع Tailwind"
+        },
+        "ai": {
+          "title": "الذكاء الاصطناعي التوليدي في الإنتاج"
+        },
+        "next": {
+          "title": "Next.js App Router من الألف إلى الياء"
+        }
+      },
+      "stats": {
+        "courses": {
+          "label": "الدورات المُنشأة"
+        },
+        "lessons": {
+          "label": "الدروس المُنتجة"
+        },
+        "hours": {
+          "label": "ساعات المحتوى"
+        },
+        "satisfaction": {
+          "label": "رضا المتعلّمين"
+        }
+      },
+      "tilt": {
+        "default": {
+          "title": "إمالة 2° (افتراضي)",
+          "description": "مرّر المؤشّر: تتبع البطاقة المؤشّر بنابض ناعم — بما يكفي للإشارة إلى التفاعلية، دون أن يشتّت الانتباه أبدًا."
+        },
+        "exaggerated": {
+          "title": "إمالة 6° (مبالغ فيها)",
+          "description": "نسخة مُضخّمة لجعل التأثير واضحًا في العرض التوضيحي — لا تستخدمها في الإنتاج: 2° تكفي."
+        }
+      },
+      "tokens": {
+        "replay": "إعادة التشغيل",
+        "reducedMotion": "prefers-reduced-motion مُفعّل: تُلغى الإزاحات، ولا يبقى سوى التلاشي.",
+        "durations": "مدد الرموز: instant {instant} مللي ثانية · fast {fast} مللي ثانية · base {base} مللي ثانية · slow {slow} مللي ثانية · slower {slower} مللي ثانية — منحنى الدخول out [{easing}]."
+      },
+      "sections": {
+        "timeline": {
+          "title": "الجدول الزمني للإنشاء",
+          "intent": "تقدّم عملية طويلة: يمتلئ الشريط بشكل عضوي، وتنبض الخطوة النشطة، ويطلق النجاح علامة صح نابضة + قصاصات، ويجمّد الفشل الشريط."
+        },
+        "stagger": {
+          "title": "قوائم منسّقة (stagger)",
+          "intent": "يوضّح الظهور المتدرّج للبطاقات ترتيب قراءة شبكة الدورات — يُطلق عند الدخول إلى منطقة العرض."
+        },
+        "countup": {
+          "title": "عدّادات متحرّكة",
+          "intent": "تتراكم الإحصاءات عند ظهورها: أرقام جدولية (دون اهتزاز)، وتنسيق محلّي، وقيمة نهائية مباشرة في وضع الحركة المخفّضة."
+        },
+        "tilt": {
+          "title": "إمالة ثلاثية الأبعاد خفيفة",
+          "intent": "تشير الإمالة بمقدار ±2° التي تتبع المؤشّر إلى أنّ البطاقة تفاعلية — معطّلة عند اللمس وفي وضع الحركة المخفّضة."
+        },
+        "transitions": {
+          "title": "انتقالات مرجعية",
+          "intent": "الانتقالات الخمسة المسمّاة حسب الغرض (enter، exit، state، springSoft، springSnappy) مطبّقة على نفس متغيّر fade-in-up، لمقارنة طباعها."
+        }
+      }
+    },
+    "componentsPage": {
+      "header": {
+        "eyebrow": "نظام التصميم · D3",
+        "title": "مكوّنات SALISTAR",
+        "description": "مكتبة واجهة SallyCourse: كل مكوّن معروض بجميع حالاته — الوضع الداكن افتراضيًا، ودعم RTL أصلي، وحركات هادئة."
+      },
+      "sections": {
+        "buttons": "الأزرار",
+        "badges": "شارات الحالة",
+        "cards": "البطاقات (حدّ متدرّج من البنفسجي إلى الذهبي)",
+        "forms": "النماذج (عناوين عائمة)",
+        "dialog": "الحوار (خلفية مموّهة)",
+        "toasts": "الإشعارات المنبثقة",
+        "skeletons": "الهياكل النائبة (وميض بنفسجي)",
+        "progress": "التقدّم (تدرّج متحرّك من البنفسجي إلى الذهبي)",
+        "tabs": "علامات التبويب (تسطير متحرّك)",
+        "emptyState": "الحالة الفارغة",
+        "rtl": "من اليمين إلى اليسار (معاينة عربية)"
+      },
+      "buttons": {
+        "examples": {
+          "variants": "المتغيّرات",
+          "sizes": "الأحجام",
+          "states": "الحالات (تمرير/ضغط متحرّك · تركيز لوحة المفاتيح = هالة ذهبية)"
+        },
+        "generate": "إنشاء الدورة",
+        "preview": "معاينة",
+        "cancel": "إلغاء",
+        "delete": "حذف",
+        "goPremium": "الترقية إلى Premium",
+        "sizeSm": "صغير",
+        "sizeMd": "متوسط",
+        "sizeLg": "كبير",
+        "addModuleAria": "إضافة وحدة",
+        "generating": "جارٍ الإنشاء…",
+        "disabled": "معطّل",
+        "loading": "جارٍ التحميل",
+        "premiumDisabled": "Premium معطّل"
+      },
+      "badges": {
+        "draft": "مسودة",
+        "generating": "جارٍ الإنشاء…",
+        "ready": "جاهز",
+        "failed": "فشل",
+        "published": "منشور",
+        "noDot": "بدون نقطة"
+      },
+      "cards": {
+        "course1Title": "مقدمة في الجبر",
+        "course1Desc": "المستوى الإعدادي · 8 وحدات · أُنشئ في 12 يونيو",
+        "completeness": "الاكتمال",
+        "open": "فتح",
+        "duplicate": "تكرار",
+        "course2Title": "تاريخ المغرب الحديث",
+        "course2Desc": "المستوى الثانوي · المخطّط قيد الكتابة",
+        "generationLabel": "الإنشاء"
+      },
+      "forms": {
+        "sampleTitle": "الكسور في السنة الخامسة",
+        "examples": {
+          "inputEmpty": "حقل فارغ",
+          "inputFilled": "حقل ممتلئ (متحكَّم)",
+          "inputHint": "حقل مع تلميح",
+          "inputError": "حقل به خطأ",
+          "inputDisabled": "حقل معطّل",
+          "select": "قائمة منسدلة",
+          "selectError": "قائمة بها خطأ",
+          "textarea": "منطقة نص"
+        },
+        "courseTitleLabel": "عنوان الدورة",
+        "audienceLabel": "الجمهور المستهدف",
+        "audienceHint": "مثال: طلاب الصف السابع، مبتدئون بالغون…",
+        "titleError": "يجب أن يحتوي العنوان على 5 أحرف على الأقل.",
+        "identifierLabel": "المعرّف",
+        "levelLabel": "المستوى",
+        "levelPrimary": "ابتدائي",
+        "levelCollege": "إعدادي",
+        "levelLycee": "ثانوي",
+        "levelSuperieur": "عالي",
+        "languageLabel": "اللغة",
+        "languageError": "اختر لغة الإنشاء.",
+        "aiInstructionsLabel": "تعليمات للذكاء الاصطناعي",
+        "aiInstructionsHint": "حدّد النبرة والمتطلبات المسبقة والأمثلة المطلوبة…"
+      },
+      "dialog": {
+        "open": "فتح الحوار",
+        "title": "حذف هذه الدورة؟",
+        "description": "«مقدمة في الجبر» ووحداتها الثماني ستُحذف نهائيًا. هذا الإجراء لا يمكن التراجع عنه."
+      },
+      "toasts": {
+        "buttons": {
+          "default": "افتراضي",
+          "success": "نجاح",
+          "warning": "تحذير",
+          "error": "خطأ",
+          "info": "معلومة"
+        },
+        "default": {
+          "title": "سالي تُعلمك",
+          "description": "يتوفّر قالب دورة جديد."
+        },
+        "success": {
+          "title": "تم إنشاء الدورة",
+          "description": "الوحدات الثماني جاهزة للمراجعة."
+        },
+        "warning": {
+          "title": "اقترب بلوغ الحصة",
+          "description": "يتبقّى لك عمليتا إنشاء هذا الشهر."
+        },
+        "danger": {
+          "title": "فشل الإنشاء",
+          "description": "خدمة الذكاء الاصطناعي غير متوفّرة مؤقتًا."
+        },
+        "info": {
+          "title": "نصيحة",
+          "description": "أضف تعليمات لضبط نبرة الدورة."
+        }
+      },
+      "progress": {
+        "courseGeneration": "إنشاء الدورة",
+        "review": "المراجعة",
+        "examples": {
+          "indeterminate": "غير محدّد"
+        },
+        "topicAnalysis": "تحليل الموضوع…",
+        "decrease": "−15٪",
+        "increase": "+15٪"
+      },
+      "tabs": {
+        "plan": "المخطّط",
+        "content": "المحتوى",
+        "quiz": "اختبار",
+        "exports": "التصدير",
+        "planText": "مخطّط الدورة منظّم في 8 وحدات متدرّجة، من مراجعة المتطلبات المسبقة حتى التقييم النهائي.",
+        "contentText": "تحتوي كل وحدة على درس مكتوب، ومثالين محلولين، وخلاصة سهلة الحفظ.",
+        "quizText": "10 أسئلة اختيار من متعدد لكل وحدة، مع شرح لكل إجابة.",
+        "exportsText": "تصدير PDF وSCORM (قريبًا)."
+      },
+      "emptyState": {
+        "title": "لا توجد دورات بعد",
+        "description": "أدخل عنوانًا ومستوى: تُنشئ سالي المخطّط والدروس والاختبارات في دقائق.",
+        "generate": "إنشاء أول دورة لي",
+        "seeExample": "عرض مثال"
+      }
     }
   }
 }

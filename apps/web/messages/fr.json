@@ -11,11 +11,21 @@
     "back": "Retour",
     "next": "Suivant",
     "search": "Rechercher",
-    "language": "Langue"
+    "language": "Langue",
+    "closeDialog": "Fermer le dialogue",
+    "closeNotification": "Fermer la notification",
+    "notifications": "Notifications",
+    "noData": "Aucune donnée sur cette période."
   },
   "nav": {
     "dashboard": "Dashboard",
     "newCourse": "Nouveau cours",
+    "nicheResearch": "Trouver un sujet",
+    "batch": "Génération en batch",
+    "paths": "Parcours",
+    "stats": "Statistiques",
+    "affiliate": "Affiliation",
+    "agency": "Agence",
     "settings": "Paramètres",
     "admin": "Admin",
     "openMenu": "Ouvrir le menu",
@@ -36,14 +46,1553 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "defaultUser": "Créateur"
+    "defaultUser": "Créateur",
+    "greetingMorning": "Bonjour",
+    "greetingAfternoon": "Bon après-midi",
+    "greetingEvening": "Bonsoir",
+    "subtitle": "Votre studio de cours tourne à plein régime — voici où en est la production.",
+    "newCourse": "Nouveau cours",
+    "statCoursesCreated": "Cours créés",
+    "statCoursesPublished": "Cours publiés",
+    "statGenerating": "En génération",
+    "statVideoMinutes": "Minutes de vidéo",
+    "trendThisMonth": "+{count} ce mois-ci",
+    "trendPipelineActive": "pipeline actif",
+    "trendVideoContent": "≈ {hours} h de contenu",
+    "onboarding": {
+      "metaTitle": "Premier cours — SallyCourse",
+      "metaDescription": "Choisissez un modèle de niche et lancez votre premier cours en quelques clics."
+    },
+    "firstCourse": {
+      "sectionLabel": "Créer votre premier cours",
+      "title": "Votre premier cours n’attend qu’un titre",
+      "description": "Donnez un sujet et un niveau — SallyCourse rédige le plan, écrit les leçons, enregistre la narration, monte les vidéos et assemble les quiz. Un cours complet, prêt à publier.",
+      "ctaPrimary": "Créer mon premier cours",
+      "ctaSecondary": "Partir d’une page blanche",
+      "estimate": "≈ 25 minutes de génération pour un cours de 5 heures"
+    },
+    "thumbnail": {
+      "ariaLabel": "Miniature générée pour « {title} »"
+    },
+    "progressRing": {
+      "label": "Progression"
+    },
+    "search": {
+      "triggerAriaLabel": "Recherche globale",
+      "placeholderShort": "Rechercher…",
+      "searchPlaceholder": "Rechercher un cours, une section, une leçon…",
+      "inputAriaLabel": "Terme de recherche",
+      "minChars": "Tapez au moins 2 caractères pour lancer la recherche.",
+      "searching": "Recherche…",
+      "noResults": "Aucun résultat pour « {query} ».",
+      "kind": {
+      "transcribe": "Transcription",
+      "avatar": "Avatar",
+        "course": "Cours",
+        "section": "Section",
+        "lesson": "Leçon"
+      }
+    },
+    "stepOutline": "plan du cours",
+    "stepContent": "rédaction",
+    "stepTts": "narration",
+    "stepScreenshot": "captures",
+    "stepVideo": "rendu vidéo",
+    "stepSubtitle": "sous-titres",
+    "stepPackaging": "export",
+    "stepDeploy": "publication",
+    "relativeJustNow": "à l’instant",
+    "relativeMinutes": "il y a {minutes, plural, one {# min} other {# min}}",
+    "relativeHours": "il y a {hours, plural, one {# h} other {# h}}",
+    "relativeYesterday": "hier",
+    "relativeDays": "il y a {days, plural, one {# jour} other {# jours}}",
+    "relativeOnDate": "le {date}",
+    "freshnessDraft": "brouillon modifié {rel}",
+    "freshnessGeneratingStep": "en cours — étape {step}",
+    "freshnessGeneratingStarted": "génération lancée {rel}",
+    "freshnessOutlineReview": "plan à valider — {rel}",
+    "freshnessReady": "généré {rel}",
+    "freshnessPublished": "publié {rel}",
+    "freshnessFailedStep": "échec à l’étape {step}",
+    "freshnessFailed": "échec {rel}",
+    "freshnessCancelled": "annulé {rel}",
+    "courseGrid": {
+      "title": "Mes cours",
+      "countLabel": "{visible} / {total} cours",
+      "filterAria": "Filtrer les cours par statut",
+      "emptyFilterTitle": "Rien dans ce filtre",
+      "emptyFilterDescription": "Aucun cours ne correspond à ce statut pour le moment — lancez une génération pour alimenter cette vue.",
+      "newCourse": "Nouveau cours"
+    },
+    "courseCard": {
+      "status": {
+        "draft": "Brouillon",
+        "generating": "Génération",
+        "outlineReview": "Plan à valider",
+        "ready": "Prêt",
+        "published": "Publié",
+        "failed": "Échec",
+        "cancelled": "Annulé"
+      },
+      "difficulty": {
+        "beginner": "Débutant",
+        "intermediate": "Intermédiaire",
+        "advanced": "Avancé"
+      },
+      "menu": {
+        "open": "Ouvrir le cours",
+        "rename": "Renommer",
+        "retry": "Relancer la génération",
+        "delete": "Supprimer"
+      },
+      "menuAriaLabel": "Actions pour « {title} »",
+      "menuLabel": "Actions — {title}",
+      "toast": {
+        "retryStarted": {
+          "title": "Génération relancée",
+          "description": "Le plan est de nouveau en cours de génération."
+        },
+        "retryFailed": {
+          "title": "Relance impossible"
+        },
+        "networkError": {
+          "title": "Erreur réseau",
+          "description": "Serveur injoignable, vérifiez votre connexion."
+        },
+        "renamed": {
+          "title": "Cours renommé",
+          "description": "« {title} »"
+        },
+        "renameFailed": {
+          "title": "Renommage impossible"
+        },
+        "deleted": {
+          "title": "Cours supprimé",
+          "description": "« {title} » et son contenu ont été supprimés."
+        },
+        "deleteFailed": {
+          "title": "Suppression impossible"
+        }
+      },
+      "reactivateConfirm": "Réactiver ce cours archivé ? Les médias purgés seront régénérés.",
+      "reactivateError": "Réactivation impossible pour le moment.",
+      "serverUnreachable": "Serveur injoignable.",
+      "archivedReactivate": "Archivé — Réactiver",
+      "progressRingLabel": "Génération de « {title} »",
+      "progressComplete": "Génération terminée",
+      "progressPercent": "Généré à {progress} %",
+      "openCourseAria": "Ouvrir « {title} »",
+      "sectionsCount": "{count, plural, one {# section} other {# sections}}",
+      "lessonsCount": "{count, plural, one {# leçon} other {# leçons}}",
+      "duration": "{hours} h {minutes} min",
+      "sectionsPlanned": "{count, plural, one {# section planifiée} other {# sections planifiées}}",
+      "renameDialog": {
+        "title": "Renommer le cours",
+        "description": "Le nouveau titre sera utilisé partout (dashboard, exports, publication).",
+        "inputLabel": "Titre du cours",
+        "submit": "Renommer"
+      },
+      "cancel": "Annuler",
+      "deleteDialog": {
+        "title": "Supprimer ce cours ?",
+        "description": "« {title} » ainsi que toutes ses sections, leçons, quiz et jobs de génération seront définitivement supprimés. Cette action est irréversible.",
+        "confirm": "Supprimer définitivement"
+      }
+    },
+    "generationPanel": {
+      "steps": {
+        "outline": {
+          "label": "Plan du cours",
+          "description": "Sections, leçons et objectifs"
+        },
+        "content": {
+          "label": "Rédaction des leçons",
+          "description": "Scripts, articles et TPs"
+        },
+        "tts": {
+          "label": "Narration audio",
+          "description": "Voix de synthèse et mixage"
+        },
+        "screenshot": {
+          "label": "Captures & visuels",
+          "description": "Illustrations des slides"
+        },
+        "video": {
+          "label": "Rendu des vidéos",
+          "description": "Slides animées 1080p"
+        },
+        "subtitle": {
+          "label": "Sous-titres",
+          "description": "SRT / VTT synchronisés"
+        },
+        "packaging": {
+          "label": "Quiz & export",
+          "description": "Questions, corrigés et paquets"
+        },
+        "deployment": {
+          "label": "Publication",
+          "description": "Déploiement plateformes"
+        }
+      },
+      "terminalTitle": "worker · génération",
+      "logAriaLabel": "Journal de génération",
+      "renderPreview": "Aperçu du rendu",
+      "slideNumber": "Étape {current} / {total}",
+      "liveGeneration": "Génération en direct",
+      "status": {
+        "failed": "Échec",
+        "done": "Terminé",
+        "running": "En cours"
+      },
+      "globalProgress": "Avancement global",
+      "waitingConnected": "Connecté — en attente des événements du worker…",
+      "connecting": "Connexion au flux de progression…"
+    },
+    "notifications": {
+      "bellAriaLabel": "Notifications",
+      "menuAriaLabel": "Liste des notifications",
+      "title": "Notifications",
+      "markAllRead": "Tout marquer lu",
+      "loading": "Chargement…",
+      "empty": "Aucune notification pour le moment.",
+      "timeAgo": {
+        "instant": "à l'instant",
+        "minutes": "{count, plural, one {il y a # min} other {il y a # min}}",
+        "hours": "{count, plural, one {il y a # h} other {il y a # h}}",
+        "days": "{count, plural, one {il y a # j} other {il y a # j}}"
+      }
+    },
+    "assistant": {
+      "regionLabel": "Assistant",
+      "title": "Assistant",
+      "placeholder": "Ex. : crée un cours sur Docker pour débutants",
+      "commandAriaLabel": "Commande de l’assistant",
+      "sendAriaLabel": "Envoyer",
+      "confirmQuestion": "Confirmer l’action ?",
+      "confirm": "Confirmer",
+      "cancel": "Annuler",
+      "noAction": "Aucune action à exécuter — reformulez si besoin.",
+      "disclaimer": "L’assistant propose une action mais ne l’exécute jamais sans votre confirmation.",
+      "toast": {
+        "unavailable": "Assistant indisponible",
+        "connectionFailed": "Connexion impossible",
+        "checkNetwork": "Vérifiez votre réseau.",
+        "actionRejected": "Action refusée",
+        "actionStarted": "Action lancée"
+      }
+    }
   },
   "create": {
     "title": "Nouveau cours",
-    "submit": "Générer le cours"
+    "submit": "Générer le cours",
+    "titleField": {
+      "titleAriaLabel": "Titre du cours",
+      "placeholder": "Ex. Maîtriser Docker en 7 jours"
+    },
+    "level": {
+      "groupLabel": "Niveau du cours",
+      "beginnerLabel": "Débutant",
+      "beginnerTagline": "Partir de zéro",
+      "beginnerDescription": "Aucun prérequis : chaque notion est posée pas à pas, avec des exemples très concrets.",
+      "intermediateLabel": "Intermédiaire",
+      "intermediateTagline": "Passer un cap",
+      "intermediateDescription": "Les bases sont acquises — cap sur la pratique, les cas réels et les bons réflexes.",
+      "advancedLabel": "Avancé",
+      "advancedTagline": "Viser le sommet",
+      "advancedDescription": "Architecture, performance, cas limites : un parcours exigeant, sans détour."
+    },
+    "voice": {
+      "readyToastTitle": "Dictée comprise",
+      "readyToastDesc": "Le formulaire a été pré-rempli.",
+      "failedToastTitle": "Dictée non aboutie",
+      "failedToastDesc": "Réessayez ou saisissez le titre à la main.",
+      "timeoutToastTitle": "Délai dépassé",
+      "timeoutToastDesc": "La transcription est trop longue, réessayez.",
+      "connectionLostToastTitle": "Connexion perdue",
+      "connectionLostToastDesc": "Impossible de récupérer la transcription.",
+      "emptyToastTitle": "Enregistrement vide",
+      "emptyToastDesc": "Rien n’a été capté par le micro.",
+      "uploadFailedToastTitle": "Envoi impossible",
+      "retryDesc": "Réessayez.",
+      "connectionFailedToastTitle": "Connexion impossible",
+      "connectionFailedToastDesc": "Vérifiez votre réseau.",
+      "micUnavailableToastTitle": "Micro indisponible",
+      "micUnavailableToastDesc": "Votre navigateur ne supporte pas l’enregistrement.",
+      "micDeniedToastTitle": "Micro refusé",
+      "micDeniedToastDesc": "Autorisez le micro pour dicter votre cours.",
+      "header": "Dicter le cours à la voix",
+      "langLabel": "Langue de la dictée",
+      "stop": "Arrêter",
+      "record": "Enregistrer",
+      "recording": "Enregistrement en cours…",
+      "uploading": "Envoi de l’enregistrement…",
+      "processing": "Transcription et compréhension…",
+      "understood": "Compris :",
+      "tip": "Astuce : « Je veux un cours sur Docker pour les débutants » — la darija est comprise (ex. « bghit cours 3la Git »)."
+    },
+    "generation": {
+      "badge": {
+        "ready": "Prêt",
+        "generating": "Génération"
+      },
+      "subtitle": "Cours créé — ouverture du suivi de génération",
+      "sectionsCount": "≈ {count} sections",
+      "difficulty": {
+        "beginner": "Débutant",
+        "intermediate": "Intermédiaire",
+        "advanced": "Avancé"
+      },
+      "voice": {
+        "custom": "Ma voix clonée",
+        "synthetic": "Voix synthétique"
+      },
+      "progressRegionLabel": "Avancement de la génération",
+      "courseGenerated": "Cours généré",
+      "globalProgressLabel": "Progression globale",
+      "createAnother": "Créer un autre cours",
+      "planReady": "Plan prêt à relire",
+      "steps": {
+        "analyse": {
+          "label": "Analyse du sujet",
+          "description": "Cartographie du domaine et des attentes."
+        },
+        "plan": {
+          "label": "Construction du plan",
+          "description": "Sections, leçons et objectifs pédagogiques."
+        },
+        "lecons": {
+          "label": "Rédaction des leçons",
+          "description": "Scripts vidéo, articles et travaux pratiques."
+        },
+        "quiz": {
+          "label": "Génération des quiz",
+          "description": "Questions calibrées sur le niveau choisi."
+        },
+        "assemblage": {
+          "label": "Assemblage final",
+          "description": "Narration, rendu vidéo et packaging."
+        }
+      }
+    },
+    "experience": {
+      "estimate": "Estimation : <strong>≈ {lessons, plural, one {# leçon} other {# leçons}}</strong> · {videos, plural, one {# vidéo} other {# vidéos}} · ~{minutes} min de vidéo · coût cloud <strong>{cloudCost}</strong> (OSS {ossCost})",
+      "presetNamePrompt": "Nom du preset (ex. « Réglages DevOps ») :",
+      "presetSaved": "Preset enregistré",
+      "presetSaveFailed": "Enregistrement impossible",
+      "networkError": "Erreur réseau",
+      "loadPresetAriaLabel": "Charger un preset de génération",
+      "presetApplied": "Preset appliqué",
+      "loadPresetOption": "Charger un preset…",
+      "saveAsPreset": "Enregistrer comme preset",
+      "deletePresetConfirm": "Supprimer le preset « {name} » ?",
+      "presetDeleteFailed": "Suppression impossible",
+      "presetDeleted": "Preset supprimé",
+      "deletePresetButton": "Supprimer « {name} »",
+      "quotaTitle": "Quota mensuel atteint",
+      "quotaDescription": "Passez à un plan supérieur pour créer davantage de cours.",
+      "viewPlans": "Voir les offres",
+      "createFailedTitle": "La création a échoué",
+      "createFailedDescription": "Réessayez dans un instant.",
+      "similarCourseTitle": "Cours similaire détecté",
+      "similarCourseDescription": "Vous avez déjà « {courseTitle} », très proche de ce titre. La génération continue quand même.",
+      "materialNotImportedTitle": "Support source non importé",
+      "materialNotImportedDescription": "Le cours a été créé, mais le fichier n’a pas pu être importé.",
+      "scheduledTitle": "Génération programmée",
+      "scheduledDescription": "Votre cours démarrera en heures creuses, vers {time}.",
+      "connectionFailedTitle": "Connexion impossible",
+      "connectionFailedDescription": "Vérifiez votre réseau puis réessayez.",
+      "eyebrow": "Nouveau cours — écrivez la couverture",
+      "whichLevel": "Pour quel niveau ?",
+      "generationModeAriaLabel": "Mode de génération",
+      "autoModeLabel": "Génération automatique",
+      "autoModeHint": "Tout le cours est généré d’un coup, sans interruption.",
+      "validatedModeLabel": "Validation étape par étape",
+      "validatedModeHint": "Chaque leçon générée attend votre relecture avant la suivante.",
+      "writingEngine": "Moteur de rédaction",
+      "submitting": "Création du cours…",
+      "submit": "Générer mon cours",
+      "errorTitleTooLong": "Le titre ne peut pas dépasser 120 caractères.",
+      "errorTitleTooShort": "Donnez un titre d’au moins 3 caractères — c’est la couverture de votre cours.",
+      "errorLevelRequired": "Choisissez un niveau : il calibre le ton, le rythme et les quiz.",
+      "free": "gratuit"
+    },
+    "advanced": {
+      "title": "Options avancées",
+      "subtitle": "Des valeurs par défaut soignées — n’ajustez que si besoin.",
+      "closeLabel": "Fermer les options avancées",
+      "sectionsSuffix": "{count, plural, one {# section} other {# sections}}",
+      "courseLanguageLabel": "Langue du cours",
+      "customVoiceLabel": "Utiliser ma voix clonée",
+      "customVoiceHint": "Narre les leçons avec VOTRE voix (échantillon enregistré dans Réglages → Ma voix, avec consentement). Sinon, voix synthétique automatique adaptée à la langue du cours.",
+      "voiceCatalogLabel": "Voix de narration",
+      "voiceCatalogHint": "UNE seule voix pour tout le cours : l'identité choisie est épinglée sur toutes les vidéos, quel que soit le moteur. Par défaut : {default}.",
+      "voiceCatalogDefault": "Automatique (voix par défaut de la langue)",
+      "voiceFemale": "féminine",
+      "voiceMale": "masculine",
+      "ttsEngineLabel": "Moteur de voix",
+      "ttsEngineHint": "Le moteur utilisé pour la narration standard et le clonage de voix. Modifiable après coup, leçon par leçon, depuis le bouton « Réparer l'audio ».",
+      "ttsEngineChatterbox": "Chatterbox (par défaut)",
+      "ttsEngineQwen3": "Qwen3-TTS (nouveau, voix plus claire)",
+      "themeLabel": "Thème visuel",
+      "themeHint": "Palette et ambiance des slides vidéo et des articles. Modifiable après coup depuis la page du cours (les vidéos sont re-rendues).",
+      "themeDefault": "Salistar (par défaut)",
+      "imageEngineLabel": "Modèle d'image",
+      "imageEngineHint": "Le modèle utilisé pour les illustrations de cours et de slides. Modifiable après coup, slide par slide, depuis son panneau image.",
+      "imageEngineSdxl": "SDXL (par défaut)",
+      "imageEngineZimage": "Z-Image Turbo (nouveau, plus net et plus rapide)",
+      "platformsLegend": "Plateformes cibles",
+      "platformsHint": "Les exports (formats, miniatures) s’adaptent à chaque plateforme.",
+      "avatarLabel": "Avatar vidéo (bêta)",
+      "avatarHint": "Un présentateur « talking-head » introduit et conclut chaque section. Avec une PHOTO de votre visage (Réglages → Mon avatar), rendu Ditto animé sur la narration ; sinon avatar HeyGen (plans payants) ou carte titre en repli.",
+      "avatarSelectLabel": "Avatar HeyGen (repli sans photo)",
+      "avatarSelectHint": "Utilisé uniquement si aucune photo de présentateur n'est enregistrée. Avec une photo (Réglages → Mon avatar), l'avatar Ditto animé sur votre visage est prioritaire.",
+      "clonedVoiceLabel": "Ma voix clonée",
+      "clonedVoiceHint": "Narre le cours avec votre voix personnalisée (Chatterbox). Nécessite un échantillon vocal enregistré dans Réglages → Ma voix ; sinon voix standard.",
+      "offPeakLabel": "Programmer la génération cette nuit",
+      "offPeakHint": "Démarre en heures creuses (2h-6h) — prochain créneau {day} à {time}.",
+      "reset": "Réinitialiser",
+      "done": "Terminé",
+      "sectionsLabel": "Nombre de sections",
+      "fewerSections": "Moins de sections",
+      "moreSections": "Plus de sections",
+      "sectionsRange": "Entre {min} et {max} — l’IA ajuste au sujet.",
+      "sourceUnsupported": "Format non supporté — PDF, PPTX ou Markdown attendu.",
+      "sourceLabel": "Importer un support existant (optionnel)",
+      "sourceRemove": "Retirer le support",
+      "sourceChoose": "Choisir un fichier PDF, PPTX ou Markdown",
+      "sourceHint": "Le plan de cours s’appuiera sur ce contenu (progression, vocabulaire, exemples).",
+      "genStructureLegend": "Structure",
+      "genPedagogyLegend": "Pédagogie",
+      "genDomainLegend": "Domaine expert",
+      "genVoiceVideoLegend": "Voix & vidéo",
+      "genValidationLegend": "Validation",
+      "genDefault": "Par défaut",
+      "genTargetHoursLabel": "Durée totale cible",
+      "genTargetHoursDefault": "Par défaut (selon le sujet)",
+      "genTargetHours1": "~1 heure",
+      "genTargetHours3": "~3 heures",
+      "genTargetHours6": "~6 heures",
+      "genTargetHours10": "10 heures et +",
+      "genAvgVideoLabel": "Durée moyenne par vidéo",
+      "genAvgVideoShort": "Courtes (3-5 min)",
+      "genAvgVideoMedium": "Moyennes (5-8 min)",
+      "genAvgVideoLong": "Longues (8-12 min)",
+      "genQuizPositionLabel": "Position des quiz",
+      "genQuizPerSection": "Un quiz par section",
+      "genQuizMidCourse": "Un quiz à mi-parcours",
+      "genQuizFinalOnly": "Un seul quiz final",
+      "genProjectModeLabel": "TP",
+      "genProjectFilRouge": "Projet fil rouge (évolutif)",
+      "genProjectIndependent": "TP indépendants",
+      "genFinalExamLabel": "Examen final",
+      "genFinalExamHint": "Ajoute un examen récapitulatif en fin de cours.",
+      "genPassingScoreLabel": "Score de réussite de l'examen",
+      "genPassingScoreDefault": "Par défaut (70 %)",
+      "genContentRatioLabel": "Répartition des contenus (vidéo/article/TP/quiz, %)",
+      "genContentRatioHint": "4 poids séparés par des virgules — ex. « 40,25,20,15 ». Vide = équilibre par défaut.",
+      "genToneLabel": "Ton",
+      "genToneAcademic": "Académique",
+      "genToneConversational": "Conversationnel",
+      "genToneEnergetic": "Énergique",
+      "genDensityLabel": "Densité",
+      "genDensityConcise": "Synthétique",
+      "genDensityNormal": "Normale",
+      "genDensityDetailed": "Très détaillée",
+      "genApproachLabel": "Approche",
+      "genApproachTheory": "Théorie d'abord",
+      "genApproachExamples": "Exemples d'abord",
+      "genApproachPractice": "Pratique maximale",
+      "genObjectiveLabel": "Objectif de l'apprenant",
+      "genObjectiveCertification": "Certification",
+      "genObjectiveCareerChange": "Reconversion",
+      "genObjectiveUpskilling": "Montée en compétence",
+      "genAnalogiesLabel": "Analogies & storytelling",
+      "genAudienceLabel": "Public cible",
+      "genAudienceHint": "Ex. « comptables marocains qui découvrent Excel » — adapte exemples et vocabulaire.",
+      "genAudiencePlaceholder": "Décris ton public…",
+      "genSpacedRepetitionLabel": "Répétition espacée",
+      "genSpacedRepetitionHint": "Réinjecte les notions clés des sections précédentes dans les quiz suivants.",
+      "genMandatoryKeywordsLabel": "Mots-clés à couvrir obligatoirement",
+      "genCommaHint": "Séparés par des virgules.",
+      "genMandatoryKeywordsPlaceholder": "ex. TVA, grand livre, amortissement",
+      "genExcludedTopicsLabel": "Sujets à exclure",
+      "genExcludedTopicsPlaceholder": "ex. cryptomonnaie",
+      "genImposedToolsLabel": "Outils / versions imposés",
+      "genImposedToolsPlaceholder": "ex. Terraform 1.9, pas 1.5",
+      "genTpOsLabel": "OS des TP",
+      "genTpOsWeb": "Navigateur web",
+      "genTpOsAny": "Indifférent",
+      "genCodeCommentLangLabel": "Langue des commentaires de code",
+      "genCodeCommentLangPlaceholder": "ex. anglais",
+      "genCertificationTargetLabel": "Certification ciblée",
+      "genCertificationTargetHint": "Aligne le contenu et les quiz sur le référentiel officiel.",
+      "genCertificationTargetPlaceholder": "ex. ISTQB Foundation, AWS SAA",
+      "genGlossaryLabel": "Glossaire imposé",
+      "genGlossaryHint": "Terminologie à respecter mot pour mot dans tout le cours (max 2000 caractères).",
+      "genGlossaryPlaceholder": "ex. « backlog = carnet de produit ; sprint = itération »",
+      "genNarrationSpeedLabel": "Vitesse de narration",
+      "genNarrationSpeedDefault": "Par défaut (1×)",
+      "genNarrationSpeedSlow": "Posée (0,9×)",
+      "genNarrationSpeedStandard": "Standard (1×)",
+      "genNarrationSpeedDynamic": "Dynamique (1,1×)",
+      "genNarrationSpeedFast": "Rapide (1,25×)",
+      "genSlideLanguageLabel": "Langue des slides",
+      "genSlideLanguageHint": "Slides dans une langue différente de la narration (ex. slides EN, voix FR).",
+      "genSlideLanguageSame": "Même que la narration",
+      "genVerticalLabel": "Version verticale 9:16",
+      "genVerticalHint": "Génère aussi une version format shorts (TikTok/Reels/YouTube Shorts).",
+      "genDialogueLabel": "Format dialogue (2 voix)",
+      "genDialogueHint": "Narration en dialogue formateur/apprenant — plus engageant, lu par deux voix distinctes.",
+      "genDialogueVoiceLabel": "Voix de l'apprenant",
+      "genDialogueVoiceDefault": "Deuxième voix par défaut",
+      "genValAfterScriptsLabel": "Relire les scripts avant la voix",
+      "genValAfterScriptsHint": "En mode « validation étape par étape », arrête après le script vidéo (avant la synthèse voix) — tu relis puis lances la voix, ce qui évite de re-générer l'audio. Le plan est déjà toujours relu avant génération.",
+      "genValAfterDraftLabel": "Relire les TP avant les captures",
+      "genValAfterDraftHint": "Arrête après le brouillon d'un TP (avant les captures d'écran Playwright, coûteuses) — tu relis/édites le TP puis relances la capture. Sans effet sur les vidéos/articles/quiz.",
+      "today": "aujourd'hui",
+      "tomorrow": "demain"
+    }
+  },
+  "stats": {
+    "title": "Statistiques & analytique",
+    "subtitle": "Consommation par provider IA, apps GPU (voix, images, Whisper, avatar) et coûts estimés de VOS cours.",
+    "kpiTotalCost": "Coût total estimé",
+    "kpiCalls": "Appels IA",
+    "kpiCourses": "Cours concernés",
+    "kpiAvgPerCourse": "Coût moyen / cours",
+    "byNatureTitle": "Répartition du coût par nature",
+    "providersTitle": "Consommation par provider et modèle",
+    "providersHint": "Modèles de rédaction (Gemini, DeepSeek…), moteurs de voix (Chatterbox « modal », Qwen3-TTS), images (SDXL, Z-Image), Whisper et avatar — classés par usage.",
+    "byCourseTitle": "Coût par cours",
+    "noData": "Aucune consommation enregistrée pour le moment — générez un cours pour voir apparaître vos statistiques.",
+    "colCourse": "Cours",
+    "colText": "Rédaction",
+    "colVoice": "Voix",
+    "colMedia": "Médias",
+    "colTotal": "Total"
   },
   "course": {
-    "title": "Cours"
+    "title": "Cours",
+    "savePreset": {
+      "button": "Enregistrer comme preset",
+      "dialogTitle": "Enregistrer cette configuration comme preset",
+      "nameLabel": "Nom du preset",
+      "namePlaceholder": "Ex. Combo YouTube + Udemy FR",
+      "summary": "{count, plural, one {# plateforme sélectionnée} other {# plateformes sélectionnées}}, mode « {mode} ». Retrouvable ensuite dans Réglages → Mes presets de déploiement.",
+      "submit": "Enregistrer",
+      "toastSaveErrorTitle": "Enregistrement impossible",
+      "toastSavedTitle": "Preset enregistré",
+      "toastNetworkErrorTitle": "Erreur réseau",
+      "toastNetworkErrorBody": "Serveur injoignable."
+    },
+    "translate": {
+      "sectionLabel": "Localisation",
+      "title": "Traduire ce cours",
+      "description": "Traduit les sous-titres existants dans les langues sélectionnées et met à jour les plateformes déjà déployées. Le doublage régénère aussi l'audio et la vidéo (plus long).",
+      "prerequisite": "Prérequis : le cours doit être déployé sur au moins une plateforme (les sous-titres traduits y sont poussés). Déployez d'abord — même sur le LMS interne — puis traduisez.",
+      "dubOptionTitle": "Doubler les vidéos (audio + montage régénérés).",
+      "dubOptionHint": "Sans cette option, seuls les sous-titres sont traduits (plus rapide, moins coûteux).",
+      "translateButton": "Traduire ({count})",
+      "existingVersions": "Versions existantes",
+      "versionStats": "{subs, plural, one {# sous-titre} other {# sous-titres}} · {videos, plural, one {# vidéo doublée} other {# vidéos doublées}}",
+      "launchedTitle": "Traduction lancée",
+      "launchSuccessDescription": "{count, plural, one {# langue} other {# langues}}{mode, select, dub { avec doublage} other { (sous-titres uniquement)}}.",
+      "translateErrorTitle": "Traduction impossible",
+      "networkErrorTitle": "Erreur réseau",
+      "networkErrorDescription": "Serveur injoignable.",
+      "statusPending": "En file",
+      "statusGenerating": "En cours",
+      "statusReady": "Prêt",
+      "statusFailed": "Échec partiel"
+    },
+    "drip": {
+      "title": "Publication programmée (drip)",
+      "hide": "Masquer",
+      "configure": "Configurer",
+      "intro": "Étalez la publication dans le temps, plateforme par plateforme. Exemple : Udemy immédiatement, YouTube 3 leçons/semaine, TikTok 1 clip/jour pendant 30 jours. Le worker exécute chaque échéance automatiquement.",
+      "currentPlan": "Plan en cours",
+      "pause": "Pause",
+      "resume": "Reprendre",
+      "cancel": "Annuler",
+      "completed": "Terminé",
+      "publishedCount": "{count, plural, one {# publié} other {# publiés}}",
+      "reschedule": "Reprogrammer",
+      "schedule": "Programmer",
+      "cadenceFor": "Cadence pour {platform}",
+      "countPerWeek": "Nb / semaine",
+      "countPerDay": "Nb / jour",
+      "during": "pendant",
+      "days": "Jours",
+      "kindImmediate": "Immédiat",
+      "kindPerWeek": "N par semaine",
+      "kindPerDay": "N par jour pendant M jours",
+      "statusActive": "Actif",
+      "statusPaused": "En pause",
+      "statusCompleted": "Terminé",
+      "toastPaused": "Plan mis en pause",
+      "toastResumed": "Plan repris",
+      "toastCancelled": "Plan annulé",
+      "scheduleErrorTitle": "Programmation impossible",
+      "scheduledTitle": "Publication programmée",
+      "scheduledDescription": "{count, plural, one {# plateforme planifiée.} other {# plateformes planifiées.}}",
+      "networkErrorTitle": "Erreur réseau",
+      "networkErrorDescription": "Serveur injoignable.",
+      "actionErrorTitle": "Action impossible"
+    },
+    "detail": {
+      "statusDraft": "Brouillon",
+      "statusGenerating": "Génération",
+      "statusOutlineReview": "Plan à valider",
+      "statusReady": "Prêt",
+      "statusPublished": "Publié",
+      "statusFailed": "Échec",
+      "statusCancelled": "Annulé",
+      "difficultyBeginner": "Débutant",
+      "difficultyIntermediate": "Intermédiaire",
+      "difficultyAdvanced": "Avancé",
+      "providerFamilyLlm": "Plan/scripts",
+      "providerFamilyTts": "Voix",
+      "providerFamilyImage": "Images",
+      "backToDashboard": "Retour au dashboard",
+      "createdOn": "Créé le {date}",
+      "sectionsAndLessons": "{sectionCount, plural, one {# section} other {# sections}} · {lessonCount, plural, one {# leçon} other {# leçons}}",
+      "generationLabel": "Génération :",
+      "analytics": "Analytics",
+      "studentPreview": "Aperçu étudiant",
+      "availableWhenHasLessons": "Disponible dès que le cours contient des leçons",
+      "availableOnceGenerated": "Disponible une fois le cours généré",
+      "downloadPack": "Télécharger le pack",
+      "exportPortable": "Exporter en mode portable",
+      "deploy": "Déployer",
+      "emptyGeneratingTitle": "Le plan du cours se construit…",
+      "emptyNoSectionTitle": "Aucune section pour le moment",
+      "emptyGeneratingDescription": "Sections et leçons apparaîtront ici dès que le plan sera généré.",
+      "emptyFailedDescription": "La génération a échoué avant la création du plan. Relancez-la depuis le dashboard.",
+      "emptyDefaultDescription": "Ce cours ne contient pas encore de plan de leçons.",
+      "metaTitle": "Détail du cours — SallyCourse"
+    },
+    "blog": {
+      "title": "Blog SEO",
+      "regenerate": "Régénérer",
+      "generationStartedTitle": "Génération du blog lancée",
+      "generationStartedDescription": "Les articles seront remplacés puis publiés selon le calendrier.",
+      "generationFailedTitle": "Génération impossible",
+      "errorGeneric": "Une erreur est survenue, réessayez plus tard.",
+      "networkErrorTitle": "Erreur réseau",
+      "networkErrorDescription": "Impossible de joindre le serveur, vérifiez votre connexion.",
+      "empty": "Aucun article pour l’instant — la génération démarre automatiquement après la publication du cours.",
+      "publishedCount": "{published} / {total, plural, one {# article publié} other {# articles publiés}} — les suivants paraissent automatiquement à leur date prévue.",
+      "statusPublished": "Publié",
+      "statusScheduled": "Programmé",
+      "statusDraft": "Brouillon",
+      "publishedOn": "Publié le {date}",
+      "scheduledFor": "Prévu le {date}",
+      "keyword": "Mot-clé : {keyword}",
+      "openArticle": "Ouvrir l’article « {title} »"
+    },
+    "feedback": {
+      "sentimentPositive": "Positif",
+      "sentimentNeutral": "Neutre",
+      "sentimentNegative": "Négatif",
+      "analysisStartedTitle": "Analyse lancée",
+      "analysisStartedDesc": "Les retours étudiants sont en cours d’analyse, revenez dans un instant.",
+      "analysisFailedTitle": "Analyse impossible",
+      "genericError": "Une erreur est survenue, réessayez plus tard.",
+      "networkErrorTitle": "Erreur réseau",
+      "networkErrorDesc": "Impossible de joindre le serveur, vérifiez votre connexion.",
+      "regenStartedTitle": "Régénération lancée",
+      "regenStartedDesc": "La leçon repart en production avec cette amélioration.",
+      "applyFailedTitle": "Application impossible",
+      "heading": "Retours étudiants",
+      "summary": "{count, plural, one {# avis} other {# avis}} · note moyenne {rating}/5 · analysé le {date}",
+      "noAnalysis": "Aucune analyse pour le moment.",
+      "intro": "Récupère les avis publiés (Udemy) et les analyse par IA pour en extraire les thèmes récurrents et des pistes d'amélioration ciblées.",
+      "analyzeButton": "Analyser les retours",
+      "themesHeading": "Thèmes récurrents",
+      "reviewsCount": "{count, plural, one {# avis} other {# avis}}",
+      "suggestionsHeading": "Suggestions d'amélioration",
+      "lessonLabel": "Leçon :",
+      "generalImprovement": "Amélioration générale du cours",
+      "globalSuggestionHint": "Suggestion globale : aucune leçon à régénérer automatiquement",
+      "applyButton": "Appliquer",
+      "noThemesExtracted": "Aucun thème ni suggestion n'a pu être extrait de ces avis.",
+      "noReviewsYet": "Aucun avis disponible pour ce cours pour le moment."
+    },
+    "quality": {
+      "title": "Qualité pédagogique",
+      "evaluatedOn": "Évalué le {date}",
+      "badgeExcellent": "{score}/100 · Excellent",
+      "badgeGood": "{score}/100 · Bon",
+      "badgeBelowThreshold": "{score}/100 · Sous le seuil",
+      "rubricClarity": "Clarté",
+      "rubricProgression": "Progression",
+      "rubricExamples": "Exemples & pratique",
+      "rubricEngagement": "Engagement",
+      "belowThresholdWarning": "Score sous le seuil recommandé ({threshold}/100) — le déploiement demandera une confirmation explicite."
+    },
+    "progress": {
+      "liveGeneration": "Génération en direct",
+      "generationErrorTitle": "Un incident est survenu pendant la génération",
+      "generationInProgressTitle": "Votre cours est en cours de production",
+      "badgeError": "Incident",
+      "badgeInProgress": "En cours",
+      "badgeReconnecting": "Reconnexion…",
+      "overallProgress": "Avancement global",
+      "waitLessThanMinute": "moins d'une minute",
+      "waitMinutes": "~{minutes} min",
+      "waitHoursMinutes": "~{hours} h {minutes} min",
+      "waitHours": "~{hours} h",
+      "estimatedWait": "Temps d'attente estimé avant traitement : {label}",
+      "queuePosition": "{count, plural, one {# cours devant le vôtre dans la file} other {# cours devant le vôtre dans la file}}",
+      "readyAt": "Votre cours sera prêt vers {label}",
+      "lastActivity": "Dernière activité",
+      "waitingFirstEvents": "En attente des premiers événements du worker de génération…",
+      "eventsReceived": "{count, plural, one {# événement reçu} other {# événements reçus}}",
+      "stepOutlineLabel": "Plan du cours",
+      "stepOutlineDescription": "Sections et leçons",
+      "stepContentLabel": "Rédaction du contenu",
+      "stepContentDescription": "Scripts, articles et TP",
+      "stepTtsLabel": "Voix off",
+      "stepTtsDescription": "Synthèse vocale des scripts",
+      "stepScreenshotLabel": "Captures d'écran",
+      "stepScreenshotDescription": "Illustrations des démos",
+      "stepVideoLabel": "Rendu vidéo",
+      "stepVideoDescription": "Montage des leçons",
+      "stepSubtitleLabel": "Sous-titres",
+      "stepSubtitleDescription": "Pistes SRT / VTT",
+      "stepPackagingLabel": "Packaging",
+      "stepPackagingDescription": "Assemblage du pack",
+      "stepDeploymentLabel": "Déploiement",
+      "stepDeploymentDescription": "Publication plateformes"
+    },
+    "qa": {
+      "title": "Contrôle qualité",
+      "passed": "réussi",
+      "failed": "échoué · {count, plural, one {# problème} other {# problèmes}}",
+      "ranAt": "Exécuté le {date} à {time}",
+      "checks": {
+        "videoDuration": "Durée vidéo totale",
+        "sectionCount": "Nombre de sections",
+        "videoPlayable": "Vidéos jouables (audio présent)",
+        "articlePlaceholders": "Captures d’écran des articles",
+        "quizValid": "Quiz valides",
+        "lessonsComplete": "Leçons finalisées"
+      }
+    },
+    "resources": {
+      "title": "Ressources",
+      "subtitle": "Aide-mémoire, workbook, glossaire ({glossaryCount}) et liens utiles ({furtherCount})",
+      "cheatsheetPdf": "Aide-mémoire (PDF)",
+      "workbookPdf": "Workbook des TP (PDF)",
+      "glossary": "Glossaire",
+      "furtherReading": "Pour aller plus loin",
+      "openResource": "Ouvrir « {title} »"
+    },
+    "teamApproval": {
+      "title": "Validation d'équipe requise avant déploiement",
+      "pendingHint": "Un relecteur (reviewer) ou le propriétaire de l'équipe doit approuver cette version.",
+      "approvedOn": "Approuvé le {date}.",
+      "statusApproved": "Approuvé",
+      "statusPending": "En attente",
+      "approveButton": "Approuver",
+      "toastApprovedTitle": "Cours approuvé",
+      "toastApprovedDesc": "Le déploiement est maintenant autorisé pour cette version.",
+      "toastErrorTitle": "Approbation impossible",
+      "toastErrorDesc": "Une erreur est survenue, réessayez plus tard.",
+      "toastNetworkTitle": "Erreur réseau",
+      "toastNetworkDesc": "Impossible de joindre le serveur, vérifiez votre connexion."
+    },
+    "archived": {
+      "reactivationStartedTitle": "Réactivation lancée",
+      "reactivationStartedDescription": "Les médias purgés sont régénérés depuis les scripts existants.",
+      "reactivationFailedTitle": "Réactivation impossible",
+      "retryLater": "Réessayez plus tard.",
+      "networkErrorTitle": "Erreur réseau",
+      "serverUnreachable": "Serveur injoignable.",
+      "title": "Cours archivé",
+      "description": "Ce cours était inactif : ses médias (vidéos, audio, slides) ont été purgés pour économiser l’espace. Le plan et les scripts sont conservés — réactivez-le pour régénérer les médias.",
+      "reactivateButton": "Réactiver le cours"
+    },
+    "marketing": {
+      "copied": "{label} copié",
+      "copyFailed": "Copie impossible",
+      "copy": "Copier",
+      "heroLabel": "Hero (SDXL)",
+      "heroNote": "Illustration du cours",
+      "udemyCoverLabel": "Cover Udemy",
+      "youtubeThumbnailLabel": "Miniature YouTube",
+      "title": "Kit marketing",
+      "imageAlt": "{label} du cours",
+      "download": "Télécharger",
+      "udemyDescription": "Description Udemy (SEO)",
+      "promoText": "Texte promo",
+      "welcomeMessage": "Message de bienvenue",
+      "congratsMessage": "Message de félicitations",
+      "titleIdeas": "Idées de titres (scorées)",
+      "scoreOutOf": "{score}/100",
+      "autoGeneratedNote": "Générés automatiquement à partir du cours — à réutiliser tels quels ou à ajuster avant publication."
+    },
+    "validation": {
+      "sectionLabel": "Validation de la leçon générée",
+      "lessonReady": "Leçon « {title} » générée — relisez-la puis validez.",
+      "remaining": "Mode validation étape par étape : {count, plural, one {# leçon restante} other {# leçons restantes}}. La suivante ne sera générée qu'après votre validation.",
+      "startNextFailed": "Impossible de lancer la leçon suivante.",
+      "networkError": "Erreur réseau — réessayez.",
+      "launching": "Lancement…",
+      "validateContinue": "Valider et continuer"
+    },
+    "lessonTree": {
+      "navLabel": "Plan du cours",
+      "lessonCount": "{count, plural, one {# leçon} other {# leçons}}",
+      "duration": "~{minutes} min"
+    },
+    "lessonComments": {
+      "title": "Commentaires d'équipe",
+      "loading": "Chargement…",
+      "empty": "Aucun commentaire pour l'instant.",
+      "commentLabel": "Commentaire",
+      "commentPlaceholder": "Ajouter un commentaire pour l'équipe…",
+      "submit": "Envoyer",
+      "sendFailedTitle": "Envoi impossible",
+      "sendFailedDescription": "Une erreur est survenue, réessayez plus tard.",
+      "networkErrorTitle": "Erreur réseau",
+      "networkErrorDescription": "Impossible de joindre le serveur, vérifiez votre connexion."
+    },
+    "lessonPanel": {
+      "typeVideo": "Leçon vidéo",
+      "typeArticle": "Article",
+      "typeTp": "Travaux pratiques",
+      "typeQuiz": "Quiz",
+      "generatingLabel": "Contenu en cours de génération…",
+      "generatingHint": "Les assets (vidéo, article, captures, quiz) apparaîtront ici dès que le worker aura terminé cette leçon.",
+      "failedTitle": "La génération a échoué",
+      "failedDescription": "Un incident a interrompu la production de cette leçon. Relancez-la avec « Régénérer la leçon ».",
+      "emptyTitle": "Pas encore de contenu",
+      "pendingDescription": "Cette leçon attend son tour dans le pipeline de génération.",
+      "noAssetDescription": "Aucun asset n’a été produit pour cette leçon.",
+      "selectLessonTitle": "Sélectionnez une leçon",
+      "selectLessonDescription": "Choisissez une leçon dans le plan du cours pour prévisualiser son contenu.",
+      "tabVideo": "Vidéo",
+      "tabArticle": "Article",
+      "tabScreenshots": "Captures ({count})",
+      "tabQuiz": "Quiz",
+      "durationMin": "~{min} min",
+      "editScript": "Éditer le script",
+      "videoUnsupported": "Votre navigateur ne prend pas en charge la lecture vidéo.",
+      "subtitlesAvailable": "Sous-titres ({locale}) disponibles.",
+      "downloadVertical": "Télécharger la version verticale 9:16 (shorts)",
+      "editArticle": "Éditer l’article",
+      "editQuiz": "Éditer le quiz",
+      "tabTp": "TP",
+      "editTp": "Éditer le TP"
+    },
+    "sell": {
+      "invalidPrice": "Prix invalide",
+      "listingFailed": "Mise en vente impossible",
+      "listed": "Cours mis en vente",
+      "listedVisible": "Visible sur /marketplace.",
+      "networkError": "Erreur réseau",
+      "serverUnreachable": "Serveur injoignable.",
+      "sell": "Vendre",
+      "dialogTitle": "Vendre sur la marketplace",
+      "dialogDescription": "Le cours sera listé publiquement sur /marketplace. Licence « copie intégrale » — un acheteur obtient sa propre copie du cours.",
+      "priceLabel": "Prix de vente (USD)",
+      "descriptionLabel": "Description du listing (optionnel)",
+      "cancel": "Annuler",
+      "submit": "Mettre en vente"
+    },
+    "derive": {
+      "deriveThisCourse": "Décliner ce cours",
+      "dialogDescription": "Créez une variante en réutilisant le plan validé : une autre langue (traduction, nouvelle voix et slides) ou un autre niveau de difficulté. Un cours est généré et compté dans votre quota mensuel.",
+      "targetLanguageLabel": "Langue cible",
+      "targetDifficultyLabel": "Niveau de difficulté cible",
+      "sourceSuffix": " (source)",
+      "changeAxisHint": "Changez la langue ou le niveau pour créer une variante.",
+      "cancel": "Annuler",
+      "submitButton": "Décliner",
+      "difficultyBeginner": "Débutant",
+      "difficultyIntermediate": "Intermédiaire",
+      "difficultyAdvanced": "Avancé",
+      "toastLaunchedTitle": "Déclinaison lancée",
+      "toastLaunchedDescription": "La variante du cours est en cours de génération.",
+      "toastFailedTitle": "Déclinaison impossible",
+      "errorGeneric": "Une erreur est survenue, réessayez plus tard.",
+      "toastNetworkTitle": "Erreur réseau",
+      "toastNetworkDescription": "Impossible de joindre le serveur, vérifiez votre connexion."
+    },
+    "dmca": {
+      "errorNeedUrl": "Ajoutez au moins une URL du contenu copié.",
+      "errorGenerateFailed": "Génération du kit DMCA impossible.",
+      "errorNetwork": "Erreur réseau.",
+      "copySuccess": "Notification copiée dans le presse-papiers.",
+      "copyFailed": "Copie impossible.",
+      "cardTitle": "Protection anti-piratage — kit DMCA",
+      "cardDescription": "Une copie de votre cours circule ailleurs ? Générez la notification de retrait DMCA et la checklist. Rien n’est envoyé automatiquement : vous relisez et transmettez vous-même.",
+      "urlsLabel": "URL(s) du contenu copié (une par ligne)",
+      "recipientLabel": "Destinataire (agent DMCA de l’hébergeur/plateforme) — optionnel",
+      "recipientPlaceholder": "DMCA Agent, Hébergeur Inc.",
+      "generating": "Génération…",
+      "generateButton": "Générer le kit DMCA",
+      "takedownNoticeHeading": "Notification de retrait",
+      "copyButton": "Copier",
+      "checklistHeading": "Checklist avant envoi",
+      "missingToComplete": "À compléter : {items}."
+    },
+    "review": {
+      "title": "Réviser le cours",
+      "description": "Analyse automatique de tout le cours : leçons en échec, images mal générées, audio défectueux, captures dégradées — puis réparation automatique de chaque défaut détecté.",
+      "start": "Lancer la révision",
+      "startedTitle": "Révision lancée",
+      "startedDescription": "Le cours est en cours d'analyse — les réparations démarrent automatiquement. Vous serez notifié à la fin.",
+      "failedTitle": "Révision impossible",
+      "networkError": "Impossible de joindre le serveur, vérifiez votre connexion.",
+      "lastReport": "Dernière révision : {date} — {lessons} leçons analysées.",
+      "noIssue": "Aucun défaut détecté : le cours est sain.",
+      "actionRegenerateLesson": "Leçon régénérée",
+      "actionRegenerateImage": "Image régénérée",
+      "actionRepairAudio": "Audio audité",
+      "actionRecaptureTp": "TP recapturé",
+      "actionOther": "Réparation"
+    },
+    "cover": {
+      "title": "Image de couverture",
+      "description": "L'illustration générée sert de couverture au cours. Vous pouvez la remplacer par votre propre image.",
+      "previewAlt": "Couverture actuelle du cours",
+      "noCover": "Aucune couverture pour l'instant.",
+      "sourceUploaded": "Image importée",
+      "sourceGenerated": "Générée (IA)",
+      "upload": "Changer l'image",
+      "revert": "Revenir à l'image générée",
+      "hint": "PNG, JPEG ou WebP, 8 Mo maximum. Format 16:9 recommandé.",
+      "uploadedTitle": "Couverture mise à jour",
+      "uploadedDescription": "Votre image est maintenant la couverture du cours.",
+      "revertedTitle": "Couverture réinitialisée",
+      "revertedDescription": "La couverture générée par l'IA a été restaurée.",
+      "failedTitle": "Action impossible",
+      "networkError": "Impossible de joindre le serveur, vérifiez votre connexion."
+    },
+    "theme": {
+      "title": "Thème du cours",
+      "description": "Changez la palette visuelle des vidéos et des articles. L'audio n'est pas retouché : seules les slides sont re-rendues.",
+      "current": "actuel",
+      "apply": "Appliquer le thème",
+      "appliedTitle": "Thème appliqué",
+      "appliedDescription": "{count, plural, =0 {Les prochains rendus utiliseront ce thème.} one {# vidéo repart en rendu avec ce thème.} other {# vidéos repartent en rendu avec ce thème.}}",
+      "failedTitle": "Changement de thème impossible",
+      "networkError": "Impossible de joindre le serveur, vérifiez votre connexion."
+    },
+    "addLesson": {
+      "button": "Ajouter une leçon",
+      "dialogTitle": "Ajouter une leçon au cours",
+      "dialogDescription": "La nouvelle leçon est créée en fin de section et générée par l'IA sans toucher au reste du cours.",
+      "sectionLabel": "Section",
+      "typeLabel": "Type de leçon",
+      "type_video": "Vidéo",
+      "type_article": "Article",
+      "type_tp": "Travaux pratiques",
+      "type_quiz": "Quiz",
+      "titleLabel": "Titre de la leçon",
+      "titlePlaceholder": "Ex. : Étude de cas : audit ESG d'une PME",
+      "summaryLabel": "Brief (optionnel)",
+      "summaryPlaceholder": "Ce que la leçon doit couvrir, le ton, les exemples attendus…",
+      "cancel": "Annuler",
+      "confirm": "Ajouter et générer",
+      "startedTitle": "Leçon en cours de génération",
+      "startedDescription": "« {title} » a été ajoutée et part en production.",
+      "failedTitle": "Ajout impossible",
+      "networkError": "Impossible de joindre le serveur, vérifiez votre connexion."
+    },
+    "regenerate": {
+      "startedTitle": "Régénération lancée",
+      "startedDescription": "« {title} » repart en production.",
+      "failedTitle": "Régénération impossible",
+      "genericError": "Une erreur est survenue, réessayez plus tard.",
+      "networkErrorTitle": "Erreur réseau",
+      "networkErrorDescription": "Impossible de joindre le serveur, vérifiez votre connexion.",
+      "alreadyGenerating": "Génération déjà en cours",
+      "button": "Régénérer la leçon"
+    },
+    "editWithAi": {
+      "button": "Éditer avec l'IA",
+      "title": "Éditer avec l'IA",
+      "description": "Décrivez ce que l'IA doit changer dans « {title} ». Le contenu sera régénéré, puis repassera par le rendu (vidéo/captures).",
+      "promptLabel": "Votre consigne",
+      "promptPlaceholder": "Ex. : simplifie le vocabulaire, ajoute un exemple concret marocain, corrige les erreurs, développe la partie sur la CSRD…",
+      "modelLabel": "Modèle IA",
+      "submit": "Régénérer avec l'IA",
+      "cancel": "Annuler",
+      "startedTitle": "Régénération lancée",
+      "startedDescription": "« {title} » est régénérée avec votre consigne.",
+      "failedTitle": "Régénération impossible",
+      "networkError": "Impossible de joindre le serveur, vérifiez votre connexion.",
+      "alreadyGenerating": "Génération déjà en cours"
+    },
+    "deleteLesson": {
+      "button": "Supprimer",
+      "title": "Supprimer cette partie ?",
+      "description": "« {title} » sera définitivement retirée du cours. Cette action est irréversible.",
+      "confirm": "Supprimer la partie",
+      "cancel": "Annuler",
+      "deletedTitle": "Partie supprimée",
+      "deletedDescription": "« {title} » a été retirée du cours.",
+      "failedTitle": "Suppression impossible",
+      "networkError": "Impossible de joindre le serveur, vérifiez votre connexion.",
+      "alreadyGenerating": "Génération en cours — suppression indisponible"
+    },
+    "audioRepair": {
+      "title": "Réparer l'audio",
+      "denoiseLabel": "Nettoyage rapide",
+      "denoiseHint": "Débruitage + normalisation, en quelques secondes. Ne corrige pas les vides.",
+      "resynthLabel": "Resynthèse ciblée",
+      "resynthHint": "Détecte les slides avec un vide interne et les re-génère. Peut prendre plusieurs minutes.",
+      "button": "Réparer l'audio",
+      "statusRunning": "Réparation en cours…",
+      "statusReady": "Réparation terminée",
+      "statusFailed": "Réparation échouée",
+      "reportNoIssues": "Aucun défaut détecté dans l'audio.",
+      "reportSummary": "{repaired} slide(s) re-synthétisée(s) sur {gaps} trou(s) détecté(s).",
+      "reportDenoise": "Nettoyage audio appliqué.",
+      "reportError": "Erreur : {error}",
+      "startedTitle": "Réparation lancée",
+      "startedDescription": "La réparation audio de « {title} » a démarré.",
+      "failedTitle": "Réparation impossible",
+      "networkErrorTitle": "Erreur réseau",
+      "networkErrorDescription": "Impossible de joindre le serveur, vérifiez votre connexion.",
+      "noVideoYet": "Cette leçon n'a pas encore de vidéo rendue.",
+      "engine": {
+        "chatterbox": "Chatterbox",
+        "qwen3": "Qwen3-TTS"
+      },
+      "switchVoiceButton": "Essayer la voix {engine}",
+      "switchVoiceHint": "Voix actuelle de cette leçon : {current}. Bascule toutes les slides vers l'autre moteur (sans diagnostic) — utile si la réparation ciblée ne suffit pas.",
+      "switchStartedTitle": "Changement de voix lancé",
+      "switchStartedDescription": "« {title} » bascule vers la voix {engine}.",
+      "reportSwitchVoice": "Toutes les slides ont été re-synthétisées avec la voix {engine}."
+    },
+    "share": {
+      "shareButton": "Partager",
+      "dialogTitle": "Partager avec mon équipe",
+      "dialogDescription": "Crée un espace de travail partagé pour ce cours et invite un relecteur (compte SallyCourse existant) à valider avant publication.",
+      "nameLabel": "Nom du workspace",
+      "reviewerEmailLabel": "Email du relecteur (optionnel)",
+      "reviewerEmailPlaceholder": "relecteur@exemple.com",
+      "cancel": "Annuler",
+      "createWorkspace": "Créer le workspace",
+      "defaultWorkspaceName": "Équipe — {title}",
+      "nameRequired": "Nom requis",
+      "shareFailed": "Partage impossible",
+      "workspaceCreatedInviteIgnored": "Workspace créé — invitation ignorée",
+      "unknownEmails": "Aucun compte pour : {emails}",
+      "workspaceCreated": "Workspace créé",
+      "networkError": "Erreur réseau",
+      "serverUnreachable": "Serveur injoignable."
+    },
+    "approvePreview": {
+      "approvedToastTitle": "Aperçu approuvé",
+      "approvedToastDescription": "Prêt pour la version finale HD.",
+      "errorTitle": "Approbation impossible",
+      "genericError": "Une erreur est survenue, réessayez plus tard.",
+      "networkErrorTitle": "Erreur réseau",
+      "networkErrorDescription": "Impossible de joindre le serveur.",
+      "approveButton": "Approuver l'aperçu",
+      "approvedBadge": "Aperçu approuvé",
+      "hdDeliveredBadge": "HD livrée"
+    },
+    "cancelGen": {
+      "confirmCancel": "Annuler la génération de ce cours ? Les leçons déjà produites sont conservées.",
+      "cancelFailedTitle": "Annulation impossible",
+      "cancelledTitle": "Génération annulée",
+      "networkErrorTitle": "Erreur réseau",
+      "networkErrorDesc": "Serveur injoignable.",
+      "cancelButton": "Annuler la génération"
+    },
+    "introVideo": {
+      "title": "Vidéo d’intro Udemy",
+      "description": "Une présentation webcam d’environ 60 s humanise le cours et réduit le risque de rejet à la revue Udemy (mode compliance maximale).",
+      "replace": "Remplacer",
+      "remove": "Retirer",
+      "uploading": "Envoi…",
+      "upload": "Téléverser une vidéo d’intro",
+      "uploadFailedTitle": "Upload impossible",
+      "uploadFailedDescription": "Réessayez avec un fichier MP4 plus léger.",
+      "savedTitle": "Vidéo d’intro enregistrée",
+      "networkErrorTitle": "Erreur réseau",
+      "networkErrorDescription": "Serveur injoignable.",
+      "removedTitle": "Vidéo d’intro retirée",
+      "removeFailedTitle": "Suppression impossible"
+    },
+    "quickPreview": {
+      "title": "Prévisualisation vidéo rapide",
+      "description": "Génère un brouillon basse qualité de toutes les leçons vidéo pour valider le contenu avant de lancer le rendu HD, plus long.",
+      "generateDraftButton": "Générer un aperçu rapide (brouillon)",
+      "generateFinalButton": "Générer la version finale HD",
+      "draftLaunchedToast": "Aperçu rapide lancé",
+      "finalLaunchedToast": "Version finale HD lancée",
+      "queuedDescription": "{count, plural, one {# leçon en file de traitement.} other {# leçons en file de traitement.}}",
+      "actionImpossibleTitle": "Action impossible",
+      "genericError": "Une erreur est survenue, réessayez plus tard.",
+      "networkErrorTitle": "Erreur réseau",
+      "networkErrorDescription": "Impossible de joindre le serveur, vérifiez votre connexion.",
+      "finalDisabledHint": "Approuvez au moins un aperçu pour activer"
+    },
+    "deploy": {
+      "statusPending": "En file",
+      "statusRunning": "En cours",
+      "statusPaused": "En pause",
+      "statusFailed": "Échec",
+      "statusPublished": "Publié",
+      "modeAuto": "Automatique",
+      "modeAssisted": "Assisté",
+      "modeManual": "Manuel",
+      "stepInit": "Initialisation",
+      "stepAuthenticate": "Authentification",
+      "stepCreateCourse": "Création du cours",
+      "stepUpload": "Téléversement des leçons",
+      "stepUpdate": "Mise à jour des leçons",
+      "stepLanding": "Page de présentation",
+      "stepReview": "Soumission à la revue",
+      "stepDone": "Terminé",
+      "toastDeployDoneWithFailuresTitle": "Déploiement terminé avec des échecs",
+      "toastDeployDoneTitle": "Déploiement terminé",
+      "toastDeployDoneCount": "{count, plural, one {# plateforme publiée} other {# plateformes publiées}}",
+      "toastDeployDoneFailedSuffix": ", {count, plural, one {# en échec (relançable).} other {# en échec (relançables).}}",
+      "toastLaunchFailedTitle": "Lancement impossible",
+      "toastLaunchedTitle": "Déploiement lancé",
+      "toastLaunchedDesc": "{count, plural, one {# plateforme en file} other {# plateformes en file}} (max {max} en parallèle).",
+      "toastNetworkErrorTitle": "Erreur réseau",
+      "toastNetworkErrorDesc": "Serveur injoignable.",
+      "toastSuggestUnavailableTitle": "Suggestion indisponible",
+      "toastStrategySuggestedTitle": "Stratégie suggérée",
+      "toastStrategySuggestedDesc": "{count, plural, one {# plateforme recommandée} other {# plateformes recommandées}}.",
+      "toastRetryFailedTitle": "Relance impossible",
+      "toastRetriedTitle": "Déploiement relancé",
+      "toastSwitchFailedTitle": "Bascule impossible",
+      "toastSwitchAssistedTitle": "Reprise en mode assisté",
+      "toastSwitchManualTitle": "Passage en mode manuel",
+      "toastSwitchAssistedDesc": "{platform} — reprise depuis le point d’arrêt.",
+      "toastSwitchManualDesc": "{platform} — pack des étapes restantes en préparation.",
+      "toastUpdateFailedTitle": "Mise à jour impossible",
+      "toastUpdateStartedTitle": "Mise à jour lancée",
+      "toastUpdateStartedDesc": "{platform} — leçons modifiées en cours de re-publication.",
+      "sectionLabel": "Publication",
+      "title": "Déployer le cours",
+      "suggestStrategyButton": "Suggérer une stratégie",
+      "badgeActiveCount": "{count} en cours",
+      "badgeDeploymentCount": "{count, plural, one {# déploiement} other {# déploiements}}",
+      "intro": "Sélectionnez les plateformes cibles, choisissez le mode, puis lancez. Le worker traite au plus {max} déploiements en parallèle ; les autres patientent en file.",
+      "loadingPlatforms": "Chargement des plateformes…",
+      "connected": "Connecté",
+      "simulatedMode": "Mode simulé",
+      "browser": "Navigateur",
+      "apiDirect": "API directe",
+      "modeSelectAria": "Mode de déploiement pour {platform}",
+      "strategyPanelTitle": "Stratégie suggérée",
+      "strategySourceAi": "Générée par IA",
+      "strategySourceLocal": "Suggestion locale",
+      "dayZero": "Jour J",
+      "dayOffset": "J+{days}",
+      "calendarTitle": "Calendrier de publication",
+      "calendarDayZero": "J",
+      "aiDisclosureConfirm": "Je confirme que ce cours contient du contenu généré par IA.",
+      "aiDisclosureHint": "Udemy exige cette mention de transparence avant toute publication sur sa plateforme. Sans elle, le déploiement vers Udemy sera refusé.",
+      "qualityConfirm": "Je confirme vouloir publier malgré un score de qualité pédagogique de {score}/100 (sous le seuil recommandé de {threshold}/100).",
+      "qualityConfirmHint": "Consultez le détail de la rubrique et les recommandations plus bas sur la page.",
+      "estimationLabel": "Estimation",
+      "estimationNone": "Aucune plateforme",
+      "estimationSummary": "{count, plural, one {# plateforme} other {# plateformes}} · {duration}",
+      "modeHint": "Le mode se règle plateforme par plateforme sur chaque carte sélectionnée.",
+      "riskyWarning": "{count, plural, one {# plateforme en automatisation navigateur (mode auto)} other {# plateformes en automatisation navigateur (mode auto)}} — vérifiez leurs CGU.",
+      "needsAiDisclosureHint": "Cochez la mention IA générée ci-dessus pour publier sur Udemy.",
+      "needsQualityHint": "Cochez la confirmation de qualité ci-dessus pour publier malgré tout.",
+      "launchButton": "Lancer le déploiement",
+      "updatePlatformsTitle": "Mettre à jour les plateformes",
+      "modifiedLessonsBadge": "{count, plural, one {# leçon modifiée} other {# leçons modifiées}}",
+      "updateIntro": "Des leçons ont été régénérées depuis le dernier déploiement. Republier ne re-uploade que les leçons impactées.",
+      "toUpdateBadge": "{count} à mettre à jour",
+      "lessonNew": "(nouvelle)",
+      "lessonModified": "(modifiée)",
+      "moreLessons": "+ {count, plural, one {# autre} other {# autres}}…",
+      "updateButton": "Mettre à jour",
+      "deploymentsLabel": "Déploiements",
+      "lessonProgress": "Leçon {current}/{total}",
+      "viewLink": "Voir",
+      "retryButton": "Relancer",
+      "hideLogs": "Masquer les logs",
+      "showLogs": "Afficher les logs",
+      "resumeTitle": "Reprise du déploiement",
+      "resumeStoppedAt": "Arrêté à l’étape « {step} »",
+      "resumeLessonSuffix": " (leçon {current}/{total})",
+      "resumeInstructions": ". Reprenez sans repartir de zéro : continuez en assisté, ou passez en manuel avec le pack des étapes restantes.",
+      "switchAssistedButton": "Basculer en assisté",
+      "switchManualButton": "Passer en manuel (reprendre à « {step} »)",
+      "noLogs": "Aucun log pour le moment.",
+      "toastPublishedTitle": "Cours publié",
+      "toastPublishedDesc": "{platform} — marqué comme publié.",
+      "toastSaveFailedTitle": "Enregistrement impossible",
+      "manualPublishTitle": "Publication manuelle",
+      "stepsBadge": "{done}/{total} {total, plural, one {étape} other {étapes}}",
+      "manualPublishIntro": "Publiez le cours vous-même sur {platform}, cochez chaque étape franchie, puis collez l’URL finale. Une fois tout coché et l’URL renseignée, le déploiement passe en « Publié ».",
+      "urlLabel": "URL publique du cours",
+      "markPublishedButton": "Marquer comme publié",
+      "cannotPublishHint": "Cochez toutes les étapes et renseignez une URL http(s) valide pour activer la publication.",
+      "capabilityMatrixTitle": "Matrice des capacités",
+      "colPlatform": "Plateforme",
+      "supported": "Supporté",
+      "notSupported": "Non supporté",
+      "browserAutomationNote": "Combinaison reposant sur l’automatisation navigateur — vérifiez les CGU de la plateforme."
+    },
+    "download": {
+      "networkErrorTitle": "Erreur réseau",
+      "networkErrorDesc": "Impossible de joindre le serveur, vérifiez votre connexion.",
+      "readyDesc": "Le téléchargement est disponible.",
+      "errorDesc": "Une erreur est survenue, réessayez plus tard.",
+      "report": {
+        "timeoutTitle": "Rapport trop long",
+        "timeoutDesc": "La génération du rapport prend plus de temps que prévu, réessayez.",
+        "readyTitle": "Rapport prêt",
+        "errorTitle": "Rapport impossible",
+        "linkLabel": "Télécharger le rapport",
+        "building": "Génération…",
+        "idleLabel": "Rapport de déploiement"
+      },
+      "pack": {
+        "timeoutTitle": "Packaging trop long",
+        "timeoutDesc": "La construction du pack prend plus de temps que prévu, réessayez.",
+        "readyTitle": "Pack prêt",
+        "errorTitle": "Packaging impossible",
+        "linkLabel": "Télécharger le pack",
+        "building": "Construction…",
+        "idleLabel": "Générer le pack"
+      },
+      "portable": {
+        "timeoutTitle": "Export trop long",
+        "timeoutDesc": "La construction du site portable prend plus de temps que prévu, réessayez.",
+        "readyTitle": "Export portable prêt",
+        "errorTitle": "Export impossible",
+        "linkLabel": "Télécharger (mode portable)",
+        "building": "Construction…",
+        "idleLabel": "Exporter en mode portable"
+      },
+      "master": {
+        "timeoutTitle": "Archive trop longue",
+        "timeoutDesc": "La construction de l’archive prend plus de temps que prévu, réessayez.",
+        "readyTitle": "Archive prête",
+        "errorTitle": "Archive impossible",
+        "linkLabel": "Télécharger l’archive maître",
+        "building": "Construction…",
+        "idleLabel": "Archive maître (ré-importable)"
+      },
+      "guide": {
+        "timeoutTitle": "Génération trop longue",
+        "timeoutDesc": "La construction du guide prend plus de temps que prévu, réessayez.",
+        "readyTitle": "Guide prêt",
+        "readyDesc": "Guide {platform} disponible.",
+        "errorTitle": "Génération impossible",
+        "building": "Génération…",
+        "linkLabelComplete": "Télécharger le guide ({platform})",
+        "linkLabelResume": "Télécharger le pack partiel ({platform})",
+        "idleLabelComplete": "Générer le guide manuel ({platform})",
+        "idleLabelResume": "Générer le pack des étapes restantes ({platform})"
+      },
+      "scorm": {
+        "timeoutTitle": "Export trop long",
+        "timeoutDesc": "La construction du paquet SCORM prend plus de temps que prévu, réessayez.",
+        "readyTitle": "Paquet SCORM prêt",
+        "errorTitle": "Export SCORM impossible",
+        "linkLabel": "Télécharger le paquet SCORM",
+        "building": "Construction…",
+        "idleLabel": "Exporter en SCORM"
+      }
+    },
+    "editor": {
+      "recoveredDraft": "Un brouillon non synchronisé a été retrouvé sur cet appareil et rechargé — pensez à l’enregistrer.",
+      "unsaved": "non enregistré",
+      "saving": "Enregistrement…",
+      "close": "Fermer",
+      "save": "Enregistrer",
+      "autosaveError": "Échec de l’enregistrement automatique",
+      "autosaveSavedAt": "Enregistré à {time}",
+      "discardConfirm": "Des modifications non sauvegardées seront perdues. Continuer ?",
+      "saveErrorTitle": "Enregistrement impossible",
+      "saveErrorDesc": "Une erreur est survenue, réessayez plus tard. Votre brouillon reste sauvegardé localement.",
+      "genericErrorDesc": "Une erreur est survenue, réessayez plus tard.",
+      "networkError": "Erreur réseau",
+      "serverUnreachable": "Impossible de joindre le serveur.",
+      "article": {
+        "title": "Édition de l’article",
+        "markdown": "Markdown",
+        "preview": "Aperçu",
+        "previewEmpty": "L’aperçu s’affichera ici dès que vous saisissez du Markdown.",
+        "savedTitle": "Article enregistré",
+        "savedDesc": "Les captures dérivées seront régénérées à la prochaine production."
+      },
+      "video": {
+        "titleWithCount": "Édition du script vidéo · {count, plural, one {# slide} other {# slides}}",
+        "regenerate": "Régénérer cette vidéo",
+        "moveUp": "Monter la slide",
+        "moveDown": "Descendre la slide",
+        "deleteSlide": "Supprimer la slide",
+        "slideLabel": "Slide {number} · {template}",
+        "fieldTitle": "Titre",
+        "bullets": "Puces",
+        "noBullets": "Aucune puce — ajoutez-en si besoin.",
+        "deleteBullet": "Supprimer la puce",
+        "addBullet": "Ajouter une puce",
+        "narration": "Narration",
+        "savedTitle": "Script enregistré",
+        "savedDesc": "La vidéo actuelle est marquée obsolète — régénérez-la pour appliquer les changements.",
+        "regenStartedTitle": "Régénération lancée",
+        "regenStartedDesc": "La vidéo repart en production à partir du script édité.",
+        "regenErrorTitle": "Régénération impossible",
+        "image": {
+          "title": "Illustration de la slide",
+          "statusPending": "Génération…",
+          "statusFailed": "Échec",
+          "previewAlt": "Illustration de la slide",
+          "promptPlaceholder": "Décrivez l’image souhaitée (optionnel)",
+          "regenerate": "Régénérer",
+          "replace": "Remplacer",
+          "remove": "Retirer",
+          "startedTitle": "Régénération lancée",
+          "startedDescription": "La nouvelle image sera prête dans quelques minutes (GPU à la demande).",
+          "uploadedTitle": "Image remplacée",
+          "uploadedDescription": "L’image uploadée est enregistrée sur cette slide.",
+          "failedTitle": "Action impossible",
+          "networkErrorTitle": "Erreur réseau",
+          "networkErrorDescription": "Vérifiez votre connexion et réessayez.",
+          "engine": {
+            "sdxl": "SDXL",
+            "zimage": "Z-Image Turbo"
+          },
+          "switchEngineButton": "Essayer {engine}",
+          "switchStartedTitle": "Changement de modèle lancé",
+          "switchStartedDescription": "Cette slide bascule vers {engine}."
+        },
+        "applyMedia": "Appliquer les changements à la vidéo",
+        "applyMediaStartedTitle": "Application lancée",
+        "applyMediaStartedDesc": "La vidéo est re-rendue avec les images et audios de slide actuels (script et narration texte inchangés).",
+        "applyMediaErrorTitle": "Application impossible",
+        "audio": {
+          "title": "Narration de la slide",
+          "sourceManual": "Enregistrement manuel",
+          "statusPending": "Traitement…",
+          "statusFailed": "Échec",
+          "recordMic": "Enregistrer au micro",
+          "useRecording": "Utiliser cet enregistrement",
+          "cancelRecording": "Annuler",
+          "uploadFile": "Uploader un fichier",
+          "revertToTts": "Revenir à la voix TTS",
+          "startedTitle": "Enregistrement envoyé",
+          "startedDescription": "La normalisation audio sera prête dans quelques instants.",
+          "failedTitle": "Action impossible",
+          "networkErrorTitle": "Erreur réseau",
+          "networkErrorDescription": "Vérifiez votre connexion et réessayez.",
+          "micUnavailableTitle": "Micro indisponible",
+          "micUnavailableDescription": "Votre navigateur ne supporte pas l’enregistrement audio.",
+          "micDeniedTitle": "Accès micro refusé",
+          "micDeniedDescription": "Autorisez l’accès au micro pour enregistrer votre narration.",
+          "emptyRecordingTitle": "Enregistrement vide",
+          "emptyRecordingDescription": "Aucun son détecté — réessayez."
+        }
+      },
+      "quiz": {
+        "titleWithCount": "Édition du quiz · {count, plural, one {# question} other {# questions}}",
+        "deleteQuestion": "Supprimer la question",
+        "questionLabel": "Question {number}",
+        "questionPlaceholder": "Intitulé de la question",
+        "choicesLegend": "Choix (cochez la bonne réponse)",
+        "markCorrect": "Marquer le choix {letter} comme bonne réponse",
+        "choicePlaceholder": "Choix {letter}",
+        "explanation": "Explication",
+        "explanationPlaceholder": "Pourquoi cette réponse est correcte",
+        "addQuestion": "Ajouter une question",
+        "savedTitle": "Quiz enregistré",
+        "savedDesc": "Les questions ont été mises à jour.",
+        "incompleteTitle": "Quiz incomplet",
+        "vAtLeastOne": "Le quiz doit contenir au moins une question.",
+        "vEmptyTitle": "Question {number} : l’intitulé est vide.",
+        "vChoicesCount": "Question {number} : {count} choix requis.",
+        "vChoicesFilled": "Question {number} : tous les choix doivent être renseignés.",
+        "vInvalidCorrect": "Question {number} : bonne réponse invalide."
+      },
+      "history": {
+        "open": "Historique",
+        "dialogTitle": "Historique des versions",
+        "dialogDescription": "Une version est enregistrée avant chaque modification importante. Restaurer une version réapplique son contenu immédiatement.",
+        "loading": "Chargement…",
+        "empty": "Aucune version antérieure enregistrée pour cette leçon.",
+        "hideDiff": "Masquer le diff",
+        "showDiff": "Voir le diff",
+        "restore": "Restaurer",
+        "restoredTitle": "Version restaurée",
+        "restoredDesc": "Le contenu précédent a été réappliqué.",
+        "restoreErrorTitle": "Restauration impossible"
+      },
+      "tp": {
+        "title": "Édition du TP",
+        "objective": "Objectif",
+        "environment": "Environnement",
+        "noEnvironment": "Aucun prérequis — ajoutez-en si besoin.",
+        "addEnvironment": "Ajouter un prérequis",
+        "deleteEnvironment": "Supprimer le prérequis",
+        "steps": "{count, plural, one {# étape} other {# étapes}}",
+        "stepLabel": "Étape {number}",
+        "instruction": "Instruction",
+        "command": "Commande (optionnel)",
+        "commandPlaceholder": "ex. npm install",
+        "expectedResult": "Résultat attendu",
+        "addStep": "Ajouter une étape",
+        "deleteStep": "Supprimer l’étape",
+        "moveUp": "Monter l’étape",
+        "moveDown": "Descendre l’étape",
+        "validation": "Validation",
+        "noValidation": "Aucun critère de validation — ajoutez-en si besoin.",
+        "addValidation": "Ajouter un critère",
+        "deleteValidation": "Supprimer le critère",
+        "troubleshooting": "Dépannage",
+        "noTroubleshooting": "Aucune piste de dépannage — ajoutez-en si besoin.",
+        "addTroubleshooting": "Ajouter une piste",
+        "deleteTroubleshooting": "Supprimer la piste",
+        "savedTitle": "TP enregistré",
+        "savedDesc": "Les captures existantes restent inchangées — remplacez-les manuellement ou relancez la capture automatique si besoin."
+      }
+    },
+    "preview": {
+      "metaTitle": "Aperçu étudiant — SallyCourse",
+      "backToCourse": "Retour au cours",
+      "studentPreview": "Aperçu étudiant",
+      "progressLabel": "Progression : {done} / {total, plural, one {# leçon} other {# leçons}}",
+      "localProgress": "Progression locale (non enregistrée)",
+      "progressAria": "Progression de l’aperçu",
+      "noLessons": "Ce cours ne contient encore aucune leçon à prévisualiser.",
+      "planAria": "Plan du cours",
+      "finishedTitle": "Aperçu terminé",
+      "finishedDesc": "Vous avez parcouru toutes les leçons comme un étudiant. Ce parcours reflète l’expérience d’apprentissage de votre cours.",
+      "prev": "Précédent",
+      "next": "Suivant",
+      "typeVideo": "Vidéo",
+      "typeArticle": "Article",
+      "typeTp": "Travaux pratiques",
+      "typeQuiz": "Quiz",
+      "lessonPosition": "Leçon {position} / {total}",
+      "markViewed": "Marquer comme vue",
+      "viewed": "Vue",
+      "quizDone": "Terminé",
+      "videoUnavailable": "La vidéo de cette leçon n’est pas encore disponible.",
+      "captions": "Sous-titres",
+      "downloadTranscript": "Télécharger la transcription (.txt)",
+      "articleUnavailable": "L’article de cette leçon n’est pas encore disponible.",
+      "quizNoQuestions": "Ce quiz ne contient pas encore de questions.",
+      "tpNote": "Les travaux pratiques se réalisent dans l’environnement fourni avec le cours. Cet aperçu en présente l’intitulé.",
+      "quiz": {
+        "result": "Résultat",
+        "correctAnswers": "Bonnes réponses",
+        "passed": "Quiz réussi",
+        "belowThreshold": "En dessous du seuil (70 %)",
+        "restart": "Recommencer le quiz",
+        "answeredProgress": "{answered} / {total, plural, one {# question répondue} other {# questions répondues}}",
+        "progressAria": "Avancement du quiz",
+        "explanationLabel": "Explication : ",
+        "submit": "Soumettre le quiz",
+        "answerAllToSubmit": "Répondez à toutes les questions pour soumettre."
+      },
+      "quizAuthor": {
+        "noQuestions": "Ce quiz ne contient encore aucune question.",
+        "scoreFinal": "Score final",
+        "msgPerfect": "Sans faute — le quiz est prêt à être publié.",
+        "msgGood": "Bon niveau de difficulté pour vos apprenants.",
+        "msgHard": "Quiz corsé — vérifiez les explications avant publication.",
+        "questionCounter": "Question {index} / {total}",
+        "correctCountLabel": "{count, plural, one {# bonne réponse} other {# bonnes réponses}}",
+        "goodAnswer": "Bonne réponse !",
+        "badAnswer": "Mauvaise réponse",
+        "nextQuestion": "Question suivante",
+        "seeScore": "Voir le score"
+      }
+    },
+    "screenshotGallery": {
+      "stepAlt": "Étape {number}",
+      "replace": "Remplacer",
+      "remove": "Supprimer",
+      "add": "Ajouter",
+      "savedTitle": "Capture enregistrée",
+      "failedTitle": "Action impossible",
+      "networkErrorTitle": "Erreur réseau",
+      "networkErrorDescription": "Vérifiez votre connexion et réessayez.",
+      "recapture": "Recapturer",
+      "recaptureStartedTitle": "Recapture lancée",
+      "recaptureStartedDescription": "Toutes les captures de « {title} » vont être régénérées automatiquement (les remplacements manuels seront écrasés)."
+    }
+  },
+  "paths": {
+    "navLabel": "Parcours",
+    "catalogTitle": "Parcours d’apprentissage",
+    "catalogSubtitle": "Plusieurs cours enchaînés dans l’ordre, un seul prix, un certificat de parcours.",
+    "courseCount": "{count} cours",
+    "separateTotal": "Cours séparés : {amount}",
+    "savings": "Économisez {amount}",
+    "program": "Programme du parcours",
+    "outcomes": "Ce que vous saurez faire",
+    "audience": "Pour qui",
+    "faq": "Questions fréquentes",
+    "enroll": "Rejoindre le parcours",
+    "enrolling": "Inscription…",
+    "enrolled": "Vous suivez ce parcours",
+    "loginToEnroll": "Connectez-vous pour rejoindre le parcours",
+    "progress": "Progression du parcours",
+    "progressValue": "{completed} / {total} cours terminés",
+    "certificate": "Certificat de parcours",
+    "certificateLocked": "Terminez tous les cours du parcours pour débloquer le certificat.",
+    "locked": "Verrouillé — terminez le cours précédent",
+    "completed": "Terminé",
+    "openCourse": "Ouvrir le cours",
+    "dashboardTitle": "Parcours",
+    "dashboardSubtitle": "Chaînez vos cours publiés sur le LMS en un parcours vendu comme un bundle.",
+    "newPath": "Nouveau parcours",
+    "titleField": "Titre du parcours",
+    "descriptionField": "Description",
+    "coursesField": "Cours du parcours (dans l’ordre)",
+    "addCourse": "Ajouter un cours",
+    "remove": "Retirer",
+    "moveUp": "Monter",
+    "moveDown": "Descendre",
+    "requiresPrevious": "Exiger le cours précédent",
+    "priceField": "Prix du parcours (centimes)",
+    "currencyField": "Devise",
+    "create": "Créer le parcours",
+    "save": "Enregistrer",
+    "publish": "Publier",
+    "unpublish": "Dépublier",
+    "delete": "Supprimer",
+    "deleteConfirmTitle": "Supprimer ce parcours ?",
+    "deleteConfirmBody": "Le parcours et la progression de tous les apprenants inscrits seront définitivement supprimés. Cette action est irréversible.",
+    "cancel": "Annuler",
+    "confirmDelete": "Supprimer définitivement",
+    "generateSalesPage": "Générer la page de vente",
+    "generating": "Génération…",
+    "salesPageReady": "Page de vente générée.",
+    "salesPageMissing": "Aucune page de vente générée pour l’instant.",
+    "viewPublic": "Voir la page de vente",
+    "published": "Publié",
+    "draft": "Brouillon",
+    "noPublishedCourses": "Publiez d’abord des cours sur le LMS interne pour composer un parcours.",
+    "empty": "Aucun parcours pour le moment.",
+    "emptyCatalog": "Aucun parcours publié pour le moment.",
+    "path": {
+      "metaTitle": "{title} — SallyCourse Academy",
+      "metaTitleFallback": "Parcours — SallyCourse Academy"
+    },
+    "list": {
+      "metaTitle": "Catalogue des cours — SallyCourse Academy",
+      "metaDescription": "Parcourez les cours publiés et inscrivez-vous en un clic.",
+      "free": "Gratuit",
+      "title": "Catalogue des cours",
+      "intro": "Des cours complets — vidéos, articles et quiz — générés et publiés sur SallyCourse Academy. Inscrivez-vous, suivez votre progression et obtenez votre certificat.",
+      "emptyTitle": "Aucun cours publié pour le moment",
+      "emptyDescription": "Les cours publiés sur le LMS interne apparaîtront ici.",
+      "lessonCount": "{count, plural, one {# leçon} other {# leçons}}",
+      "durationMin": "{minutes} min"
+    }
   },
   "auth": {
     "authRequired": "Authentification requise.",
@@ -51,13 +1600,513 @@
     "logout": "Déconnexion",
     "signup": "Créer un compte",
     "email": "E-mail",
-    "password": "Mot de passe"
+    "password": "Mot de passe",
+    "loginPage": {
+      "metaTitle": "Connexion — SallyCourse",
+      "metaDescription": "Connectez-vous pour piloter la génération de vos cours."
+    },
+    "google": {
+      "continueWithGoogle": "Continuer avec Google"
+    },
+    "registerPage": {
+      "metaTitle": "Créer un compte — SallyCourse",
+      "metaDescription": "Rejoignez SallyCourse et générez votre premier cours en quelques minutes."
+    },
+    "divider": {
+      "or": "ou"
+    },
+    "loginForm": {
+      "errorInvalidCredentials": "Email ou mot de passe incorrect.",
+      "toastRefusedTitle": "Connexion refusée",
+      "toastRefusedDescription": "Vérifiez vos identifiants puis réessayez.",
+      "toastWelcomeBackTitle": "Bon retour !",
+      "toastUnexpectedTitle": "Erreur inattendue",
+      "toastUnexpectedDescription": "Impossible de vous connecter, réessayez dans un instant.",
+      "title": "Connexion",
+      "description": "Retrouvez vos cours et vos générations en un clic.",
+      "emailLabel": "Adresse email",
+      "passwordLabel": "Mot de passe",
+      "submit": "Se connecter",
+      "noAccountPrompt": "Pas encore de compte ?",
+      "createAccount": "Créer un compte"
+    },
+    "altcha": {
+      "loading": "Chargement de la vérification anti-robot…",
+      "solving": "Vérification anti-robot en cours…",
+      "solved": "Vérification anti-robot réussie.",
+      "error": "Vérification anti-robot indisponible, réessayez."
+    },
+    "registerForm": {
+      "errorNameTooShort": "Le nom doit contenir au moins 2 caractères.",
+      "errorEmailInvalid": "Adresse email invalide.",
+      "errorPasswordTooShort": "Au moins 8 caractères.",
+      "errorPasswordMismatch": "Les mots de passe ne correspondent pas.",
+      "toastCaptchaTitle": "Vérification anti-robot en cours",
+      "toastCaptchaDescription": "Patientez quelques instants puis réessayez.",
+      "errorEmailTaken": "Un compte existe déjà avec cet email.",
+      "toastEmailTakenTitle": "Email déjà utilisé",
+      "toastEmailTakenDescription": "Connectez-vous ou utilisez une autre adresse.",
+      "toastRegisterFailedTitle": "Inscription impossible",
+      "toastRegisterFailedDescription": "Vérifiez vos informations puis réessayez.",
+      "toastAccountCreatedTitle": "Compte créé",
+      "toastAccountCreatedDescription": "Connectez-vous avec vos nouveaux identifiants.",
+      "toastWelcome": "Bienvenue sur SallyCourse !",
+      "toastUnexpectedErrorTitle": "Erreur inattendue",
+      "toastUnexpectedErrorDescription": "Réessayez dans un instant.",
+      "title": "Créer un compte",
+      "description": "Votre premier cours généré en quelques minutes.",
+      "labelName": "Nom complet",
+      "labelEmail": "Adresse email",
+      "labelPassword": "Mot de passe",
+      "hintPassword": "8 caractères minimum.",
+      "labelConfirmPassword": "Confirmer le mot de passe",
+      "submit": "Créer mon compte",
+      "googleLabel": "S'inscrire avec Google",
+      "alreadyRegistered": "Déjà inscrit ?",
+      "loginLink": "Se connecter"
+    }
   },
   "pricing": {
     "title": "Tarifs"
   },
   "settings": {
-    "title": "Paramètres"
+    "title": "Paramètres",
+    "publicPage": {
+      "title": "Page publique",
+      "description": "Réservez votre handle et publiez votre page instructeur : bio, catalogue de vos cours publiés et avis de vos apprenants. Aucune donnée privée n’y figure.",
+      "handleLabel": "Votre handle",
+      "handleHelp": "3 à 30 caractères : minuscules, chiffres, tiret ou underscore.",
+      "handleSaved": "Handle enregistré.",
+      "handleTaken": "Ce handle est déjà pris.",
+      "handleInvalid": "Format invalide : 3 à 30 caractères, minuscules, chiffres, tiret ou underscore.",
+      "handleReserved": "Ce nom est réservé par la plateforme.",
+      "handleError": "Impossible d’enregistrer ce handle.",
+      "save": "Enregistrer le handle",
+      "linkLabel": "Lien de votre page publique",
+      "copy": "Copier le lien",
+      "copied": "Lien copié.",
+      "open": "Ouvrir ma page",
+      "bioTitle": "Bio publique",
+      "bioEmpty": "Aucune bio générée pour le moment.",
+      "bioGeneratedAt": "Générée le {date}",
+      "generate": "Générer ma bio",
+      "regenerate": "Régénérer ma bio",
+      "generating": "Génération en cours…",
+      "bioGenerated": "Bio générée.",
+      "bioError": "Génération indisponible pour le moment.",
+      "noCourse": "Publiez au moins un cours sur le LMS avant de générer votre bio.",
+      "rateLimited": "Trop de générations, réessayez plus tard.",
+      "handleFirst": "Choisissez d’abord un handle pour activer votre page publique.",
+      "metaTitle": "Page publique — SallyCourse",
+      "metaDescription": "Votre page instructeur publique : handle, bio générée et catalogue de vos cours."
+    },
+    "accountPage": {
+      "metaTitle": "Compte — SallyCourse",
+      "metaDescription": "Exportez vos données ou supprimez définitivement votre compte SallyCourse.",
+      "title": "Compte",
+      "description": "Gérez vos données personnelles conformément au RGPD : téléchargez une copie complète de vos données, ou supprimez définitivement votre compte SallyCourse.",
+      "activityLink": "Voir mon activité (connexions, déploiements, suppressions...)"
+    },
+    "apiKeysPage": {
+      "metaTitle": "API & Webhooks — SallyCourse",
+      "metaDescription": "Gérez vos clés API et vos webhooks pour intégrer SallyCourse.",
+      "heading": "API & Webhooks",
+      "intro": "Intégrez SallyCourse à vos outils : créez des clés pour l'API publique et abonnez des webhooks aux événements de vos cours. Les clés et secrets ne sont affichés qu'une seule fois à leur création."
+    },
+    "platformsPage": {
+      "metaTitle": "Plateformes — SallyCourse",
+      "metaDescription": "Connectez vos comptes de publication pour déployer vos cours.",
+      "heading": "Plateformes",
+      "description": "Connectez vos comptes de publication pour déployer automatiquement vos cours. Vos identifiants sont chiffrés côté serveur et ne quittent jamais la base en clair."
+    },
+    "nav": {
+      "ariaLabel": "Sections des réglages",
+      "account": "Compte",
+      "voice": "Ma voix",
+      "avatar": "Mon avatar",
+      "billing": "Facturation",
+      "platforms": "Plateformes",
+      "deployPresets": "Presets de déploiement",
+      "branding": "Marque blanche",
+      "publicPage": "Page publique",
+      "coupons": "Coupons",
+      "apiKeys": "API & Webhooks",
+      "activity": "Mon activité"
+    },
+    "account": {
+      "toast": {
+        "exportFailedTitle": "Export impossible",
+        "exportFailedDescription": "Réessayez plus tard.",
+        "exportReadyTitle": "Export prêt",
+        "exportReadyDescription": "Le téléchargement a démarré.",
+        "networkErrorTitle": "Erreur réseau",
+        "networkErrorDescription": "Serveur injoignable.",
+        "deleteFailedTitle": "Suppression impossible",
+        "accountDeletedTitle": "Compte supprimé",
+        "accountDeletedDescription": "Toutes vos données ont été effacées."
+      },
+      "export": {
+        "title": "Exporter mes données",
+        "description": "Téléchargez une archive ZIP contenant votre profil, vos cours, vos plateformes connectées (métadonnées uniquement, jamais les secrets) et votre historique d’utilisation.",
+        "button": "Télécharger mes données (.zip)"
+      },
+      "delete": {
+        "title": "Supprimer mon compte",
+        "description": "Suppression définitive et immédiate de votre compte, de tous vos cours, de leurs médias et de vos connexions plateformes. Cette action est irréversible.",
+        "button": "Supprimer définitivement mon compte"
+      },
+      "dialog": {
+        "title": "Confirmer la suppression",
+        "description": "Cette action supprime définitivement votre compte, vos cours, vos médias et vos connexions plateformes. Aucune restauration n’est possible. Pour confirmer, retapez votre email :",
+        "emailLabel": "Confirmez votre email",
+        "cancel": "Annuler",
+        "confirm": "Supprimer définitivement"
+      }
+    },
+    "voicePage": {
+      "metaTitle": "Ma voix — SallyCourse",
+      "metaDescription": "Clonez votre voix pour narrer vos cours vidéo avec votre propre timbre.",
+      "heading": "Ma voix",
+      "description": "Gérez le clonage vocal utilisé pour la narration de vos cours vidéo."
+    },
+    "brandingPage": {
+      "metaTitle": "Marque blanche — SallyCourse",
+      "metaDescription": "Personnalisez le certificat de vos étudiants avec le logo et les couleurs de votre école.",
+      "title": "Marque blanche",
+      "description": "Remplacez la marque SALISTAR par le logo et les couleurs de votre école sur le certificat de complétion délivré à vos étudiants."
+    },
+    "platforms": {
+      "kindPassword": "Mot de passe",
+      "kindApiKey": "Clé API",
+      "kindOAuth": "OAuth",
+      "testSuccessTitle": "Connexion OK",
+      "testFailTitle": "Connexion échouée",
+      "mockSuffix": "{message} (mode mock)",
+      "error": "Erreur",
+      "testError": "Test impossible.",
+      "disconnected": "Déconnecté",
+      "disconnectError": "Déconnexion impossible.",
+      "connected": "{label} connecté",
+      "accountsBadge": "{count, plural, one {Connecté} other {# comptes}}",
+      "notConnected": "Non connecté",
+      "test": "Tester",
+      "disconnect": "Déconnecter",
+      "addAccount": "Ajouter un compte",
+      "connect": "Connecter",
+      "addError": "Ajout impossible",
+      "networkError": "Réseau indisponible.",
+      "accountLabel": "Libellé du compte",
+      "save": "Enregistrer",
+      "cancel": "Annuler"
+    },
+    "deployPresetsPage": {
+      "metaTitle": "Presets de déploiement — SallyCourse",
+      "metaDescription": "Enregistrez une configuration de déploiement et appliquez-la en un clic.",
+      "heading": "Mes presets de déploiement",
+      "intro": "Enregistrez une combinaison de plateformes, de modes et de comptes, puis appliquez-la en un clic à n'importe quel autre cours prêt. Partagez un preset publiquement pour que d'autres utilisateurs en profitent (jamais vos identifiants, seulement la configuration)."
+    },
+    "billingPage": {
+      "metaTitle": "Facturation — SallyCourse",
+      "metaDescription": "Renseignez vos informations fiscales marocaines et consultez vos factures.",
+      "heading": "Facturation",
+      "description": "Renseignez votre statut fiscal (auto-entrepreneur ou société) pour recevoir des factures conformes, avec votre ICE et IF le cas échéant. Consultez et exportez votre historique de facturation."
+    },
+    "branding": {
+      "title": "Certificat — marque blanche",
+      "description": "Le logo et les couleurs choisis ci-dessous remplacent la marque SALISTAR sur le certificat PDF délivré à vos étudiants. Fonctionnalité réservée au plan Business.",
+      "statusActive": "Marque blanche active",
+      "statusDefault": "SALISTAR par défaut",
+      "businessOnly": "Réservé au plan Business",
+      "schoolNameLabel": "Nom de l’école",
+      "primaryColor": "Couleur principale",
+      "accentColor": "Couleur d’accent",
+      "subdomainLabel": "Sous-domaine white-label",
+      "subdomainPlaceholder": "academie-client",
+      "subdomainHelp": "Votre catalogue de cours publiés sera accessible à cette adresse, avec votre nom et vos couleurs. Laissez vide pour désactiver. Configuration DNS requise en prod (voir docs/WHITE-LABEL-DNS.md).",
+      "logo": "Logo",
+      "logoAlt": "Logo de l’école",
+      "uploading": "Téléversement…",
+      "uploadLogo": "Téléverser un logo",
+      "save": "Enregistrer",
+      "backToSalistar": "Revenir à SALISTAR",
+      "hexInvalid": "Couleur hexadécimale invalide (#RRGGBB).",
+      "schoolNameRequired": "Nom d’école requis",
+      "colorInvalidTitle": "Couleur invalide",
+      "colorInvalidDesc": "Utilisez le format #RRGGBB.",
+      "subdomainInvalidTitle": "Sous-domaine invalide",
+      "subdomainInvalidDesc": "Minuscules, chiffres et tirets, 3 caractères minimum.",
+      "saveErrorTitle": "Enregistrement impossible",
+      "saveSuccess": "Marque blanche enregistrée",
+      "networkErrorTitle": "Erreur réseau",
+      "networkErrorDesc": "Serveur injoignable.",
+      "uploadErrorTitle": "Téléversement impossible",
+      "logoUpdated": "Logo mis à jour",
+      "resetSuccess": "Marque blanche réinitialisée (retour à SALISTAR)",
+      "resetErrorTitle": "Réinitialisation impossible"
+    },
+    "apiKeys": {
+      "copied": "Copié",
+      "copyFailed": "Copie impossible",
+      "revealHint": "Copiez cette valeur maintenant — elle ne sera plus affichée.",
+      "copy": "Copier",
+      "iCopied": "J'ai copié",
+      "events": {
+        "outlineReady": "Plan prêt",
+        "generationComplete": "Génération terminée",
+        "deployed": "Déployé",
+        "reviewApproved": "Review approuvée"
+      },
+      "createFailed": "Création impossible",
+      "errorTitle": "Erreur",
+      "networkUnavailable": "Réseau indisponible.",
+      "keyRevoked": "Clé révoquée",
+      "revokeFailed": "Révocation impossible.",
+      "apiKeysTitle": "Clés API",
+      "apiKeysHint": "Authentifiez vos appels à l'API publique v1 (en-tête <code></code>).",
+      "keyLabelLabel": "Libellé de la clé",
+      "keyLabelPlaceholder": "CI GitHub",
+      "createKey": "Créer une clé",
+      "noKeys": "Aucune clé. Créez-en une pour démarrer.",
+      "usedOn": " · utilisée le {date}",
+      "neverUsed": " · jamais utilisée",
+      "revoke": "Révoquer",
+      "webhooksTitle": "Webhooks",
+      "webhooksHint": "Recevez une requête POST signée (HMAC-SHA256, en-tête <code></code>) à chaque événement de vos cours.",
+      "webhookUrlLabel": "URL de destination",
+      "addWebhook": "Ajouter un webhook",
+      "noWebhooks": "Aucun webhook configuré.",
+      "updateFailed": "Mise à jour impossible.",
+      "webhookDeleted": "Webhook supprimé",
+      "deleteFailed": "Suppression impossible.",
+      "active": "Actif",
+      "inactive": "Inactif",
+      "deactivate": "Désactiver",
+      "activate": "Activer"
+    },
+    "activity": {
+      "metaTitle": "Mon activité — SallyCourse",
+      "metaDescription": "Historique de vos actions sensibles : connexions, credentials, déploiements, suppressions.",
+      "title": "Mon activité",
+      "description": "Historique de vos actions sensibles sur ce compte : connexions, changements d'identifiants plateforme, déploiements, suppressions de cours. Conservé 12 mois, jamais modifiable.",
+      "empty": {
+        "title": "Aucune activité enregistrée",
+        "description": "Rien à afficher pour le moment."
+      },
+      "table": {
+        "date": "Date",
+        "action": "Action",
+        "detail": "Détail"
+      },
+      "actions": {
+        "login": "Connexion réussie",
+        "loginFailed": "Tentative de connexion échouée",
+        "register": "Création du compte",
+        "logout": "Déconnexion",
+        "credentialsChanged": "Identifiants plateforme modifiés",
+        "credentialsDeleted": "Identifiants plateforme supprimés",
+        "deploymentCreated": "Déploiement lancé",
+        "courseDeleted": "Cours supprimé",
+        "adminAccess": "Accès à l’espace admin"
+      }
+    },
+    "avatarPage": {
+      "metaTitle": "Mon avatar — SallyCourse",
+      "metaDescription": "Téléversez une photo de présentateur animée en avatar vidéo pour vos cours.",
+      "heading": "Mon avatar",
+      "description": "Gérez la photo de présentateur utilisée pour l’avatar vidéo « talking-head » de vos cours."
+    },
+    "voice": {
+      "statusNone": "Aucune voix clonée",
+      "statusPending": "Clonage en cours",
+      "statusReady": "Voix prête",
+      "statusFailed": "Échec du clonage",
+      "cardTitle": "Ma voix",
+      "description": "Clonez votre voix (ElevenLabs) pour narrer vos cours vidéo avec votre propre timbre au lieu d’une voix de synthèse générique. Un échantillon d’au moins {seconds}s, clair et sans bruit de fond, donne les meilleurs résultats.",
+      "sampleDuration": "échantillon de {seconds}s",
+      "useVoiceHint": "Sélectionnez cette voix dans les options avancées lors de la création d’un cours pour l’utiliser comme narration.",
+      "removeButton": "Supprimer ma voix clonée",
+      "consentLabel": "Je consens explicitement à ce que SallyCourse crée un clone de ma voix à partir de l’échantillon (téléversé ou enregistré au micro), et l’utilise pour générer la narration de mes cours.",
+      "consentBlockedHint": "Le téléversement et l’enregistrement sont bloqués tant que le consentement n’est pas coché.",
+      "uploadButton": "Téléverser un échantillon audio",
+      "uploadingButton": "Clonage en cours…",
+      "orRecordMic": "Ou enregistrez au micro",
+      "recordingMinAbbrev": "min.",
+      "recordMoreHint": "Enregistrez encore {remaining}s (minimum {min}s) avant de pouvoir utiliser cet enregistrement.",
+      "useRecordingButton": "Utiliser cet enregistrement",
+      "cancelButton": "Annuler",
+      "recordMicButton": "Enregistrer au micro",
+      "toastCloneFailedTitle": "Clonage impossible",
+      "toastClonedTitle": "Voix clonée",
+      "toastClonedMock": "Mode simulé (aucune clé ElevenLabs) : un identifiant fictif a été assigné.",
+      "toastClonedReady": "Votre voix est prête à être utilisée pour vos cours.",
+      "toastNetworkError": "Erreur réseau",
+      "toastServerUnreachable": "Serveur injoignable.",
+      "toastConsentRequiredTitle": "Consentement requis",
+      "toastConsentRequiredUpload": "Cochez la case de consentement avant de téléverser votre échantillon.",
+      "toastConsentRequiredRecord": "Cochez la case de consentement avant d’enregistrer votre voix.",
+      "toastTooShortTitle": "Échantillon trop court",
+      "toastTooShortDescription": "Durée détectée : {detected}s (minimum recommandé : {min}s).",
+      "toastMicUnavailableTitle": "Micro indisponible",
+      "toastMicUnavailableDescription": "Votre navigateur ne supporte pas l’enregistrement au micro.",
+      "toastMicDeniedTitle": "Micro refusé",
+      "toastMicDeniedDescription": "Autorisez l’accès au micro pour enregistrer votre voix.",
+      "toastEmptyRecordingTitle": "Enregistrement vide",
+      "toastEmptyRecordingDescription": "Rien n’a été capté par le micro.",
+      "toastRemovedTitle": "Voix clonée supprimée",
+      "toastRemoveFailedTitle": "Suppression impossible"
+    },
+    "deployPresets": {
+      "myPresets": "Mes presets",
+      "newPreset": "Nouveau preset",
+      "emptyState": "Aucun preset pour le moment. Créez-en un pour réutiliser une combinaison de plateformes en un clic sur vos prochains cours.",
+      "communityPresets": "Presets partagés par la communauté",
+      "publicBadge": "Public",
+      "applyToCourse": "Appliquer à un cours",
+      "delete": "Supprimer",
+      "modeAuto": "Automatique",
+      "modeAssisted": "Assisté",
+      "modeManual": "Manuel",
+      "toastDeletedTitle": "Preset supprimé",
+      "toastDeleteErrorTitle": "Erreur",
+      "toastDeleteErrorDesc": "Suppression impossible.",
+      "toastSavedTitle": "Preset enregistré",
+      "createErrorTitle": "Création impossible",
+      "networkErrorTitle": "Erreur réseau",
+      "networkErrorDesc": "Serveur injoignable.",
+      "createDialogTitle": "Nouveau preset de déploiement",
+      "presetNameLabel": "Nom du preset",
+      "presetNamePlaceholder": "Ex. Combo YouTube + Udemy FR",
+      "platforms": "Plateformes",
+      "modeLabel": "Mode",
+      "sharePublicly": "Partager publiquement",
+      "sharePubliclyHint": "D'autres utilisateurs pourront appliquer ce preset (jamais vos identifiants).",
+      "save": "Enregistrer",
+      "applyErrorTitle": "Application impossible",
+      "appliedTitle": "Preset appliqué",
+      "appliedDesc": "{count, plural, one {# plateforme en file pour ce cours.} other {# plateformes en file pour ce cours.}}",
+      "applyDialogTitle": "Appliquer « {name} »",
+      "loadingCourses": "Chargement de vos cours…",
+      "noCoursesReady": "Aucun cours prêt à déployer pour le moment. Générez d'abord un cours.",
+      "targetCourseLabel": "Cours cible",
+      "selectCourse": "Sélectionner un cours…",
+      "launchDeploy": "Lancer le déploiement"
+    },
+    "changePlan": {
+      "confirmMockPayment": "Passerelle de paiement non configurée — activer le plan en mode SIMULÉ (développement) ?",
+      "activationFailed": "Activation impossible",
+      "planActivatedSimulated": "Plan {plan} activé (simulé)",
+      "paymentFailed": "Paiement impossible",
+      "networkError": "Erreur réseau",
+      "serverUnreachable": "Serveur injoignable.",
+      "sectionLabel": "Offre",
+      "title": "Changer d'offre",
+      "currentPlanLabel": "Plan actuel :",
+      "perMonthApprox": "/ mois · ≈",
+      "currentPlanButton": "Plan actuel",
+      "switchTo": "Passer {label}",
+      "proPerks": "10 cours/mois · sans filigrane · déploiement multi-plateformes",
+      "businessPerks": "Cours illimités · API & webhooks · multi-comptes plateformes"
+    },
+    "couponsPage": {
+      "metaTitle": "Coupons — SallyCourse",
+      "metaDescription": "Créez et gérez vos codes promo (remise %, montant, période, quota).",
+      "title": "Coupons",
+      "intro": "Créez des codes promo pour vos cours : remise en pourcentage ou montant fixe, période de validité et quota d'utilisations. Un coupon ne remise que VOS contenus."
+    },
+    "billing": {
+      "taxInfoTitle": "Informations fiscales (Maroc)",
+      "taxInfoDescription": "Renseignez votre statut fiscal pour recevoir des factures conformes. L’ICE et l’IF apparaissent sur chaque facture émise à partir de maintenant — les factures déjà émises ne sont pas modifiées rétroactivement.",
+      "statusLabel": "Statut fiscal",
+      "statusUnspecified": "Non renseigné",
+      "statusAutoEntrepreneur": "Auto-entrepreneur",
+      "statusCompany": "Société",
+      "companyNameLabel": "Raison sociale / nom facturé",
+      "requiredSuffix": "(obligatoire)",
+      "icePlaceholder": "15 chiffres",
+      "iceHint": "Identifiant Commun de l'Entreprise",
+      "ifPlaceholder": "6 à 8 chiffres",
+      "ifHint": "Identifiant Fiscal",
+      "addressLabel": "Adresse de facturation",
+      "saveButton": "Enregistrer",
+      "toastSaveErrorTitle": "Enregistrement impossible",
+      "toastSavedTitle": "Réglages de facturation enregistrés",
+      "toastNetworkErrorTitle": "Erreur réseau",
+      "toastNetworkErrorDescription": "Serveur injoignable.",
+      "invoicesTitle": "Historique des factures",
+      "exportButton": "Export comptable (.csv)",
+      "invoicesDescription": "Une facture est émise automatiquement à chaque paiement réussi. Cliquez sur une facture pour l’ouvrir au format imprimable (imprimer → PDF depuis votre navigateur).",
+      "emptyInvoices": "Aucune facture pour le moment.",
+      "colInvoice": "Facture",
+      "colDate": "Date",
+      "colStatus": "Statut",
+      "colHT": "HT",
+      "colTVA": "TVA",
+      "colTTC": "TTC"
+    },
+    "avatar": {
+      "consentRequiredTitle": "Consentement requis",
+      "consentRequiredDesc": "Cochez la case de consentement avant de téléverser votre photo.",
+      "uploadFailedTitle": "Upload impossible",
+      "photoSavedTitle": "Photo enregistrée",
+      "photoSavedDesc": "Votre avatar est prêt à être utilisé.",
+      "networkErrorTitle": "Erreur réseau",
+      "serverUnreachable": "Serveur injoignable.",
+      "photoDeletedTitle": "Photo supprimée",
+      "deleteFailedTitle": "Suppression impossible",
+      "title": "Mon avatar",
+      "description": "Téléversez une photo de votre visage (portrait frontal, bien éclairé, sans lunettes de soleil). Elle sera animée en présentateur « talking-head » qui introduit et conclut chaque section de vos cours vidéo, avec le mouvement des lèvres synchronisé sur la narration.",
+      "badgeSaved": "Photo enregistrée",
+      "badgeNone": "Aucune photo",
+      "previewAlt": "Aperçu de l’avatar",
+      "useHint": "Activez l’option « Avatar présentateur » dans les options avancées à la création d’un cours pour l’utiliser.",
+      "replacePhoto": "Remplacer la photo",
+      "remove": "Supprimer",
+      "consentLabel": "Je consens à ce que SallyCourse anime cette photo de mon visage pour créer un présentateur vidéo, et confirme être la personne représentée (ou disposer de son autorisation).",
+      "uploadBlockedHint": "Le téléversement est bloqué tant que le consentement n’est pas coché.",
+      "uploading": "Envoi en cours…",
+      "uploadPhoto": "Téléverser une photo"
+    },
+    "coupons": {
+      "newCoupon": "Nouveau coupon",
+      "labelCode": "Code (vide = auto)",
+      "labelDiscountType": "Type de remise",
+      "optionPercent": "Pourcentage",
+      "optionFixedAmount": "Montant fixe",
+      "labelDiscountPercent": "Remise (%)",
+      "labelAmount": "Montant (devise du cours)",
+      "labelValidity": "Validité (jours)",
+      "labelQuota": "Quota (vide = illimité)",
+      "labelPlatform": "Plateforme",
+      "platformInternal": "LMS interne",
+      "labelTargetCourse": "Cours ciblé (vide = tous vos cours)",
+      "optionAllMyCourses": "Tous mes cours",
+      "createButton": "Créer le coupon",
+      "selectTargetTitle": "Sélectionnez un cours ciblé",
+      "suggestPromoButton": "Suggérer un calendrier promo",
+      "suggestedPromoPeriods": "Périodes promo suggérées",
+      "useButton": "Utiliser",
+      "emptyTitle": "Aucun coupon",
+      "emptyDescription": "Vos codes promo apparaîtront ici.",
+      "expired": "Expiré",
+      "deleteButton": "Supprimer",
+      "validUntilPrefix": "jusqu'au",
+      "allYourCourses": "tous vos cours",
+      "fixedSuffix": "(fixe)",
+      "uses": "{count, plural, one {utilisation} other {utilisations}}",
+      "confirmDelete": "Supprimer le coupon {code} ?",
+      "toastInvalidDuration": "Durée invalide",
+      "toastInvalidDiscount": "Remise invalide (1-100 %)",
+      "toastInvalidAmount": "Montant invalide",
+      "toastCreateFailed": "Création impossible",
+      "toastCreated": "Coupon créé",
+      "toastNetworkError": "Erreur réseau",
+      "toastSelectCourse": "Sélectionnez un cours",
+      "toastSelectCourseDesc": "Le calendrier promo est propre à un cours.",
+      "toastSuggestUnavailable": "Suggestion indisponible",
+      "toastPromoApplied": "« {name} » appliqué",
+      "toastDeleteFailed": "Suppression impossible",
+      "toastDeleted": "Coupon supprimé"
+    }
   },
   "marketing": {
     "nav": {
@@ -65,7 +2114,11 @@
       "pricing": "Tarifs",
       "showcase": "Vitrine",
       "login": "Connexion",
-      "cta": "Créer mon premier cours"
+      "cta": "Créer mon premier cours",
+      "header": {
+        "marketplace": "Marketplace",
+        "menu": "Menu"
+      }
     },
     "hero": {
       "badge": "Génération de cours par IA",
@@ -192,9 +2245,1716 @@
         "signup": "Créer un compte",
         "cgu": "CGU",
         "cgv": "CGV",
-        "privacy": "Confidentialité"
+        "privacy": "Confidentialité",
+        "blog": "Blog"
       },
       "rights": "Tous droits réservés."
+    },
+    "showcase": {
+      "metaTitle": "Vitrine — SallyCourse",
+      "metaDescription": "Découvrez des cours créés avec SallyCourse par notre communauté de formateurs.",
+      "difficulty": {
+        "beginner": "Débutant",
+        "intermediate": "Intermédiaire",
+        "advanced": "Avancé"
+      },
+      "starRatingLabel": "Note {rating} sur 5",
+      "badge": "Vitrine de la communauté",
+      "heading": "Des cours créés avec SallyCourse",
+      "subtitle": "Une sélection de cours publiés par des formateurs qui ont choisi de partager leur création.",
+      "emptyState": "Aucun cours n'est encore affiché ici. Publiez le vôtre et activez l'option « Afficher sur la vitrine » pour apparaître parmi les premiers."
+    },
+    "marketplace": {
+      "metaTitle": "Marketplace de cours — SallyCourse",
+      "metaDescription": "Achetez des cours ou des templates créés par d’autres utilisateurs SallyCourse.",
+      "licenseCourseCopy": "Copie intégrale",
+      "licenseTemplateOnly": "Template seul",
+      "title": "Marketplace de cours",
+      "intro": "Achetez la copie d’un cours déjà généré ou un template de plan pédagogique créé par d’autres utilisateurs. L’achat vous livre votre propre copie indépendante, prête à personnaliser et déployer.",
+      "categoriesLabel": "Catégories",
+      "allCategories": "Toutes",
+      "emptyTitle": "Aucun listing pour le moment",
+      "emptyDescription": "Les cours mis en vente par les créateurs apparaîtront ici.",
+      "courseFallback": "Cours",
+      "sales": "{count, plural, one {# vente} other {# ventes}}"
+    },
+    "mobileNav": {
+      "close": "Fermer"
+    },
+    "demoForm": {
+      "errors": {
+        "minLength": "Saisissez au moins 4 caractères.",
+        "generic": "Impossible de générer la démo pour le moment.",
+        "network": "Erreur réseau, réessayez."
+      },
+      "titleLabel": "Titre de votre cours",
+      "titlePlaceholder": "Ex. Photographie culinaire pour débutants",
+      "submit": "Essayer gratuitement"
+    },
+    "home": {
+      "metaTitle": "SallyCourse — Créez un cours en ligne complet en quelques minutes",
+      "demoPrompt": "Ou testez tout de suite, sans compte — saisissez un titre :",
+      "coursesPerMonth": "{count, plural, one {# cours / mois} other {# cours / mois}}",
+      "unlimitedCourses": "Cours illimités",
+      "fallbackAuthor": "Formateur SallyCourse",
+      "starRating": "Note {rating} sur 5"
+    },
+    "pricing": {
+      "metaTitle": "Tarifs — SallyCourse",
+      "metaDescription": "Choisissez votre offre : du plan gratuit au plan Business illimité avec API et multi-comptes.",
+      "coursesPerMonthValue": "{count, plural, one {# cours / mois} other {# cours / mois}}",
+      "coursesUnlimited": "Cours illimités",
+      "planFreeTagline": "Pour tester la génération de cours.",
+      "planFreePeriod": "pour toujours",
+      "planFreeCta": "Commencer gratuitement",
+      "planProTagline": "Pour les créateurs réguliers.",
+      "planProPeriod": "par mois",
+      "planProCta": "Passer au Pro",
+      "planBusinessTagline": "Pour les équipes et l’automatisation.",
+      "planBusinessPeriod": "par mois",
+      "planBusinessCta": "Contacter les ventes",
+      "featureCoursesLabel": "Cours générés par mois",
+      "featureDeployLabel": "Déploiement multi-plateformes",
+      "featureNoWatermarkLabel": "Sans filigrane",
+      "featureApiLabel": "Accès API",
+      "featureMultiAccountsLabel": "Multi-comptes plateformes",
+      "deployPlatformsValue": "{count, plural, one {# à la fois} other {# à la fois}}",
+      "deployEverywhere": "Partout",
+      "included": "Inclus",
+      "excluded": "Non inclus",
+      "badge": "Tarifs simples",
+      "heroTitle": "Un cours complet, en quelques minutes",
+      "heroSubtitle": "Commencez gratuitement, passez à l’échelle quand vous êtes prêt. Aucun engagement, changez d’offre à tout moment.",
+      "popularBadge": "Populaire",
+      "comparisonTitle": "Comparer les offres en détail",
+      "comparisonFeatureHeader": "Fonctionnalité",
+      "footerCta": "Prêt à générer votre premier cours ?",
+      "footerButton": "Créer un compte gratuit"
+    }
+  },
+  "blog": {
+    "title": "Le blog SallyCourse",
+    "subtitle": "Guides, méthodes et retours d’expérience sur les sujets couverts par nos cours en ligne.",
+    "read": "Lire l’article",
+    "back": "Retour au blog",
+    "faq": "Questions fréquentes",
+    "empty": {
+      "title": "Aucun article pour le moment",
+      "description": "Les premiers articles paraîtront dès la publication de nos prochains cours."
+    },
+    "pagination": {
+      "label": "Pagination du blog",
+      "previous": "Précédent",
+      "next": "Suivant",
+      "position": "Page {current} sur {total}"
+    },
+    "cta": {
+      "eyebrow": "Le cours associé",
+      "description": "Passez de la théorie à la pratique : vidéos, exercices corrigés et quiz, dans un parcours guidé.",
+      "action": "Découvrir le cours"
+    },
+    "blogPost": {
+      "metaTitle": "Article — SallyCourse"
+    },
+    "metaTitle": "Blog — SallyCourse",
+    "metaDescription": "Guides, méthodes et retours d’expérience pour progresser sur les sujets couverts par nos cours en ligne."
+  },
+  "instructor": {
+    "coursesTitle": "Cours publiés",
+    "coursesEmpty": "Aucun cours publié pour le moment.",
+    "expertise": "Domaines d’expertise",
+    "bioDisclosure": "Bio rédigée avec l’assistance de l’IA à partir du catalogue publié.",
+    "viewCourse": "Voir le cours",
+    "alsoOn": "Aussi disponible sur",
+    "free": "Gratuit",
+    "lessons": "{count} leçons",
+    "duration": "{minutes} min",
+    "reviewsTitle": "Avis des apprenants",
+    "reviewsSummary": "{average}/5 · {count} avis vérifiés",
+    "reviewsNote": "Avis déposés par des apprenants inscrits sur SallyCourse.",
+    "stats": {
+      "courses": "Cours",
+      "lessons": "Leçons",
+      "hours": "Heures de contenu",
+      "students": "Apprenants",
+      "platforms": "Plateformes"
+    },
+    "metaDescription": "{name} — {count} cours en ligne sur SallyCourse.",
+    "anonymousLabel": "Apprenant"
+  },
+  "courseReview": {
+    "title": "Votre avis",
+    "description": "Notez ce cours. Votre note et votre commentaire peuvent apparaître sur la page publique de l’auteur, sous « Prénom I. ».",
+    "rating": "Note",
+    "star": "{count} sur 5",
+    "comment": "Commentaire (facultatif)",
+    "placeholder": "Ce que ce cours vous a apporté…",
+    "submit": "Publier mon avis",
+    "update": "Mettre à jour mon avis",
+    "saved": "Avis enregistré.",
+    "error": "Impossible d’enregistrer votre avis.",
+    "rateLimited": "Trop d’avis envoyés, réessayez plus tard."
+  },
+  "screencast": {
+    "title": "Capture d’écran narrée",
+    "description": "Téléversez un enregistrement d’écran, ajoutez une narration (voix du cours) et des légendes chronométrées : le SaaS produit une vidéo finale narrée avec les incrustations synchronisées.",
+    "statusRendering": "Rendu en cours…",
+    "statusReady": "Prête",
+    "statusFailed": "Échec",
+    "failedHelp": "Le rendu a échoué. Vérifiez l’enregistrement et relancez.",
+    "recordingLabel": "Enregistrement d’écran",
+    "pickFile": "Choisir un fichier",
+    "replaceFile": "Remplacer le fichier",
+    "recordingHint": "MP4, MOV ou WebM. 30 fps, 1080p recommandé, sans audio (la narration est générée).",
+    "narrationLabel": "Texte de narration",
+    "narrationPlaceholder": "Ce que la voix doit dire pendant la démonstration…",
+    "captionsTitle": "Légendes chronométrées",
+    "addCaption": "Ajouter une légende",
+    "captionsEmpty": "Aucune légende — l’enregistrement sera narré sans incrustation.",
+    "captionText": "Texte",
+    "captionStart": "Début (s)",
+    "captionEnd": "Fin (s)",
+    "captionPosition": "Position",
+    "positionBottom": "Bas",
+    "positionTop": "Haut",
+    "positionCenter": "Centre",
+    "removeCaption": "Supprimer la légende",
+    "submit": "Lancer le rendu",
+    "remove": "Retirer la capture",
+    "needFile": "Sélectionnez d’abord un enregistrement.",
+    "needNarration": "Saisissez le texte de narration.",
+    "invalidCaption": "Une légende est invalide (la fin doit suivre le début).",
+    "error": "Rendu impossible.",
+    "started": "Rendu lancé — suivez la progression ici.",
+    "network": "Serveur injoignable.",
+    "removed": "Capture retirée."
+  },
+  "agency": {
+    "page": {
+      "metaTitle": "Mode agence — SallyCourse",
+      "metaDescription": "Gérez vos clients et générez des cours en leur nom.",
+      "heading": "Mode agence",
+      "intro": "Gérez vos clients et générez des cours en leur nom. Les déploiements d'un cours créé dans le contexte d'un client utilisent exclusivement les comptes de publication de ce client — jamais les vôtres."
+    },
+    "contextActive": "Contexte : {name}",
+    "defaultClient": "client",
+    "contextDisabled": "Contexte agence désactivé",
+    "contextSwitchedToClient": "Les prochains cours créés seront rattachés à ce client.",
+    "contextSwitchedToAgency": "Les prochains cours créés seront rattachés à votre compte agence.",
+    "clientDeleted": "Client supprimé",
+    "error": "Erreur",
+    "deleteFailed": "Suppression impossible.",
+    "billingUnavailable": "Facturation indisponible.",
+    "clientCreated": "Client créé",
+    "contextTitle": "Contexte de travail",
+    "contextDescription": "Choisissez pour quel client vous travaillez : les nouveaux cours créés et leurs déploiements seront rattachés à ce client.",
+    "myAgencyAccount": "Mon compte agence",
+    "myClients": "Mes clients",
+    "newClient": "Nouveau client",
+    "emptyClientsTitle": "Aucun client pour le moment",
+    "emptyClientsDescription": "Créez votre premier client pour générer des cours en son nom.",
+    "accountsCount": "{count, plural, one {# compte} other {# comptes}}",
+    "delete": "Supprimer",
+    "billingTitle": "Facturation par client",
+    "calculateCosts": "Calculer les coûts",
+    "emptyBillingTitle": "Aucun coût à facturer",
+    "emptyBillingDescription": "Aucun cours généré au nom d'un client n'a encore engendré de coût.",
+    "billedCourses": "{count, plural, one {# cours facturé} other {# cours facturés}}",
+    "createClientFailed": "Création impossible",
+    "networkUnavailable": "Réseau indisponible.",
+    "clientNameLabel": "Nom du client",
+    "clientNamePlaceholder": "Académie Dupont",
+    "contactEmailLabel": "Email de contact",
+    "contactEmailPlaceholder": "contact@academie-dupont.fr",
+    "create": "Créer",
+    "cancel": "Annuler"
+  },
+  "certificate": {
+    "metaTitle": "Vérification de certificat — {id}… — SallyCourse",
+    "metaDescription": "Vérifiez l’authenticité d’un certificat de complétion SallyCourse.",
+    "authentic": "Certificat authentique",
+    "verifiedWith": "Vérifié auprès de SallyCourse",
+    "student": "Étudiant",
+    "courseSubject": "Cours suivi",
+    "pathSubject": "Parcours suivi",
+    "completionDate": "Date de complétion",
+    "issuedBy": "Délivré par <b>{name}</b> via la plateforme SallyCourse.",
+    "notVerified": "Certificat non vérifié",
+    "notVerifiedHint": "Identifiant introuvable ou cours non terminé",
+    "notVerifiedBody": "Aucun certificat valide ne correspond à cet identifiant. Vérifiez le lien ou le QR code figurant sur le document, ou contactez l’émetteur du certificat.",
+    "learnerFallback": "Apprenant"
+  },
+  "learn": {
+    "layout": {
+      "metaTitle": "Catalogue — SallyCourse",
+      "metaDescription": "Découvrez et suivez les cours publiés sur le LMS SallyCourse.",
+      "nav": {
+        "catalog": "Catalogue",
+        "mySpace": "Mon espace",
+        "signIn": "Se connecter"
+      }
+    },
+    "course": {
+      "metaTitle": "{title} — SallyCourse Academy",
+      "metaTitleFallback": "Cours — SallyCourse Academy"
+    },
+    "chatbot": {
+      "title": "Assistant du cours",
+      "openLabel": "Ouvrir l'assistant de cours",
+      "closeLabel": "Fermer l'assistant",
+      "emptyState": "Posez une question sur le contenu de ce cours — l'assistant répond à partir des leçons déjà disponibles et cite ses sources.",
+      "sourcesLabel": "Sources :",
+      "thinking": "L'assistant réfléchit…",
+      "placeholder": "Votre question sur ce cours…",
+      "questionLabel": "Votre question sur ce cours",
+      "sendLabel": "Envoyer la question",
+      "errorUnavailable": "L'assistant est momentanément indisponible.",
+      "errorConnection": "Connexion impossible — réessayez plus tard."
+    },
+    "streak": {
+      "permissionDeniedTitle": "Rappels non activés",
+      "permissionDeniedDescription": "Les notifications sont bloquées pour ce site.",
+      "enabledTitle": "Rappels activés",
+      "enabledDescription": "Nous vous préviendrons si votre série est en danger.",
+      "enableErrorTitle": "Activation impossible",
+      "disabledTitle": "Rappels désactivés",
+      "disableErrorTitle": "Désactivation impossible",
+      "statusOn": "Rappels de série activés sur ce navigateur.",
+      "statusOff": "Recevez un rappel quand votre série est en danger.",
+      "disabling": "Désactivation…",
+      "disable": "Désactiver",
+      "enabling": "Activation…",
+      "enable": "Activer les rappels"
+    },
+    "gamification": {
+      "level": "Niveau {level}",
+      "xpToNextLevel": "· {remaining} XP avant le niveau {level}",
+      "streakRecordTitle": "Record : {longest, plural, one {# jour} other {# jours}}",
+      "streakDaysInARow": "{count, plural, one {jour} other {jours}} d’affilée · record {longest}",
+      "levelProgressLabel": "Progression vers le niveau {level}",
+      "levelUpTitle": "Niveau {level} atteint !",
+      "dailyBonus": "dont {bonus} XP de régularité",
+      "badgeUnlocked": "Badge débloqué : {badges}"
+    },
+    "leaderboard": {
+      "title": "Classement du cours",
+      "count": "({count, plural, one {# apprenant} other {# apprenants}})",
+      "hideMyName": "Masquer mon nom",
+      "showMyFirstName": "Afficher mon prénom",
+      "empty": "Personne n’a encore gagné d’XP sur ce cours — terminez une leçon pour ouvrir le classement.",
+      "you": "(vous)",
+      "toastAnonymized": "Vous apparaissez en « Apprenant »",
+      "toastNameShown": "Votre prénom est affiché",
+      "toastError": "Préférence non enregistrée"
+    },
+    "video": {
+      "notAvailable": "La vidéo de cette leçon n’est pas encore disponible.",
+      "captionsLabel": "Sous-titres",
+      "preparingCopy": "Préparation de votre copie personnalisée… la lecture reste disponible pendant ce temps."
+    },
+    "quiz": {
+      "errorGenTitle": "Génération impossible",
+      "errorGenRetry": "Réessayez plus tard.",
+      "errorNetwork": "Erreur réseau.",
+      "emptyQuiz": "Ce quiz ne contient encore aucune question.",
+      "resultLabel": "Résultat",
+      "correctAnswersLabel": "Bonnes réponses",
+      "quizPassed": "Quiz réussi",
+      "belowThreshold": "En dessous du seuil (70 %)",
+      "restart": "Recommencer le quiz",
+      "generating": "Génération…",
+      "moreExercises": "Plus d’exercices",
+      "progress": "{answered} / {total} {total, plural, one {question répondue} other {questions répondues}}",
+      "quizProgressLabel": "Avancement du quiz",
+      "explanationLabel": "Explication : ",
+      "submit": "Soumettre le quiz",
+      "answerAllPrompt": "Répondez à toutes les questions pour soumettre.",
+      "personalizedExercises": "Exercices personnalisés",
+      "targetedOn": "— ciblés sur : {themes}"
+    },
+    "experience": {
+      "free": "Gratuit",
+      "paymentSoonTitle": "Paiement bientôt disponible",
+      "paymentSoonDescription": "Ce cours est payant et le paiement en ligne n’est pas encore ouvert. Réessayez prochainement.",
+      "enrollFailedTitle": "Inscription impossible",
+      "enrollConfirmedTitle": "Inscription confirmée",
+      "enrollConfirmedDescription": "Bon apprentissage !",
+      "courseCompletedTitle": "Cours terminé !",
+      "courseCompletedDescription": "Votre certificat est disponible.",
+      "progressNotSavedTitle": "Progression non enregistrée",
+      "promoBadge": "Code {code}",
+      "enrollPrompt": "Inscrivez-vous pour suivre votre progression et obtenir un certificat.",
+      "enrollCta": "S'inscrire au cours",
+      "loginToEnrollCta": "Se connecter pour s’inscrire",
+      "progressCount": "Progression : {done} / {total} {total, plural, one {leçon} other {leçons}}",
+      "viewCertificate": "Voir mon certificat",
+      "courseProgressLabel": "Progression du cours",
+      "coursePlanAria": "Plan du cours",
+      "noLessons": "Ce cours ne contient encore aucune leçon.",
+      "lessonDone": "Terminée",
+      "markComplete": "Marquer comme terminée",
+      "enrollToWatch": "Inscrivez-vous à ce cours pour visionner la vidéo.",
+      "downloadTranscript": "Télécharger la transcription (.txt)",
+      "enrollToRead": "Inscrivez-vous à ce cours pour lire cet article.",
+      "articleUnavailable": "L’article de cette leçon n’est pas encore disponible.",
+      "enrollToQuiz": "Inscrivez-vous à ce cours pour passer ce quiz.",
+      "quizNoQuestions": "Ce quiz ne contient pas encore de questions.",
+      "tpInstructions": "Les travaux pratiques se réalisent dans l’environnement fourni avec le cours.",
+      "sandboxStarter": "Code de départ",
+      "sandboxSolution": "Solution",
+      "sandboxPanelTitle": "TP interactif ({language}) — ouvrez le projet directement dans votre navigateur",
+      "openInStackblitz": "Ouvrir dans StackBlitz",
+      "openInCodesandbox": "Ouvrir dans CodeSandbox"
+    }
+  },
+  "apiErrors": {
+    "courseNotFound": "Cours introuvable.",
+    "invalidJson": "Corps JSON invalide.",
+    "lessonNotFound": "Leçon introuvable.",
+    "invalidData": "Données invalides.",
+    "userNotFound": "Utilisateur introuvable.",
+    "invalidMultipart": "Requête multipart invalide.",
+    "pathNotFound": "Parcours introuvable.",
+    "presetNotFound": "Preset introuvable.",
+    "enrollmentRequired": "Inscription requise.",
+    "notFound": "Introuvable.",
+    "invalidId": "Identifiant invalide.",
+    "clientNotFound": "Client introuvable.",
+    "unknownPlatform": "Plateforme inconnue.",
+    "deploymentNotFound": "Déploiement introuvable.",
+    "webhookNotFound": "Webhook introuvable.",
+    "adminOnly": "Accès réservé aux administrateurs.",
+    "agencyOnly": "Réservé aux comptes agence.",
+    "internalError": "Erreur interne, réessayez plus tard.",
+    "invalidCourseId": "courseId invalide.",
+    "courseNotReadyForDeploy": "Le cours doit être généré (prêt) avant tout déploiement.",
+    "courseStillGenerating": "Le cours est encore en cours de génération — réessayez quand il sera prêt.",
+    "invalidRequest": "Requête invalide.",
+    "certificateWhiteLabelBusiness": "La marque blanche du certificat est réservée au plan Business.",
+    "handleTaken": "Ce handle est déjà pris.",
+    "platformAccountsNotFound": "Un ou plusieurs comptes plateforme référencés sont introuvables.",
+    "keyNotFound": "Clé introuvable.",
+    "tooManyRequests": "Trop de requêtes, réessayez plus tard.",
+    "emailAlreadyExists": "Un compte existe déjà avec cet email.",
+    "invoiceNotFound": "Facture introuvable.",
+    "couponNotFound": "Coupon introuvable.",
+    "cannotStartGeneration": "Impossible de démarrer la génération, réessayez plus tard.",
+    "missingFile": "Fichier manquant (champ « file »).",
+    "unsupportedVideoFormat": "Format non supporté (MP4, MOV ou WebM attendu).",
+    "emptyRecording": "Enregistrement vide.",
+    "recordingStorageFailed": "Échec du stockage de l’enregistrement.",
+    "invalidManualPlatform": "Plateforme manuelle invalide.",
+    "lessonNotArticle": "Cette leçon n’est pas un article.",
+    "sectionNotFound": "Section introuvable.",
+    "cannotRegenerate": "Impossible de lancer la régénération, réessayez plus tard.",
+    "versionNotFound": "Version introuvable.",
+    "versionCorrupted": "Version corrompue.",
+    "duplicateCourseInPath": "Un même cours ne peut pas figurer deux fois dans un parcours.",
+    "pathUnavailable": "Parcours non disponible.",
+    "invalidPlan": "Plan invalide (pro | business attendu).",
+    "invalidSignature": "Signature invalide.",
+    "credentialNotFound": "Credential introuvable.",
+    "unknownError": "Une erreur est survenue, réessayez plus tard.",
+    "subscriptionNotFound": "Abonnement introuvable.",
+    "dictationNotFound": "Dictée introuvable.",
+    "missingImage": "Image manquante (champ « file »).",
+    "unsupportedImageFormat": "Format non supporté (PNG, JPEG ou WebP attendu).",
+    "invalidIceCompany": "ICE invalide (15 chiffres attendus) — obligatoire pour une société.",
+    "invalidIfCompany": "IF invalide (6 à 8 chiffres attendus) — obligatoire pour une société.",
+    "invalidIce": "ICE invalide (15 chiffres attendus).",
+    "subdomainTaken": "Ce sous-domaine est déjà utilisé.",
+    "missingLogo": "Logo manquant (champ « file »).",
+    "unsupportedLogoFormat": "Format non supporté (PNG, JPEG, WebP ou SVG attendu).",
+    "emailConfirmationMismatch": "La confirmation ne correspond pas à votre adresse email.",
+    "missingHandle": "Handle manquant.",
+    "tooManyGenerations": "Trop de générations, réessayez plus tard.",
+    "accountNotFound": "Compte introuvable.",
+    "publishCourseBeforeBio": "Publiez au moins un cours sur le LMS avant de générer votre bio.",
+    "bioGenerationUnavailable": "Génération de la bio indisponible pour le moment, réessayez plus tard.",
+    "missingAudioSample": "Échantillon audio manquant (champ « file »).",
+    "unsupportedAudioFormat": "Format non supporté (MP3, WAV, WebM ou M4A attendu).",
+    "voiceCloneConsentRequired": "Consentement explicite requis (case « voiceCloneConsent ») avant tout clonage vocal.",
+    "invalidSampleDuration": "Durée de l’échantillon manquante ou invalide.",
+    "blogGenerationStartFailed": "Impossible de lancer la génération du blog, réessayez plus tard.",
+    "courseGenerationNotRunning": "La génération de ce cours n’est pas en cours.",
+    "lessonAlreadyGenerating": "Une leçon est déjà en cours de génération — attendez sa fin.",
+    "mediaStartFailed": "Impossible de lancer le média, réessayez plus tard.",
+    "nextLessonStartFailed": "Impossible de lancer la leçon suivante, réessayez plus tard.",
+    "aiContentDisclosureRequired": "Vous devez confirmer la mention « contenu généré par IA » avant de publier sur Udemy.",
+    "courseMustBeReadyToSchedule": "Le cours doit être généré (prêt) avant de programmer sa publication.",
+    "unknownAction": "Action inconnue.",
+    "noScheduledPublicationPlan": "Aucun plan de publication programmé.",
+    "planAlreadyCompleted": "Plan déjà terminé.",
+    "reportStartFailed": "Impossible de lancer le rapport, réessayez plus tard.",
+    "tooManyUpdates": "Trop de mises à jour, réessayez dans un instant.",
+    "invalidPublicationUrl": "URL de publication invalide : fournissez une adresse http(s) complète.",
+    "deploymentNotManualMode": "Ce déploiement n’est pas en mode manuel.",
+    "invalidTargetMode": "Mode cible invalide (assisted ou manual).",
+    "tooManyToggles": "Trop de bascules, réessayez dans un instant.",
+    "onlyPausedOrFailedDeploymentSwitchable": "Seul un déploiement en pause ou en échec peut être basculé.",
+    "noReferenceDeployment": "Aucun déploiement de référence : déployez d’abord le cours sur cette plateforme.",
+    "invalidVariantParameters": "Paramètres de déclinaison invalides.",
+    "noValidatedPlanToVary": "Ce cours n’a pas encore de plan validé à décliner.",
+    "proofNotFound": "Preuve introuvable.",
+    "invalidCommandLength": "Commande invalide (1 à 500 caractères).",
+    "tooManySignupAttempts": "Trop de tentatives d'inscription depuis cette adresse, réessayez plus tard.",
+    "invalidPromoCodeFormat": "Format de code promo invalide.",
+    "promoCodeAlreadyExists": "Ce code promo existe déjà.",
+    "tooManyCourseCreations": "Trop de créations de cours, réessayez plus tard.",
+    "invalidAgencyClient": "Client d’agence invalide.",
+    "agencyClientNotFound": "Client d’agence introuvable.",
+    "missingCsvField": "Champ « csv » manquant.",
+    "noValidRowToGenerate": "Aucune ligne valide à générer.",
+    "tooManyRecentImports": "Trop d’imports récents, réessayez dans quelques minutes.",
+    "fileReadFailed": "Lecture du fichier impossible.",
+    "reimportFailed": "Échec du re-import, réessayez plus tard.",
+    "noApplicablePlatformInPreset": "Aucune plateforme applicable dans ce preset.",
+    "courseNotFoundOrUnauthorized": "Cours introuvable ou action non autorisée.",
+    "courseHasNoTeamNoApproval": "Ce cours n'appartient à aucune équipe — aucune approbation requise.",
+    "invalidPlan2": "Plan invalide.",
+    "cannotStartGeneration2": "Impossible de lancer la génération, réessayez plus tard.",
+    "tooManyRegenerations": "Trop de régénérations demandées, réessayez plus tard.",
+    "publishToLmsBeforeSeoBlog": "Publiez le cours sur le LMS avant de générer son blog SEO.",
+    "variantMustChangeLanguageOrLevel": "La déclinaison doit changer la langue ou le niveau de difficulté.",
+    "variantCreationFailed": "Création de la déclinaison impossible.",
+    "variantLaunchFailed": "Impossible de lancer la déclinaison, réessayez plus tard.",
+    "noApprovedLesson": "Aucune leçon approuvée — validez d'abord l'aperçu rapide de chaque leçon.",
+    "finalVersionLaunchFailed": "Impossible de lancer la version finale, réessayez plus tard.",
+    "unsupportedDocFormat": "Format non supporté (PDF, PPTX ou Markdown attendu).",
+    "fileSaveFailed": "Échec de l’enregistrement du fichier, réessayez.",
+    "missingVideoFile": "Fichier vidéo manquant (champ « file »).",
+    "videoSaveFailed": "Échec de l’enregistrement de la vidéo, réessayez.",
+    "deletionFailed": "Suppression impossible, réessayez.",
+    "tooManyRenders": "Trop de rendus demandés, réessayez plus tard.",
+    "missingRecording": "Enregistrement manquant (champ « file »).",
+    "invalidJsonCaptions": "Légendes JSON invalides.",
+    "invalidNarrationOrCaptions": "Narration ou légendes invalides.",
+    "renderStartFailed": "Impossible de démarrer le rendu, réessayez plus tard.",
+    "guideGenerationLaunchFailed": "Impossible de lancer la génération du guide, réessayez plus tard.",
+    "tooManyArchiveRequests": "Trop de demandes d’archive, réessayez dans quelques minutes.",
+    "archivingLaunchFailed": "Impossible de lancer l’archivage, réessayez plus tard.",
+    "packagingLaunchFailed": "Impossible de lancer le packaging, réessayez plus tard.",
+    "portableExportLaunchFailed": "Impossible de lancer l'export portable, réessayez plus tard.",
+    "invalidComment": "Commentaire invalide.",
+    "articleRestoreFailed": "Impossible de restaurer l’article, réessayez plus tard.",
+    "invalidQuestionLength": "Question invalide (3 à 500 caractères).",
+    "tooManyQuestions": "Trop de questions, réessayez plus tard.",
+    "enrollmentRequiredForAssistant": "Inscription requise pour utiliser l’assistant de cours.",
+    "courseAssistantUnavailable": "Assistant de cours indisponible pour le moment, réessayez plus tard.",
+    "infringingUrlRequired": "Fournissez au moins une URL du contenu contrefaisant.",
+    "invalidRequestDeviceId": "Requête invalide (deviceId requis).",
+    "lessonNotVideo": "Cette leçon n’est pas une vidéo.",
+    "tooManyExerciseGenerations": "Trop de générations d’exercices, réessayez plus tard.",
+    "customExercisesQuizOnly": "Les exercices personnalisés ne sont disponibles que pour les leçons de type quiz.",
+    "noWrongAnswersForTargetedExercises": "Aucune réponse erronée enregistrée sur cette leçon — passez le quiz au moins une fois pour obtenir des exercices ciblés.",
+    "exerciseGenerationUnavailable": "Génération des exercices indisponible pour le moment, réessayez plus tard.",
+    "fullCopySaleRequiresGeneratedCourse": "Seul un cours entièrement généré (prêt ou publié) peut être vendu en copie intégrale.",
+    "noValidatedPlanToSellAsTemplate": "Ce cours n’a pas encore de plan validé à vendre en tant que template.",
+    "invalidListingParams": "Paramètres de listing invalides.",
+    "courseAlreadyListedWithLicense": "Ce cours est déjà listé sur le marketplace avec cette licence.",
+    "listingNotFound": "Listing introuvable.",
+    "listingNotFoundOrRemoved": "Listing introuvable ou retiré.",
+    "cannotBuyOwnCourse": "Vous ne pouvez pas acheter votre propre cours.",
+    "invalidStepParam": "Paramètre \"step\" invalide.",
+    "noVideoLessonWithScript": "Aucune leçon vidéo avec script généré — lancez la génération de contenu avant l'aperçu.",
+    "cannotStartQuickPreview": "Impossible de lancer l'aperçu rapide, réessayez plus tard.",
+    "courseNotArchived": "Ce cours n'est pas archivé.",
+    "cannotRestartGeneration": "Impossible de relancer la génération, réessayez plus tard.",
+    "invalidInstructions": "Instructions invalides.",
+    "cannotRestartPlanGeneration": "Impossible de relancer la génération du plan, réessayez plus tard.",
+    "cannotStartFeedbackAnalysis": "Impossible de lancer l'analyse des retours, réessayez plus tard.",
+    "courseMustBeDeployedBeforeTranslate": "Ce cours doit être déployé sur au moins une plateforme avant de le traduire.",
+    "cannotStartTranslation": "Impossible de lancer la traduction, réessayez plus tard.",
+    "tooManyDemosFromAddress": "Trop de démos générées depuis cette adresse, réessayez plus tard.",
+    "completeAllLessonsForCertificate": "Terminez toutes les leçons pour obtenir votre certificat.",
+    "courseNotAvailableOnLms": "Cours non disponible sur le LMS.",
+    "invalidReview": "Avis invalide : une note de 1 à 5, commentaire de 600 caractères maximum.",
+    "tooManyReviewsSent": "Trop d’avis envoyés, réessayez plus tard.",
+    "enrollmentRequiredForReview": "Inscription requise pour laisser un avis.",
+    "cannotSaveArticle": "Impossible d’enregistrer l’article, réessayez plus tard.",
+    "lessonHasNoVideoScript": "Cette leçon n’a pas de script vidéo.",
+    "invalidInstruction": "Instruction invalide.",
+    "lessonHasNoPendingPreview": "Cette leçon n'a pas d'aperçu en attente de validation.",
+    "invalidRequestIdOrAll": "Requête invalide (fournir { id } ou { all: true }).",
+    "invalidPushSubscription": "Abonnement invalide (endpoint/keys.p256dh/keys.auth requis).",
+    "endpointRequired": "endpoint requis.",
+    "addCourseBeforePublishPath": "Ajoutez au moins un cours avant de publier le parcours.",
+    "completeAllPathCoursesForCertificate": "Terminez tous les cours du parcours pour obtenir votre certificat.",
+    "addCourseBeforeSalesPage": "Ajoutez au moins un cours avant de générer la page de vente.",
+    "salesPageGenerationFailed": "La génération de la page de vente a échoué. Réessayez dans un instant.",
+    "cmiPaymentNotConfigured": "Paiement CMI non configuré. En développement, utilisez le paiement simulé.",
+    "priceUnavailableForPlan": "Tarif indisponible pour ce plan.",
+    "unsupportedProofFormat": "Format de preuve non supporté (PNG, JPEG, WebP ou PDF attendu).",
+    "simulatedPaymentUnavailable": "Paiement simulé indisponible.",
+    "webhookNotConfigured": "Webhook non configuré.",
+    "signatureHeaderMissing": "En-tête de signature absent.",
+    "processingFailed": "Traitement échoué.",
+    "unsupportedPlatform": "Plateforme non supportée.",
+    "tooManyDictations": "Trop de dictées, réessayez plus tard.",
+    "audioRecordingMissing": "Enregistrement audio manquant (champ « file »).",
+    "unsupportedAudioFormatWebm": "Format non supporté (WebM, MP3, WAV, OGG ou M4A attendu).",
+    "cannotStartDictationProcessing": "Impossible de démarrer le traitement de la dictée.",
+    "cannotStartProcessing": "Impossible de démarrer le traitement, réessayez plus tard.",
+    "approveOutlinePlanNotUnderReview": "Le plan n'est pas en attente de validation (statut : {status}).",
+    "cancelCourseNotCancellable": "Ce cours n'est pas annulable (statut : {status}).",
+    "deploySchedulePlatformsUnknown": "Plateforme(s) inconnue(s) : {platforms}.",
+    "brandingLogoTooLarge": "Logo trop lourd (max {max} Mo).",
+    "brandingUploadFailed": "Échec du téléversement : {message}",
+    "avatarFaceImageTooLarge": "Image trop lourde (max {max} Mo).",
+    "avatarFaceUploadFailed": "Échec de l’upload de la photo : {message}",
+    "voiceCloneSampleTooLarge": "Échantillon trop lourd (max {max} Mo).",
+    "voiceCloneSampleTooShort": "Échantillon trop court : {seconds}s (minimum recommandé : {minSeconds}s).",
+    "voiceCloneFailed": "Échec du clonage vocal : {message}",
+    "introVideoTooLarge": "Vidéo trop lourde (max {max} Mo).",
+    "importMaterialFileTooLarge": "Fichier trop lourd (max {max} Mo).",
+    "importMaterialMaxFilesReached": "Nombre maximal de supports atteint ({max}).",
+    "switchModeTargetModeUnavailable": "Le mode « {mode} » n’est pas disponible pour cette plateforme.",
+    "screencastRecordingTooLargeDeclared": "Enregistrement trop lourd (max {max} Mo).",
+    "screencastRecordingTooLarge": "Enregistrement trop lourd (max {max} Mo).",
+    "regenOutlineCannotRegenerateStatus": "Le plan ne peut pas être régénéré (statut : {status}).",
+    "deriveMonthlyQuotaReached": "Quota mensuel atteint ({limit} cours/mois du plan {plan}).",
+    "deployUnknownPlatforms": "Plateforme(s) inconnue(s) : {platforms}.",
+    "deployInvalidCredential": "Compte invalide pour {platform}.",
+    "deployCredentialNotFoundAgency": "Compte introuvable pour {platform} (hors périmètre du client).",
+    "deployCredentialNotFound": "Compte introuvable pour {platform}.",
+    "reviewsAnalyzeNoStudentFeedback": "Aucun retour étudiant disponible (statut : {status}).",
+    "importArchiveArchiveTooLarge": "Archive trop lourde (max {max} Mo).",
+    "importArchiveInvalidArchive": "Archive invalide : {message}",
+    "deployPresetsUnknownPlatforms": "Plateforme(s) inconnue(s) : {platforms}.",
+    "purchaseFailed": "Achat impossible ({reason}).",
+    "batchQuotaExceeded": "Lot de {count} cours refusé : quota restant {remaining}/{limit} sur le plan {plan}.",
+    "v1DeployUnknownPlatforms": "Plateforme(s) inconnue(s) : {platforms}.",
+    "zapierSampleUnknownEvent": "Événement inconnu. Valeurs possibles : {events}.",
+    "dictationRecordingTooLarge": "Enregistrement trop lourd (max {max} Mo).",
+    "platformsMissingRequiredField": "Champ requis manquant : {field}.",
+    "manualPaymentProofTooLarge": "Preuve trop lourde (max {max} Mo).",
+    "quota_exceeded": "Quota mensuel atteint : {limit} cours/mois sur le plan {plan}.",
+    "quality_score_below_threshold": "Score de qualité pédagogique {score}/100, sous le seuil recommandé de {threshold}/100. Améliorez le cours avant publication, ou confirmez explicitement pour publier malgré tout.",
+    "deploy_plan_limit": "Le plan {plan} {limit, plural, one {ne déploie qu'une plateforme à la fois. Passez à un plan supérieur pour déployer partout.} other {limite le déploiement à # plateforme(s) par lot.}}",
+    "invalidInput": "Données invalides.",
+    "cronTriggerFailed": "Déclenchement impossible pour le moment."
+  },
+  "nicheResearch": {
+    "page": {
+      "metadataTitle": "Trouver un sujet — SallyCourse",
+      "metadataDescription": "Explorez des sujets de cours par demande et concurrence estimées, par catégorie."
+    },
+    "opportunity": {
+      "strong": "Opportunité forte",
+      "correct": "Opportunité correcte",
+      "saturated": "Marché saturé"
+    },
+    "candidate": {
+      "demand": "Demande",
+      "competition": "Concurrence",
+      "existingCourses": "Cours existants (est.)",
+      "avgPriceLabel": "Prix moyen (est.)",
+      "createCourse": "Créer un cours"
+    },
+    "toast": {
+      "searchUnavailableTitle": "Recherche indisponible",
+      "genericErrorDescription": "Une erreur est survenue — réessayez dans un instant."
+    },
+    "badge": "Recherche de niche",
+    "title": "Trouver un sujet qui a de la demande",
+    "subtitle": "Choisissez une catégorie : on croise des tendances connues avec un signal de popularité best-effort pour estimer la demande et la concurrence de chaque sujet.",
+    "categoryLabel": "Catégorie",
+    "searching": "Recherche…",
+    "searchButton": "Trouver un sujet",
+    "liveSignalNote": "Signal de popularité externe enrichi (best-effort).",
+    "empty": "Aucun candidat trouvé pour cette catégorie.",
+    "disclaimerTitle": "Estimations indicatives.",
+    "disclaimerBody": "Les scores de demande/concurrence et les valeurs « Cours existants » / « Prix moyen » sont des repères à dire d’expert, éventuellement affinés par un signal de popularité externe — ce ne sont pas des données de marché en temps réel. À utiliser pour comparer des sujets entre eux, pas comme chiffres exacts.",
+    "suggestedTopicsAriaLabel": "Sujets suggérés"
+  },
+  "affiliate": {
+    "page": {
+      "metadata": {
+        "title": "Affiliation — SallyCourse",
+        "description": "Partagez votre lien et gagnez une commission sur chaque abonnement converti."
+      },
+      "heading": "Affiliation",
+      "description": "Partagez votre lien personnel : chaque nouvel abonnement payant souscrit dans les 30 jours suivant un clic vous rapporte une commission."
+    },
+    "linkCopied": "Lien copié",
+    "copyFailed": "Copie impossible",
+    "title": "Votre lien de parrainage",
+    "commissionNote": "Commission de <badge>{rate} %</badge> sur le premier paiement de chaque filleul, créditée automatiquement à l'activation de son abonnement.",
+    "copyLink": "Copier le lien",
+    "clicks": "Clics",
+    "conversions": "Conversions",
+    "pendingEarnings": "Gains en attente",
+    "alreadyPaid": "Déjà versé : <strong>{amount}</strong>"
+  },
+  "batch": {
+    "page": {
+      "metaTitle": "Génération en batch — SallyCourse",
+      "metaDescription": "Importez un CSV pour lancer la génération de plusieurs cours en une fois.",
+      "planFree": "Gratuit",
+      "planPro": "Pro",
+      "planBusiness": "Business"
+    },
+    "title": "Génération en batch",
+    "intro": {
+      "description": "Importez un CSV (titre, niveau, langue, plateformes) pour lancer plusieurs cours d’un coup. Plan {planLabel} —",
+      "unlimited": "cours illimités",
+      "remaining": "{count, plural, one {# crédit restant} other {# crédits restants}}"
+    },
+    "import": {
+      "title": "1 · Importer le fichier",
+      "columnsLabel": "Colonnes :",
+      "required": "(obligatoire)",
+      "platformsHint": "(séparées par « ; »)",
+      "chooseFile": "Choisir un CSV",
+      "downloadTemplate": "Télécharger un gabarit"
+    },
+    "launch": {
+      "button": "Lancer {count} cours",
+      "overQuota": "Le lot dépasse votre quota restant ({remaining}). Réduisez le fichier ou passez à un plan supérieur."
+    },
+    "tracking": {
+      "title": "Suivi du lot",
+      "progress": "{done, plural, one {#/{total} terminé — actualisation automatique.} other {#/{total} terminés — actualisation automatique.}}",
+      "validateOutline": "Validez le plan pour lancer la génération →"
+    },
+    "empty": {
+      "title": "Aucun fichier importé",
+      "description": "Choisissez un CSV pour prévisualiser puis lancer votre lot de cours."
+    },
+    "status": {
+      "draft": "Brouillon",
+      "generating": "Génération",
+      "outlineReview": "Plan à valider",
+      "ready": "Prêt",
+      "published": "Publié",
+      "failed": "Échec"
+    },
+    "toast": {
+      "invalidCsv": "CSV invalide",
+      "rejected": "Lot refusé",
+      "launched": {
+        "title": "{count, plural, one {# cours lancé} other {# cours lancés}}",
+        "skipped": "{count, plural, one {# ligne ignorée.} other {# lignes ignorées.}}",
+        "inProgress": "Génération en cours…"
+      },
+      "networkError": {
+        "title": "Erreur réseau",
+        "description": "Réessayez plus tard."
+      }
+    },
+    "preview": {
+      "valid": "{count, plural, one {# valide} other {# valides}}",
+      "rejected": "{count, plural, one {# rejetée} other {# rejetées}}",
+      "quotaRemaining": "quota restant : {remaining}",
+      "colTitle": "Titre",
+      "colLevel": "Niveau",
+      "colLanguage": "Langue",
+      "colPlatforms": "Plateformes",
+      "rejectedTitle": "Lignes rejetées",
+      "lineLabel": "Ligne {line} :",
+      "moreRows": "{count, plural, one {… et # autre.} other {… et # autres.}}"
+    }
+  },
+  "analytics": {
+    "page": {
+      "metaTitle": "Analytics du cours — SallyCourse",
+      "backToCourse": "Retour au cours",
+      "heading": "Analytics",
+      "exportXapi": "Exporter xAPI",
+      "noMetricsTitle": "Aucune métrique pour l’instant",
+      "emptyTitle": "Pas encore de données",
+      "emptyDescription": "Les métriques apparaîtront ici une fois le cours publié sur une plateforme et le prochain rafraîchissement effectué.",
+      "simulatedWarning": "⚠️ Données SIMULÉES : aucun token analytics (YouTube/Udemy) n'est configuré — ces chiffres sont des exemples déterministes, pas des métriques réelles."
+    },
+    "heatmap": {
+      "title": "Heatmap d’abandon par leçon",
+      "empty": {
+        "title": "Pas encore de leçons",
+        "description": "La heatmap apparaîtra une fois le cours doté de leçons et d'inscrits."
+      },
+      "suggestion": "Suggestion",
+      "dropoutRate": "{rate}% d’abandon"
+    },
+    "abTesting": {
+      "title": "Test A/B — titres de landing ({platformLabel})",
+      "empty": {
+        "title": "Pas encore de variantes testées",
+        "description": "Les variantes apparaîtront après la première rotation hebdomadaire."
+      },
+      "columns": {
+        "title": "Titre",
+        "status": "Statut",
+        "impressions": "Impressions",
+        "conversions": "Conversions",
+        "rate": "Taux"
+      },
+      "status": {
+        "active": "Active",
+        "historical": "Historique",
+        "best": "Meilleure"
+      }
+    },
+    "dashboard": {
+      "kpi": {
+        "enrollments": "Inscrits",
+        "views": "Vues",
+        "revenue": "Revenu",
+        "platforms": "Plateformes"
+      },
+      "revenueByPlatform": "Revenu par plateforme",
+      "averageRating": "Note moyenne",
+      "detailByPlatform": "Détail par plateforme",
+      "table": {
+        "platform": "Plateforme",
+        "enrollments": "Inscrits",
+        "views": "Vues",
+        "rating": "Note",
+        "revenue": "Revenu",
+        "updated": "Mis à jour"
+      },
+      "ratingGauge": {
+        "aria": "Note moyenne {rating} sur 5"
+      }
+    }
+  },
+  "admin": {
+    "nav": {
+      "ariaLabel": "Sections admin",
+      "tabs": {
+        "overview": "Vue d’ensemble",
+        "users": "Utilisateurs",
+        "courses": "Cours",
+        "costs": "Coûts",
+        "revenue": "Revenus",
+        "manualPayments": "Paiements manuels",
+        "jobs": "Jobs",
+        "resilience": "Résilience",
+        "prompts": "Prompts",
+        "audit": "Audit"
+      }
+    },
+    "promptsPage": {
+      "metaTitle": "Admin — Prompts — SallyCourse",
+      "title": "Prompts",
+      "description": "Éditez et versionnez les prompts de génération sans redéployer. Une version active en base surcharge le prompt en dur du générateur ; le bouton « Tester » compare la version en cours d'édition à la version précédemment active."
+    },
+    "courses": {
+      "metaTitle": "Admin — Cours — SallyCourse",
+      "heading": "Cours",
+      "subtitle": "Tous les cours de la plateforme, filtrables par statut.",
+      "filterAll": "Tous",
+      "filterAriaLabel": "Filtrer par statut",
+      "emptyTitle": "Aucun cours dans ce filtre",
+      "emptyDescription": "Aucun cours ne correspond à ce statut.",
+      "colCourse": "Cours",
+      "colAuthor": "Auteur",
+      "colStatus": "Statut",
+      "colDifficulty": "Difficulté",
+      "colPlatforms": "Plateformes",
+      "colCreated": "Créé",
+      "deletedUser": "Utilisateur supprimé"
+    },
+    "jobs": {
+      "metaTitle": "Admin — Jobs de génération — SallyCourse",
+      "title": "Jobs de génération",
+      "subtitle": "Supervision du pipeline : relancez les étapes échouées, unitairement ou en masse.",
+      "retryAllFailed": "Relancer tous les échoués ({count})",
+      "filterByStatus": "Filtrer par statut",
+      "filters": {
+        "failed": "Échoués",
+        "running": "En cours",
+        "done": "Terminés",
+        "all": "Tous"
+      },
+      "status": {
+        "failed": "Échec",
+        "done": "Terminé",
+        "running": "En cours"
+      },
+      "empty": {
+        "title": "Aucun job dans ce filtre",
+        "descriptionFailed": "Bonne nouvelle : aucun job échoué pour le moment.",
+        "descriptionOther": "Aucun job ne correspond à ce statut."
+      },
+      "columns": {
+        "course": "Cours",
+        "step": "Étape",
+        "status": "Statut",
+        "progress": "Progression",
+        "error": "Erreur",
+        "attempts": "Tentatives",
+        "updatedAt": "Mise à jour",
+        "action": "Action"
+      },
+      "deletedCourse": "Cours supprimé",
+      "progressLabel": "Progression {value} %",
+      "retry": "Relancer"
+    },
+    "home": {
+      "metaTitle": "Admin — Vue d’ensemble — SallyCourse",
+      "title": "Vue d’ensemble",
+      "subtitle": "Statistiques globales de la plateforme sur les {days} derniers jours.",
+      "kpi": {
+        "coursesPerDay": "Cours / jour",
+        "coursesPerDayHint": "{count} sur {days} j",
+        "approval": "Approbation Udemy",
+        "approvalHint": "{published} publiés / {terminal} terminés",
+        "topPlatform": "Plateforme n°1",
+        "topPlatformHint": "{count} déploiements",
+        "noDeployment": "Aucun déploiement",
+        "users": "Utilisateurs",
+        "usersHint": "{count} cours au total"
+      },
+      "chart": {
+        "title": "Cours générés par jour",
+        "barTitle": "{day} : {count}",
+        "footer": "{count} cours créés, pic à {peak}/j."
+      },
+      "statusSection": {
+        "title": "Cours par statut"
+      },
+      "platformsSection": {
+        "title": "Plateformes utilisées",
+        "empty": "Aucun déploiement pour l’instant."
+      },
+      "plansSection": {
+        "title": "Utilisateurs par plan"
+      },
+      "jobs": {
+        "failed": "{count, plural, one {# job en échec} other {# jobs en échec}}",
+        "superviseLink": "superviser"
+      },
+      "templates": {
+        "label": "Templates de slides",
+        "openLink": "ouvrir le playground"
+      }
+    },
+    "revenue": {
+      "metaTitle": "Admin — Revenus — SallyCourse",
+      "title": "Revenus consolidés",
+      "subtitle": "Toutes sources confondues, converties en USD (taux fixes documentés dans {path}).",
+      "exportCsv": "Export CSV comptable",
+      "totalRevenue": "Revenu total",
+      "source": {
+        "udemy": "Udemy",
+        "youtube": "YouTube",
+        "subscription": "Abonnements (SaaS)",
+        "gumroad": "Gumroad"
+      },
+      "gumroadNotExposed": "Non exposé par l’API Gumroad utilisée (pas de champ revenu fiable).",
+      "monthlyRevenueTitle": "Revenu mensuel (12 derniers mois)",
+      "monthlyDetailTitle": "Détail mensuel par source",
+      "colMonth": "Mois",
+      "colSubscriptions": "Abonnements",
+      "colTotal": "Total",
+      "fxNote": "Conversion en USD via une table de taux statique (documentée, éditable) — voir {path} pour brancher une vraie API forex si besoin."
+    },
+    "resilience": {
+      "metaTitle": "Admin — Résilience — SallyCourse",
+      "title": "Résilience",
+      "subtitle": "Mode dégradé : état des circuit breakers du worker (bascule automatique vers un repli quand un fournisseur externe est en panne) et isolation des déploiements multi-plateformes.",
+      "cards": {
+        "monitored": "Breakers surveillés",
+        "degraded": "En dégradation"
+      },
+      "sections": {
+        "breakers": "Circuit breakers",
+        "deployment": "Déploiement multi-plateformes"
+      },
+      "empty": {
+        "title": "Aucun breaker enregistré",
+        "description": "Les breakers apparaissent dès leur première transition d'état (ex. premier échec ElevenLabs). Aucune entrée ici signifie qu'aucun incident n'a encore été détecté."
+      },
+      "table": {
+        "breaker": "Breaker",
+        "state": "État",
+        "failures": "Échecs",
+        "lastError": "Dernière erreur",
+        "nextAttempt": "Prochain essai"
+      },
+      "state": {
+        "closed": "Fermé (nominal)",
+        "halfOpen": "Semi-ouvert (essai en cours)",
+        "open": "Ouvert (indisponible)"
+      },
+      "fallbackNote": "Repli configuré : synthèse vocale ElevenLabs → OpenAI TTS (5 échecs consécutifs ouvrent le circuit, nouvel essai après 60s). Appels Claude : file d’attente locale avec délai croissant sur 429 répétés (1s/2s/4s/8s), sans nouvelle infra.",
+      "deploymentBody": "Chaque plateforme (Udemy, YouTube, Podia, …) est traitée par un job BullMQ indépendant sur la queue <code>deployment</code> (un job = un couple cours/plateforme). Si une plateforme échoue, seul son job passe en échec — les autres jobs de la même vague de déploiement ne sont ni bloqués ni annulés (isolation native de la queue). Statut détaillé par plateforme : <link>voir les jobs</link>."
+    },
+    "rejectForm": {
+      "reject": "Rejeter",
+      "reasonLabel": "Motif (optionnel)",
+      "confirm": "Confirmer"
+    },
+    "playground": {
+      "editor": "Éditeur",
+      "promptKeyLabel": "Clé de prompt",
+      "activeVersionPrefix": "Version active :",
+      "byAuthor": "— par",
+      "noVersionInDb": "Aucune version en base pour cette clé — le pipeline utilise actuellement le prompt en dur du générateur ({generator}.ts).",
+      "promptContentLabel": "Contenu du prompt",
+      "contentHint": "Enregistrer crée une nouvelle version incrémentale et l'active immédiatement (le pipeline de génération la lira à la prochaine exécution).",
+      "exampleUserMessageLabel": "Message utilisateur d'exemple (pour le bouton Tester)",
+      "saving": "Enregistrement…",
+      "saveNewVersion": "Enregistrer (nouvelle version)",
+      "testing": "Test en cours…",
+      "test": "Tester",
+      "abComparison": "Comparaison A/B",
+      "abComparisonDesc": "Résultat de la version en cours d'édition à gauche, version précédemment active à droite.",
+      "versionsHistory": "Historique des versions",
+      "noVersionsSaved": "Aucune version enregistrée pour cette clé.",
+      "reactivate": "Réactiver",
+      "noPreviousToCompare": "Aucune version précédente à comparer.",
+      "loading": "Chargement…",
+      "loadFailed": "Chargement impossible",
+      "versionSavedActivated": "Version {version} enregistrée et activée",
+      "saveFailed": "Enregistrement impossible",
+      "versionReactivated": "Version {version} réactivée",
+      "activationFailed": "Activation impossible",
+      "currentEditingVersion": "Version en cours d'édition",
+      "previousVersion": "Version précédente (v{version})",
+      "testFailed": "Test impossible"
+    },
+    "planSelect": {
+      "changePlanAria": "Changer le plan"
+    },
+    "payments": {
+      "metaTitle": "Admin — Paiements manuels — SallyCourse",
+      "title": "Paiements manuels",
+      "subtitle": "Virements bancaires internationaux (zéro commission) en attente de validation — {pendingCount} en attente sur {total, plural, one {# demande} other {# demandes}}.",
+      "empty": {
+        "title": "Aucune demande",
+        "description": "Aucun utilisateur n'a encore soumis de demande de paiement manuel."
+      },
+      "table": {
+        "user": "Utilisateur",
+        "plan": "Plan",
+        "amount": "Montant déclaré",
+        "proof": "Preuve",
+        "status": "Statut",
+        "submitted": "Soumise",
+        "actions": "Actions"
+      },
+      "deletedUser": "(utilisateur supprimé)",
+      "viewProof": "Voir la preuve",
+      "noProof": "Aucune",
+      "status": {
+        "pending": "En attente",
+        "approved": "Approuvée",
+        "rejected": "Rejetée"
+      },
+      "approve": "Approuver",
+      "processed": "Traitée"
+    },
+    "audit": {
+      "metaTitle": "Admin — Audit global — SallyCourse",
+      "title": "Audit global",
+      "description": "Journal immuable des actions sensibles (connexions, credentials plateforme, déploiements, suppressions de cours, accès admin). Rétention 12 mois, purgé automatiquement (cron worker).",
+      "exportCsv": "Export CSV",
+      "actionLabel": "Action",
+      "allActions": "Toutes",
+      "emailLabel": "Email utilisateur",
+      "fromLabel": "Du",
+      "toLabel": "Au",
+      "filter": "Filtrer",
+      "reset": "Réinitialiser",
+      "emptyTitle": "Aucune entrée",
+      "emptyDescription": "Aucune action ne correspond à ces filtres.",
+      "colDate": "Date",
+      "colUser": "Utilisateur",
+      "colAction": "Action",
+      "colTarget": "Cible",
+      "colIp": "IP",
+      "actions": {
+        "login": "Connexion",
+        "loginFailed": "Connexion échouée",
+        "register": "Inscription",
+        "logout": "Déconnexion",
+        "credentialsChanged": "Credentials modifiés",
+        "credentialsDeleted": "Credentials supprimés",
+        "deploymentCreated": "Déploiement lancé",
+        "courseDeleted": "Cours supprimé",
+        "adminAccess": "Accès admin"
+      }
+    },
+    "users": {
+      "metadataTitle": "Admin — Utilisateurs — SallyCourse",
+      "title": "Utilisateurs",
+      "subtitle": "{count, plural, one {# compte le plus récent — plan, usage et coûts estimés.} other {# comptes les plus récents — plan, usage et coûts estimés.}}",
+      "empty": {
+        "title": "Aucun utilisateur",
+        "description": "La base ne contient encore aucun compte."
+      },
+      "columns": {
+        "user": "Utilisateur",
+        "plan": "Plan",
+        "monthlyUsage": "Usage du mois",
+        "totalCourses": "Cours (total)",
+        "estimatedCost": "Coût estimé",
+        "registered": "Inscrit",
+        "actions": "Actions"
+      },
+      "badge": {
+        "admin": "admin",
+        "banned": "banni"
+      },
+      "selfActionDisabled": "Action impossible sur votre propre compte",
+      "agency": "Agence",
+      "agencyActive": "Agence ✓",
+      "reactivate": "Réactiver",
+      "ban": "Bannir"
+    },
+    "usageCharts": {
+      "kind": {
+        "claude": "Texte (LLM)",
+        "tts": "Voix (TTS)",
+        "render": "Vidéo",
+        "image": "Images",
+        "transcribe": "Transcription",
+        "avatar": "Avatar"
+      },
+      "costPerDay": "Coût par jour ({count} j)",
+      "callsOverPeriod": "{count, plural, one {# appel sur la période} other {# appels sur la période}}",
+      "timelineAriaLabel": "Histogramme du coût quotidien par nature",
+      "callsCount": "{count, plural, one {# appel} other {# appels}}",
+      "noCallsYet": "Aucun appel enregistré pour l’instant.",
+      "free": "gratuit"
+    },
+    "costsPage": {
+      "metaTitle": "Admin — Coûts — SallyCourse",
+      "heading": "Coûts de génération",
+      "intro": "Coût par cours, marge par plan et alertes. Estimé depuis la table de tarifs (seuil d’alerte : {threshold}).",
+      "summary": {
+        "totalCost": "Coût total",
+        "trackedCourses": "Cours suivis",
+        "alertCourses": "Cours en alerte"
+      },
+      "providers": {
+        "heading": "Usage par provider",
+        "colProviderModel": "Provider / modèle",
+        "colCalls": "Appels",
+        "colCost": "Coût",
+        "note": "Chaque appel LLM (texte) et chaque segment de voix compte comme un appel. Les modèles cloud gratuits (Gemini, GLM-4.5 Flash) et les voix locales/Edge sont facturés 0 ; la voix Modal (GPU) et ElevenLabs/OpenAI sont estimés à l’usage. Historique sur les 30 derniers jours (UTC)."
+      },
+      "margin": {
+        "heading": "Marge par plan",
+        "colPlan": "Plan",
+        "colRevenue": "Revenu (USD)",
+        "colCost": "Coût (USD)",
+        "colMargin": "Marge (USD)"
+      },
+      "byCourse": {
+        "heading": "Coût par cours",
+        "emptyTitle": "Aucun coût enregistré",
+        "emptyDescription": "Les coûts apparaissent dès qu’un cours passe par la génération (Claude, voix, vidéo, images).",
+        "colCourse": "Cours",
+        "colClaude": "Claude",
+        "colVoice": "Voix",
+        "colVideo": "Vidéo",
+        "colImages": "Images",
+        "colTotal": "Total",
+        "alertBadge": "alerte",
+        "deletedCourse": "Cours supprimé",
+        "note": "Ventilation par nature — {kinds}. Montants en USD."
+      },
+      "costKind": {
+      "transcribe": "Transcription",
+      "avatar": "Avatar",
+        "claude": "Claude",
+        "tts": "Voix",
+        "render": "Vidéo",
+        "image": "Images"
+      },
+      "compare": {
+        "heading": "Cloud vs OSS",
+        "cloudCurrent": "Coût cloud (actuel)",
+        "fullOss": "Coût si full OSS",
+        "potentialSavings": "Économie potentielle",
+        "emptyTitle": "Aucun cours à comparer",
+        "emptyDescription": "Le comparateur apparaît dès qu'un cours a des coûts enregistrés.",
+        "colCourse": "Cours",
+        "colCloudCost": "Coût cloud",
+        "colOssCost": "Coût OSS",
+        "colRecommendedMix": "Mix recommandé",
+        "colActualMix": "Mix réellement utilisé",
+        "note": "Coût OSS = compute Hetzner uniquement (CPU-heures ffmpeg/ollama/piper à {rate}/h), pas de facturation au token/caractère. Recommandation : langue rare ou plan business → cloud pour le plan/scripts (llm), OSS pour le reste ; sinon full OSS. Le mix « réellement utilisé » reflète Course.providerMix (défaut OSS si jamais enregistré — cours antérieurs à ce comparateur)."
+      },
+      "cache": {
+        "heading": "Cache",
+        "overallHitRate": "Taux de hit global",
+        "estimatedSavings": "Économie estimée",
+        "colCache": "Cache",
+        "colHits": "Hits",
+        "colMiss": "Miss",
+        "colHitRate": "Taux de hit",
+        "colSavings": "Économie estimée",
+        "note": "Économie = nombre de hits × coût moyen évité (estimé depuis la table de tarifs, taille d’appel typique du pipeline). Cache Claude (30 jours, clé = hash système+message+modèle), cache TTS (permanent, clé = hash texte+voix, déjà en place), cache de captures d’écran par contenu (permanent, clé = hash de la spec — réutilisé entre leçons et entre cours)."
+      },
+      "cacheNamespace": {
+        "claude": "Appels Claude",
+        "tts": "Synthèse vocale (TTS)",
+        "screenshot": "Captures d’écran"
+      }
+    },
+    "status": {
+      "draft": "Brouillon",
+      "generating": "Génération…",
+      "outline-review": "Plan à valider",
+      "ready": "Prêt",
+      "published": "Publié",
+      "failed": "Échec",
+      "cancelled": "Annulé"
+    },
+    "crons": {
+      "title": "Déclencher un cron",
+      "subtitle": "Rejoue manuellement un traitement planifié sans attendre le planificateur (debug, incident, démo).",
+      "runButton": "Lancer",
+      "successTitle": "Cron déclenché",
+      "successDesc": "« {cron} » a été enfilé.",
+      "errorTitle": "Déclenchement impossible",
+      "networkError": "Erreur réseau, réessayez.",
+      "labels": {
+        "retention": "Archivage de rétention",
+        "analytics": "Rafraîchissement analytics",
+        "emailSequence": "Séquences e-mail dues",
+        "deploySchedule": "Déploiements planifiés dus",
+        "courseRefresh": "Rafraîchissement des cours",
+        "streakReminder": "Rappels de série",
+        "abTesting": "Tests A/B de la landing",
+        "reviewPoll": "Collecte des avis"
+      },
+      "descriptions": {
+        "retention": "Archive les cours et médias éligibles à la purge.",
+        "analytics": "Recalcule les agrégats analytics du tableau de bord.",
+        "emailSequence": "Envoie les e-mails de séquence arrivés à échéance.",
+        "deploySchedule": "Lance les déploiements planifiés arrivés à échéance.",
+        "courseRefresh": "Repasse sur les cours pour mise à jour périodique.",
+        "streakReminder": "Notifie les apprenants pour maintenir leur série.",
+        "abTesting": "Fait tourner les variantes A/B de la page d'accueil.",
+        "reviewPoll": "Collecte les nouveaux avis des plateformes."
+      }
+    }
+  },
+  "legal": {
+    "lastUpdated": "Dernière mise à jour : {date}",
+    "navAriaLabel": "Documents légaux",
+    "nav": {
+      "cgu": "CGU",
+      "cgv": "CGV",
+      "privacy": "Confidentialité"
+    }
+  },
+  "design": {
+    "motion": {
+      "title": "Motion",
+      "lead": "Cinq durées, quatre courbes, trois entrées : un vocabulaire court et strict. Les micro-interactions restent sous 250 ms ; le spring est réservé aux célébrations. prefers-reduced-motion est toujours respecté.",
+      "back": "Retour",
+      "start": "Lancer",
+      "replay": "Rejouer",
+      "entranceLabel": "Animations d'entrée standard",
+      "durationsLegend": "Durées — même courbe (standard), cinq tempos",
+      "durationsNote": "Chaque bille court sur la même distance : seule la durée change. En RTL, la course s'inverse naturellement (déplacement en marge logique).",
+      "easingsLegend": "Courbes — même durée (slower), quatre caractères",
+      "easingsNote": "Observez le spring dépasser légèrement sa cible avant de se poser — à réserver aux moments de célébration.",
+      "dur": {
+        "instant": "Feedback pressé",
+        "fast": "Hover, focus",
+        "base": "Transitions par défaut",
+        "slow": "Entrées de panneaux",
+        "slower": "Séquences orchestrées"
+      },
+      "ease": {
+        "standard": "Courbe par défaut",
+        "out": "Entrées (décélération)",
+        "in": "Sorties (accélération)",
+        "spring": "Célébrations, badges"
+      },
+      "entrance": {
+        "fadeIn": "Apparitions discrètes",
+        "fadeInUp": "Contenu qui se pose",
+        "scaleIn": "Modales, célébrations"
+      }
+    },
+    "illustrations": {
+      "sectionTitle": "Illustrations",
+      "lead": "Un langage de « flux » : l'étincelle du prompt traverse des courants violets et se matérialise en savoir structuré. Géométrie abstraite, traits de 1,5 px, or en ponctuation seulement — jamais d'aplat massif.",
+      "cards": {
+        "fluxCours": {
+          "name": "Flux prompt → cours",
+          "usage": "Illustration héroïque — accueil, écrans de génération. <IllustrationFluxCours />",
+          "title": "Une étincelle se déploie en trois courants qui deviennent des modules de cours"
+        },
+        "constellation": {
+          "name": "Constellation",
+          "usage": "Bibliothèque, états vides riches. <IllustrationConstellation />",
+          "title": "Graphe de notions reliées autour d'un nœud doré"
+        },
+        "strates": {
+          "name": "Strates de savoir",
+          "usage": "Progression, paliers. <IllustrationStrates />",
+          "title": "Couches isométriques traversées par un fil doré ascendant"
+        }
+      },
+      "etincelle": {
+        "label": "Étincelle — motif de ponctuation",
+        "title": "Étincelle SALISTAR",
+        "description": "Quatre branches concaves, or sur cercle violet. À utiliser en jalon de liste, marqueur de célébration ou signature discrète — une seule par écran suffit."
+      },
+      "rules": {
+        "strokes": {
+          "term": "Traits",
+          "desc": "— 1,5 px, terminaisons rondes, violet 400/500 en opacité 30–70 %."
+        },
+        "gradient": {
+          "term": "Dégradé",
+          "desc": "— violet → or réservé aux trajectoires et liserés, jamais en remplissage."
+        },
+        "gold": {
+          "term": "Or",
+          "desc": "— un seul point focal doré par illustration : l'idée, le cours, l'accomplissement."
+        }
+      }
+    },
+    "palette": {
+      "title": "Palette",
+      "lead": "Sept échelles 50→950 dérivées de tokens.ts — violet de marque, or premium, neutres chauds teintés violet et quatre états harmonisés. Cliquer une pastille copie son hexadécimal ; l'anneau doré marque le cran de marque.",
+      "families": {
+        "violet": {
+          "label": "Violet — primaire",
+          "usage": "Actions, liens, identité. #5B2A86 posé au cran 700."
+        },
+        "gold": {
+          "label": "Or — accent",
+          "usage": "Parcimonieux : distinctions, célébrations. #D4A017 au cran 500."
+        },
+        "neutral": {
+          "label": "Neutres chauds",
+          "usage": "Textes, bordures, surfaces — teintés violet, jamais de gris froid. Fond de marque #0D0714 au cran 950."
+        },
+        "success": {
+          "label": "Succès",
+          "usage": "Validations, quiz réussis, progression complétée."
+        },
+        "warning": {
+          "label": "Avertissement",
+          "usage": "États à surveiller, quotas, brouillons."
+        },
+        "danger": {
+          "label": "Danger",
+          "usage": "Erreurs, suppressions, échecs de génération."
+        },
+        "info": {
+          "label": "Info",
+          "usage": "Messages informatifs, astuces, traitements en cours."
+        }
+      },
+      "swatch": {
+        "copyTitle": "Copier {hex}",
+        "copied": "Copié ✓"
+      },
+      "roles": {
+        "heading": "Rôles sémantiques (varient avec le thème — basculez light/dark ci-dessus)",
+        "background": {
+          "note": "fond de page"
+        },
+        "surface": {
+          "note": "cartes, panneaux"
+        },
+        "surfaceSubtle": {
+          "note": "bandeaux, wells"
+        },
+        "primary": {
+          "note": "action principale"
+        },
+        "primarySoft": {
+          "note": "hover doux, pills"
+        },
+        "accent": {
+          "note": "or — parcimonieux"
+        },
+        "success": {
+          "note": "validation"
+        },
+        "warning": {
+          "note": "vigilance"
+        },
+        "danger": {
+          "note": "erreur"
+        },
+        "info": {
+          "note": "information"
+        },
+        "muted": {
+          "note": "texte secondaire"
+        },
+        "ring": {
+          "note": "focus clavier"
+        }
+      }
+    },
+    "typography": {
+      "title": "Typographie",
+      "lead": "Fraunces incarne la voix éditoriale, Figtree porte la lecture, IBM Plex Sans Arabic assume l'arabe seul — titres et corps. Une échelle modulaire de ratio 1,25 rythme l'ensemble.",
+      "specimenLatin": {
+        "label": "Latin — Fraunces (titres) · Figtree (corps)"
+      },
+      "specimenArabic": {
+        "label": "Arabe — IBM Plex Sans Arabic (titres et corps, jamais d'italique)"
+      },
+      "scale": {
+        "label": "Échelle modulaire — ratio 1,25 (quarte majeure), base 16 px"
+      },
+      "weights": {
+        "label": "Graisses standardisées"
+      },
+      "pairing": {
+        "label": "Règles d'appariement",
+        "item1": "FR/EN : titres en <strong>font-display</strong> (Fraunces), corps en <strong>font-sans</strong> (Figtree).",
+        "item2": "AR : titres ET corps en <strong>font-arabic</strong> — graisse ≥ 600 pour les titres, jamais de serif ni d'italique.",
+        "item3": "Texte mixte : la famille suit la langue dominante du bloc, les fallbacks couvrent les insertions ponctuelles de l'autre écriture."
+      },
+      "roles": {
+        "6xl": "Affichage exceptionnel",
+        "5xl": "Hero",
+        "4xl": "H1",
+        "3xl": "H2",
+        "2xl": "H3",
+        "xl": "H4",
+        "lg": "Lead",
+        "base": "Corps de référence",
+        "sm": "UI dense",
+        "xs": "Légendes",
+        "2xs": "Mentions"
+      }
+    },
+    "toolbar": {
+      "theme": {
+        "label": "Thème",
+        "light": "Thème clair",
+        "dark": "Thème sombre"
+      },
+      "direction": {
+        "label": "Sens de lecture des démonstrations",
+        "ltr": "Gauche vers droite (FR/EN)",
+        "rtl": "Droite vers gauche (AR)"
+      },
+      "grain": "Grain"
+    },
+    "foundations": {
+      "section": {
+        "title": "Espacements · Rayons · Ombres",
+        "lead": "Une grille de 4 px sans exception (ou presque), trois rayons structurants et des ombres teintées de violet profond : la matière discrète qui tient chaque écran."
+      },
+      "spacing": {
+        "label": "Espacements — grille 4 px stricte (seule exception : 2 px)"
+      },
+      "radii": {
+        "label": "Rayons — trois crans structurants (8 / 12 / 16) + xl et pill",
+        "default": "défaut",
+        "usage": {
+          "sm": "Boutons, inputs, badges",
+          "md": "Cartes, dropdowns",
+          "lg": "Modales, panneaux",
+          "xl": "Blocs hero, illustrations",
+          "full": "Pills, avatars"
+        }
+      },
+      "shadows": {
+        "label": "Ombres — toujours teintées violet, jamais de noir pur",
+        "usage": {
+          "sm": "Relief discret (inputs)",
+          "md": "Cartes au repos",
+          "lg": "Cartes survolées, popovers",
+          "xl": "Modales, panneaux flottants",
+          "glow": "Halo premium — CTA, mise en avant"
+        },
+        "note": "En thème sombre les ombres s'effacent au profit des liserés et halos : basculez en light pour lire toute la profondeur de l'échelle."
+      }
+    },
+    "styleguide": {
+      "toc": {
+        "palette": "Palette",
+        "typography": "Typographie",
+        "foundations": "Fondations",
+        "motion": "Motion",
+        "illustrations": "Illustrations"
+      },
+      "heroKicker": "SALISTAR · Direction artistique",
+      "heroTitle": "Le studio où chaque<br></br>idée devient un cours.",
+      "heroDescription": "Fonds sombres profonds teintés de violet, or en touches rares, verre dépoli et grain de pellicule : SallyCourse emprunte ses codes aux studios de production haut de gamme. Ce guide vivant en est la référence — observez chaque fondation en light, dark et RTL.",
+      "tocAriaLabel": "Sommaire du styleguide",
+      "heroIllustrationTitle": "Illustration du flux : d'une étincelle de prompt naissent les modules d'un cours",
+      "footerSourceLabel": "Source de vérité :",
+      "footerNoHex": "— aucune couleur hex ailleurs.",
+      "footerComponentsLabel": "Composants :"
+    },
+    "motionPage": {
+      "header": {
+        "badge": "Design system · D4",
+        "title": "Motion & micro-interactions",
+        "intro": "Le mouvement SALISTAR communique un état — entrée, progression, réussite, interactivité. Durées et courbes proviennent des tokens ; tout respecte <code>prefers-reduced-motion</code>.",
+        "componentsLink": "Galerie des composants",
+        "transitionNote": "— naviguer entre les deux pages rejoue la transition de page (fade + slide 200 ms via <code>template.tsx</code>)."
+      },
+      "steps": {
+        "analyse": {
+          "label": "Analyse du sujet",
+          "description": "Titre, niveau et audience cible"
+        },
+        "plan": {
+          "label": "Construction du plan",
+          "description": "Sections, chapitres et prérequis"
+        },
+        "contenu": {
+          "label": "Rédaction des leçons",
+          "description": "Vidéos, articles et travaux pratiques"
+        },
+        "quiz": {
+          "label": "Génération des quiz",
+          "description": "Questions alignées sur chaque chapitre"
+        },
+        "assemblage": {
+          "label": "Assemblage final",
+          "description": "Relecture, métadonnées et publication"
+        }
+      },
+      "status": {
+        "idle": "En attente",
+        "running": "Génération…",
+        "done": "Cours prêt",
+        "failed": "Échec"
+      },
+      "timeline": {
+        "cardTitle": "« React 19 pour débutants » — niveau Débutant",
+        "cardDescription": "Le rail se remplit au rythme des étapes ; l'étape active pulse pendant que le système travaille ; la fin déclenche la célébration.",
+        "simulateSuccess": "Simuler une réussite",
+        "simulateFailure": "Simuler un échec",
+        "reset": "Réinitialiser"
+      },
+      "stagger": {
+        "replay": "Rejouer l'entrée",
+        "lessonsGenerated": "{count} leçons générées"
+      },
+      "levels": {
+        "beginner": "Débutant",
+        "intermediate": "Intermédiaire",
+        "advanced": "Avancé"
+      },
+      "courses": {
+        "react": {
+          "title": "React 19 pour débutants"
+        },
+        "nest": {
+          "title": "NestJS : API robustes"
+        },
+        "ts": {
+          "title": "TypeScript avancé"
+        },
+        "tailwind": {
+          "title": "Design systems avec Tailwind"
+        },
+        "ai": {
+          "title": "IA générative en production"
+        },
+        "next": {
+          "title": "Next.js App Router de A à Z"
+        }
+      },
+      "stats": {
+        "courses": {
+          "label": "Cours générés"
+        },
+        "lessons": {
+          "label": "Leçons produites"
+        },
+        "hours": {
+          "label": "Heures de contenu"
+        },
+        "satisfaction": {
+          "label": "Satisfaction apprenants"
+        }
+      },
+      "tilt": {
+        "default": {
+          "title": "Inclinaison 2° (défaut)",
+          "description": "Survolez : la carte suit le pointeur avec un ressort doux — assez pour signaler l'interactivité, jamais assez pour distraire."
+        },
+        "exaggerated": {
+          "title": "Inclinaison 6° (exagérée)",
+          "description": "Version amplifiée pour rendre l'effet lisible en démo — à ne PAS utiliser en production : 2° suffisent."
+        }
+      },
+      "tokens": {
+        "replay": "Rejouer",
+        "reducedMotion": "prefers-reduced-motion actif : les translations sont neutralisées, seuls les fondus subsistent.",
+        "durations": "Durées tokens : instant {instant} ms · fast {fast} ms · base {base} ms · slow {slow} ms · slower {slower} ms — courbe d'entrée out [{easing}]."
+      },
+      "sections": {
+        "timeline": {
+          "title": "Timeline de génération",
+          "intent": "Progression d'un processus long : le rail se remplit organiquement, l'étape active pulse, la réussite déclenche coche à ressort + confettis, l'échec fige le rail."
+        },
+        "stagger": {
+          "title": "Listes orchestrées (stagger)",
+          "intent": "L'apparition décalée des cartes communique l'ordre de lecture d'une grille de cours — déclenchée à l'entrée dans le viewport."
+        },
+        "countup": {
+          "title": "Compteurs animés",
+          "intent": "Les statistiques « s'accumulent » à l'entrée en vue : chiffres tabulaires (pas de tremblement), formatage localisé, valeur finale directe en mouvement réduit."
+        },
+        "tilt": {
+          "title": "Tilt 3D subtil",
+          "intent": "L'inclinaison de ±2° qui suit le pointeur signale qu'une carte est interactive — désactivée au toucher et en mouvement réduit."
+        },
+        "transitions": {
+          "title": "Transitions de référence",
+          "intent": "Les cinq transitions nommées par intention (enter, exit, state, springSoft, springSnappy) appliquées au même variant fade-in-up, pour comparer les tempéraments."
+        }
+      }
+    },
+    "componentsPage": {
+      "header": {
+        "eyebrow": "Design system · D3",
+        "title": "Composants SALISTAR",
+        "description": "Bibliothèque UI de SallyCourse : chaque composant est présenté dans tous ses états — dark mode par défaut, RTL natif, animations sobres."
+      },
+      "sections": {
+        "buttons": "Boutons",
+        "badges": "Badges de statut",
+        "cards": "Cartes (bordure dégradée violet → or)",
+        "forms": "Formulaires (labels flottants)",
+        "dialog": "Dialogue (backdrop flouté)",
+        "toasts": "Toasts",
+        "skeletons": "Skeletons (shimmer violet)",
+        "progress": "Progression (dégradé animé violet → or)",
+        "tabs": "Onglets (soulignement animé)",
+        "emptyState": "État vide",
+        "rtl": "RTL (aperçu arabe)"
+      },
+      "buttons": {
+        "examples": {
+          "variants": "Variantes",
+          "sizes": "Tailles",
+          "states": "États (survol/press animés · focus clavier = halo or)"
+        },
+        "generate": "Générer le cours",
+        "preview": "Prévisualiser",
+        "cancel": "Annuler",
+        "delete": "Supprimer",
+        "goPremium": "Passer en Premium",
+        "sizeSm": "Petit",
+        "sizeMd": "Moyen",
+        "sizeLg": "Grand",
+        "addModuleAria": "Ajouter un module",
+        "generating": "Génération…",
+        "disabled": "Désactivé",
+        "loading": "Chargement",
+        "premiumDisabled": "Premium désactivé"
+      },
+      "badges": {
+        "draft": "Brouillon",
+        "generating": "Génération…",
+        "ready": "Prêt",
+        "failed": "Échec",
+        "published": "Publié",
+        "noDot": "Sans pastille"
+      },
+      "cards": {
+        "course1Title": "Introduction à l'algèbre",
+        "course1Desc": "Niveau collège · 8 modules · généré le 12 juin",
+        "completeness": "Complétude",
+        "open": "Ouvrir",
+        "duplicate": "Dupliquer",
+        "course2Title": "Histoire du Maroc moderne",
+        "course2Desc": "Niveau lycée · plan en cours de rédaction",
+        "generationLabel": "Génération"
+      },
+      "forms": {
+        "sampleTitle": "Les fractions au CM2",
+        "examples": {
+          "inputEmpty": "Input vide",
+          "inputFilled": "Input rempli (contrôlé)",
+          "inputHint": "Input avec aide",
+          "inputError": "Input en erreur",
+          "inputDisabled": "Input désactivé",
+          "select": "Select",
+          "selectError": "Select en erreur",
+          "textarea": "Textarea"
+        },
+        "courseTitleLabel": "Titre du cours",
+        "audienceLabel": "Public cible",
+        "audienceHint": "Ex. : élèves de 6e, adultes débutants…",
+        "titleError": "Le titre doit contenir au moins 5 caractères.",
+        "identifierLabel": "Identifiant",
+        "levelLabel": "Niveau",
+        "levelPrimary": "Primaire",
+        "levelCollege": "Collège",
+        "levelLycee": "Lycée",
+        "levelSuperieur": "Supérieur",
+        "languageLabel": "Langue",
+        "languageError": "Choisissez une langue de génération.",
+        "aiInstructionsLabel": "Consignes pour l'IA",
+        "aiInstructionsHint": "Précisez le ton, les prérequis, les exemples souhaités…"
+      },
+      "dialog": {
+        "open": "Ouvrir le dialogue",
+        "title": "Supprimer ce cours ?",
+        "description": "« Introduction à l'algèbre » et ses 8 modules seront définitivement supprimés. Cette action est irréversible."
+      },
+      "toasts": {
+        "buttons": {
+          "default": "Défaut",
+          "success": "Succès",
+          "warning": "Avertissement",
+          "error": "Erreur",
+          "info": "Info"
+        },
+        "default": {
+          "title": "Sally vous informe",
+          "description": "Un nouveau modèle de cours est disponible."
+        },
+        "success": {
+          "title": "Cours généré",
+          "description": "Les 8 modules sont prêts à être relus."
+        },
+        "warning": {
+          "title": "Quota bientôt atteint",
+          "description": "Il vous reste 2 générations ce mois-ci."
+        },
+        "danger": {
+          "title": "Échec de génération",
+          "description": "Le service IA est momentanément indisponible."
+        },
+        "info": {
+          "title": "Astuce",
+          "description": "Ajoutez des consignes pour affiner le ton du cours."
+        }
+      },
+      "progress": {
+        "courseGeneration": "Génération du cours",
+        "review": "Relecture",
+        "examples": {
+          "indeterminate": "Indéterminée"
+        },
+        "topicAnalysis": "Analyse du sujet…",
+        "decrease": "−15 %",
+        "increase": "+15 %"
+      },
+      "tabs": {
+        "plan": "Plan",
+        "content": "Contenu",
+        "quiz": "Quiz",
+        "exports": "Exports",
+        "planText": "Le plan du cours est structuré en 8 modules progressifs, du rappel des prérequis jusqu'à l'évaluation finale.",
+        "contentText": "Chaque module contient une leçon rédigée, deux exemples corrigés et une synthèse mémorisable.",
+        "quizText": "10 questions à choix multiples générées par module, avec explication de chaque réponse.",
+        "exportsText": "Exports PDF et SCORM (bientôt disponibles)."
+      },
+      "emptyState": {
+        "title": "Aucun cours pour l'instant",
+        "description": "Donnez un titre et un niveau : Sally génère le plan, les leçons et les quiz en quelques minutes.",
+        "generate": "Générer mon premier cours",
+        "seeExample": "Voir un exemple"
+      }
     }
   }
 }

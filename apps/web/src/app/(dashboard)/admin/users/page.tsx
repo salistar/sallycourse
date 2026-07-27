@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { Types } from 'mongoose';
+import { getTranslations, getFormatter } from 'next-intl/server';
 import { Ban, RotateCcw } from 'lucide-react';
 import { Course, User, connectDb } from '@sallycourse/db';
 import { PLANS, type PlanId } from '@sallycourse/shared';
@@ -8,7 +9,7 @@ import { Badge, EmptyState } from '@/components/ui';
 import { requireAdmin } from '../guard';
 import { estimatedCost, formatCost, planUsageRatio } from '../stats';
 import { PlanSelect } from './plan-select';
-import { setBannedAction } from './actions';
+import { setAgencyAction, setBannedAction } from './actions';
 
 /**
  * Gestion des utilisateurs (P57) : liste avec plan, usage du mois, coût
@@ -16,23 +17,26 @@ import { setBannedAction } from './actions';
  * cours par utilisateur vient d'une agrégation ($group), jointe en mémoire.
  */
 
-export const metadata: Metadata = {
-  title: 'Admin — Utilisateurs — SallyCourse',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('admin.users');
+  return {
+    title: t('metadataTitle'),
+  };
+}
 
 export const dynamic = 'force-dynamic';
 
 const PAGE_SIZE = 100;
-const numberFmt = new Intl.NumberFormat('fr-FR');
-const dateFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short' });
 
 export default async function AdminUsersPage() {
+  const t = await getTranslations('admin.users');
+  const format = await getFormatter();
   const admin = await requireAdmin();
   await connectDb();
 
   const [users, courseCounts] = await Promise.all([
     User.find()
-      .select('email name plan role banned quotaUsed createdAt')
+      .select('email name plan role banned isAgency quotaUsed createdAt')
       .sort({ createdAt: -1 })
       .limit(PAGE_SIZE)
       .lean(),
@@ -47,28 +51,28 @@ export default async function AdminUsersPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="font-display text-2xl font-semibold text-foreground">Utilisateurs</h1>
+        <h1 className="font-display text-2xl font-semibold text-foreground">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted">
-          {numberFmt.format(users.length)} comptes les plus récents — plan, usage et coûts estimés.
+          {t('subtitle', { count: users.length })}
         </p>
       </div>
 
       <AdminNav />
 
       {users.length === 0 ? (
-        <EmptyState title="Aucun utilisateur" description="La base ne contient encore aucun compte." />
+        <EmptyState title={t('empty.title')} description={t('empty.description')} />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-surface/60">
           <table className="w-full min-w-[68rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-start text-2xs uppercase tracking-wide text-muted">
-                <th className="px-4 py-3 text-start font-semibold">Utilisateur</th>
-                <th className="px-4 py-3 text-start font-semibold">Plan</th>
-                <th className="px-4 py-3 text-start font-semibold">Usage du mois</th>
-                <th className="px-4 py-3 text-start font-semibold">Cours (total)</th>
-                <th className="px-4 py-3 text-start font-semibold">Coût estimé</th>
-                <th className="px-4 py-3 text-start font-semibold">Inscrit</th>
-                <th className="px-4 py-3 text-end font-semibold">Actions</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('columns.user')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('columns.plan')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('columns.monthlyUsage')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('columns.totalCourses')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('columns.estimatedCost')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('columns.registered')}</th>
+                <th className="px-4 py-3 text-end font-semibold">{t('columns.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -81,7 +85,7 @@ export default async function AdminUsersPage() {
                 const totalCourses = totalCoursesByUser.get(id) ?? 0;
                 const cost = estimatedCost(totalCourses);
                 const isSelf = id === admin.id;
-                const limitLabel = Number.isFinite(limit) ? numberFmt.format(limit) : '∞';
+                const limitLabel = Number.isFinite(limit) ? format.number(limit) : '∞';
 
                 return (
                   <tr key={id} className="border-b border-border/60 last:border-b-0 hover:bg-primary-soft/30">
@@ -92,12 +96,12 @@ export default async function AdminUsersPage() {
                         </span>
                         {u.role === 'admin' ? (
                           <Badge variant="ready" hideDot className="text-2xs">
-                            admin
+                            {t('badge.admin')}
                           </Badge>
                         ) : null}
                         {u.banned ? (
                           <Badge variant="failed" hideDot className="text-2xs">
-                            banni
+                            {t('badge.banned')}
                           </Badge>
                         ) : null}
                       </span>
@@ -117,18 +121,31 @@ export default async function AdminUsersPage() {
                           />
                         </div>
                         <span className="tabular-nums text-xs text-muted">
-                          {numberFmt.format(used)}/{limitLabel}
+                          {format.number(used)}/{limitLabel}
                         </span>
                       </div>
                     </td>
                     <td className="px-4 py-3 tabular-nums text-foreground">
-                      {numberFmt.format(totalCourses)}
+                      {format.number(totalCourses)}
                     </td>
                     <td className="px-4 py-3 tabular-nums text-muted">{formatCost(cost)}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-muted">
-                      {dateFmt.format(u.createdAt)}
+                      {format.dateTime(u.createdAt, { dateStyle: 'short' })}
                     </td>
                     <td className="px-4 py-3 text-end">
+                      {/* Mode agence (P150) — seul chemin d'activation du produit. */}
+                      <form action={setAgencyAction} className="inline-flex">
+                        <input type="hidden" name="userId" value={id} />
+                        <input type="hidden" name="isAgency" value={u.isAgency ? 'false' : 'true'} />
+                        <PendingButton
+                          variant={u.isAgency ? 'secondary' : 'ghost'}
+                          size="sm"
+                          disabled={isSelf}
+                          title={isSelf ? t('selfActionDisabled') : undefined}
+                        >
+                          {u.isAgency ? t('agencyActive') : t('agency')}
+                        </PendingButton>
+                      </form>
                       <form action={setBannedAction} className="inline-flex">
                         <input type="hidden" name="userId" value={id} />
                         <input type="hidden" name="banned" value={u.banned ? 'false' : 'true'} />
@@ -136,10 +153,10 @@ export default async function AdminUsersPage() {
                           variant={u.banned ? 'secondary' : 'ghost'}
                           size="sm"
                           disabled={isSelf}
-                          title={isSelf ? 'Action impossible sur votre propre compte' : undefined}
+                          title={isSelf ? t('selfActionDisabled') : undefined}
                         >
                           {u.banned ? <RotateCcw aria-hidden="true" /> : <Ban aria-hidden="true" />}
-                          {u.banned ? 'Réactiver' : 'Bannir'}
+                          {u.banned ? t('reactivate') : t('ban')}
                         </PendingButton>
                       </form>
                     </td>

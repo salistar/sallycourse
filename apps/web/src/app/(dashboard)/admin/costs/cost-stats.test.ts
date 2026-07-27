@@ -7,6 +7,9 @@ import {
   alertingCourses,
   usageByCourse,
   compareCourseCost,
+  costByProvider,
+  usageTimeline,
+  providerOfRow,
   type CostRow,
 } from './cost-stats';
 import {
@@ -195,5 +198,78 @@ describe('compareCourseCost', () => {
       result.ossBreakdown.llmUsd + result.ossBreakdown.ttsUsd + result.ossBreakdown.renderUsd + result.ossBreakdown.imageUsd,
       4,
     );
+  });
+});
+
+describe('providerOfRow', () => {
+  it('utilise le modèle comme provider pour la génération de texte', () => {
+    expect(providerOfRow({ courseId: 'c', userId: 'u', kind: 'claude', model: 'gemini-flash-latest' })).toBe(
+      'gemini-flash-latest',
+    );
+  });
+  it('utilise le moteur TTS comme provider pour la voix', () => {
+    expect(providerOfRow({ courseId: 'c', userId: 'u', kind: 'tts', model: 'modal' })).toBe('modal');
+  });
+  it('retombe sur ffmpeg pour le rendu', () => {
+    expect(providerOfRow({ courseId: 'c', userId: 'u', kind: 'render' })).toBe('ffmpeg');
+  });
+});
+
+describe('costByProvider', () => {
+  const rows: CostRow[] = [
+    { courseId: 'c1', userId: 'u1', kind: 'claude', model: 'gemini-flash-latest', tokensIn: 1000, tokensOut: 500 },
+    { courseId: 'c1', userId: 'u1', kind: 'claude', model: 'gemini-flash-latest', tokensIn: 2000, tokensOut: 800 },
+    { courseId: 'c1', userId: 'u1', kind: 'claude', model: 'deepseek-chat', tokensIn: 1000, tokensOut: 1000 },
+    { courseId: 'c1', userId: 'u1', kind: 'tts', model: 'modal', chars: 500 },
+    { courseId: 'c1', userId: 'u1', kind: 'tts', model: 'edge', chars: 500 },
+  ];
+
+  it('agrège les appels + coût par provider (modèle)', () => {
+    const byProvider = costByProvider(rows);
+    const gemini = byProvider.find((p) => p.provider === 'gemini-flash-latest');
+    expect(gemini?.calls).toBe(2);
+    expect(gemini?.totalUsd).toBe(0); // Gemini gratuit → 0
+    expect(gemini?.tokensIn).toBe(3000);
+  });
+
+  it('compte les voix gratuites (edge) à 0 et Modal à un coût > 0', () => {
+    const byProvider = costByProvider(rows);
+    expect(byProvider.find((p) => p.provider === 'edge')?.totalUsd).toBe(0);
+    expect(byProvider.find((p) => p.provider === 'modal')?.totalUsd).toBeGreaterThan(0);
+  });
+
+  it('trie par coût décroissant puis appels', () => {
+    const byProvider = costByProvider(rows);
+    for (let i = 1; i < byProvider.length; i += 1) {
+      expect(byProvider[i - 1]!.totalUsd).toBeGreaterThanOrEqual(byProvider[i]!.totalUsd);
+    }
+  });
+});
+
+describe('usageTimeline', () => {
+  it('produit une série continue de N jours se terminant à `today`', () => {
+    const days = usageTimeline([], '2026-07-14', 30);
+    expect(days).toHaveLength(30);
+    expect(days[days.length - 1]!.date).toBe('2026-07-14');
+    expect(days[0]!.date).toBe('2026-06-15');
+    expect(days.every((d) => d.totalUsd === 0 && d.calls === 0)).toBe(true);
+  });
+
+  it('range chaque coût dans le bon jour et ignore les lignes hors fenêtre', () => {
+    const rows: CostRow[] = [
+      { courseId: 'c', userId: 'u', kind: 'tts', model: 'modal', chars: 1000, createdAt: '2026-07-14T09:00:00.000Z' },
+      { courseId: 'c', userId: 'u', kind: 'tts', model: 'edge', chars: 1000, createdAt: '2026-07-13T09:00:00.000Z' },
+      { courseId: 'c', userId: 'u', kind: 'tts', model: 'modal', chars: 1000, createdAt: '2020-01-01T00:00:00.000Z' },
+    ];
+    const days = usageTimeline(rows, '2026-07-14', 30);
+    const today = days.find((d) => d.date === '2026-07-14')!;
+    const yesterday = days.find((d) => d.date === '2026-07-13')!;
+    expect(today.calls).toBe(1);
+    expect(today.totalUsd).toBeGreaterThan(0);
+    expect(yesterday.calls).toBe(1);
+    expect(yesterday.byKind.tts).toBe(0); // edge gratuit
+    // La ligne de 2020 est hors fenêtre → ignorée (total sur la période = today + edge(0)).
+    const totalCalls = days.reduce((acc, d) => acc + d.calls, 0);
+    expect(totalCalls).toBe(2);
   });
 });

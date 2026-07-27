@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { AdminNav } from '@/components/admin';
 import { Card, CardContent, CardHeader, CardTitle, BarChart } from '@/components/ui';
 import { requireAdmin } from '../guard';
@@ -12,23 +13,27 @@ import { aggregateMonthlyRevenue, totalBySource, totalRevenue } from '@/lib/reve
  * converti en USD via la table de taux statique (@sallycourse/shared/fx-rates).
  */
 
-export const metadata: Metadata = {
-  title: 'Admin — Revenus — SallyCourse',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('admin.revenue');
+  return {
+    title: t('metaTitle'),
+  };
+}
 
 export const dynamic = 'force-dynamic';
 
 const usd2 = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
 
 const SOURCE_LABELS: Record<'udemy' | 'youtube' | 'subscription' | 'gumroad', string> = {
-  udemy: 'Udemy',
-  youtube: 'YouTube',
-  subscription: 'Abonnements (SaaS)',
-  gumroad: 'Gumroad',
+  udemy: 'source.udemy',
+  youtube: 'source.youtube',
+  subscription: 'source.subscription',
+  gumroad: 'source.gumroad',
 };
 
 export default async function AdminRevenuePage() {
   await requireAdmin();
+  const t = await getTranslations('admin.revenue');
 
   const entries = await loadAllRevenueEntries();
   const grandTotal = totalRevenue(entries, 'USD');
@@ -41,17 +46,16 @@ export default async function AdminRevenuePage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-foreground">Revenus consolidés</h1>
+          <h1 className="font-display text-2xl font-semibold text-foreground">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted">
-            Toutes sources confondues, converties en USD (taux fixes documentés dans
-            packages/shared/src/fx-rates.ts).
+            {t('subtitle', { path: 'packages/shared/src/fx-rates.ts' })}
           </p>
         </div>
         <a
           href="/api/admin/revenue/export"
           className="inline-flex items-center gap-2 rounded-full bg-primary-soft px-4 py-2 text-sm font-semibold text-foreground transition-colors duration-fast hover:bg-primary-soft/80"
         >
-          Export CSV comptable
+          {t('exportCsv')}
         </a>
       </div>
 
@@ -61,7 +65,7 @@ export default async function AdminRevenuePage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm text-muted">Revenu total</CardTitle>
+            <CardTitle className="text-sm text-muted">{t('totalRevenue')}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="font-display text-2xl font-semibold tabular-nums text-foreground">{usd2.format(grandTotal)}</p>
@@ -70,7 +74,7 @@ export default async function AdminRevenuePage() {
         {(['udemy', 'youtube', 'subscription', 'gumroad'] as const).map((source) => (
           <Card key={source}>
             <CardHeader>
-              <CardTitle className="text-sm text-muted">{SOURCE_LABELS[source]}</CardTitle>
+              <CardTitle className="text-sm text-muted">{t(SOURCE_LABELS[source])}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="font-display text-2xl font-semibold tabular-nums text-foreground">
@@ -78,7 +82,7 @@ export default async function AdminRevenuePage() {
               </p>
               {source === 'gumroad' && bySource.gumroad === 0 ? (
                 <p className="mt-1 text-2xs text-muted">
-                  Non exposé par l’API Gumroad utilisée (pas de champ revenu fiable).
+                  {t('gumroadNotExposed')}
                 </p>
               ) : null}
             </CardContent>
@@ -88,7 +92,7 @@ export default async function AdminRevenuePage() {
 
       {/* Graphique mensuel */}
       <section className="flex flex-col gap-3">
-        <h2 className="font-display text-lg font-semibold text-foreground">Revenu mensuel (12 derniers mois)</h2>
+        <h2 className="font-display text-lg font-semibold text-foreground">{t('monthlyRevenueTitle')}</h2>
         <Card>
           <CardContent className="p-6">
             <BarChart points={barPoints} formatValue={(v) => usd2.format(v)} height={200} />
@@ -98,17 +102,17 @@ export default async function AdminRevenuePage() {
 
       {/* Détail mensuel par source */}
       <section className="flex flex-col gap-3">
-        <h2 className="font-display text-lg font-semibold text-foreground">Détail mensuel par source</h2>
+        <h2 className="font-display text-lg font-semibold text-foreground">{t('monthlyDetailTitle')}</h2>
         <div className="overflow-x-auto rounded-lg border border-border bg-surface/60">
           <table className="w-full min-w-[56rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-start text-2xs uppercase tracking-wide text-muted">
-                <th className="px-4 py-3 text-start font-semibold">Mois</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('colMonth')}</th>
                 <th className="px-4 py-3 text-end font-semibold">Udemy</th>
                 <th className="px-4 py-3 text-end font-semibold">YouTube</th>
-                <th className="px-4 py-3 text-end font-semibold">Abonnements</th>
+                <th className="px-4 py-3 text-end font-semibold">{t('colSubscriptions')}</th>
                 <th className="px-4 py-3 text-end font-semibold">Gumroad</th>
-                <th className="px-4 py-3 text-end font-semibold">Total</th>
+                <th className="px-4 py-3 text-end font-semibold">{t('colTotal')}</th>
               </tr>
             </thead>
             <tbody>
@@ -130,8 +134,7 @@ export default async function AdminRevenuePage() {
           </table>
         </div>
         <p className="text-2xs text-muted">
-          Conversion en USD via une table de taux statique (documentée, éditable) — voir
-          packages/shared/src/fx-rates.ts pour brancher une vraie API forex si besoin.
+          {t('fxNote', { path: 'packages/shared/src/fx-rates.ts' })}
         </p>
       </section>
     </div>

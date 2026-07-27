@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getFormatter, getTranslations } from 'next-intl/server';
 import { BookOpen, CheckCircle2, TrendingUp, Users } from 'lucide-react';
 import {
   Course,
@@ -33,9 +34,12 @@ import {
  * la plus utilisée, plus la répartition des statuts de cours et des plans.
  */
 
-export const metadata: Metadata = {
-  title: 'Admin — Vue d’ensemble — SallyCourse',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('admin.home');
+  return {
+    title: t('metaTitle'),
+  };
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -52,11 +56,13 @@ const STATUS_BADGE: Record<string, 'draft' | 'generating' | 'ready' | 'published
   failed: 'failed',
 };
 
-const numberFmt = new Intl.NumberFormat('fr-FR');
-
 export default async function AdminOverviewPage() {
   await requireAdmin();
   await connectDb();
+
+  const t = await getTranslations('admin.home');
+  const tStatus = await getTranslations('admin.status');
+  const format = await getFormatter();
 
   const since = new Date();
   since.setUTCDate(since.getUTCDate() - (DAYS_WINDOW - 1));
@@ -129,9 +135,9 @@ export default async function AdminOverviewPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="font-display text-2xl font-semibold text-foreground">Vue d’ensemble</h1>
+        <h1 className="font-display text-2xl font-semibold text-foreground">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted">
-          Statistiques globales de la plateforme sur les {DAYS_WINDOW} derniers jours.
+          {t('subtitle', { days: DAYS_WINDOW })}
         </p>
       </div>
 
@@ -140,27 +146,27 @@ export default async function AdminOverviewPage() {
       {/* Indicateurs clés */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Cours / jour"
-          value={numberFmt.format(perDay)}
-          hint={`${numberFmt.format(generatedThisWindow)} sur ${DAYS_WINDOW} j`}
+          label={t('kpi.coursesPerDay')}
+          value={format.number(perDay)}
+          hint={t('kpi.coursesPerDayHint', { count: format.number(generatedThisWindow), days: DAYS_WINDOW })}
           icon={<TrendingUp />}
         />
         <StatCard
-          label="Approbation Udemy"
+          label={t('kpi.approval')}
           value={formatRate(approval.rate)}
-          hint={`${numberFmt.format(approval.published)} publiés / ${numberFmt.format(approval.terminal)} terminés`}
+          hint={t('kpi.approvalHint', { published: format.number(approval.published), terminal: format.number(approval.terminal) })}
           icon={<CheckCircle2 />}
         />
         <StatCard
-          label="Plateforme n°1"
+          label={t('kpi.topPlatform')}
           value={top ? top.platform : '—'}
-          hint={top ? `${numberFmt.format(top.count)} déploiements` : 'Aucun déploiement'}
+          hint={top ? t('kpi.topPlatformHint', { count: format.number(top.count) }) : t('kpi.noDeployment')}
           icon={<TrendingUp />}
         />
         <StatCard
-          label="Utilisateurs"
-          value={numberFmt.format(totalUsers)}
-          hint={`${numberFmt.format(totalCourses)} cours au total`}
+          label={t('kpi.users')}
+          value={format.number(totalUsers)}
+          hint={t('kpi.usersHint', { count: format.number(totalCourses) })}
           icon={<Users />}
         />
       </div>
@@ -168,30 +174,30 @@ export default async function AdminOverviewPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Cours générés par jour — mini histogramme */}
         <section className="rounded-lg border border-border bg-surface/60 p-5">
-          <h2 className="text-sm font-semibold text-foreground">Cours générés par jour</h2>
-          <div className="mt-4 flex h-32 items-end gap-0.5" role="img" aria-label="Cours générés par jour">
+          <h2 className="text-sm font-semibold text-foreground">{t('chart.title')}</h2>
+          <div className="mt-4 flex h-32 items-end gap-0.5" role="img" aria-label={t('chart.title')}>
             {series.map((point) => (
               <div
                 key={point.day}
                 className="flex-1 rounded-t-sm bg-primary-400/70 transition-colors hover:bg-primary-400"
                 style={{ height: `${Math.max(2, (point.count / maxDaily) * 100)}%` }}
-                title={`${point.day} : ${point.count}`}
+                title={t('chart.barTitle', { day: point.day, count: point.count })}
               />
             ))}
           </div>
           <p className="mt-3 text-xs text-muted">
-            {numberFmt.format(generatedThisWindow)} cours créés, pic à {numberFmt.format(maxDaily)}/j.
+            {t('chart.footer', { count: format.number(generatedThisWindow), peak: format.number(maxDaily) })}
           </p>
         </section>
 
         {/* Répartition par statut de cours */}
         <section className="rounded-lg border border-border bg-surface/60 p-5">
-          <h2 className="text-sm font-semibold text-foreground">Cours par statut</h2>
+          <h2 className="text-sm font-semibold text-foreground">{t('statusSection.title')}</h2>
           <ul className="mt-4 flex flex-col gap-3">
             {statusBars.map((row) => (
               <li key={row.status} className="flex items-center gap-3">
                 <Badge variant={STATUS_BADGE[row.status] ?? 'draft'} className="w-32 justify-center">
-                  {row.status}
+                  {tStatus(row.status)}
                 </Badge>
                 <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-subtle">
                   <div
@@ -200,7 +206,7 @@ export default async function AdminOverviewPage() {
                   />
                 </div>
                 <span className="w-10 text-end tabular-nums text-sm text-muted">
-                  {numberFmt.format(row.count)}
+                  {format.number(row.count)}
                 </span>
               </li>
             ))}
@@ -209,9 +215,9 @@ export default async function AdminOverviewPage() {
 
         {/* Plateformes utilisées */}
         <section className="rounded-lg border border-border bg-surface/60 p-5">
-          <h2 className="text-sm font-semibold text-foreground">Plateformes utilisées</h2>
+          <h2 className="text-sm font-semibold text-foreground">{t('platformsSection.title')}</h2>
           {shares.length === 0 ? (
-            <p className="mt-4 text-sm text-muted">Aucun déploiement pour l’instant.</p>
+            <p className="mt-4 text-sm text-muted">{t('platformsSection.empty')}</p>
           ) : (
             <ul className="mt-4 flex flex-col gap-3">
               {shares.map((row) => (
@@ -238,30 +244,30 @@ export default async function AdminOverviewPage() {
         <section className="rounded-lg border border-border bg-surface/60 p-5">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <BookOpen aria-hidden="true" className="size-4 text-muted" />
-            Utilisateurs par plan
+            {t('plansSection.title')}
           </h2>
           <div className="mt-4 grid grid-cols-3 gap-3">
             {planBars.map((row) => (
               <div key={row.plan} className="rounded-md border border-border bg-background/40 p-3 text-center">
                 <p className="text-2xs font-semibold uppercase tracking-wide text-muted">{row.plan}</p>
                 <p className="mt-1 font-display text-xl font-semibold tabular-nums text-foreground">
-                  {numberFmt.format(row.count)}
+                  {format.number(row.count)}
                 </p>
               </div>
             ))}
           </div>
           <p className="mt-4 text-xs text-muted">
-            {numberFmt.format(failedJobs)} job(s) en échec —{' '}
+            {t('jobs.failed', { count: failedJobs })} —{' '}
             <a href="/admin/jobs" className="font-medium text-accent hover:underline">
-              superviser
+              {t('jobs.superviseLink')}
             </a>
             .
           </p>
           <p className="mt-1 text-xs text-muted">
-            Templates de slides —{' '}
+            {t('templates.label')} —{' '}
             {/* Playground de templates livré en P93 ; lien préparé. */}
             <a href="/admin/playground" className="font-medium text-accent hover:underline">
-              ouvrir le playground
+              {t('templates.openLink')}
             </a>
             .
           </p>

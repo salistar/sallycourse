@@ -1,8 +1,10 @@
 import {
+  avatarCostUsd,
   claudeCostUsd,
-  ttsCostUsd,
+  ttsCostUsdForProvider,
   renderCostUsd,
   imageCostUsd,
+  transcribeCostUsd,
   planMargin,
   COURSE_COST_ALERT_USD,
   computeOssCost,
@@ -38,19 +40,30 @@ export interface CostRow {
   chars?: number | undefined;
   seconds?: number | undefined;
   model?: string | undefined;
+  /** Horodatage de l'appel (pour l'historique/graphes temporels). */
+  createdAt?: Date | string | undefined;
 }
 
-/** Coût USD d'une ligne, ré-estimé depuis la table de tarifs. */
+/** Coût USD d'une ligne, ré-estimé depuis la table de tarifs (provider-aware). */
 export function rowCostUsd(row: CostRow): number {
   switch (row.kind) {
     case 'claude':
+      // model porte l'id de modèle réel (Claude OU cloud : gemini/deepseek/…) ;
+      // la grille connaît les deux familles, un modèle gratuit revient à 0.
       return claudeCostUsd(row.model ?? 'claude-sonnet-5', row.tokensIn ?? 0, row.tokensOut ?? 0);
     case 'tts':
-      return ttsCostUsd(row.chars ?? 0);
+      // model porte le provider TTS réel (modal/edge/piper/elevenlabs…) ⇒ coût
+      // exact : voix locales/Edge gratuites (0), Modal GPU, ElevenLabs au caractère.
+      return ttsCostUsdForProvider(row.model, row.chars ?? 0);
     case 'render':
       return renderCostUsd(row.seconds ?? 0);
     case 'image':
       return imageCostUsd(1);
+    // Whisper et avatar (audit coûts 2026-07-26) : facturés à la seconde.
+    case 'transcribe':
+      return transcribeCostUsd(row.seconds ?? 0);
+    case 'avatar':
+      return avatarCostUsd(row.seconds ?? 0);
     default:
       return 0;
   }
@@ -60,7 +73,7 @@ export function rowCostUsd(row: CostRow): number {
 export type CostByKind = Record<CostKind, number>;
 
 function emptyByKind(): CostByKind {
-  return { claude: 0, tts: 0, render: 0, image: 0 };
+  return { claude: 0, tts: 0, render: 0, image: 0, transcribe: 0, avatar: 0 };
 }
 
 /** Total agrégé d'un cours : coût global + ventilation par nature. */
@@ -238,6 +251,124 @@ export function compareCourseCost(params: {
     recommendedMix: recommendProviderMix({ locale: params.locale, plan: params.plan }),
     actualMix: params.actualMix ?? DEFAULT_PROVIDER_MIX,
   };
+}
+
+// ── Ventilation par PROVIDER + historique temporel (dashboard usage) ──────────
+
+/**
+ * Étiquette de provider dérivée d'une ligne. Pour la génération de texte
+ * (kind=claude), le provider EST le modèle facturé (gemini-flash-latest,
+ * claude-sonnet-5, deepseek-chat…). Pour la voix, c'est le moteur TTS
+ * (modal/edge/piper/elevenlabs…). Rendu/images ont un provider fixe.
+ */
+export function providerOfRow(row: CostRow): string {
+  switch (row.kind) {
+    case 'claude':
+      return row.model ?? 'inconnu';
+    case 'tts':
+      return row.model ?? 'tts';
+    case 'render':
+      return row.model ?? 'ffmpeg';
+    case 'image':
+      // model porte le moteur réel depuis l'audit coûts 2026-07-26 (sdxl/zimage).
+      return row.model ?? 'image';
+    case 'transcribe':
+      return row.model ?? 'whisper';
+    case 'avatar':
+      return row.model ?? 'avatar';
+    default:
+      return 'inconnu';
+  }
+}
+
+/** Usage agrégé d'un provider : nombre d'appels, coût, et métriques brutes. */
+export interface ProviderUsage {
+  provider: string;
+  kind: CostKind;
+  calls: number;
+  totalUsd: number;
+  tokensIn: number;
+  tokensOut: number;
+  chars: number;
+  seconds: number;
+}
+
+/**
+ * Agrège l'usage par provider (clé = provider + nature). Trié par coût
+ * décroissant puis nombre d'appels — les providers les plus sollicités d'abord.
+ * Un appel = une ligne CostRecord (chaque tentative LLM/segment TTS compte).
+ */
+export function costByProvider(rows: readonly CostRow[]): ProviderUsage[] {
+  const map = new Map<string, ProviderUsage>();
+  for (const row of rows) {
+    const provider = providerOfRow(row);
+    const key = `${row.kind}::${provider}`;
+    let entry = map.get(key);
+    if (!entry) {
+      entry = { provider, kind: row.kind, calls: 0, totalUsd: 0, tokensIn: 0, tokensOut: 0, chars: 0, seconds: 0 };
+      map.set(key, entry);
+    }
+    entry.calls += 1;
+    entry.totalUsd += rowCostUsd(row);
+    entry.tokensIn += row.tokensIn ?? 0;
+    entry.tokensOut += row.tokensOut ?? 0;
+    entry.chars += row.chars ?? 0;
+    entry.seconds += row.seconds ?? 0;
+  }
+  const list = [...map.values()];
+  for (const e of list) e.totalUsd = round(e.totalUsd);
+  return list.sort((a, b) => b.totalUsd - a.totalUsd || b.calls - a.calls);
+}
+
+/** Point d'historique journalier : date (YYYY-MM-DD) + coût + appels ventilés. */
+export interface UsageDay {
+  date: string;
+  totalUsd: number;
+  calls: number;
+  byKind: CostByKind;
+}
+
+/** Convertit un createdAt (Date|string) en clé de jour UTC 'YYYY-MM-DD'. */
+function dayKey(value: Date | string | undefined): string | null {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Historique journalier des `days` derniers jours (aujourd'hui inclus, UTC),
+ * chaque jour présent même sans activité (série continue pour le graphe).
+ * `today` (YYYY-MM-DD) est injecté par l'appelant — les fonctions restent pures
+ * et testables sans horloge.
+ */
+export function usageTimeline(rows: readonly CostRow[], today: string, days = 30): UsageDay[] {
+  // Squelette de jours (du plus ancien au plus récent).
+  const skeleton: UsageDay[] = [];
+  const index = new Map<string, UsageDay>();
+  const base = new Date(`${today}T00:00:00.000Z`);
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(base.getTime() - i * 86_400_000);
+    const key = d.toISOString().slice(0, 10);
+    const day: UsageDay = { date: key, totalUsd: 0, calls: 0, byKind: emptyByKind() };
+    skeleton.push(day);
+    index.set(key, day);
+  }
+  for (const row of rows) {
+    const key = dayKey(row.createdAt);
+    if (!key) continue;
+    const day = index.get(key);
+    if (!day) continue; // hors fenêtre
+    const usd = rowCostUsd(row);
+    day.totalUsd += usd;
+    day.calls += 1;
+    day.byKind[row.kind] += usd;
+  }
+  for (const day of skeleton) {
+    day.totalUsd = round(day.totalUsd);
+    for (const k of Object.keys(day.byKind) as CostKind[]) day.byKind[k] = round(day.byKind[k]);
+  }
+  return skeleton;
 }
 
 /** Arrondi USD à 4 décimales (les micro-coûts token restent lisibles). */

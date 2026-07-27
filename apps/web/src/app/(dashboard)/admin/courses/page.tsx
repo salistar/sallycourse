@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getTranslations, getFormatter } from 'next-intl/server';
 import Link from 'next/link';
 import type { FilterQuery, Types } from 'mongoose';
 import { Course, User, connectDb, type ICourse } from '@sallycourse/db';
@@ -13,9 +14,12 @@ import { requireAdmin } from '../guard';
  * l'auteur (jointure en mémoire), la difficulté et les plateformes cibles.
  */
 
-export const metadata: Metadata = {
-  title: 'Admin — Cours — SallyCourse',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('admin.courses');
+  return {
+    title: t('metaTitle'),
+  };
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -23,9 +27,9 @@ const PAGE_SIZE = 100;
 const STATUSES = courseStatusSchema.options;
 
 // Onglets de filtre : « tous » + un par statut.
-const FILTERS: { id: 'all' | CourseStatus; label: string }[] = [
-  { id: 'all', label: 'Tous' },
-  ...STATUSES.map((s) => ({ id: s, label: s })),
+const FILTERS: { id: 'all' | CourseStatus; labelKey: string | null }[] = [
+  { id: 'all', labelKey: 'filterAll' },
+  ...STATUSES.map((s) => ({ id: s, labelKey: null })),
 ];
 
 const STATUS_BADGE: Record<CourseStatus, 'draft' | 'generating' | 'ready' | 'published' | 'failed'> = {
@@ -44,15 +48,15 @@ function parseStatus(raw: string | undefined): 'all' | CourseStatus {
   return 'all';
 }
 
-const numberFmt = new Intl.NumberFormat('fr-FR');
-const dateFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
-
 interface AdminCoursesPageProps {
   searchParams: Promise<{ status?: string }>;
 }
 
 export default async function AdminCoursesPage({ searchParams }: AdminCoursesPageProps) {
   await requireAdmin();
+  const t = await getTranslations('admin.courses');
+  const tStatus = await getTranslations('admin.status');
+  const format = await getFormatter();
   const { status } = await searchParams;
   const filter = parseStatus(status);
 
@@ -91,14 +95,14 @@ export default async function AdminCoursesPage({ searchParams }: AdminCoursesPag
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="font-display text-2xl font-semibold text-foreground">Cours</h1>
-        <p className="mt-1 text-sm text-muted">Tous les cours de la plateforme, filtrables par statut.</p>
+        <h1 className="font-display text-2xl font-semibold text-foreground">{t('heading')}</h1>
+        <p className="mt-1 text-sm text-muted">{t('subtitle')}</p>
       </div>
 
       <AdminNav />
 
       {/* Filtres par statut */}
-      <nav aria-label="Filtrer par statut" className="flex flex-wrap gap-2">
+      <nav aria-label={t('filterAriaLabel')} className="flex flex-wrap gap-2">
         {FILTERS.map((f) => {
           const active = f.id === filter;
           return (
@@ -114,8 +118,8 @@ export default async function AdminCoursesPage({ searchParams }: AdminCoursesPag
                   : 'border-border bg-surface text-muted hover:border-ring/50 hover:text-foreground',
               )}
             >
-              {f.label}
-              <span className="ms-1.5 tabular-nums opacity-70">{numberFmt.format(filterCount(f.id))}</span>
+              {f.labelKey ? t(f.labelKey) : tStatus(f.id)}
+              <span className="ms-1.5 tabular-nums opacity-70">{format.number(filterCount(f.id))}</span>
             </Link>
           );
         })}
@@ -123,20 +127,20 @@ export default async function AdminCoursesPage({ searchParams }: AdminCoursesPag
 
       {courses.length === 0 ? (
         <EmptyState
-          title="Aucun cours dans ce filtre"
-          description="Aucun cours ne correspond à ce statut."
+          title={t('emptyTitle')}
+          description={t('emptyDescription')}
         />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-surface/60">
           <table className="w-full min-w-[64rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-start text-2xs uppercase tracking-wide text-muted">
-                <th className="px-4 py-3 text-start font-semibold">Cours</th>
-                <th className="px-4 py-3 text-start font-semibold">Auteur</th>
-                <th className="px-4 py-3 text-start font-semibold">Statut</th>
-                <th className="px-4 py-3 text-start font-semibold">Difficulté</th>
-                <th className="px-4 py-3 text-start font-semibold">Plateformes</th>
-                <th className="px-4 py-3 text-start font-semibold">Créé</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('colCourse')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('colAuthor')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('colStatus')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('colDifficulty')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('colPlatforms')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('colCreated')}</th>
               </tr>
             </thead>
             <tbody>
@@ -157,7 +161,7 @@ export default async function AdminCoursesPage({ searchParams }: AdminCoursesPag
                           {author.email}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted">Utilisateur supprimé</span>
+                        <span className="text-xs text-muted">{t('deletedUser')}</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -178,7 +182,7 @@ export default async function AdminCoursesPage({ searchParams }: AdminCoursesPag
                       )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-muted">
-                      {dateFmt.format(c.createdAt)}
+                      {format.dateTime(c.createdAt, { dateStyle: 'short', timeStyle: 'short' })}
                     </td>
                   </tr>
                 );

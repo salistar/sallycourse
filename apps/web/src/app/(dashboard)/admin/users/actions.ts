@@ -43,6 +43,25 @@ export async function setBannedAction(formData: FormData): Promise<void> {
   revalidatePath('/admin/users');
 }
 
+/**
+ * Active/désactive le mode AGENCE (P150) d'un utilisateur — seul chemin
+ * d'activation du produit : aucun flux ne posait `isAgency` avant l'audit
+ * connectivité 2026-07-17, la page /dashboard/agency était donc inatteignable.
+ */
+export async function setAgencyAction(formData: FormData): Promise<void> {
+  const adminId = await requireAdminId();
+  const userId = String(formData.get('userId') ?? '');
+  const isAgency = formData.get('isAgency') === 'true';
+  assertValidTarget(userId, adminId);
+
+  await connectDb();
+  const res = await User.updateOne({ _id: userId }, { $set: { isAgency } });
+  if (res.matchedCount === 0) throw new Error('Utilisateur introuvable.');
+
+  logger.info({ adminId, userId, isAgency }, 'admin a modifié le mode agence');
+  revalidatePath('/admin/users');
+}
+
 /** Change le plan d'un utilisateur. */
 export async function setPlanAction(formData: FormData): Promise<void> {
   const adminId = await requireAdminId();

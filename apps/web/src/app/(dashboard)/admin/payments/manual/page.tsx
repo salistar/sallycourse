@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import type { Types } from 'mongoose';
 import { connectDb, ManualPaymentRequest, User } from '@sallycourse/db';
 import type { ManualPaymentStatus } from '@sallycourse/db';
@@ -17,9 +18,10 @@ import { RejectForm } from './reject-form';
  * (historique), triées plus récentes d'abord.
  */
 
-export const metadata: Metadata = {
-  title: 'Admin — Paiements manuels — SallyCourse',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('admin.payments');
+  return { title: t('metaTitle') };
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -33,9 +35,9 @@ const STATUS_BADGE: Record<ManualPaymentStatus, 'generating' | 'ready' | 'failed
 };
 
 const STATUS_LABEL: Record<ManualPaymentStatus, string> = {
-  pending: 'En attente',
-  approved: 'Approuvée',
-  rejected: 'Rejetée',
+  pending: 'status.pending',
+  approved: 'status.approved',
+  rejected: 'status.rejected',
 };
 
 /** Formate un montant en plus petite unité selon la devise déclarée. */
@@ -49,6 +51,7 @@ function formatMinor(amountMinor: number, currency: string): string {
 
 export default async function AdminManualPaymentsPage() {
   await requireAdmin('payments-manual');
+  const t = await getTranslations('admin.payments');
   await connectDb();
 
   const [requests, users] = await Promise.all([
@@ -62,11 +65,9 @@ export default async function AdminManualPaymentsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="font-display text-2xl font-semibold text-foreground">Paiements manuels</h1>
+        <h1 className="font-display text-2xl font-semibold text-foreground">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted">
-          Virements bancaires internationaux (zéro commission) en attente de validation —
-          {' '}
-          {pendingCount} en attente sur {requests.length} demandes.
+          {t('subtitle', { pendingCount, total: requests.length })}
         </p>
       </div>
 
@@ -74,21 +75,21 @@ export default async function AdminManualPaymentsPage() {
 
       {requests.length === 0 ? (
         <EmptyState
-          title="Aucune demande"
-          description="Aucun utilisateur n'a encore soumis de demande de paiement manuel."
+          title={t('empty.title')}
+          description={t('empty.description')}
         />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-surface/60">
           <table className="w-full min-w-[68rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-start text-2xs uppercase tracking-wide text-muted">
-                <th className="px-4 py-3 text-start font-semibold">Utilisateur</th>
-                <th className="px-4 py-3 text-start font-semibold">Plan</th>
-                <th className="px-4 py-3 text-start font-semibold">Montant déclaré</th>
-                <th className="px-4 py-3 text-start font-semibold">Preuve</th>
-                <th className="px-4 py-3 text-start font-semibold">Statut</th>
-                <th className="px-4 py-3 text-start font-semibold">Soumise</th>
-                <th className="px-4 py-3 text-end font-semibold">Actions</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('table.user')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('table.plan')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('table.amount')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('table.proof')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('table.status')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('table.submitted')}</th>
+                <th className="px-4 py-3 text-end font-semibold">{t('table.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -102,7 +103,7 @@ export default async function AdminManualPaymentsPage() {
                   <tr key={id} className="border-b border-border/60 last:border-b-0 hover:bg-primary-soft/30">
                     <td className="max-w-64 px-4 py-3">
                       <span className="block truncate font-medium text-foreground" title={user?.name}>
-                        {user?.name ?? '(utilisateur supprimé)'}
+                        {user?.name ?? t('deletedUser')}
                       </span>
                       <span className="block truncate text-2xs text-muted" title={user?.email}>
                         {user?.email ?? userId}
@@ -122,15 +123,15 @@ export default async function AdminManualPaymentsPage() {
                           rel="noreferrer"
                           className="text-primary-500 underline underline-offset-2 hover:text-primary-600"
                         >
-                          Voir la preuve
+                          {t('viewProof')}
                         </a>
                       ) : (
-                        <span className="text-2xs text-muted">Aucune</span>
+                        <span className="text-2xs text-muted">{t('noProof')}</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={STATUS_BADGE[r.status as ManualPaymentStatus]} className="text-2xs">
-                        {STATUS_LABEL[r.status as ManualPaymentStatus]}
+                        {t(STATUS_LABEL[r.status as ManualPaymentStatus])}
                       </Badge>
                       {r.status === 'rejected' && r.rejectionReason ? (
                         <span className="mt-1 block max-w-56 truncate text-2xs text-muted" title={r.rejectionReason}>
@@ -147,13 +148,13 @@ export default async function AdminManualPaymentsPage() {
                           <form action={approveManualPaymentAction}>
                             <input type="hidden" name="requestId" value={id} />
                             <PendingButton variant="secondary" size="sm">
-                              Approuver
+                              {t('approve')}
                             </PendingButton>
                           </form>
                           <RejectForm requestId={id} action={rejectManualPaymentAction} />
                         </div>
                       ) : (
-                        <span className="text-2xs text-muted">Traitée</span>
+                        <span className="text-2xs text-muted">{t('processed')}</span>
                       )}
                     </td>
                   </tr>

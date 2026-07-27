@@ -6,6 +6,7 @@ import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Select, Textar
 import { cn } from '@/lib/cn';
 import { activateVersionAction, listVersionsAction, savePromptAction, testPromptAction, type PromptVersionRow } from './actions';
 import { KNOWN_PROMPT_KEYS, findKeyInfo } from './known-keys';
+import { useTranslations, useFormatter } from 'next-intl';
 
 /**
  * Playground de prompts admin (P93) : éditeur de contenu par clé, versioning
@@ -31,6 +32,8 @@ function emptyColumn(label: string, content: string): TestColumnResult {
 
 export function PromptPlayground() {
   const { toast } = useToast();
+  const t = useTranslations('admin.playground');
+  const format = useFormatter();
   const [selectedKey, setSelectedKey] = React.useState(KNOWN_PROMPT_KEYS[0]?.key ?? '');
   const [versions, setVersions] = React.useState<PromptVersionRow[]>([]);
   const [draft, setDraft] = React.useState('');
@@ -53,7 +56,7 @@ export function PromptPlayground() {
       const active = rows.find((v) => v.isActive);
       setDraft(active?.content ?? '');
     } catch (err) {
-      toast({ variant: 'danger', title: 'Chargement impossible', description: (err as Error).message });
+      toast({ variant: 'danger', title: t('loadFailed'), description: (err as Error).message });
     } finally {
       setLoadingVersions(false);
     }
@@ -69,10 +72,10 @@ export function PromptPlayground() {
     setSaving(true);
     try {
       const { version } = await savePromptAction(selectedKey, draft);
-      toast({ variant: 'success', title: `Version ${version} enregistrée et activée` });
+      toast({ variant: 'success', title: t('versionSavedActivated', { version }) });
       await loadVersions(selectedKey);
     } catch (err) {
-      toast({ variant: 'danger', title: 'Enregistrement impossible', description: (err as Error).message });
+      toast({ variant: 'danger', title: t('saveFailed'), description: (err as Error).message });
     } finally {
       setSaving(false);
     }
@@ -81,10 +84,10 @@ export function PromptPlayground() {
   async function handleActivate(version: number) {
     try {
       await activateVersionAction(selectedKey, version);
-      toast({ variant: 'success', title: `Version ${version} réactivée` });
+      toast({ variant: 'success', title: t('versionReactivated', { version }) });
       await loadVersions(selectedKey);
     } catch (err) {
-      toast({ variant: 'danger', title: 'Activation impossible', description: (err as Error).message });
+      toast({ variant: 'danger', title: t('activationFailed'), description: (err as Error).message });
     }
   }
 
@@ -94,9 +97,9 @@ export function PromptPlayground() {
     const currentSystem = isSystem ? draft : activeVersion?.content ?? '';
     const currentUser = isSystem ? userMessage : draft;
 
-    setCurrentResult(emptyColumn(`Version en cours d'édition`, draft));
+    setCurrentResult(emptyColumn(t('currentEditingVersion'), draft));
     setPreviousResult(
-      previousVersion ? emptyColumn(`Version précédente (v${previousVersion.version})`, previousVersion.content) : null,
+      previousVersion ? emptyColumn(t('previousVersion', { version: previousVersion.version }), previousVersion.content) : null,
     );
 
     try {
@@ -110,7 +113,7 @@ export function PromptPlayground() {
         setPreviousResult((prev) => (prev ? { ...prev, output: prevTest.output, loading: false } : prev));
       }
     } catch (err) {
-      toast({ variant: 'danger', title: 'Test impossible', description: (err as Error).message });
+      toast({ variant: 'danger', title: t('testFailed'), description: (err as Error).message });
     } finally {
       setTesting(false);
     }
@@ -120,11 +123,11 @@ export function PromptPlayground() {
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Éditeur</CardTitle>
+          <CardTitle className="text-lg">{t('editor')}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <Select
-            label="Clé de prompt"
+            label={t('promptKeyLabel')}
             value={selectedKey}
             onChange={(e) => setSelectedKey(e.target.value)}
           >
@@ -137,28 +140,27 @@ export function PromptPlayground() {
 
           {activeVersion ? (
             <p className="text-xs text-muted">
-              Version active : <Badge variant="published">v{activeVersion.version}</Badge> — par{' '}
+              {t('activeVersionPrefix')} <Badge variant="published">v{activeVersion.version}</Badge> {t('byAuthor')}{' '}
               {activeVersion.createdBy}
             </p>
           ) : (
             <p className="text-xs text-muted">
-              Aucune version en base pour cette clé — le pipeline utilise actuellement le prompt en dur du
-              générateur ({keyInfo?.generator}.ts).
+              {t('noVersionInDb', { generator: keyInfo?.generator ?? '' })}
             </p>
           )}
 
           <Textarea
-            label="Contenu du prompt"
+            label={t('promptContentLabel')}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             rows={12}
             disabled={loadingVersions}
-            hint="Enregistrer crée une nouvelle version incrémentale et l'active immédiatement (le pipeline de génération la lira à la prochaine exécution)."
+            hint={t('contentHint')}
           />
 
           {keyInfo?.role === 'system' && (
             <Textarea
-              label="Message utilisateur d'exemple (pour le bouton Tester)"
+              label={t('exampleUserMessageLabel')}
               value={userMessage}
               onChange={(e) => setUserMessage(e.target.value)}
               rows={4}
@@ -167,10 +169,10 @@ export function PromptPlayground() {
 
           <div className="flex flex-wrap gap-2">
             <Button variant="primary" onClick={handleSave} disabled={saving || loadingVersions}>
-              <Save aria-hidden="true" /> {saving ? 'Enregistrement…' : 'Enregistrer (nouvelle version)'}
+              <Save aria-hidden="true" /> {saving ? t('saving') : t('saveNewVersion')}
             </Button>
             <Button variant="secondary" onClick={handleTest} disabled={testing || draft.trim().length === 0}>
-              <FlaskConical aria-hidden="true" /> {testing ? 'Test en cours…' : 'Tester'}
+              <FlaskConical aria-hidden="true" /> {testing ? t('testing') : t('test')}
             </Button>
           </div>
         </CardContent>
@@ -181,11 +183,9 @@ export function PromptPlayground() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <FlaskConical className="size-5 text-accent" aria-hidden="true" />
-              <CardTitle className="text-lg">Comparaison A/B</CardTitle>
+              <CardTitle className="text-lg">{t('abComparison')}</CardTitle>
             </div>
-            <p className="text-sm text-muted">
-              Résultat de la version en cours d&apos;édition à gauche, version précédemment active à droite.
-            </p>
+            <p className="text-sm text-muted">{t('abComparisonDesc')}</p>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2">
@@ -200,12 +200,12 @@ export function PromptPlayground() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <History className="size-5 text-accent" aria-hidden="true" />
-            <CardTitle className="text-lg">Historique des versions</CardTitle>
+            <CardTitle className="text-lg">{t('versionsHistory')}</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
           {versions.length === 0 ? (
-            <p className="text-sm text-muted">Aucune version enregistrée pour cette clé.</p>
+            <p className="text-sm text-muted">{t('noVersionsSaved')}</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {versions.map((v) => (
@@ -219,11 +219,11 @@ export function PromptPlayground() {
                   <div className="flex items-center gap-2">
                     <Badge variant={v.isActive ? 'published' : 'generating'}>v{v.version}</Badge>
                     <span className="text-muted">{v.createdBy}</span>
-                    <span className="text-2xs text-muted">{new Date(v.createdAt).toLocaleString('fr-FR')}</span>
+                    <span className="text-2xs text-muted">{format.dateTime(new Date(v.createdAt), { dateStyle: 'short', timeStyle: 'short' })}</span>
                   </div>
                   {!v.isActive && (
                     <Button variant="ghost" size="sm" onClick={() => handleActivate(v.version)}>
-                      Réactiver
+                      {t('reactivate')}
                     </Button>
                   )}
                 </li>
@@ -237,14 +237,15 @@ export function PromptPlayground() {
 }
 
 function ResultColumn({ result }: { result: TestColumnResult | null }) {
+  const t = useTranslations('admin.playground');
   if (!result) {
-    return <p className="text-sm text-muted">Aucune version précédente à comparer.</p>;
+    return <p className="text-sm text-muted">{t('noPreviousToCompare')}</p>;
   }
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted">{result.label}</p>
       <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-sm bg-surface-subtle p-3 text-sm text-foreground">
-        {result.output ?? 'Chargement…'}
+        {result.output ?? t('loading')}
       </pre>
     </div>
   );

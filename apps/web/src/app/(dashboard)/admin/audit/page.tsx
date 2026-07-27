@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getTranslations, getFormatter } from 'next-intl/server';
 import { AuditLog, User, connectDb, AUDIT_ACTIONS } from '@sallycourse/db';
 import { AdminNav } from '@/components/admin';
 import { Badge, EmptyState } from '@/components/ui';
@@ -15,25 +16,25 @@ import { buildAuditLogFilter } from '@/lib/audit-log-query';
  * (mêmes filtres, transmis en query string).
  */
 
-export const metadata: Metadata = {
-  title: 'Admin — Audit global — SallyCourse',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('admin.audit');
+  return { title: t('metaTitle') };
+}
 
 export const dynamic = 'force-dynamic';
 
 const PAGE_SIZE = 200;
-const dateFormatter = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'medium' });
 
 const ACTION_LABELS: Record<string, string> = {
-  login: 'Connexion',
-  'login.failed': 'Connexion échouée',
-  register: 'Inscription',
-  logout: 'Déconnexion',
-  'credentials.changed': 'Credentials modifiés',
-  'credentials.deleted': 'Credentials supprimés',
-  'deployment.created': 'Déploiement lancé',
-  'course.deleted': 'Cours supprimé',
-  'admin.access': 'Accès admin',
+  login: 'actions.login',
+  'login.failed': 'actions.loginFailed',
+  register: 'actions.register',
+  logout: 'actions.logout',
+  'credentials.changed': 'actions.credentialsChanged',
+  'credentials.deleted': 'actions.credentialsDeleted',
+  'deployment.created': 'actions.deploymentCreated',
+  'course.deleted': 'actions.courseDeleted',
+  'admin.access': 'actions.adminAccess',
 };
 
 interface AdminAuditPageProps {
@@ -42,6 +43,8 @@ interface AdminAuditPageProps {
 
 export default async function AdminAuditPage({ searchParams }: AdminAuditPageProps) {
   await requireAdmin('audit');
+  const t = await getTranslations('admin.audit');
+  const format = await getFormatter();
   const { action, email, from, to } = await searchParams;
 
   await connectDb();
@@ -72,17 +75,14 @@ export default async function AdminAuditPage({ searchParams }: AdminAuditPagePro
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-foreground">Audit global</h1>
-          <p className="mt-1 text-sm text-muted">
-            Journal immuable des actions sensibles (connexions, credentials plateforme, déploiements,
-            suppressions de cours, accès admin). Rétention 12 mois, purgé automatiquement (cron worker).
-          </p>
+          <h1 className="font-display text-2xl font-semibold text-foreground">{t('title')}</h1>
+          <p className="mt-1 text-sm text-muted">{t('description')}</p>
         </div>
         <a
           href={`/api/admin/audit/export?${exportParams.toString()}`}
           className="inline-flex items-center gap-2 rounded-full bg-primary-soft px-4 py-2 text-sm font-semibold text-foreground transition-colors duration-fast hover:bg-primary-soft/80"
         >
-          Export CSV
+          {t('exportCsv')}
         </a>
       </div>
 
@@ -92,7 +92,7 @@ export default async function AdminAuditPage({ searchParams }: AdminAuditPagePro
       <form method="get" className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface/60 p-4">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="action" className="px-1 text-xs font-semibold text-muted">
-            Action
+            {t('actionLabel')}
           </label>
           <select
             id="action"
@@ -100,17 +100,17 @@ export default async function AdminAuditPage({ searchParams }: AdminAuditPagePro
             defaultValue={action ?? 'all'}
             className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground"
           >
-            <option value="all">Toutes</option>
+            <option value="all">{t('allActions')}</option>
             {AUDIT_ACTIONS.map((a) => (
               <option key={a} value={a}>
-                {ACTION_LABELS[a] ?? a}
+                {ACTION_LABELS[a] ? t(ACTION_LABELS[a]) : a}
               </option>
             ))}
           </select>
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="email" className="px-1 text-xs font-semibold text-muted">
-            Email utilisateur
+            {t('emailLabel')}
           </label>
           <input
             id="email"
@@ -123,7 +123,7 @@ export default async function AdminAuditPage({ searchParams }: AdminAuditPagePro
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="from" className="px-1 text-xs font-semibold text-muted">
-            Du
+            {t('fromLabel')}
           </label>
           <input
             id="from"
@@ -135,7 +135,7 @@ export default async function AdminAuditPage({ searchParams }: AdminAuditPagePro
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="to" className="px-1 text-xs font-semibold text-muted">
-            Au
+            {t('toLabel')}
           </label>
           <input
             id="to"
@@ -149,39 +149,39 @@ export default async function AdminAuditPage({ searchParams }: AdminAuditPagePro
           type="submit"
           className="rounded-full bg-primary-400 px-4 py-2 text-sm font-semibold text-white transition-colors duration-fast hover:bg-primary-400/90"
         >
-          Filtrer
+          {t('filter')}
         </button>
         {(action || email || from || to) && (
           <Link href="/admin/audit" className="text-sm text-muted underline-offset-2 hover:underline">
-            Réinitialiser
+            {t('reset')}
           </Link>
         )}
       </form>
 
       {entries.length === 0 ? (
-        <EmptyState title="Aucune entrée" description="Aucune action ne correspond à ces filtres." />
+        <EmptyState title={t('emptyTitle')} description={t('emptyDescription')} />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-surface/60">
           <table className="w-full min-w-[64rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-start text-2xs uppercase tracking-wide text-muted">
-                <th className="px-4 py-3 text-start font-semibold">Date</th>
-                <th className="px-4 py-3 text-start font-semibold">Utilisateur</th>
-                <th className="px-4 py-3 text-start font-semibold">Action</th>
-                <th className="px-4 py-3 text-start font-semibold">Cible</th>
-                <th className="px-4 py-3 text-start font-semibold">IP</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('colDate')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('colUser')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('colAction')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('colTarget')}</th>
+                <th className="px-4 py-3 text-start font-semibold">{t('colIp')}</th>
               </tr>
             </thead>
             <tbody>
               {entries.map((e) => (
                 <tr key={String(e._id)} className="border-b border-border/60 last:border-b-0 hover:bg-primary-soft/30">
-                  <td className="whitespace-nowrap px-4 py-3 text-xs text-muted">{dateFormatter.format(e.createdAt)}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-muted">{format.dateTime(e.createdAt, { dateStyle: 'short', timeStyle: 'medium' })}</td>
                   <td className="max-w-56 truncate px-4 py-3 text-foreground" title={e.userId ? emailById.get(String(e.userId)) : undefined}>
                     {e.userId ? (emailById.get(String(e.userId)) ?? String(e.userId)) : '—'}
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant={e.action === 'login.failed' ? 'failed' : 'draft'} hideDot className="text-2xs">
-                      {ACTION_LABELS[e.action] ?? e.action}
+                      {ACTION_LABELS[e.action] ? t(ACTION_LABELS[e.action]) : e.action}
                     </Badge>
                   </td>
                   <td className="max-w-56 truncate px-4 py-3 text-xs text-muted" title={e.targetId}>
