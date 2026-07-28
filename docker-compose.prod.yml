@@ -6,6 +6,12 @@ services:
     environment:
       HOSTNAME: "0.0.0.0"
       PORT: "3000"
+      # URLs médias présignées par le web (pages/preview) : elles doivent être
+      # résolubles par le NAVIGATEUR — le hostname Docker interne `minio:9000`
+      # ne l'est pas. On présigne donc avec le domaine média public (Caddy →
+      # 127.0.0.1:9000 → minio, Host préservé donc signature valide). Le worker
+      # garde S3_ENDPOINT interne (uploads volumineux sans sortir du réseau).
+      S3_ENDPOINT: "https://media-sallycourse.salistar.com"
     restart: unless-stopped
     deploy:
       resources:
@@ -42,12 +48,17 @@ services:
 
   minio:
     restart: unless-stopped
-    ports: !override []
+    # Publié sur loopback UNIQUEMENT : seul Caddy (media-sallycourse.salistar.com)
+    # y accède ; pas d'exposition Internet directe (Docker bypasse UFW sinon).
+    ports: !override ["127.0.0.1:9000:9000"]
     deploy:
       resources:
         limits:
           memory: 1g
-    networks: [internal]
+    # `edge` OBLIGATOIRE pour la publication de port : le réseau `internal` est
+    # `internal: true` (sans passerelle) et Docker ignore silencieusement les
+    # ports publiés d'un conteneur qui n'a que des réseaux internes.
+    networks: [internal, edge]
 
   # ── Services IA (profil ai, cf. docker-compose.yml) ──────────────
   # ollama peut charger des modèles volumineux en mémoire : plafond large
