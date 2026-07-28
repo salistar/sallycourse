@@ -44,6 +44,7 @@ export const QA_CHECK_CODES = [
   'lessons-complete',
   'screenshots-valid',
   'illustration-consistency',
+  'audio-noise-floor',
 ] as const;
 export type QaCheckCode = (typeof QA_CHECK_CODES)[number];
 
@@ -62,6 +63,15 @@ export interface QaReport {
 
 /** Seuil de volume moyen (dBFS) sous lequel un audio est jugé silencieux. */
 export const SILENCE_MEAN_VOLUME_DB = -50;
+
+/**
+ * Seuil de plancher de bruit (RMS trough, dBFS) au-dessus duquel un souffle de
+ * fond devient perceptible (audit qualité voix 2026-07-29 : Chatterbox mesuré
+ * à −60 dB, contre −92 dB pour Qwen3-TTS sur un échantillon identique — la
+ * marge sépare les deux moteurs sans être trop stricte pour un léger souffle
+ * ambiant acceptable).
+ */
+export const NOISE_FLOOR_DB = -70;
 
 // ────────────────────────────────────────────────────────────────────
 // Checks PURS (sans I/O) — exportés pour les tests unitaires
@@ -179,6 +189,16 @@ export function checkTotalVideoMinutes(totalMinutes: number): string | null {
   return null;
 }
 
+/**
+ * Vérifie le plancher de bruit d'une leçon vidéo. `null` = non mesurable
+ * (piste silencieuse ou sonde ffmpeg indisponible) : n'est jamais bloquant,
+ * seul un plancher mesuré ET trop élevé l'est.
+ */
+export function checkNoiseFloor(title: string, noiseFloorDb: number | null): string | null {
+  if (noiseFloorDb === null || noiseFloorDb <= NOISE_FLOOR_DB) return null;
+  return `« ${title} » : souffle de fond perceptible (plancher de bruit ${noiseFloorDb.toFixed(1)} dB > ${NOISE_FLOOR_DB} dB).`;
+}
+
 /** Vérifie le nombre de sections contre le minimum Udemy. Retourne le problème éventuel. */
 export function checkSectionCount(sectionCount: number): string | null {
   if (sectionCount < UDEMY.MIN_SECTIONS) {
@@ -198,12 +218,25 @@ export interface ProbeResult {
   hasAudio: boolean;
   /** Volume moyen mesuré (dBFS) ou null si non mesurable. */
   meanVolumeDb: number | null;
+  /**
+   * Plancher de bruit (RMS trough, dBFS) — audit qualité voix 2026-07-29 :
+   * distingue un souffle de fond permanent (Chatterbox, ~−60 dB) d'un silence
+   * réel entre les mots (Qwen3-TTS, ~−90 dB). null si non mesurable.
+   */
+  noiseFloorDb: number | null;
 }
 
 /** Extrait le mean_volume (dBFS) de la sortie ffmpeg volumedetect. */
 export function parseMeanVolume(stderr: string): number | null {
   const match = stderr.match(/mean_volume:\s*(-?\d+(?:\.\d+)?)\s*dB/);
   return match ? Number.parseFloat(match[1]!) : null;
+}
+
+/** Extrait le RMS trough dB de la sortie ffmpeg astats (plancher de bruit). */
+export function parseNoiseFloor(stderr: string): number | null {
+  const match = stderr.match(/RMS trough dB:\s*(-?\d+(?:\.\d+)?|-inf)/);
+  if (!match) return null;
+  return match[1] === '-inf' ? -100 : Number.parseFloat(match[1]!);
 }
 
 /**
@@ -215,6 +248,7 @@ export async function probeVideoFile(file: string): Promise<ProbeResult> {
   let durationSec = 0;
   let hasAudio = false;
   let meanVolumeDb: number | null = null;
+  let noiseFloorDb: number | null = null;
 
   try {
     const { stdout } = await execa('ffprobe', [
@@ -254,9 +288,26 @@ export async function probeVideoFile(file: string): Promise<ProbeResult> {
     } catch (err) {
       logger.warn({ file, err }, 'ffmpeg volumedetect impossible');
     }
+
+    try {
+      // astats sur le flux entier : le plancher de bruit (silences entre les
+      // mots) doit être mesuré sur toute la piste, pas seulement 15 s.
+      const { stderr } = await execa('ffmpeg', [
+        '-i',
+        file,
+        '-af',
+        'astats=measure_perchannel=none',
+        '-f',
+        'null',
+        process.platform === 'win32' ? 'NUL' : '/dev/null',
+      ]);
+      noiseFloorDb = parseNoiseFloor(stderr);
+    } catch (err) {
+      logger.warn({ file, err }, 'ffmpeg astats (plancher de bruit) impossible');
+    }
   }
 
-  return { durationSec, hasAudio, meanVolumeDb };
+  return { durationSec, hasAudio, meanVolumeDb, noiseFloorDb };
 }
 
 /**
@@ -347,6 +398,7 @@ export async function runCourseQa(courseId: string): Promise<QaReport> {
   // ── Check : vidéos jouables (videoUrl + ffprobe durée > 0 + audio non muet) ──
   const videoLessons = (lessons as LessonForQa[]).filter((l) => l.type === 'video');
   const videoProblems: string[] = [];
+  const noiseProblems: string[] = [];
   let totalVideoSeconds = 0;
 
   for (const lesson of videoLessons) {
@@ -381,6 +433,9 @@ export async function runCourseQa(courseId: string): Promise<QaReport> {
       videoProblems.push(
         `« ${lesson.title} » : audio quasi silencieux (mean_volume ${probe.meanVolumeDb} dB ≤ ${SILENCE_MEAN_VOLUME_DB} dB).`,
       );
+    } else {
+      const noiseProblem = checkNoiseFloor(lesson.title, probe.noiseFloorDb);
+      if (noiseProblem) noiseProblems.push(noiseProblem);
     }
   }
 
@@ -391,6 +446,16 @@ export async function runCourseQa(courseId: string): Promise<QaReport> {
       videoProblems.length === 0
         ? `${videoLessons.length} vidéo(s) jouable(s) avec audio.`
         : videoProblems.join(' '),
+  });
+
+  // ── Check : plancher de bruit de fond (audit qualité voix 2026-07-29) ──
+  checks.push({
+    code: 'audio-noise-floor',
+    ok: noiseProblems.length === 0,
+    detail:
+      noiseProblems.length === 0
+        ? `Plancher de bruit propre (< ${NOISE_FLOOR_DB} dB) sur ${videoLessons.length} vidéo(s).`
+        : noiseProblems.join(' '),
   });
 
   // ── Check : cohérence de l'illustration SDXL par leçon (correctif 1.8) ──

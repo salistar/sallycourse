@@ -177,7 +177,11 @@ export async function createCourseForUser(
       generationMode: input.generationMode ?? 'auto',
       ...(input.llmProvider ? { llmProvider: input.llmProvider } : {}),
       ttsVoice: input.ttsVoice,
-      ...(input.ttsEngine ? { ttsEngine: input.ttsEngine } : {}),
+      // Défaut 'qwen3' (audit qualité 2026-07-29) : Chatterbox laisse un
+      // plancher de bruit de fond nettement plus élevé (−60 dB mesuré, contre
+      // −92 dB pour Qwen3-TTS sur un échantillon identique) — Chatterbox reste
+      // choisissable explicitement pour son clonage de voix.
+      ttsEngine: input.ttsEngine ?? 'qwen3',
       // Voix du catalogue (fix « voix multiples » 2026-07-26) : identité vocale
       // unique épinglée sur tout le cours — voir Course.voiceId.
       ...(input.voiceId ? { voiceId: input.voiceId } : {}),
