@@ -299,14 +299,30 @@ export function extractScreenshotPlaceholders(markdown: string): string[] {
 // étape sur ordinateur embarque un screenshotSpec rejouable par Playwright
 // (module de capture P21).
 
+/**
+ * Tolérances de parsing (2026-07-28) — les LLM (deepseek, Llama…) produisent
+ * systématiquement quelques écarts mécaniques qui faisaient échouer des TP
+ * entiers après 3 retries : `value: 500` (nombre naturel pour scroll/wait),
+ * champs optionnels envoyés comme chaîne vide, `actions` omis quand `url`
+ * suffit, entrées troubleshooting en objet {problème, solution}. On normalise
+ * ces formes équivalentes AU LIEU de les rejeter — le contrat sémantique
+ * (sélecteurs requis, page de départ, etc.) reste inchangé.
+ */
+const numberToString = (v: unknown) => (typeof v === 'number' ? String(v) : v);
+const emptyToUndefined = (v: unknown) =>
+  typeof v === 'string' && v.trim() === '' ? undefined : v;
+
 /** Action Playwright élémentaire pour rejouer un état d'écran. */
 export const tpScreenshotActionSchema = z
   .object({
     type: z.enum(['goto', 'click', 'fill', 'scroll', 'wait']),
     /** Sélecteur CSS ciblé — requis pour click/fill, optionnel pour wait. */
-    selector: z.string().min(1).optional(),
+    selector: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
     /** Valeur associée : URL pour goto, texte pour fill, pixels pour scroll, ms pour wait. */
-    value: z.string().min(1).optional(),
+    value: z.preprocess(
+      (v) => emptyToUndefined(numberToString(v)),
+      z.string().min(1).optional(),
+    ),
   })
   .superRefine((action, ctx) => {
     if ((action.type === 'click' || action.type === 'fill') && !action.selector) {
@@ -332,11 +348,12 @@ export const tpScreenshotSpecSchema = z
   .object({
     /** Page de départ — peut être omise si la première action est un "goto". */
     url: z.string().url().optional(),
-    actions: z.array(tpScreenshotActionSchema),
+    /** Absent ⇒ capture simple de `url` (aucune action à rejouer). */
+    actions: z.array(tpScreenshotActionSchema).default([]),
     /** Élément à mettre en évidence sur la capture (annotations D9). */
-    focusSelector: z.string().min(1).optional(),
-    /** Légende affichée sous la capture dans le TP. */
-    caption: z.string().min(1),
+    focusSelector: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+    /** Légende affichée sous la capture dans le TP (repli générique si omise). */
+    caption: z.string().min(1).catch("Capture d'écran de l'étape"),
     /**
      * Active le mode screencast (Prompt 85) : au lieu d'une capture image
      * unique, rejoue la spec en enregistrant une vidéo (Playwright
@@ -360,12 +377,25 @@ export type TpScreenshotSpec = z.infer<typeof tpScreenshotSpecSchema>;
 export const tpStepSchema = z.object({
   instruction: z.string().min(1),
   /** Commande shell exacte à exécuter, le cas échéant. */
-  command: z.string().min(1).optional(),
+  command: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   expectedResult: z.string().min(1),
   /** Obligatoire pour toute étape réalisée sur ordinateur (contrat capture P21). */
   screenshotSpec: tpScreenshotSpecSchema.optional(),
 });
 export type TpStep = z.infer<typeof tpStepSchema>;
+
+/**
+ * Entrée de dépannage : chaîne « symptôme → solution ». Certains modèles
+ * renvoient un objet {probleme/symptome, solution} — on l'aplatit en chaîne.
+ */
+const troubleshootingEntrySchema = z.preprocess((v) => {
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    const parts = Object.values(v as Record<string, unknown>)
+      .filter((p): p is string => typeof p === 'string' && p.trim() !== '');
+    if (parts.length > 0) return parts.join(' — ');
+  }
+  return v;
+}, z.string().min(1));
 
 /** Contenu complet d'une leçon de type "tp". */
 export const tpSchema = z.object({
@@ -373,7 +403,7 @@ export const tpSchema = z.object({
   environment: z.array(z.string().min(1)).min(1),
   steps: z.array(tpStepSchema).min(3),
   validation: z.array(z.string().min(1)).min(1),
-  troubleshooting: z.array(z.string().min(1)).min(1),
+  troubleshooting: z.array(troubleshootingEntrySchema).min(1),
 });
 export type TpContent = z.infer<typeof tpSchema>;
 
