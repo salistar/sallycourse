@@ -1,6 +1,11 @@
 # Déploiement — SALLYCOURSE (staging, Hetzner via SSH + Docker Compose).
 #
-# Déclenchement : manuel (workflow_dispatch) ou push d'un tag `v*`.
+# Déclenchement : manuel (workflow_dispatch), push d'un tag `v*`, OU
+# automatiquement quand le workflow CI se termine avec succès sur main (sync
+# auto Phase B, 2026-07-29) — jamais sur un push direct, pour ne déployer QUE
+# du code qui a passé lint/typecheck/tests. `workflow_run` se déclenche pour
+# CI en succès ET en échec ; le garde-fou `if:` du job build-and-push ne
+# retient que le succès, et `deploy` (needs: build-and-push) hérite du skip.
 # Étapes : build+push des images vers GHCR → SSH sur le serveur Hetzner
 # → docker compose pull/up → healthcheck /api/health → rollback si échec.
 #
@@ -35,6 +40,10 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_run:
+    workflows: ['CI']
+    branches: [main]
+    types: [completed]
 
 concurrency:
   group: deploy-${{ github.event.inputs.environment || 'tag' }}
@@ -47,6 +56,10 @@ env:
 jobs:
   build-and-push:
     name: Build & push (${{ matrix.app }})
+    # workflow_run se déclenche pour CI en succès ET en échec — sans ce
+    # garde-fou, un CI cassé déploierait quand même (needs: ne suffit pas,
+    # workflow_run n'a pas de statut "requis" natif comme un check PR).
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -58,6 +71,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3

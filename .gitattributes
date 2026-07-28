@@ -1,0 +1,7 @@
+# Scripts shell exécutés sur le serveur Linux (Hetzner) : forcer LF, quel que
+# soit le paramètre core.autocrlf du poste qui commite. Un \r final dans une
+# variable lue depuis un fichier CRLF (.env, scripts) casse silencieusement
+# des commandes comme mongodump ou mc (exit 0, sortie quasi vide, aucune
+# erreur) — piège déjà rencontré deux fois sur ce projet (DEPLOY_PATH,
+# scripts/hetzner-backup.sh, 2026-07-29).
+*.sh text eol=lf
