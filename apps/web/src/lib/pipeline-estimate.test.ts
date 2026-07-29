@@ -69,6 +69,36 @@ describe('computePipelineEstimate', () => {
     expect(estimate.steps.some((s) => s.queueName === 'deployment')).toBe(false);
     expect(estimate.totalMs).toBe(0);
   });
+
+  // Régression (audit qualité 2026-07-29) : les étapes MÉDIA par leçon (pas
+  // chaînées entre elles) se divisent par la concurrency de leur queue — la
+  // parallélisation Phase D (tts/screenshot/videoRender/subtitle) doit se
+  // refléter dans le devis de temps, sinon il devient de plus en plus faux.
+  it('divise les steps média (pas content) par la concurrency fournie', () => {
+    const durations: Record<QueueName, number> = {
+      ...ALL_ZERO,
+      'content-generation': 60_000,
+      'tts-generation': 40_000,
+    };
+    const estimate = computePipelineEstimate(8, durations, {
+      'content-generation': 3, // ignoré volontairement : chaîne séquentielle P19
+      'tts-generation': 4,
+    });
+
+    const contentStep = estimate.steps.find((s) => s.queueName === 'content-generation');
+    const ttsStep = estimate.steps.find((s) => s.queueName === 'tts-generation');
+    // content : 8 × 60s, PAS divisé par 3 malgré la concurrency fournie.
+    expect(contentStep?.totalMs).toBe(8 * 60_000);
+    // tts : 8 × 40s / 4 = 80s (parallélisable, contrairement à content).
+    expect(ttsStep?.totalMs).toBe(80_000);
+  });
+
+  it('sans concurrencyByQueue, se comporte comme avant (concurrency 1 partout)', () => {
+    const durations: Record<QueueName, number> = { ...ALL_ZERO, 'video-render': 20_000 };
+    const estimate = computePipelineEstimate(4, durations);
+    const step = estimate.steps.find((s) => s.queueName === 'video-render');
+    expect(step?.totalMs).toBe(4 * 20_000);
+  });
 });
 
 describe('computeReadyAt', () => {

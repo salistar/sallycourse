@@ -2,6 +2,7 @@ import { Queue, type ConnectionOptions } from 'bullmq';
 import Redis from 'ioredis';
 import { connectDb, GenerationJob } from '@sallycourse/db';
 import { getConfig, type QueueName } from '@sallycourse/shared';
+import { queueConcurrency } from './queue-concurrency';
 
 /**
  * Estimation du temps d'attente d'une file (P73) — affichée sur l'écran de
@@ -99,10 +100,19 @@ export function computeAverageDurationMs(
 /**
  * Combine le nombre de jobs en attente et la durée moyenne en une estimation
  * du délai avant traitement — calcul PUR, testable indépendamment de BullMQ/Mongo.
+ * `concurrency` (défaut 1, rétrocompatible) : une file qui traite N jobs à la
+ * fois vide sa file ~N fois plus vite (audit qualité 2026-07-29 — voir
+ * queue-concurrency.ts). Arrondi au plafond : mieux vaut annoncer un délai
+ * légèrement surestimé que sous-estimé.
  */
-export function computeEstimatedWaitMs(waitingCount: number, averageDurationMs: number): number {
+export function computeEstimatedWaitMs(
+  waitingCount: number,
+  averageDurationMs: number,
+  concurrency = 1,
+): number {
   if (waitingCount <= 0 || averageDurationMs <= 0) return 0;
-  return waitingCount * averageDurationMs;
+  const effectiveConcurrency = concurrency > 0 ? concurrency : 1;
+  return Math.ceil((waitingCount * averageDurationMs) / effectiveConcurrency);
 }
 
 /**
@@ -130,6 +140,6 @@ export async function estimateWaitTime(queueName: QueueName): Promise<QueueWaitE
     queueName,
     waitingCount,
     averageDurationMs,
-    estimatedWaitMs: computeEstimatedWaitMs(waitingCount, averageDurationMs),
+    estimatedWaitMs: computeEstimatedWaitMs(waitingCount, averageDurationMs, queueConcurrency(queueName)),
   };
 }

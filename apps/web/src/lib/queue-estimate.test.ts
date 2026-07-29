@@ -48,4 +48,19 @@ describe('computeEstimatedWaitMs', () => {
   it('retourne 0 pour des entrées négatives (défensif)', () => {
     expect(computeEstimatedWaitMs(-1, 10_000)).toBe(0);
   });
+
+  // Régression (audit qualité 2026-07-29) : la concurrence d'une file divise
+  // le temps d'attente — sans ça, bumper la concurrency (Phase D) rendrait
+  // l'estimation de plus en plus fausse (toujours "concurrency=1").
+  it('divise par la concurrency quand fournie', () => {
+    expect(computeEstimatedWaitMs(8, 10_000, 4)).toBe(20_000);
+  });
+
+  it('arrondit au plafond (mieux vaut surestimer que sous-estimer)', () => {
+    expect(computeEstimatedWaitMs(5, 10_000, 3)).toBe(16_667);
+  });
+
+  it('concurrency <= 0 traitée comme 1 (défensif)', () => {
+    expect(computeEstimatedWaitMs(3, 10_000, 0)).toBe(30_000);
+  });
 });

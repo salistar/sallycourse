@@ -1,6 +1,7 @@
 import { QUEUES, type QueueName } from '@sallycourse/shared';
 import { connectDb, Lesson } from '@sallycourse/db';
 import { averageStepDurationMs } from './queue-estimate';
+import { queueConcurrency } from './queue-concurrency';
 
 /**
  * Estimation du temps total du pipeline de génération d'un cours (P134) —
@@ -52,10 +53,21 @@ export interface PipelineEstimate {
  * Calcul PUR : combine le nombre de leçons et une table de durées moyennes
  * par queue en une estimation totale du pipeline. Séparé de la lecture Mongo
  * pour rester testable sans DB/Redis.
+ *
+ * `concurrencyByQueue` (défaut {} = concurrency 1 partout, rétrocompatible) :
+ * les étapes MÉDIA par leçon (tts/screenshot/videoRender/subtitle) ne sont
+ * PAS chaînées entre elles comme le texte — dès qu'une leçon a son script,
+ * son média part en parallèle des autres, borné par la concurrency de
+ * chaque queue (audit qualité 2026-07-29 — voir queue-concurrency.ts). Le
+ * texte (QUEUES.content) reste délibérément exclu de cette division même si
+ * on passe sa concurrency : la chaîne séquentielle « une leçon enfile la
+ * suivante » (P19, continuité pédagogique inter-leçons) borne son débit à 1
+ * quel que soit le nombre de slots BullMQ disponibles pour CE cours.
  */
 export function computePipelineEstimate(
   lessonCount: number,
   averageDurations: Readonly<Record<QueueName, number>>,
+  concurrencyByQueue: Readonly<Partial<Record<QueueName, number>>> = {},
 ): PipelineEstimate {
   const steps: PipelineStepEstimate[] = [];
 
@@ -66,7 +78,9 @@ export function computePipelineEstimate(
   for (const queueName of PER_LESSON_STEPS) {
     const averageDurationMs = averageDurations[queueName] ?? 0;
     const occurrences = Math.max(0, lessonCount);
-    steps.push({ queueName, occurrences, averageDurationMs, totalMs: occurrences * averageDurationMs });
+    const concurrency = queueName === QUEUES.content ? 1 : Math.max(1, concurrencyByQueue[queueName] ?? 1);
+    const totalMs = Math.ceil((occurrences * averageDurationMs) / concurrency);
+    steps.push({ queueName, occurrences, averageDurationMs, totalMs });
   }
 
   const totalMs = steps.reduce((acc, s) => acc + s.totalMs, 0);
@@ -102,8 +116,11 @@ export async function estimatePipelineDuration(courseId: string): Promise<Pipeli
   const averageDurations = Object.fromEntries(
     PIPELINE_QUEUES.map((q, i) => [q, durations[i]]),
   ) as Record<QueueName, number>;
+  const concurrencyByQueue = Object.fromEntries(
+    PIPELINE_QUEUES.map((q) => [q, queueConcurrency(q)]),
+  ) as Record<QueueName, number>;
 
-  return computePipelineEstimate(lessonCount, averageDurations);
+  return computePipelineEstimate(lessonCount, averageDurations, concurrencyByQueue);
 }
 
 /**
