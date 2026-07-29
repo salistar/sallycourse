@@ -86,8 +86,8 @@
       "searching": "Searching…",
       "noResults": "No results for “{query}”.",
       "kind": {
-      "transcribe": "Transcription",
-      "avatar": "Avatar",
+        "transcribe": "Transcription",
+        "avatar": "Avatar",
         "course": "Course",
         "section": "Section",
         "lesson": "Lesson"
@@ -3030,7 +3030,8 @@
         "jobs": "Jobs",
         "resilience": "Resilience",
         "prompts": "Prompts",
-        "audit": "Audit"
+        "audit": "Audit",
+        "ops": "Ops"
       }
     },
     "promptsPage": {
@@ -3357,8 +3358,8 @@
         "note": "Breakdown by type — {kinds}. Amounts in USD."
       },
       "costKind": {
-      "transcribe": "Transcription",
-      "avatar": "Avatar",
+        "transcribe": "Transcription",
+        "avatar": "Avatar",
         "claude": "Claude",
         "tts": "Voice",
         "render": "Video",
@@ -3431,6 +3432,61 @@
         "streakReminder": "Notifies learners to keep their streak.",
         "abTesting": "Rotates the landing page A/B variants.",
         "reviewPoll": "Collects new reviews from platforms."
+      }
+    },
+    "ops": {
+      "metaTitle": "Admin — Ops — SallyCourse",
+      "title": "Ops",
+      "subtitle": "Live provider credits, server resources, queue throughput, and real per-provider call latency (including Modal) — three blind spots found during the 2026-07-29 video/voice quality audit.",
+      "alerts": {
+        "creditsTitle": "Provider(s) to watch (low or exhausted credit):"
+      },
+      "sections": {
+        "credits": "Provider credits",
+        "creditsNote": "DeepSeek and Moonshot expose an exact balance (dedicated API). Other providers are probed live (minimal call): \"operational\" does not guarantee a healthy balance, only that a call succeeded less than 15 minutes ago.",
+        "server": "Server",
+        "queues": "Queue throughput (worker)",
+        "timing": "Call latency per provider"
+      },
+      "creditStatus": {
+        "ok": "Operational",
+        "low": "Low",
+        "exhausted": "Exhausted",
+        "unknown": "Unknown",
+        "not_configured": "Not configured"
+      },
+      "server": {
+        "unreachableTitle": "Worker unreachable",
+        "unreachableDescription": "The worker metrics server (internal network) did not respond — server figures are temporarily unavailable. The rest of the dashboard (credits, costs) is unaffected.",
+        "disk": "Disk",
+        "diskHint": "{used} used of {total}",
+        "memory": "RAM",
+        "memHint": "{used} used of {total}",
+        "load": "CPU load (1 min)",
+        "loadHint": "{cpus} vCPUs — 5 min average: {load5}",
+        "uptimeNote": "Worker up for {hours} h."
+      },
+      "resourceSeverity": {
+        "ok": "Normal",
+        "warning": "High",
+        "critical": "Critical"
+      },
+      "queues": {
+        "colQueue": "Queue",
+        "colPerHour": "Jobs/hour",
+        "colAvgDuration": "Avg duration",
+        "colCompleted": "Completed",
+        "colFailed": "Failed"
+      },
+      "timing": {
+        "colProvider": "Provider",
+        "colKind": "Kind",
+        "colCalls": "Timed calls",
+        "colAvg": "Average",
+        "colP95": "P95",
+        "emptyTitle": "No call latency data yet",
+        "emptyDescription": "Provider call timing (TTS, image, transcription, cloud LLM) was added on 2026-07-29 — earlier CostRecord rows do not have it. Data will appear as new generations run.",
+        "note": "P95 = 95% of calls are faster than this value (highlights slow outliers, notably Modal cold-starts). \"Timed calls\" may be lower than the provider's total call count if some predate this addition."
       }
     }
   },

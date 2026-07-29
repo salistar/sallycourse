@@ -86,8 +86,8 @@
       "searching": "Recherche…",
       "noResults": "Aucun résultat pour « {query} ».",
       "kind": {
-      "transcribe": "Transcription",
-      "avatar": "Avatar",
+        "transcribe": "Transcription",
+        "avatar": "Avatar",
         "course": "Cours",
         "section": "Section",
         "lesson": "Leçon"
@@ -3030,7 +3030,8 @@
         "jobs": "Jobs",
         "resilience": "Résilience",
         "prompts": "Prompts",
-        "audit": "Audit"
+        "audit": "Audit",
+        "ops": "Ops"
       }
     },
     "promptsPage": {
@@ -3357,8 +3358,8 @@
         "note": "Ventilation par nature — {kinds}. Montants en USD."
       },
       "costKind": {
-      "transcribe": "Transcription",
-      "avatar": "Avatar",
+        "transcribe": "Transcription",
+        "avatar": "Avatar",
         "claude": "Claude",
         "tts": "Voix",
         "render": "Vidéo",
@@ -3431,6 +3432,61 @@
         "streakReminder": "Notifie les apprenants pour maintenir leur série.",
         "abTesting": "Fait tourner les variantes A/B de la page d'accueil.",
         "reviewPoll": "Collecte les nouveaux avis des plateformes."
+      }
+    },
+    "ops": {
+      "metaTitle": "Admin — Ops — SallyCourse",
+      "title": "Ops",
+      "subtitle": "Crédits des providers en direct, ressources serveur, débit des files et temps d'appel réel par provider (dont Modal) — trois angles morts identifiés lors de l'audit qualité voix/vidéo du 29 juillet 2026.",
+      "alerts": {
+        "creditsTitle": "Provider(s) à surveiller (crédit bas ou épuisé) :"
+      },
+      "sections": {
+        "credits": "Crédits providers",
+        "creditsNote": "DeepSeek et Moonshot exposent un solde exact (API dédiée). Les autres providers sont sondés en direct (appel minimal) : « opérationnel » ne garantit pas un solde confortable, seulement qu'un appel a réussi il y a moins de 15 minutes.",
+        "server": "Serveur",
+        "queues": "Débit des files (worker)",
+        "timing": "Temps d'appel par provider"
+      },
+      "creditStatus": {
+        "ok": "Opérationnel",
+        "low": "Bas",
+        "exhausted": "Épuisé",
+        "unknown": "Inconnu",
+        "not_configured": "Non configuré"
+      },
+      "server": {
+        "unreachableTitle": "Worker injoignable",
+        "unreachableDescription": "Le serveur de métriques du worker (réseau interne) n'a pas répondu — les chiffres serveur sont temporairement indisponibles. Le reste du dashboard (crédits, coûts) n'est pas affecté.",
+        "disk": "Disque",
+        "diskHint": "{used} utilisés sur {total}",
+        "memory": "RAM",
+        "memHint": "{used} utilisés sur {total}",
+        "load": "Charge CPU (1 min)",
+        "loadHint": "{cpus} vCPU — moyenne 5 min : {load5}",
+        "uptimeNote": "Worker actif depuis {hours} h."
+      },
+      "resourceSeverity": {
+        "ok": "Normal",
+        "warning": "Élevé",
+        "critical": "Critique"
+      },
+      "queues": {
+        "colQueue": "File",
+        "colPerHour": "Jobs/heure",
+        "colAvgDuration": "Durée moy.",
+        "colCompleted": "Terminés",
+        "colFailed": "Échecs"
+      },
+      "timing": {
+        "colProvider": "Provider",
+        "colKind": "Nature",
+        "colCalls": "Appels chronométrés",
+        "colAvg": "Moyenne",
+        "colP95": "P95",
+        "emptyTitle": "Aucune donnée de temps d'appel",
+        "emptyDescription": "Le chronométrage des appels providers (TTS, image, transcription, LLM cloud) a été ajouté le 29 juillet 2026 — les lignes CostRecord antérieures n'en disposent pas. Les données apparaîtront au fil des prochaines générations.",
+        "note": "P95 = 95 % des appels sont plus rapides que cette valeur (indicateur des cas lents, cold-start Modal notamment). « Appels chronométrés » peut être inférieur au nombre total d'appels du provider si certains datent d'avant cet ajout."
       }
     }
   },

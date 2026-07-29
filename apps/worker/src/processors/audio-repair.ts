@@ -334,9 +334,12 @@ export async function processAudioRepair(job: Job<AudioRepairJobData>): Promise<
       slide.audioKey = audioKey;
       slide.audioSeconds = finalSeconds;
       if (res.provider !== 'cache') {
-        await recordTtsCost({ courseId, userId: String(course.userId) }, slide.narration.length, res.provider).catch(
-          () => undefined,
-        );
+        await recordTtsCost(
+          { courseId, userId: String(course.userId) },
+          slide.narration.length,
+          res.provider,
+          res.durationMs,
+        ).catch(() => undefined);
       }
       logger.info(
         { courseId, lessonId, index, provider: res.provider, seconds: res.seconds, defective },
@@ -398,9 +401,12 @@ export async function processAudioRepair(job: Job<AudioRepairJobData>): Promise<
         slide.audioKey = audioKey;
         slide.audioSeconds = altSeconds;
         if (alt.provider !== 'cache') {
-          await recordTtsCost({ courseId, userId: String(course.userId) }, slide.narration.length, alt.provider).catch(
-            () => undefined,
-          );
+          await recordTtsCost(
+            { courseId, userId: String(course.userId) },
+            slide.narration.length,
+            alt.provider,
+            alt.durationMs,
+          ).catch(() => undefined);
         }
         escalated.push(index);
         logger.info(

@@ -42,6 +42,8 @@ export interface CostRow {
   model?: string | undefined;
   /** Horodatage de l'appel (pour l'historique/graphes temporels). */
   createdAt?: Date | string | undefined;
+  /** Temps d'appel réel en ms (dashboard super-admin /admin/ops, 2026-07-29) — absent sur les lignes antérieures. */
+  durationMs?: number | undefined;
 }
 
 /** Coût USD d'une ligne, ré-estimé depuis la table de tarifs (provider-aware). */
@@ -291,6 +293,15 @@ export interface ProviderUsage {
   tokensOut: number;
   chars: number;
   seconds: number;
+  /**
+   * Temps d'appel réel (dashboard super-admin /admin/ops, 2026-07-29) —
+   * calculés sur les seuls appels chronométrés (durationMsSamples), donc
+   * `avgDurationMs`/`p95DurationMs` peuvent porter sur moins d'échantillons
+   * que `calls` pour les lignes antérieures à cet ajout.
+   */
+  avgDurationMs: number | null;
+  p95DurationMs: number | null;
+  durationMsSamples: number;
 }
 
 /**
@@ -299,13 +310,26 @@ export interface ProviderUsage {
  * Un appel = une ligne CostRecord (chaque tentative LLM/segment TTS compte).
  */
 export function costByProvider(rows: readonly CostRow[]): ProviderUsage[] {
-  const map = new Map<string, ProviderUsage>();
+  const map = new Map<string, ProviderUsage & { durations: number[] }>();
   for (const row of rows) {
     const provider = providerOfRow(row);
     const key = `${row.kind}::${provider}`;
     let entry = map.get(key);
     if (!entry) {
-      entry = { provider, kind: row.kind, calls: 0, totalUsd: 0, tokensIn: 0, tokensOut: 0, chars: 0, seconds: 0 };
+      entry = {
+        provider,
+        kind: row.kind,
+        calls: 0,
+        totalUsd: 0,
+        tokensIn: 0,
+        tokensOut: 0,
+        chars: 0,
+        seconds: 0,
+        avgDurationMs: null,
+        p95DurationMs: null,
+        durationMsSamples: 0,
+        durations: [],
+      };
       map.set(key, entry);
     }
     entry.calls += 1;
@@ -314,10 +338,22 @@ export function costByProvider(rows: readonly CostRow[]): ProviderUsage[] {
     entry.tokensOut += row.tokensOut ?? 0;
     entry.chars += row.chars ?? 0;
     entry.seconds += row.seconds ?? 0;
+    if (row.durationMs !== undefined) entry.durations.push(row.durationMs);
   }
   const list = [...map.values()];
-  for (const e of list) e.totalUsd = round(e.totalUsd);
-  return list.sort((a, b) => b.totalUsd - a.totalUsd || b.calls - a.calls);
+  for (const e of list) {
+    e.totalUsd = round(e.totalUsd);
+    e.durationMsSamples = e.durations.length;
+    if (e.durations.length > 0) {
+      const sorted = [...e.durations].sort((a, b) => a - b);
+      e.avgDurationMs = Math.round(sorted.reduce((s, v) => s + v, 0) / sorted.length);
+      const p95Index = Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1);
+      e.p95DurationMs = Math.round(sorted[p95Index]!);
+    }
+  }
+  return list
+    .map(({ durations: _durations, ...rest }) => rest)
+    .sort((a, b) => b.totalUsd - a.totalUsd || b.calls - a.calls);
 }
 
 /** Point d'historique journalier : date (YYYY-MM-DD) + coût + appels ventilés. */

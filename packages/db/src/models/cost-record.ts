@@ -39,6 +39,13 @@ export interface ICostRecord {
   model?: string;
   /** Coût estimé en USD (issu de pricing-table). */
   estimatedUsd: number;
+  /**
+   * Temps d'appel réel en ms (dashboard super-admin /admin/ops, 2026-07-29) —
+   * du début de l'appel au provider à la réception du résultat. Optionnel :
+   * seuls les appels effectivement chronométrés (TTS, image, transcription)
+   * le renseignent ; absent sur les lignes antérieures à cet ajout.
+   */
+  durationMs?: number;
   createdAt: Date;
 }
 
@@ -55,6 +62,7 @@ const costRecordSchema = new Schema<ICostRecord>(
     seconds: { type: Number, min: 0 },
     model: { type: String },
     estimatedUsd: { type: Number, required: true, min: 0 },
+    durationMs: { type: Number, min: 0 },
   },
   // createdAt seul : un enregistrement de coût est immuable (pas d'updatedAt).
   { timestamps: { createdAt: true, updatedAt: false } },

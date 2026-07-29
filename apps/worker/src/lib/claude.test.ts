@@ -34,6 +34,14 @@ vi.mock('../queues/connection.js', () => ({
   }),
 }));
 
+// Provider Ollama mocké (P152) : intercepte l'import dynamique de
+// callClaudeJson (repli crédit épuisé, cf. describe ci-dessous) sans jamais
+// toucher un vrai Ollama local.
+const mockOllama = vi.hoisted(() => vi.fn());
+vi.mock('../providers/ollama-provider.js', () => ({
+  generateOllamaJsonDirect: mockOllama,
+}));
+
 import { outlineSchema, resetConfigCache } from '../shared.js';
 import {
   MAX_JSON_ATTEMPTS,
@@ -294,6 +302,44 @@ describe('callClaudeJson — backoff local sur 429 répétés (P77)', () => {
       callClaudeJson({ schema: simpleSchema, system: 's-500', user: 'u-500' }),
     ).rejects.toThrow('serveur en panne');
     expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Régression (2026-07-29) : le repli « crédit Anthropic épuisé → Ollama »
+// (incident réel du 2026-07-27) avait été implémenté par un catch trop large
+// qui avalait AUSSI les erreurs ci-dessus (ClaudeJsonError, rate-limit
+// épuisé, erreur générique) — cassant silencieusement les 4 tests précédents
+// sans qu'aucun test ne couvre le repli lui-même. isAccountExhaustedError
+// restreint le repli au message exact de l'incident.
+describe('callClaudeJson — repli crédit Anthropic épuisé (isAccountExhaustedError)', () => {
+  beforeEach(() => {
+    mockOllama.mockReset();
+  });
+
+  it('retombe sur Ollama quand Anthropic renvoie « credit balance is too low »', async () => {
+    setTestEnv({ OLLAMA_BASE_URL: 'http://ollama-test:11434' });
+    const creditErr = Object.assign(
+      new Error('400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API."}}'),
+      { status: 400 },
+    );
+    mockCreate.mockRejectedValueOnce(creditErr);
+    mockOllama.mockResolvedValueOnce({ name: 'depuis-ollama', count: 1 });
+
+    const result = await callClaudeJson({ schema: simpleSchema, system: 's-credit', user: 'u-credit' });
+
+    expect(result).toEqual({ name: 'depuis-ollama', count: 1 });
+    expect(mockOllama).toHaveBeenCalledTimes(1);
+  });
+
+  it('NE retombe PAS sur Ollama pour un 400 générique (pas le message de crédit)', async () => {
+    setTestEnv({ OLLAMA_BASE_URL: 'http://ollama-test:11434' });
+    const genericErr = Object.assign(new Error('400 requête invalide'), { status: 400 });
+    mockCreate.mockRejectedValueOnce(genericErr);
+
+    await expect(
+      callClaudeJson({ schema: simpleSchema, system: 's-400', user: 'u-400' }),
+    ).rejects.toThrow('400 requête invalide');
+    expect(mockOllama).not.toHaveBeenCalled();
   });
 });
 

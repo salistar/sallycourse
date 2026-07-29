@@ -57,6 +57,8 @@ interface RecordCostInput extends CostContext {
   tokensOut?: number;
   chars?: number;
   seconds?: number;
+  /** Temps d'appel réel en ms (dashboard super-admin, 2026-07-29) — voir doc du champ dans ICostRecord. */
+  durationMs?: number;
 }
 
 /** Écrit un CostRecord (best-effort). Retourne l'USD estimé pour info. */
@@ -74,6 +76,7 @@ async function persist(input: RecordCostInput): Promise<number> {
       ...(input.tokensOut !== undefined ? { tokensOut: input.tokensOut } : {}),
       ...(input.chars !== undefined ? { chars: input.chars } : {}),
       ...(input.seconds !== undefined ? { seconds: input.seconds } : {}),
+      ...(input.durationMs !== undefined ? { durationMs: input.durationMs } : {}),
     });
   } catch (err) {
     logger.warn({ courseId: input.courseId, kind: input.kind, err }, 'recordCost : écriture échouée');
@@ -97,9 +100,10 @@ export async function recordTtsCost(
   ctx: CostContext,
   chars: number,
   model = 'elevenlabs',
+  durationMs?: number,
 ): Promise<number> {
   const estimatedUsd = ttsCostUsdForProvider(model, chars);
-  return persist({ ...ctx, kind: 'tts', model, chars, estimatedUsd });
+  return persist({ ...ctx, kind: 'tts', model, chars, estimatedUsd, ...(durationMs !== undefined ? { durationMs } : {}) });
 }
 
 /**
@@ -115,9 +119,18 @@ export async function recordCloudLlmCost(
   model: string,
   tokensIn: number,
   tokensOut: number,
+  durationMs?: number,
 ): Promise<number> {
   const estimatedUsd = claudeCostUsd(model, tokensIn, tokensOut);
-  return persist({ ...ctx, kind: 'claude', model, tokensIn, tokensOut, estimatedUsd });
+  return persist({
+    ...ctx,
+    kind: 'claude',
+    model,
+    tokensIn,
+    tokensOut,
+    estimatedUsd,
+    ...(durationMs !== undefined ? { durationMs } : {}),
+  });
 }
 
 /** Enregistre le coût d'un rendu vidéo (secondes produites). */
@@ -132,9 +145,20 @@ export async function recordRenderCost(ctx: CostContext, seconds: number): Promi
  * ('sdxl' | 'zimage') — sans lui, le dashboard ne pouvait pas ventiler les
  * images par app Modal. Absent → comportement historique (ligne sans modèle).
  */
-export async function recordImageCost(ctx: CostContext, units = 1, model?: string): Promise<number> {
+export async function recordImageCost(
+  ctx: CostContext,
+  units = 1,
+  model?: string,
+  durationMs?: number,
+): Promise<number> {
   const estimatedUsd = imageCostUsd(units);
-  return persist({ ...ctx, kind: 'image', ...(model ? { model } : {}), estimatedUsd });
+  return persist({
+    ...ctx,
+    kind: 'image',
+    ...(model ? { model } : {}),
+    estimatedUsd,
+    ...(durationMs !== undefined ? { durationMs } : {}),
+  });
 }
 
 /**
@@ -142,9 +166,20 @@ export async function recordImageCost(ctx: CostContext, units = 1, model?: strin
  * jusqu'ici, l'usage Whisper n'était PAS instrumenté). `seconds` = durée de
  * l'audio transcrit.
  */
-export async function recordTranscribeCost(ctx: CostContext, audioSeconds: number): Promise<number> {
+export async function recordTranscribeCost(
+  ctx: CostContext,
+  audioSeconds: number,
+  durationMs?: number,
+): Promise<number> {
   const estimatedUsd = transcribeCostUsd(audioSeconds);
-  return persist({ ...ctx, kind: 'transcribe', model: 'whisper', seconds: audioSeconds, estimatedUsd });
+  return persist({
+    ...ctx,
+    kind: 'transcribe',
+    model: 'whisper',
+    seconds: audioSeconds,
+    estimatedUsd,
+    ...(durationMs !== undefined ? { durationMs } : {}),
+  });
 }
 
 /**

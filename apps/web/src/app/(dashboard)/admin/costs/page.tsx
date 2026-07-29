@@ -59,7 +59,7 @@ export default async function AdminCostsPage() {
 
   // Lignes de coût brutes (métriques + contexte) — ré-estimation côté pur.
   const records = await CostRecord.find({})
-    .select('courseId userId kind tokensIn tokensOut chars seconds model createdAt')
+    .select('courseId userId kind tokensIn tokensOut chars seconds model createdAt durationMs')
     .lean();
 
   const rows: CostRow[] = records.map((r) => ({
@@ -72,6 +72,7 @@ export default async function AdminCostsPage() {
     seconds: r.seconds,
     model: r.model,
     createdAt: r.createdAt,
+    durationMs: r.durationMs,
   }));
 
   const courseCosts = costByCourse(rows);

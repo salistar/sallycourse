@@ -186,6 +186,18 @@ export function isRateLimitError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { status?: number }).status === 429;
 }
 
+/**
+ * Vrai UNIQUEMENT pour un compte Anthropic à sec (incident réel du
+ * 2026-07-27 : 400 invalid_request_error "Your credit balance is too low…").
+ * Détection par message plutôt que par code HTTP : un 400 générique (payload
+ * malformé, schéma…) ne doit PAS déclencher le repli Ollama — seul ce message
+ * précis, spécifique à l'épuisement de crédit, le doit.
+ */
+export function isAccountExhaustedError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
+  return /credit balance is too low/i.test(message);
+}
+
 /** Attente asynchrone — isolée pour rester mockable/contrôlable par fake timers. */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -290,15 +302,22 @@ export async function callClaudeJson<T>(params: CallClaudeJsonParams<T>): Promis
   }
 
   // 2) Anthropic (SDK) — choix explicite, ou disponible et cloud OpenAI-compat absent.
-  // Enveloppé : une erreur Anthropic (crédit épuisé, 5xx…) ne doit PAS faire
-  // échouer le job — on retombe sur Ollama (3) puis le mock, jamais de blocage.
+  // Repli UNIQUEMENT sur épuisement de crédit (incident réel du 2026-07-27 :
+  // "Your credit balance is too low...") — jamais sur une ClaudeJsonError
+  // (retries de validation/troncature déjà épuisés côté callClaudeJsonUncached)
+  // ni sur une erreur générique (rate-limit épuisé, panne serveur) : ces
+  // erreurs sont volontairement typées/retentées par callClaudeJsonUncached et
+  // DOIVENT remonter telles quelles à l'appelant (contrat testé de longue
+  // date) — un repli trop large les avalait silencieusement (régression
+  // détectée aux tests le 2026-07-29, corrigée ici).
   if (config.ANTHROPIC_API_KEY && !wantsOllama) {
     try {
       if (skipCache) return await callClaudeJsonUncached(params);
       const key = claudeCacheKey(system, user, model);
       return await getOrCompute<T>(key, CLAUDE_CACHE_TTL_SEC, () => callClaudeJsonUncached(params), 'claude');
     } catch (err) {
-      logger.warn({ err }, 'callClaudeJson : Anthropic indisponible (crédit/erreur) — repli Ollama');
+      if (err instanceof ClaudeJsonError || !isAccountExhaustedError(err)) throw err;
+      logger.warn({ err }, 'callClaudeJson : crédit Anthropic épuisé — repli Ollama');
     }
   }
 

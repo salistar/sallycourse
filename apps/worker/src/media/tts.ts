@@ -174,6 +174,13 @@ export interface SynthesizeSlideResult {
   seconds: number;
   /** Provider ayant réellement produit (ou servi) l'audio. */
   provider: TtsProvider;
+  /**
+   * Temps d'appel réel (dashboard super-admin /admin/ops, 2026-07-29) : du
+   * début de synthesizeSlide à la production du résultat. Un hit de cache
+   * donne une valeur proche de 0 (lecture S3 seule) — utile pour distinguer
+   * visuellement cache/génération dans le tableau « temps par provider ».
+   */
+  durationMs: number;
 }
 
 /** Voix effective pour un couple (voix forcée, langue) côté ElevenLabs. */
@@ -373,6 +380,7 @@ async function synthesizeOpenAi(text: string, apiKey: string, speed: number): Pr
  * (zéro appel payant/réseau).
  */
 export async function synthesizeSlide(params: SynthesizeSlideParams): Promise<SynthesizeSlideResult> {
+  const startedAt = Date.now();
   const { text, locale } = params;
   const voice = resolveVoice(locale, params.voice);
   const speed = clampNarrationSpeed(params.speed);
@@ -410,7 +418,7 @@ export async function synthesizeSlide(params: SynthesizeSlideParams): Promise<Sy
       const seconds = await probeDurationSeconds(cachedPath);
       logger.info({ cacheKey, seconds }, 'TTS servi depuis le cache');
       await bumpCacheStat('tts', 'hit');
-      return { cacheKey, seconds, provider: 'cache' };
+      return { cacheKey, seconds, provider: 'cache', durationMs: Date.now() - startedAt };
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -589,8 +597,9 @@ export async function synthesizeSlide(params: SynthesizeSlideParams): Promise<Sy
 
     const seconds = await probeDurationSeconds(normPath);
     await uploadObject(cacheKey, await readFile(normPath), 'audio/mpeg');
-    logger.info({ cacheKey, provider, seconds }, 'TTS synthétisé et mis en cache');
-    return { cacheKey, seconds, provider };
+    const durationMs = Date.now() - startedAt;
+    logger.info({ cacheKey, provider, seconds, durationMs }, 'TTS synthétisé et mis en cache');
+    return { cacheKey, seconds, provider, durationMs };
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

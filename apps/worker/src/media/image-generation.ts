@@ -21,6 +21,8 @@ export interface GeneratedImage {
    * choisir de NE PAS l'intégrer (garder le motif géométrique par défaut).
    */
   validation: ImageValidation;
+  /** Temps d'appel réel en ms (dashboard super-admin, 2026-07-29). */
+  durationMs: number;
 }
 
 /** Résultat d'une vérification d'image générée. */
@@ -108,13 +110,14 @@ export async function validateGeneratedImage(
  * bloque jamais le pipeline sur ce point.
  */
 export async function generateImageWithEngine(params: ImageGenParams, engine?: ImageEngine): Promise<GeneratedImage> {
+  const startedAt = Date.now();
   const expected = { width: params.width, height: params.height };
 
   if (engine === 'zimage' && isZImageConfigured()) {
     try {
       const png = await generateZImage(params);
       const check = await validateGeneratedImage(png, expected);
-      if (check.ok) return { png, provider: 'zimage', validation: check };
+      if (check.ok) return { png, provider: 'zimage', validation: check, durationMs: Date.now() - startedAt };
       logger.warn({ reason: check.reason }, 'Z-Image Turbo : image rejetée à la vérification — repli vers SDXL');
     } catch (err) {
       logger.warn({ err }, 'Z-Image Turbo indisponible — repli vers SDXL');
@@ -126,7 +129,7 @@ export async function generateImageWithEngine(params: ImageGenParams, engine?: I
   if (!check.ok) {
     logger.warn({ reason: check.reason }, 'SDXL : image suspecte à la vérification (intégration best-effort côté appelant)');
   }
-  return { png, provider: 'sdxl', validation: check };
+  return { png, provider: 'sdxl', validation: check, durationMs: Date.now() - startedAt };
 }
 
 /** true si AU MOINS UN moteur d'image est exploitable (pour les gardes best-effort existantes). */

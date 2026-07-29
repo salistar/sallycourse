@@ -172,12 +172,14 @@ export async function processSubtitleGeneration(job: Job<SubtitleJobData>): Prom
       const mediaPath = await prepareMediaFile(courseId, sectionOrder, lesson.order, slides.length, dir);
       if (mediaPath) {
         await report(courseId, 45, `Transcription faster-whisper (${language})`);
+        const transcribeStartedAt = Date.now();
         const segments = await transcribeWithWhisper(mediaPath, language, dir);
+        const transcribeDurationMs = Date.now() - transcribeStartedAt;
         if (segments && segments.length > 0) {
           // Coût Whisper instrumenté (audit coûts 2026-07-26) : durée d'audio
           // transcrite ≈ fin du dernier segment. Best-effort.
           const audioSeconds = Math.max(0, segments[segments.length - 1]?.end ?? 0);
-          await recordTranscribeCost({ courseId }, audioSeconds).catch(() => undefined);
+          await recordTranscribeCost({ courseId }, audioSeconds, transcribeDurationMs).catch(() => undefined);
           await report(courseId, 70, 'Réalignement de la transcription sur le script');
           cues = alignToReference(segments, slides.map((s) => s.narration));
           degraded = cues.length === 0; // alignement vide → repli

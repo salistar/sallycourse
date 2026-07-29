@@ -14,6 +14,8 @@
 // scraper externe (delta / temps écoulé) — on expose aussi directement un taux
 // jobs/heure calculé sur une fenêtre glissante pour lecture humaine immédiate.
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from 'node:http';
+import { cpus, loadavg, totalmem, freemem, uptime } from 'node:os';
+import { statfs } from 'node:fs/promises';
 import { logger } from '../queues/index.js';
 
 /** Un échantillon de durée de job, horodaté (fenêtre glissante). */
@@ -116,13 +118,28 @@ export function renderMetricsText(input: {
   queues: QueueMetricsSnapshot[];
   stepFailureRates: StepFailureRate[];
   costPerCourse: CostPerCourse;
-  generatedAt?: Date;
+  system?: SystemSnapshot;
+  generatedAt?: Date | string;
 }): string {
   const lines: string[] = [];
-  const at = input.generatedAt ?? new Date();
+  const at = input.generatedAt ? new Date(input.generatedAt) : new Date();
   lines.push(`# SallyCourse worker metrics — format texte maison (pas de lib prometheus)`);
   lines.push(`# generated_at ${at.toISOString()}`);
   lines.push('');
+
+  if (input.system) {
+    const s = input.system;
+    lines.push('# HELP sallycourse_disk_used_percent Pourcentage d\'espace disque utilisé (racine du conteneur, reflète l\'hôte).');
+    lines.push('# TYPE sallycourse_disk_used_percent gauge');
+    lines.push(`sallycourse_disk_used_percent ${s.diskUsedPercent.toFixed(2)}`);
+    lines.push('# HELP sallycourse_mem_used_percent Pourcentage de RAM utilisée (reflète l\'hôte).');
+    lines.push('# TYPE sallycourse_mem_used_percent gauge');
+    lines.push(`sallycourse_mem_used_percent ${s.memUsedPercent.toFixed(2)}`);
+    lines.push('# HELP sallycourse_load_avg_1m Charge CPU moyenne 1 minute (reflète l\'hôte).');
+    lines.push('# TYPE sallycourse_load_avg_1m gauge');
+    lines.push(`sallycourse_load_avg_1m ${s.loadAvg1.toFixed(2)}`);
+    lines.push('');
+  }
 
   lines.push('# HELP sallycourse_jobs_completed_total Nombre de jobs terminés avec succès depuis le démarrage.');
   lines.push('# TYPE sallycourse_jobs_completed_total counter');
@@ -209,13 +226,87 @@ async function computeCostPerCourse(): Promise<CostPerCourse> {
   }
 }
 
-/** Assemble le texte /metrics complet : compteurs mémoire + agrégats Mongo. */
-export async function collectAndRenderMetrics(): Promise<string> {
-  const [stepFailureRates, costPerCourse] = await Promise.all([
+/**
+ * Instantané ressources SYSTÈME (dashboard super-admin /admin/ops,
+ * 2026-07-29) — disque, RAM, charge CPU. `statfs('/')` et `os.totalmem()`
+ * dans un conteneur Docker (sans limite cgroup explicite sur la RAM captée
+ * par Node, et sans quota de taille sur l'overlay) reflètent le disque/la RAM
+ * de l'HÔTE, pas une valeur isolée au conteneur — c'est la lecture voulue ici
+ * (l'exploitant veut savoir si le SERVEUR sature, pas juste ce conteneur).
+ * Best-effort : `statfs` peut échouer sur certains systèmes de fichiers
+ * exotiques — plutôt que de planter /metrics, on renvoie des zéros et on log.
+ */
+export interface SystemSnapshot {
+  diskTotalBytes: number;
+  diskFreeBytes: number;
+  diskUsedPercent: number;
+  memTotalBytes: number;
+  memFreeBytes: number;
+  memUsedPercent: number;
+  loadAvg1: number;
+  loadAvg5: number;
+  loadAvg15: number;
+  cpuCount: number;
+  uptimeSec: number;
+}
+
+export async function collectSystemSnapshot(): Promise<SystemSnapshot> {
+  let diskTotalBytes = 0;
+  let diskFreeBytes = 0;
+  try {
+    const stat = await statfs('/');
+    diskTotalBytes = stat.blocks * stat.bsize;
+    diskFreeBytes = stat.bfree * stat.bsize;
+  } catch (err) {
+    logger.warn({ err }, 'metrics: sonde disque (statfs) impossible');
+  }
+  const memTotalBytes = totalmem();
+  const memFreeBytes = freemem();
+  const [loadAvg1, loadAvg5, loadAvg15] = loadavg() as [number, number, number];
+  return {
+    diskTotalBytes,
+    diskFreeBytes,
+    diskUsedPercent: diskTotalBytes > 0 ? ((diskTotalBytes - diskFreeBytes) / diskTotalBytes) * 100 : 0,
+    memTotalBytes,
+    memFreeBytes,
+    memUsedPercent: memTotalBytes > 0 ? ((memTotalBytes - memFreeBytes) / memTotalBytes) * 100 : 0,
+    loadAvg1,
+    loadAvg5,
+    loadAvg15,
+    cpuCount: cpus().length,
+    uptimeSec: uptime(),
+  };
+}
+
+/** Snapshot structuré complet — base commune du texte Prometheus ET du JSON /metrics.json. */
+export interface MetricsSnapshot {
+  generatedAt: string;
+  system: SystemSnapshot;
+  queues: QueueMetricsSnapshot[];
+  stepFailureRates: StepFailureRate[];
+  costPerCourse: CostPerCourse;
+}
+
+/** Assemble l'instantané complet : compteurs mémoire + agrégats Mongo + ressources système. */
+export async function collectMetricsSnapshot(): Promise<MetricsSnapshot> {
+  const [stepFailureRates, costPerCourse, system] = await Promise.all([
     computeStepFailureRates(),
     computeCostPerCourse(),
+    collectSystemSnapshot(),
   ]);
-  return renderMetricsText({ queues: snapshotQueueMetrics(), stepFailureRates, costPerCourse });
+  return {
+    generatedAt: new Date().toISOString(),
+    system,
+    queues: snapshotQueueMetrics(),
+    stepFailureRates,
+    costPerCourse,
+  };
+}
+
+/** Assemble le texte /metrics complet : compteurs mémoire + agrégats Mongo. */
+export async function collectAndRenderMetrics(): Promise<string> {
+  const snapshot = await collectMetricsSnapshot();
+  return renderMetricsText(snapshot);
 }
 
 let server: Server | null = null;
@@ -225,6 +316,23 @@ export function startMetricsServer(port = Number(process.env.METRICS_PORT ?? 909
   if (server) return server;
 
   const handler = (req: IncomingMessage, res: ServerResponse): void => {
+    // /metrics.json (dashboard super-admin /admin/ops, 2026-07-29) : même
+    // instantané que /metrics, en JSON structuré — consommé par le conteneur
+    // web via le réseau interne (voir docker-compose.prod.yml, port 9090
+    // restreint à 127.0.0.1 + réseau `internal`, jamais public).
+    if (req.url === '/metrics.json') {
+      collectMetricsSnapshot()
+        .then((snapshot) => {
+          res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify(snapshot));
+        })
+        .catch((err) => {
+          logger.error({ err }, 'metrics.json: erreur de génération');
+          res.writeHead(500, { 'content-type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ error: 'erreur interne' }));
+        });
+      return;
+    }
     if (req.url !== '/metrics') {
       res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
       res.end('not found\n');

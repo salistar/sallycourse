@@ -214,7 +214,7 @@ export async function generateCourseMarketing(params: { courseId: string }): Pro
   let heroCoverKey: string | undefined;
   if (isAnyImageEngineConfigured()) {
     try {
-      const { png: heroPng, provider } = await generateImageWithEngine(
+      const { png: heroPng, provider, durationMs } = await generateImageWithEngine(
         {
           prompt: buildCoverPrompt(course.title, outline, course.difficulty as Difficulty),
           negativePrompt:
@@ -229,7 +229,7 @@ export async function generateCourseMarketing(params: { courseId: string }): Pro
       heroCoverKey = keys.marketing(MARKETING_ASSET_FILES.heroCover);
       await uploadObject(heroCoverKey, heroPng, 'image/png');
       // Moteur réel dans `model` (audit coûts 2026-07-26) : ventilation par app Modal.
-      await recordImageCost({ courseId, userId: String(course.userId) }, 1, provider).catch(() => undefined);
+      await recordImageCost({ courseId, userId: String(course.userId) }, 1, provider, durationMs).catch(() => undefined);
       logger.info({ courseId, heroCoverKey, provider }, 'cover générée (hero)');
     } catch (err) {
       logger.warn({ courseId, err }, 'cover indisponible — repli sur la miniature SVG');

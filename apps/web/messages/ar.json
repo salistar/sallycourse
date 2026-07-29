@@ -86,8 +86,8 @@
       "searching": "جارٍ البحث…",
       "noResults": "لا نتائج لـ «{query}».",
       "kind": {
-      "transcribe": "النسخ الصوتي",
-      "avatar": "الأفاتار",
+        "transcribe": "النسخ الصوتي",
+        "avatar": "الأفاتار",
         "course": "دورة",
         "section": "قسم",
         "lesson": "درس"
@@ -3030,7 +3030,8 @@
         "jobs": "المهام",
         "resilience": "المرونة",
         "prompts": "المطالبات",
-        "audit": "التدقيق"
+        "audit": "التدقيق",
+        "ops": "العمليات"
       }
     },
     "promptsPage": {
@@ -3357,8 +3358,8 @@
         "note": "التوزيع حسب النوع — {kinds}. المبالغ بالدولار الأمريكي."
       },
       "costKind": {
-      "transcribe": "النسخ الصوتي",
-      "avatar": "الأفاتار",
+        "transcribe": "النسخ الصوتي",
+        "avatar": "الأفاتار",
         "claude": "Claude",
         "tts": "الصوت",
         "render": "الفيديو",
@@ -3431,6 +3432,61 @@
         "streakReminder": "يُنبّه المتعلمين للحفاظ على تتابعهم.",
         "abTesting": "يُدوّر متغيرات A/B للصفحة الرئيسية.",
         "reviewPoll": "يجمع التقييمات الجديدة من المنصات."
+      }
+    },
+    "ops": {
+      "metaTitle": "الإدارة — العمليات — SallyCourse",
+      "title": "العمليات",
+      "subtitle": "أرصدة مزودي الخدمة مباشرة، موارد الخادم، معدل معالجة قوائم الانتظار، وزمن الاستجابة الفعلي لكل مزود (بما في ذلك Modal).",
+      "alerts": {
+        "creditsTitle": "مزود (مزودون) يستحقون المتابعة (رصيد منخفض أو منتهٍ):"
+      },
+      "sections": {
+        "credits": "أرصدة المزودين",
+        "creditsNote": "يوفر DeepSeek وMoonshot رصيدًا دقيقًا (واجهة برمجية مخصصة). باقي المزودين يُفحصون مباشرة (طلب بسيط).",
+        "server": "الخادم",
+        "queues": "معدل معالجة قوائم الانتظار (worker)",
+        "timing": "زمن الاستجابة لكل مزود"
+      },
+      "creditStatus": {
+        "ok": "يعمل",
+        "low": "منخفض",
+        "exhausted": "منتهٍ",
+        "unknown": "غير معروف",
+        "not_configured": "غير مهيأ"
+      },
+      "server": {
+        "unreachableTitle": "تعذّر الوصول إلى worker",
+        "unreachableDescription": "لم يستجب خادم مقاييس worker — أرقام الخادم غير متاحة مؤقتًا.",
+        "disk": "القرص",
+        "diskHint": "{used} مستخدم من {total}",
+        "memory": "الذاكرة",
+        "memHint": "{used} مستخدم من {total}",
+        "load": "حمل المعالج (دقيقة واحدة)",
+        "loadHint": "{cpus} نواة — متوسط 5 دقائق: {load5}",
+        "uptimeNote": "يعمل worker منذ {hours} ساعة."
+      },
+      "resourceSeverity": {
+        "ok": "طبيعي",
+        "warning": "مرتفع",
+        "critical": "حرج"
+      },
+      "queues": {
+        "colQueue": "القائمة",
+        "colPerHour": "مهام/ساعة",
+        "colAvgDuration": "المدة المتوسطة",
+        "colCompleted": "مكتمل",
+        "colFailed": "فشل"
+      },
+      "timing": {
+        "colProvider": "المزود",
+        "colKind": "النوع",
+        "colCalls": "طلبات مقاسة",
+        "colAvg": "المتوسط",
+        "colP95": "P95",
+        "emptyTitle": "لا توجد بيانات زمن استجابة بعد",
+        "emptyDescription": "تمت إضافة قياس زمن الاستجابة في 2026-07-29.",
+        "note": "P95 = 95٪ من الطلبات أسرع من هذه القيمة."
       }
     }
   },

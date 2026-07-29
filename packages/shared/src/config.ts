@@ -78,6 +78,14 @@ export const envSchema = z.object({
   // déterministe (mock-fixtures) ou l'escalade cloud si ANTHROPIC_API_KEY
   // existe, jamais d'échec bloquant du pipeline.
   OLLAMA_BASE_URL: z.string().min(1).optional(),
+  // Endpoint interne du serveur de métriques du worker (dashboard super-admin
+  // /admin/ops, 2026-07-29) — lu par le conteneur WEB, jamais exposé
+  // publiquement (voir docker-compose.prod.yml, port 9090 restreint à
+  // 127.0.0.1 + réseau `internal`). Défaut : hostname Docker interne, valide
+  // en conteneur (compose local ET prod partagent le même réseau nommé
+  // `worker`) ; un déploiement web hors-conteneur (ex. `next dev` sur l'hôte)
+  // surchargera avec http://localhost:9090 (port publié par le compose local).
+  WORKER_METRICS_URL: z.string().min(1).default('http://worker:9090'),
   // Surcharges des modèles recommandés par tâche (défauts documentés dans
   // worker/src/providers/ollama-provider.ts si absentes).
   OLLAMA_MODEL_CRITICAL: z.string().min(1).optional(),

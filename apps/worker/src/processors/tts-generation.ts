@@ -360,6 +360,10 @@ export async function processTtsGeneration(job: Job<TtsJobData>): Promise<TtsRes
 
         let seconds: number;
         let provider: string;
+        // Temps d'appel réel (dashboard super-admin, 2026-07-29) : renseigné
+        // uniquement pour les branches synthesizeSlide (mono-voix) —
+        // synthesizeDialogueSlide (bi-voix) n'est pas encore chronométrée.
+        let durationMs: number | undefined;
         const turns = dialogueMode ? parseDialogueTurns(slide.narration) : null;
         if (turns) {
           try {
@@ -396,6 +400,7 @@ export async function processTtsGeneration(job: Job<TtsJobData>): Promise<TtsRes
             await copyObjectToLessonAudio(res.cacheKey, audioKey);
             seconds = res.seconds;
             provider = res.provider;
+            durationMs = res.durationMs;
           }
         } else {
           const res = await synthesizeSlide({
@@ -413,6 +418,7 @@ export async function processTtsGeneration(job: Job<TtsJobData>): Promise<TtsRes
           await copyObjectToLessonAudio(res.cacheKey, audioKey);
           seconds = res.seconds;
           provider = res.provider;
+          durationMs = res.durationMs;
         }
 
         // Coût TTS : facturé au caractère, uniquement pour une vraie synthèse
@@ -422,6 +428,7 @@ export async function processTtsGeneration(job: Job<TtsJobData>): Promise<TtsRes
             { courseId, userId: String(course.userId) },
             slide.narration.length,
             provider,
+            durationMs,
           ).catch(() => undefined);
         }
 

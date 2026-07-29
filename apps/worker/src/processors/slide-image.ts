@@ -120,7 +120,7 @@ export async function processSlideImage(job: Job<SlideImageJobData>): Promise<Sl
     // absent de tout ⇒ SDXL (comportement inchangé).
     const engine: ImageEngine | undefined = targetEngine ?? slide.imageEngine ?? course.imageEngine;
 
-    const { png, provider, validation } = await generateImageWithEngine(
+    const { png, provider, validation, durationMs } = await generateImageWithEngine(
       {
         prompt,
         negativePrompt: DEFAULT_NEGATIVE_PROMPT,
@@ -145,7 +145,7 @@ export async function processSlideImage(job: Job<SlideImageJobData>): Promise<Sl
     }
     await uploadObject(key, png, 'image/png');
     // Coût image instrumenté avec le moteur réel (audit coûts 2026-07-26).
-    await recordImageCost({ courseId }, 1, provider).catch(() => undefined);
+    await recordImageCost({ courseId }, 1, provider, durationMs).catch(() => undefined);
 
     slide.imageKey = key;
     slide.imageSource = 'generated';

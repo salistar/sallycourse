@@ -22,6 +22,14 @@ services:
   worker:
     image: ghcr.io/salistar/sallycourse-worker:latest
     restart: unless-stopped
+    # /metrics (base compose : "9090:9090") était publié sur TOUTES les
+    # interfaces (0.0.0.0), donc atteignable depuis Internet SANS auth
+    # (vérifié 2026-07-29 : curl http://<IP publique>:9090/metrics → 200) —
+    # même piège que minio (docker-compose.yml ports concatène avec l'overlay
+    # au lieu de le remplacer, sauf `!override`). Le dashboard super-admin
+    # /admin/ops lit ces métriques via le réseau `internal` (worker:9090,
+    # résolution DNS Docker), jamais besoin d'une exposition publique.
+    ports: !override ["127.0.0.1:9090:9090"]
     deploy:
       resources:
         limits:

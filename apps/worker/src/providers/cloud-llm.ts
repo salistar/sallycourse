@@ -275,6 +275,7 @@ export async function callCloudLlmJson<T>(params: {
         : `${user}\n\nTa réponse précédente ne respectait pas le schéma attendu. Erreurs :\n${lastIssues}\n` +
           `Corrige-les et réponds UNIQUEMENT avec le JSON complet corrigé.`;
 
+    const callStartedAt = Date.now();
     const { content: raw, tokensIn, tokensOut, finishReason } = await chatCompletionRaw(
       provider,
       system,
@@ -282,10 +283,11 @@ export async function callCloudLlmJson<T>(params: {
       temperature,
       maxTokens,
     );
+    const callDurationMs = Date.now() - callStartedAt;
     // Coût de CET appel (chaque tentative consomme des tokens) — best-effort,
     // le modèle facturé porte l'id de modèle cloud (gratuit ⇒ 0 dans la grille).
     if (cost) {
-      await recordCloudLlmCost(cost, provider.model, tokensIn, tokensOut).catch(() => undefined);
+      await recordCloudLlmCost(cost, provider.model, tokensIn, tokensOut, callDurationMs).catch(() => undefined);
     }
     // Réponse tronquée faute de tokens : le JSON est forcément incomplet. Inutile
     // de tenter un parse (qui échouerait avec un message trompeur) — on remonte

@@ -17,6 +17,7 @@ const TABS = [
   { href: '/admin/users', labelKey: 'tabs.users' },
   { href: '/admin/courses', labelKey: 'tabs.courses' },
   { href: '/admin/costs', labelKey: 'tabs.costs' },
+  { href: '/admin/ops', labelKey: 'tabs.ops' },
   { href: '/admin/revenue', labelKey: 'tabs.revenue' },
   { href: '/admin/payments/manual', labelKey: 'tabs.manualPayments' },
   { href: '/admin/jobs', labelKey: 'tabs.jobs' },

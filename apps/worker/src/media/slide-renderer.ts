@@ -520,7 +520,7 @@ async function loadOrGenerateIllustration(
       return `data:image/png;base64,${Buffer.concat(chunks).toString('base64')}`;
     }
     if (!isAnyImageEngineConfigured()) return undefined;
-    const { png, provider, validation } = await generateImageWithEngine(
+    const { png, provider, validation, durationMs } = await generateImageWithEngine(
       {
         // Anglais : meilleurs résultats. Sans texte (ni SDXL ni Z-Image Turbo
         // ne rendent de texte lisible) — le titre est déjà porté par la typo
@@ -545,7 +545,7 @@ async function loadOrGenerateIllustration(
     }
     await uploadObject(key, png, 'image/png');
     // Coût image instrumenté avec le moteur réel (audit coûts 2026-07-26).
-    if (costCourseId) await recordImageCost({ courseId: costCourseId }, 1, provider).catch(() => undefined);
+    if (costCourseId) await recordImageCost({ courseId: costCourseId }, 1, provider, durationMs).catch(() => undefined);
     logger.info({ key, provider }, 'illustration de leçon générée et mise en cache');
     return `data:image/png;base64,${png.toString('base64')}`;
   } catch (err) {
@@ -611,7 +611,7 @@ async function loadOrGenerateSlideIllustration(
       return `data:image/png;base64,${Buffer.concat(chunks).toString('base64')}`;
     }
     if (!isAnyImageEngineConfigured()) return undefined;
-    const { png, provider, validation } = await generateImageWithEngine(
+    const { png, provider, validation, durationMs } = await generateImageWithEngine(
       {
         prompt,
         negativePrompt: 'text, words, letters, captions, watermark, logo, blurry, distorted, low quality',
@@ -630,7 +630,7 @@ async function loadOrGenerateSlideIllustration(
     }
     await uploadObject(key, png, 'image/png');
     // Coût image instrumenté avec le moteur réel (audit coûts 2026-07-26).
-    if (costCourseId) await recordImageCost({ courseId: costCourseId }, 1, provider).catch(() => undefined);
+    if (costCourseId) await recordImageCost({ courseId: costCourseId }, 1, provider, durationMs).catch(() => undefined);
     logger.info({ key, provider }, 'illustration de slide générée et mise en cache');
     return `data:image/png;base64,${png.toString('base64')}`;
   } catch (err) {
