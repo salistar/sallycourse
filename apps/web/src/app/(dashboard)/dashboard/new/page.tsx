@@ -20,6 +20,9 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 /**
  * La page accepte ?template=<id> et ?title=<texte> pour partir d'un template
  * de niche (Prompt 58) — typiquement depuis l'assistant d'onboarding.
+ * ?llmProvider=/?ttsEngine=/?imageEngine= (Phase E, audit qualité 2026-07-29)
+ * pré-remplissent le moteur de rédaction/voix/image — typiquement depuis
+ * /dashboard/generation-profiles (choix d'un profil économique).
  */
 export default async function NewCoursePage({
   searchParams,
@@ -27,10 +30,15 @@ export default async function NewCoursePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
+  const ttsEngine = firstParam(params.ttsEngine);
+  const imageEngine = firstParam(params.imageEngine);
   return (
     <CreateCourseExperience
       initialTemplateId={firstParam(params.template)}
       initialTitle={firstParam(params.title)}
+      initialLlmProvider={firstParam(params.llmProvider)}
+      {...(ttsEngine === 'chatterbox' || ttsEngine === 'qwen3' ? { initialTtsEngine: ttsEngine } : {})}
+      {...(imageEngine === 'sdxl' || imageEngine === 'zimage' ? { initialImageEngine: imageEngine } : {})}
     />
   );
 }

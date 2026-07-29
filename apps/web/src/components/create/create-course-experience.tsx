@@ -74,25 +74,46 @@ function toFieldErrors(error: import('zod').ZodError): FieldErrors {
 export interface CreateCourseExperienceProps {
   initialTitle?: string;
   initialTemplateId?: string;
+  /**
+   * Profil économique présélectionné (page /dashboard/generation-profiles,
+   * Phase E — audit qualité 2026-07-29) : pré-remplit le moteur de rédaction,
+   * la voix et le moteur d'image sans forcer la validation — l'auteur garde
+   * la main via le panneau « options avancées », comme pour un template.
+   */
+  initialLlmProvider?: string;
+  initialTtsEngine?: 'chatterbox' | 'qwen3';
+  initialImageEngine?: 'sdxl' | 'zimage';
 }
 
-/** Dérive le brief initial (titre, niveau, options) d'un template optionnel. */
+/** Dérive le brief initial (titre, niveau, options, provider) d'un template et/ou d'un profil présélectionné. */
 function deriveInitialBrief(props: CreateCourseExperienceProps): {
   title: string;
   difficulty: Difficulty | null;
   options: AdvancedOptions;
   template: CourseTemplate | null;
+  llmProvider: string;
 } {
   const template = props.initialTemplateId ? getCourseTemplate(props.initialTemplateId) ?? null : null;
   const title = props.initialTitle?.trim() || template?.exampleTitles[0] || '';
-  const options: AdvancedOptions = template
+  const baseOptions: AdvancedOptions = template
     ? {
         ...DEFAULT_ADVANCED_OPTIONS,
         locale: template.locale,
         approxSections: template.sections,
       }
     : DEFAULT_ADVANCED_OPTIONS;
-  return { title, difficulty: template?.difficulty ?? null, options, template };
+  const options: AdvancedOptions = {
+    ...baseOptions,
+    ...(props.initialTtsEngine ? { ttsEngine: props.initialTtsEngine } : {}),
+    ...(props.initialImageEngine ? { imageEngine: props.initialImageEngine } : {}),
+  };
+  return {
+    title,
+    difficulty: template?.difficulty ?? null,
+    options,
+    template,
+    llmProvider: props.initialLlmProvider ?? 'auto',
+  };
 }
 
 /** Formatte un USD compact (2 décimales, ou le libellé « gratuit » traduit si ~0). */
@@ -297,7 +318,10 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
   const [submitting, setSubmitting] = React.useState(false);
 
   // Brief initial dérivé d'un éventuel template (?template=…).
-  const initial = React.useMemo(() => deriveInitialBrief(props), [props.initialTemplateId, props.initialTitle]);
+  const initial = React.useMemo(
+    () => deriveInitialBrief(props),
+    [props.initialTemplateId, props.initialTitle, props.initialLlmProvider, props.initialTtsEngine, props.initialImageEngine],
+  );
 
   // Brief du cours
   const [title, setTitle] = React.useState(initial.title);
@@ -308,7 +332,7 @@ export function CreateCourseExperience(props: CreateCourseExperienceProps = {}) 
   const [generationMode, setGenerationMode] = React.useState<'auto' | 'validated'>('auto');
   // Provider LLM (moteur de rédaction) — 'auto' = cascade coût optimisée
   // (cloud gratuit d'abord). Voir worker/providers/cloud-llm.ts.
-  const [llmProvider, setLlmProvider] = React.useState('auto');
+  const [llmProvider, setLlmProvider] = React.useState(initial.llmProvider);
   const [errors, setErrors] = React.useState<FieldErrors>({});
 
   // Un titre pré-rempli par template ne doit pas déclencher de suggestions

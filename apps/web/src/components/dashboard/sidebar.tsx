@@ -21,6 +21,7 @@ import {
   Settings,
   ShieldCheck,
   UserRound,
+  Wallet,
   X,
 } from 'lucide-react';
 import { transitions } from '@/components/motion';
@@ -83,6 +84,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard, exact: true },
   { href: '/dashboard/new', labelKey: 'newCourse', icon: PlusCircle },
+  { href: '/dashboard/generation-profiles', labelKey: 'generationProfiles', icon: Wallet },
   { href: '/dashboard/niche-research', labelKey: 'nicheResearch', icon: Compass },
   { href: '/dashboard/batch', labelKey: 'batch', icon: Layers },
   { href: '/dashboard/paths', labelKey: 'paths', icon: Route },
